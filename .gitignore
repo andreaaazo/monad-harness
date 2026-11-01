@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.env
+.data/
+projects/
+models/
+/.claude/memory/
+/.claude/sessions/
+/.claude/state/
+/.claude/settings.local.json

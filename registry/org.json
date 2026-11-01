@@ -1,0 +1,62 @@
+{
+  "$comment": "Chi può aprire ticket verso chi (legacy ORG.md). I revisori non delegano.",
+  "can_open": {
+    "router": [
+      "*"
+    ],
+    "creative-director": [
+      "strategy-director",
+      "design-director",
+      "digital-director",
+      "production-director",
+      "art-director",
+      "critic"
+    ],
+    "strategy-director": [
+      "brand-strategist",
+      "researcher",
+      "copywriter",
+      "qa-inspector",
+      "critic",
+      "creative-director",
+      "design-director",
+      "digital-director",
+      "production-director"
+    ],
+    "design-director": [
+      "identity-designer",
+      "typographer",
+      "illustrator",
+      "editorial-designer",
+      "packaging-designer",
+      "mockup-artist",
+      "motion-designer",
+      "qa-inspector",
+      "critic",
+      "creative-director",
+      "strategy-director",
+      "digital-director",
+      "production-director"
+    ],
+    "digital-director": [
+      "ux-designer",
+      "ui-designer",
+      "qa-inspector",
+      "critic",
+      "creative-director",
+      "strategy-director",
+      "design-director",
+      "production-director"
+    ],
+    "production-director": [
+      "production-manager",
+      "qa-inspector",
+      "legal-reviewer",
+      "critic",
+      "creative-director",
+      "strategy-director",
+      "design-director",
+      "digital-director"
+    ]
+  }
+}

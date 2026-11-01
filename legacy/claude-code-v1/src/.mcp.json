@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "vectorcraft": {
+      "type": "stdio",
+      "command": "bash",
+      "args": [
+        ".claude/scripts/start-craft.sh",
+        "vectorcraft"
+      ]
+    },
+    "effectcraft": {
+      "type": "stdio",
+      "command": "bash",
+      "args": [
+        ".claude/scripts/start-craft.sh",
+        "effectcraft"
+      ]
+    },
+    "figcraft": {
+      "type": "stdio",
+      "command": "bash",
+      "args": [
+        ".claude/scripts/start-craft.sh",
+        "figcraft"
+      ]
+    },
+    "photocraft": {
+      "type": "stdio",
+      "command": "bash",
+      "args": [
+        ".claude/scripts/start-craft.sh",
+        "photocraft"
+      ]
+    }
+  }
+}

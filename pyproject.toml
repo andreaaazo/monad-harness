@@ -1,0 +1,57 @@
+[project]
+name = "design-agency-harness"
+version = "0.1.0"
+description = "Harness proprietario della design agency: orchestrazione, contratti, Craft headless, QA e costi."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "anthropic>=1",
+  "langgraph>=1",
+  "langgraph-checkpoint-sqlite>=2",
+  "pydantic>=2.10",
+  "pydantic-settings>=2.6",
+  "sqlmodel>=0.0.22",
+  "opentelemetry-sdk>=1.30",
+  "opentelemetry-exporter-otlp-proto-http>=1.30",
+  "pillow>=11",
+]
+
+[project.optional-dependencies]
+context = ["lancedb>=0.20", "pillow>=11", "transformers>=4.50", "torch>=2.6"]
+qa = ["trimesh>=4.5", "openimageio>=3.0"]
+telemetry = ["langfuse>=3"]
+
+[project.scripts]
+agency = "agency.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.9", "pyright>=1.1.390"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agency"]
+
+[tool.uv]
+# Nessun pacchetto pubblicato da meno di due settimane: difesa dalle compromissioni della supply chain (ADR-0006).
+exclude-newer = "2026-10-17T00:00:00Z"
+
+[tool.ruff]
+line-length = 110
+src = ["src", "tests"]
+extend-exclude = ["legacy", "src/agency/qa/scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # testi in italiano con ×, – e simili
+
+[tool.pyright]
+include = ["src", "tests"]
+exclude = ["legacy", "src/agency/qa/scripts"]
+typeCheckingMode = "standard"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

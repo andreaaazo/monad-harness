@@ -1,0 +1,232 @@
+{
+  "$comment": "Ruoli dello studio. model ed effort sono valori di partenza, da tarare con le valutazioni (docs/05-COSTS.md). craft: applicazioni che il ruolo può usare. direction-d e direction-e non esistono nel setup precedente: servono alle 5 direzioni interne (ADR-0013).",
+  "roles": {
+    "router": {
+      "department": "direzione",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": []
+    },
+    "art-director": {
+      "department": "creativo",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": []
+    },
+    "brand-strategist": {
+      "department": "strategia",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "craft": []
+    },
+    "copywriter": {
+      "department": "strategia",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "craft": []
+    },
+    "creative-director": {
+      "department": "creativo",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": []
+    },
+    "critic": {
+      "department": "creativo",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": []
+    },
+    "design-director": {
+      "department": "design",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": []
+    },
+    "digital-director": {
+      "department": "digitale",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": []
+    },
+    "direction-a": {
+      "department": "creativo",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": [
+        "vectorcraft",
+        "effectcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "direction-b": {
+      "department": "creativo",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": [
+        "vectorcraft",
+        "effectcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "direction-c": {
+      "department": "creativo",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": [
+        "vectorcraft",
+        "effectcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "editorial-designer": {
+      "department": "design",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "craft": [
+        "vectorcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "identity-designer": {
+      "department": "design",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": [
+        "vectorcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "illustrator": {
+      "department": "design",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "craft": [
+        "vectorcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "legal-reviewer": {
+      "department": "produzione",
+      "model": "claude-sonnet-5-5",
+      "effort": "medium",
+      "craft": []
+    },
+    "mockup-artist": {
+      "department": "design",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "craft": [
+        "vectorcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "motion-designer": {
+      "department": "design",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "craft": [
+        "effectcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "packaging-designer": {
+      "department": "design",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "craft": [
+        "vectorcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "production-director": {
+      "department": "produzione",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": []
+    },
+    "production-manager": {
+      "department": "produzione",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "craft": []
+    },
+    "qa-inspector": {
+      "department": "produzione",
+      "model": "claude-sonnet-5-5",
+      "effort": "medium",
+      "craft": []
+    },
+    "researcher": {
+      "department": "strategia",
+      "model": "claude-sonnet-5-5",
+      "effort": "medium",
+      "craft": []
+    },
+    "strategy-director": {
+      "department": "strategia",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": []
+    },
+    "typographer": {
+      "department": "design",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "craft": [
+        "vectorcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "ui-designer": {
+      "department": "digitale",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "craft": [
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "ux-designer": {
+      "department": "digitale",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "craft": [
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "direction-d": {
+      "department": "creativo",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": [
+        "vectorcraft",
+        "effectcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    },
+    "direction-e": {
+      "department": "creativo",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "craft": [
+        "vectorcraft",
+        "effectcraft",
+        "figcraft",
+        "photocraft"
+      ]
+    }
+  }
+}

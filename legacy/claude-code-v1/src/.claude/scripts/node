@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Esegue uno script Node dello studio con i moduli della toolchain (playwright, axe, lighthouse, svgo, lottie-web).
+HOME_DIR="${DESIGN_AGENCY_HOME:-$HOME/.local/share/design-agency}"
+if [[ ! -d "$HOME_DIR/node/node_modules" ]]; then
+  echo "Toolchain Node assente: bash .claude/tools/setup_tools.sh" >&2
+  exit 127
+fi
+export NODE_PATH="$HOME_DIR/node/node_modules${NODE_PATH:+:$NODE_PATH}"
+export PATH="$HOME_DIR/node/node_modules/.bin:$PATH"
+# I moduli ES non usano NODE_PATH: gli script importano tramite createRequire su questo percorso.
+export DESIGN_AGENCY_NODE_MODULES="$HOME_DIR/node/node_modules"
+exec node "$@"

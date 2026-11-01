@@ -1,0 +1,15 @@
+# Toolchain Python dello studio. Lock generato da setup_tools.sh (requirements.lock).
+pillow
+numpy
+scipy
+opencv-python-headless
+scikit-image
+fonttools[woff,unicode,ufo]
+uharfbuzz
+pypdf
+pymupdf
+svgelements
+coloraide
+lxml
+cairosvg
+pyyaml

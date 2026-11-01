@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Interprete Python dello studio: il venv della toolchain se installato, altrimenti python3 di sistema.
+HOME_DIR="${DESIGN_AGENCY_HOME:-$HOME/.local/share/design-agency}"
+if [[ -x "$HOME_DIR/venv/bin/python" ]]; then
+  exec "$HOME_DIR/venv/bin/python" "$@"
+fi
+exec python3 "$@"

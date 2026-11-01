@@ -1,0 +1,25 @@
+{
+  "$comment": "Budget di contesto per istanza di agente, applicati da hooks/budget-guard.py. web: WebSearch+WebFetch; images: Read di immagini; calls_notice: a ogni multiplo una chiamata viene fermata una volta con un avviso, ripetibile; messages: risvegli dello stesso agente con SendMessage. Oltre web o images la chiamata è bloccata finché il router non estende: budget.py extend. image_max_side: lato massimo in px di un'immagine letta. rereads: letture consentite dello stesso file immutato.",
+  "image_max_side": 1600,
+  "rereads": 2,
+  "default": {"calls_notice": 80, "web": 6, "images": 24, "messages": 2},
+  "router": {"calls_notice": 0, "web": 20, "images": 60, "messages": 2},
+  "agents": {
+    "creative-director": {"calls_notice": 40, "web": 2, "images": 12},
+    "strategy-director": {"calls_notice": 40, "web": 6, "images": 8},
+    "design-director": {"calls_notice": 40, "web": 2, "images": 8},
+    "digital-director": {"calls_notice": 40, "web": 2, "images": 8},
+    "production-director": {"calls_notice": 40, "web": 2, "images": 8},
+    "researcher": {"calls_notice": 60, "web": 25, "images": 8},
+    "legal-reviewer": {"calls_notice": 30, "web": 12, "images": 4},
+    "art-director": {"calls_notice": 30, "web": 12, "images": 16},
+    "critic": {"calls_notice": 40, "web": 2, "images": 20},
+    "qa-inspector": {"calls_notice": 60, "web": 0, "images": 24},
+    "copywriter": {"calls_notice": 40, "web": 4, "images": 4},
+    "brand-strategist": {"calls_notice": 40, "web": 4, "images": 6},
+    "identity-designer": {"calls_notice": 80, "web": 2, "images": 30},
+    "direction-a": {"calls_notice": 100, "web": 4, "images": 30},
+    "direction-b": {"calls_notice": 100, "web": 4, "images": 30},
+    "direction-c": {"calls_notice": 100, "web": 4, "images": 30}
+  }
+}

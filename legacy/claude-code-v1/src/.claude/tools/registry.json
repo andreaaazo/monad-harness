@@ -1,0 +1,264 @@
+{
+  "$comment": "Registro dei tool dello studio. kind: python (modulo nel venv), node (pacchetto della toolchain), exe (eseguibile nel PATH). tier: core = necessario ai flussi standard; extra = necessario solo ai servizi indicati.",
+  "tools": [
+    {
+      "name": "vectorcraft-cli",
+      "kind": "exe",
+      "tier": "core",
+      "for": "produzione vettoriale, MCP, rendering SVG",
+      "install": "da distribuzione VectorCraft"
+    },
+    {
+      "name": "effectcraft-cli",
+      "kind": "exe",
+      "tier": "core",
+      "for": "motion, compositing, render, Lottie",
+      "install": "da distribuzione EffectCraft"
+    },
+    {
+      "name": "figcraft-cli",
+      "kind": "exe",
+      "tier": "core",
+      "for": "design di interfacce, siti, layout, componenti, variabili, prototipi, handoff (MCP e CLI)",
+      "install": "da distribuzione FigCraft"
+    },
+    {
+      "name": "photocraft-cli",
+      "kind": "exe",
+      "tier": "core",
+      "for": "fotoritocco, trattamento e compositing di immagini, mockup fotografici (MCP e CLI)",
+      "install": "da distribuzione PhotoCraft"
+    },
+    {
+      "name": "ffmpeg",
+      "kind": "exe",
+      "tier": "core",
+      "for": "verifica video, frame, codec",
+      "install": "apt: ffmpeg"
+    },
+    {
+      "name": "ffprobe",
+      "kind": "exe",
+      "tier": "core",
+      "for": "metadati video",
+      "install": "apt: ffmpeg"
+    },
+    {
+      "name": "magick",
+      "kind": "exe",
+      "tier": "core",
+      "for": "conversioni raster, montaggi",
+      "install": "apt: imagemagick"
+    },
+    {
+      "name": "gs",
+      "kind": "exe",
+      "tier": "core",
+      "for": "preflight PDF, separazioni CMYK, TAC",
+      "install": "apt: ghostscript"
+    },
+    {
+      "name": "pdfinfo",
+      "kind": "exe",
+      "tier": "core",
+      "for": "box e pagine PDF",
+      "install": "apt: poppler-utils"
+    },
+    {
+      "name": "pdffonts",
+      "kind": "exe",
+      "tier": "core",
+      "for": "font incorporati nei PDF",
+      "install": "apt: poppler-utils"
+    },
+    {
+      "name": "qpdf",
+      "kind": "exe",
+      "tier": "extra",
+      "for": "struttura e linearizzazione PDF",
+      "install": "apt: qpdf"
+    },
+    {
+      "name": "libreoffice",
+      "kind": "exe",
+      "tier": "extra",
+      "for": "conversione presentazioni/documenti del cliente",
+      "install": "apt: libreoffice"
+    },
+    {
+      "name": "fc-list",
+      "kind": "exe",
+      "tier": "core",
+      "for": "font installati",
+      "install": "apt: fontconfig"
+    },
+    {
+      "name": "inkscape",
+      "kind": "exe",
+      "tier": "extra",
+      "for": "renderer SVG di confronto, conversioni",
+      "install": "apt: inkscape"
+    },
+    {
+      "name": "rsvg-convert",
+      "kind": "exe",
+      "tier": "extra",
+      "for": "renderer SVG di confronto (librsvg, come i browser Linux)",
+      "install": "apt: librsvg2-bin"
+    },
+    {
+      "name": "potrace",
+      "kind": "exe",
+      "tier": "extra",
+      "for": "vettorializzare schizzi raster",
+      "install": "apt: potrace"
+    },
+    {
+      "name": "exiftool",
+      "kind": "exe",
+      "tier": "extra",
+      "for": "metadati, profili colore, licenze immagini",
+      "install": "apt: libimage-exiftool-perl"
+    },
+    {
+      "name": "optipng",
+      "kind": "exe",
+      "tier": "extra",
+      "for": "ottimizzazione PNG senza perdita",
+      "install": "apt: optipng"
+    },
+    {
+      "name": "cwebp",
+      "kind": "exe",
+      "tier": "extra",
+      "for": "export WebP",
+      "install": "apt: webp"
+    },
+    {
+      "name": "avifenc",
+      "kind": "exe",
+      "tier": "extra",
+      "for": "export AVIF",
+      "install": "apt: libavif-bin"
+    },
+    {
+      "name": "blender",
+      "kind": "exe",
+      "tier": "extra",
+      "for": "mockup 3D, packaging in scena, rendering prodotto",
+      "install": "blender.org (la build apt non ha la GPU): bash .claude/tools/setup_tools.sh --blender"
+    },
+    {
+      "name": "PIL",
+      "kind": "python",
+      "tier": "core",
+      "for": "prove, composizione, mockup",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "numpy",
+      "kind": "python",
+      "tier": "core",
+      "for": "misure su immagini e video",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "cv2",
+      "kind": "python",
+      "tier": "core",
+      "for": "omografie dei mockup, rilevamento bordi",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "skimage",
+      "kind": "python",
+      "tier": "core",
+      "for": "SSIM e confronti visivi",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "fontTools",
+      "kind": "python",
+      "tier": "core",
+      "for": "ispezione font, copertura, licenze, subset",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "uharfbuzz",
+      "kind": "python",
+      "tier": "core",
+      "for": "shaping reale del testo e kerning",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "pypdf",
+      "kind": "python",
+      "tier": "core",
+      "for": "struttura PDF",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "pymupdf",
+      "kind": "python",
+      "tier": "core",
+      "for": "rendering PDF, immagini e DPI effettivi",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "svgelements",
+      "kind": "python",
+      "tier": "core",
+      "for": "geometria SVG con trasformazioni",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "coloraide",
+      "kind": "python",
+      "tier": "core",
+      "for": "spazi colore, gamut, simulazione daltonismo",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "cairosvg",
+      "kind": "python",
+      "tier": "extra",
+      "for": "renderer SVG di confronto",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "playwright",
+      "kind": "node",
+      "tier": "core",
+      "for": "screenshot web, mockup di interfaccia, rendering Lottie",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "@axe-core/playwright",
+      "kind": "node",
+      "tier": "core",
+      "for": "audit accessibilità automatico",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "lighthouse",
+      "kind": "node",
+      "tier": "core",
+      "for": "prestazioni e Core Web Vitals in laboratorio",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "lottie-web",
+      "kind": "node",
+      "tier": "core",
+      "for": "verifica che i Lottie esportati si rendano",
+      "install": "setup_tools.sh"
+    },
+    {
+      "name": "svgo",
+      "kind": "node",
+      "tier": "core",
+      "for": "ottimizzazione SVG di consegna",
+      "install": "setup_tools.sh"
+    }
+  ]
+}

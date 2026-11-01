@@ -1,0 +1,241 @@
+{
+  "$comment": "Registro dei controlli dello studio. kind: measure (MEASURED, non dice che sia buono), requirement (soglia PASS/FAIL), observation (serve un render della versione attuale), reading (letto o percorso sul risultato reale), judgement (giudizio con confronto, evidence.py judge). independent: non lo registra l'autore del file. roles: chi può firmarlo. I requisiti del singolo progetto (R1…) si scrivono con il prefisso req: e non stanno qui.",
+  "checks": {
+    "barcode": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "board_check": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "board_review": {
+      "kind": "observation",
+      "independent": false
+    },
+    "charter_review": {
+      "kind": "judgement",
+      "independent": true,
+      "roles": [
+        "critic",
+        "art-director",
+        "creative-director",
+        "design-director",
+        "digital-director"
+      ],
+      "observed": true
+    },
+    "concept_diversity": {
+      "kind": "measure",
+      "independent": false
+    },
+    "contract_check": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "contrast_matrix": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "copy_review": {
+      "kind": "reading",
+      "independent": true,
+      "roles": [
+        "copywriter",
+        "qa-inspector",
+        "design-director",
+        "digital-director"
+      ]
+    },
+    "critique": {
+      "kind": "judgement",
+      "independent": true,
+      "roles": [
+        "critic",
+        "art-director",
+        "creative-director",
+        "design-director",
+        "digital-director"
+      ]
+    },
+    "cvd": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "design_audit": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "dieline_check": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "direction_lint": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "distinctiveness": {
+      "kind": "judgement",
+      "independent": true,
+      "roles": [
+        "critic",
+        "art-director",
+        "creative-director",
+        "design-director",
+        "digital-director"
+      ]
+    },
+    "diversity": {
+      "kind": "measure",
+      "independent": false
+    },
+    "dossier_coverage": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "facts_check": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "font_coverage": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "font_license": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "image_check": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "keyboard_review": {
+      "kind": "reading",
+      "independent": false
+    },
+    "keyframe_review": {
+      "kind": "observation",
+      "independent": false
+    },
+    "legal_text": {
+      "kind": "requirement",
+      "independent": true,
+      "roles": [
+        "legal-reviewer",
+        "production-director"
+      ]
+    },
+    "lighthouse": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "logo_proof": {
+      "kind": "observation",
+      "independent": false
+    },
+    "lottie_check": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "master_open": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "mockup_aspect": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "mockup_review": {
+      "kind": "observation",
+      "independent": false
+    },
+    "motion_probe": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "optical_check": {
+      "kind": "measure",
+      "independent": false
+    },
+    "palette_render": {
+      "kind": "observation",
+      "independent": false
+    },
+    "pdf_preflight": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "photo_set": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "playback_review": {
+      "kind": "observation",
+      "independent": false
+    },
+    "proof_read": {
+      "kind": "reading",
+      "independent": true,
+      "roles": [
+        "copywriter",
+        "qa-inspector",
+        "design-director",
+        "digital-director"
+      ]
+    },
+    "prototype_review": {
+      "kind": "reading",
+      "independent": false
+    },
+    "quality_judgement": {
+      "kind": "judgement",
+      "independent": true,
+      "roles": [
+        "critic",
+        "art-director",
+        "creative-director",
+        "design-director",
+        "digital-director"
+      ]
+    },
+    "render_check": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "specimen_render": {
+      "kind": "observation",
+      "independent": false
+    },
+    "stress_test": {
+      "kind": "judgement",
+      "independent": true,
+      "roles": [
+        "critic",
+        "art-director",
+        "creative-director",
+        "design-director",
+        "digital-director"
+      ]
+    },
+    "svg_audit": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "svg_parity": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "tokens_check": {
+      "kind": "requirement",
+      "independent": false
+    },
+    "visual_review": {
+      "kind": "observation",
+      "independent": false
+    },
+    "web_audit": {
+      "kind": "requirement",
+      "independent": false
+    }
+  }
+}

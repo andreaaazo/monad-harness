@@ -39,7 +39,7 @@ condizioni sparse. Una regola che si può imporre nel codice non si scrive in un
 
 Principi di struttura: modular monolith in vertical slices, explicit over implicit, Clean Architecture, Schema-First Design e
 testing pyramid (ADR-0021, ADR-0022). Il motore non importa Django. Django non possiede il registro e non esegue il grafo
-(ADR-0019, ADR-0020).
+(ADR-0019, ADR-0020). Next.js è solo interfaccia: legge tutto dall'API Django (ADR-0024).
 
 ## Fine traguardo
 

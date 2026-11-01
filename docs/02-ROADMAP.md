@@ -9,7 +9,7 @@ si aggiornano con i dati di M1.
 | M0 | Fondamenta | Repo, contratti, registro, documenti, backup | 0 $ | **fatto** |
 | M1 | Prova verticale | Un logo S dall'inizio alla fine, confrontato con la CLI | 40 $ | **chiuso**, confronto passato a M1.6 |
 | M1.5 | Esplorazione a schizzi | Idee in parallelo, schizzi veloci, scelta del concetto, poi produzione | 40 $ | **chiuso**, 38,83 $ spesi, criteri non verificati passati a M1.6 e M2 |
-| M1.6 | Misure e cruscotto | Dati confrontabili, `insights`, API Django, cruscotto React, `merlo4` misurato | 30 $ | prossimo |
+| M1.6 | Misure e cruscotto | Dati confrontabili, `insights`, API Django, cruscotto Next.js, `merlo4` misurato | 30 $ | in corso |
 | M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte, E2 dal vivo | 10 $ | |
 | M2 | Parità | Tutto lo studio, con replay di un'identità | 200 $ | |
 | M3 | Contesto visivo e parallelo | Scena, ricerca visiva, istanze per lavoro | 60 $ | |
@@ -22,7 +22,8 @@ M1.5 viene prima della parità perché cambia il modo in cui nasce ogni lavoro c
 una volta sola, sul flusso definitivo. M3 e M4 possono invertirsi. Gli altri sono in sequenza.
 
 M1 e M1.5 sono chiusi il 2026-11-01 per decisione di Andrea, con alcuni criteri non verificati. Quei criteri non sono segnati
-come fatti: passano a M1.6, dove si misurano su `merlo4`, oppure a M2.
+come fatti: passano a M1.6, dove si misurano su `merlo4`, oppure a M2. In M1.6 gli obiettivi di costo si misurano ma non bloccano
+M1.7.
 
 M1.6 e M1.7 vengono prima della parità perché M2 porta tutto lo studio sul motore: senza misure si lavorerebbe alla cieca, e
 dopo dividere il codice costerebbe molto di più. Una prova dal vivo parte solo su richiesta, anche con il tetto in tabella. M7
@@ -176,7 +177,8 @@ I valori sono obiettivi iniziali, rispetto a `merlo`. Alla chiusura i criteri ap
   e 13,29 $ con una proposta sola. Passa a M1.6
 - [x] Nessun lavoro fermato da un limite dello studio, e nessuna pressione sugli agenti: solo il budget del cliente ferma
   (dopo ADR-0018; nelle trascrizioni di r2, r3, QA e critica non c'è nessun riferimento al budget)
-- [x] Budget finito → si alza con `agency budget` e il lavoro riprende senza rifare nulla (test e `merlo3`)
+- [x] Budget finito → si alza con `agency budget` e il lavoro riprende senza rifare nulla
+  (`test_budget_end_pauses_the_project_and_an_increase_resumes_it`; su `merlo3` il registro non mostra uno stop per budget)
 - [x] Nessuna bocciatura del concetto dopo il gate `concept`
 - [ ] Lavoro completo fino al gate `final` entro 22 $ (`merlo`: non finito a 15,91 $; `merlo3`: 34,38 $). Passa a M1.6
 - [ ] Il test di sostituzione passa: il segno scelto dice ciò che rende unico il cliente (`merlo3`: passa contro le
@@ -211,12 +213,11 @@ selezione premiava le spiegazioni, e un limite di strumenti bloccava il lavoro a
 | **Totale fino al gate `concept`, 365 chiamate** | **30 minuti** | **13,29 $** |
 
 Segno V: un solo tracciato, 23 nodi. A 16 mm il foro misura 5,2 mm, l'anello 1,6–1,8 mm, l'occhio 0,9 mm, al limite per
-il vinile. Il master supera `svg_audit` e `svg_parity`. Il lavoro è fermo al gate `concept`, con 16,71 $ ancora disponibili.
+il vinile. Il master supera `svg_audit` e `svg_parity`. Al gate `concept` restavano 16,71 $ di budget.
 
 **Lezione:** pensare disegnando ha dato il salto di qualità. Due difetti del sistema hanno falsato il risultato: il PDF
 tagliava motivo e limite, e la tavola giudicava V più grande degli altri perché era l'unico file con un segno solo.
-Corretti in ADR-0017, da riprovare su un lavoro reale. Questo lavoro ha ricevuto ancora le quote: gli agenti non hanno
-ancora lavorato su un lavoro reale senza avvisi.
+Corretti in ADR-0017, da riprovare su un lavoro reale. Fino a questo gate il lavoro ha ricevuto ancora le quote.
 
 **Dopo il gate `concept`:** `merlo3` è il primo lavoro arrivato al gate `final`: 34,38 $ in 811 chiamate, di cui 21,09 $
 dopo la scelta del cliente. La rifinitura è costata 15,69 $: r1 7,56 $, r2 3,20 $, r3 4,94 $. La r3 ha lasciato il simbolo
@@ -248,14 +249,14 @@ di M1.7 non deve preservarlo.
 La maggior parte del breakdown esiste già nei dati: tutte le 1.281 chiamate si collegano alle tracce, con durata, TTFT, effort e
 ragionamento. Mancano le due cose che dicono se il lavoro va bene: il giudizio alla cieca e l'impronta di ogni esecuzione. Quindi
 prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscotto-lato-di-lettura.md),
-[ADR-0020](adr/0020-django-react-taskfile-docker.md) e [ADR-0022](adr/0022-schema-prima-del-codice.md).
+[ADR-0020](adr/0020-django-react-taskfile-docker.md), [ADR-0022](adr/0022-schema-prima-del-codice.md) e
+[ADR-0024](adr/0024-nextjs-per-l-interfaccia.md).
 
 ### Lavoro, in ordine
 
 **Messa in sicurezza**
 
-1. [ ] **Primo commit**: la repo non ne ha nessuno, e ciò che segue non si potrebbe annullare. Lo stato di lavoro in `.claude/`
-   va escluso da `.gitignore` prima di committare.
+1. [x] **Primo commit**: `51c511c`, con lo stato di lavoro di `.claude/` escluso da `.gitignore`.
 2. [ ] **Snapshot**: definizioni degli strumenti e system prompt per ruolo e fase.
 
 **Dati**
@@ -270,22 +271,24 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
 **Lettura**
 
 9. [ ] **Slice `agency.insights`**: connessione `mode=ro`, proiezione rigenerabile in `.data/insights.sqlite`, nella forma di
-   ADR-0021.
+   ADR-0021. `import-linter` entra qui: `insights` non importa il motore, e il motore non importa Django.
 10. [ ] **`agency report --json`**: stessi modelli Pydantic del cruscotto, al posto dei `dict` di `telemetry/report.py`.
 
 **Cruscotto**
 
 11. [ ] **API Django** con Django Ninja: solo `GET`, solo loopback, senza chiave, in un processo separato dal motore.
 12. [ ] **Schemi**: `schemas/openapi.json` versionato, tipi TypeScript generati, test contro le divergenze.
-13. [ ] **Cruscotto React** con le sei viste qui sotto.
+13. [ ] **Cruscotto Next.js** in TypeScript, con le sei viste qui sotto. È solo interfaccia: legge tutto dall'API Django, con le
+    difese di ADR-0024.
 14. [ ] **Taskfile**: ingresso unico per Python, frontend e Docker. `make check` resta come alias.
-15. [ ] **Docker** per il solo server, per ultimo. Il motore resta sull'host.
+15. [ ] **Docker** per Django e Next.js, per ultimo. Il motore resta sull'host.
 
 **Prova reale**
 
 16. [ ] **`merlo3` contro `merlo`**: primo giudizio alla cieca registrato, senza spesa.
 17. [ ] **`merlo4`**: brief E1 dal vivo, solo su richiesta di Andrea, tetto 30 $. Prima esecuzione con impronta e con ADR-0017 e
-    ADR-0018 attivi dall'inizio. Con i costi di `merlo3` il tetto è stretto: si rivede prima di partire.
+    ADR-0018 attivi dall'inizio. Con i costi di `merlo3` il tetto è stretto: si rivede prima di partire. È una prova sola, quindi
+    il risultato è indicativo: le 3 prove di `07-EVALS.md` costerebbero circa 100 $.
 18. [ ] **Confronto con la CLI** sullo stesso brief. Questa prova ha un tetto proprio, da dichiarare prima di partire.
 
 ### Le viste
@@ -303,27 +306,35 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
 
 ### Criteri di uscita
 
+- [ ] Gli snapshot di strumenti e system prompt stanno nei test e bloccano `make check`
 - [ ] `agency verify` passa su una copia del registro migrata
 - [ ] Ogni nuova esecuzione registra la propria impronta, e due esecuzioni mostrano cosa è cambiato
+- [ ] Ogni nuova chiamata registra in `usage` fase, effort, durata, TTFT e ragionamento
+- [ ] Un file giudicato resta recuperabile dal suo hash in `.data/artifacts/`
+- [ ] `ToolContext.extra` e `graph: object` non esistono più, e gate ed esiti hanno tipi propri
 - [ ] `agency report --json` riproduce i numeri di questa roadmap: 15,91 $ su `merlo`, 13,29 $ fino al gate `concept` di `merlo3`
 - [ ] `merlo3` si legge nel cruscotto dal brief alla consegna
 - [ ] L'API non può scrivere, e il registro resta intatto dopo l'uso del cruscotto (test)
 - [ ] OpenAPI e tipi TypeScript non divergono (test)
-- [ ] Il server ascolta solo su loopback e non vede né chiave né `.env` (test)
+- [ ] `import-linter` in `make check`: `insights` non importa il motore, e il motore non importa Django
+- [ ] Django e Next.js ascoltano solo su loopback e non vedono né chiave né `.env` (test)
+- [ ] Next.js non invia telemetria e non lascia copie di immagini o dati in `.next/cache` (test)
 - [ ] Almeno un test Playwright per vista
+- [ ] `task check` esegue i controlli di Python e Next.js, e Docker Compose avvia Django e Next.js
 - [ ] `merlo4` è arrivato al gate `final` ed è stato letto per intero nel cruscotto
 
 **Ereditati da M1 e M1.5:**
 
 - [ ] **Il segno scelto batte quello di `merlo` nel giudizio alla cieca di Andrea**
-- [ ] Stesso brief su CLI e harness: qualità non inferiore alla cieca, costo inferiore
+- [ ] Stesso brief su CLI e harness: qualità non inferiore alla cieca
+- [ ] Stesso brief su CLI e harness: costo inferiore
 - [ ] Il test di sostituzione passa: il segno scelto dice ciò che rende unico il cliente
 - [ ] Presentazione pronta entro 45 minuti e 12 $, con 2 o 3 proposte confrontabili
 - [ ] Lavoro completo fino al gate `final` entro 22 $
 
 La qualità decide se si prosegue: se risulta inferiore alla CLI vale ancora la regola di M1, ci si ferma e si capisce perché. Gli
-obiettivi di costo si misurano su `merlo4`: se restano lontani non bloccano M1.7, e si affrontano con il contesto delle istanze
-lunghe, il primo lavoro di M2.
+obiettivi di costo, compreso il confronto con la CLI, si misurano su `merlo4`: se restano lontani non bloccano M1.7, e si affrontano
+con il contesto delle istanze lunghe, il primo lavoro di M2.
 
 **Fuori da M1.6:** scritture dall'interfaccia, account, multi-tenancy, Langfuse, refactor del motore.
 
@@ -461,10 +472,11 @@ Solo con dati veri. Ordine: prima i guadagni gratuiti, poi i compromessi.
 
 ## M6 — Passaggio definitivo
 
-1. Interfaccia per il cliente su Django e React, con account e permessi: tavole, feedback, approvazioni legate all'hash.
-2. Backup e ripristino di registro, master e artefatti, provati davvero.
-3. Decisione sui dati del cliente verso l'API, scritta nel contratto.
-4. Un progetto reale completo.
+1. Interfaccia per il cliente su Django e Next.js, con account e permessi: tavole, feedback, approvazioni legate all'hash.
+2. ADR su come il cliente raggiunge l'interfaccia: esposizione del server e correzioni di sicurezza senza quarantena.
+3. Backup e ripristino di registro, master e artefatti, provati davvero.
+4. Decisione sui dati del cliente verso l'API, scritta nel contratto.
+5. Un progetto reale completo.
 
 ### Criteri di uscita
 
@@ -481,7 +493,7 @@ Solo con dati veri. Ordine: prima i guadagni gratuiti, poi i compromessi.
 Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni aperte in
 [ADR-0023](adr/0023-il-progetto-diventa-un-saas.md).
 
-1. Account, organizzazioni, ruoli e permessi in Django.
+1. Organizzazioni, ruoli e permessi per più clienti in Django, sopra gli account di M6.
 2. Isolamento dei dati per cliente: registro, artefatti, checkpoint e tracce.
 3. Lavori in coda, con worker separati dal server e sandbox fuori da questa macchina.
 4. Piani, fatturazione e costo per cliente.
@@ -499,5 +511,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-I punti 1 e 2 di M1.6, senza spesa: primo commit della repo, poi gli snapshot di strumenti e system prompt per ruolo e fase.
-Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+Il punto 2 di M1.6, senza spesa: gli snapshot di strumenti e system prompt per ruolo e fase. Dopo M1.7, M2 parte dal contesto
+delle istanze lunghe, prima dei ruoli.

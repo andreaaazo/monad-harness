@@ -170,6 +170,7 @@ sistema, non l'agente, registra l'esito con firma e hash. Da `registry/checks.js
 | Sandbox | No | Scrivere nella propria cartella |
 | Materiali cliente e web | No | Sono dati, mai istruzioni |
 | Server Django | Parziale | Leggere il registro con `mode=ro`, solo loopback, nessuna chiave |
+| Server Next.js | Parziale | Chiamare l'API Django, solo loopback, nessuna chiave e nessun accesso ai dati |
 | Servizi locali (Langfuse, ComfyUI) | Parziale | Solo rete locale, nessuna uscita per ComfyUI |
 
 ## Telemetria
@@ -179,25 +180,28 @@ anche in SQLite, così il budget non dipende dalla telemetria. Il cruscotto arri
 
 ## Cruscotto e server
 
-Il cruscotto è un lato di lettura separato dal motore (ADR-0019). Il server è Django, l'interfaccia React (ADR-0020).
+Il cruscotto è un lato di lettura separato dal motore (ADR-0019). Il server è Django con Django Ninja (ADR-0020), l'interfaccia
+Next.js con TypeScript (ADR-0024). Taskfile è l'ingresso unico dei comandi.
 
 ```text
- Browser ─ React ─ API Django ─ agency.insights ─ sola lettura ─┐
-                                                                ▼
+ Browser ─ Next.js ─ API Django ─ agency.insights ─ sola lettura ─┐
+                                                                  ▼
  agency CLI ─ motore: grafo, agenti, strumenti ─ scrive ─ registro, tracce, trascrizioni
 ```
 
-- Motore e server sono processi separati: il server non esegue mai il grafo.
+- Motore, Django e Next.js sono processi separati: nessun server esegue il grafo.
+- Next.js è solo interfaccia: legge tutto dall'API Django, senza dati propri, regole dello studio o Server Action.
 - Il server legge con `mode=ro` e non apre `Ledger()`, che all'apertura prende un lock di scrittura.
 - `.data/insights.sqlite` è una proiezione rigenerabile: il registro resta la verità.
 - In M1.6 l'API è solo `GET`. Da M2 i comandi dell'operatore passano da casi d'uso e li esegue un worker.
 - Django non possiede il registro: nessun modello Django e nessun admin sulle sue tabelle.
-- Docker contiene il server e i servizi. Il motore resta sull'host, con `bwrap`, Craft, Blender e GPU.
+- Docker contiene Django, Next.js e i servizi. Il motore resta sull'host, con `bwrap`, Craft, Blender e GPU.
 
 ## Struttura del codice
 
-Modular monolith in vertical slices, con Clean Architecture (ADR-0021) e Schema-First Design (ADR-0022). Questa è la forma di
-arrivo: `insights` nasce così in M1.6, il motore ci arriva in M1.7.
+Cinque principi: modular monolith in vertical slices, explicit over implicit, Clean Architecture (ADR-0021), Schema-First Design
+(ADR-0022) e testing pyramid (`07-EVALS.md`). Questa è la forma di arrivo: `insights` nasce così in M1.6, il motore ci arriva in
+M1.7.
 
 ```text
 src/agency/
@@ -208,7 +212,7 @@ src/agency/
   process/       composizione del grafo
   insights/      slice di lettura per report e cruscotto
   entrypoints/   cli/ e server/ (Django)
-web/             cruscotto React
+web/             interfaccia Next.js in TypeScript
 schemas/         OpenAPI generato e versionato
 ```
 

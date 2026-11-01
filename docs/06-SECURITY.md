@@ -1,7 +1,8 @@
 # Sicurezza
 
 Sistema locale con un solo operatore, ma con tre fonti non fidate: risposte del modello, materiali del
-cliente, contenuti del web. Resta così fino a M7 (ADR-0023).
+cliente, contenuti del web. Resta locale fino a M6, quando il cliente dovrà raggiungere l'interfaccia, e con un solo operatore
+fino a M7 (ADR-0023).
 
 ## Minacce e difese
 
@@ -15,7 +16,8 @@ cliente, contenuti del web. Resta così fino a M7 (ADR-0023).
 | Fuga fuori dal perimetro | Path traversal | `bwrap` per ciò che gira in sandbox. Gli strumenti che girano nell'harness non hanno quella difesa: passano da `inside()` o da un elenco chiuso (`read_skill`, `list_files`) |
 | Dipendenza compromessa | Il caso LiteLLM di marzo 2026 | Quarantena di due settimane, lock con hash, poche dipendenze, anche per JavaScript |
 | Scrittura dal cruscotto | Una richiesta altera il registro | API solo `GET` in M1.6, connessione `mode=ro`, nessun modello Django sul registro |
-| Cruscotto esposto in rete | Materiali del cliente leggibili da fuori | Server solo su loopback, porta pubblicata su `127.0.0.1`, verificato da un test |
+| Cruscotto esposto in rete | Materiali del cliente leggibili da fuori | Django e Next.js solo su loopback, porta pubblicata su `127.0.0.1`, verificato da un test |
+| Copie dei materiali fuori dal progetto | Next.js salva immagini o risposte in `.next/cache` | `images.unoptimized`, `cache: 'no-store'` su ogni lettura, verificato da un test |
 | Custom node maligno | Codice in ComfyUI | Container senza uscita, niente Manager, nodi bloccati per hash |
 | Costo fuori controllo | Un loop che non finisce, o una scelta sbagliata al gate | Budget preventivo, tetto nella Console, `agency decide` che rifiuta una scelta inesistente |
 | Comando distruttivo | Sovrascrive un master | Artefatti per hash: ogni versione consegnata resta |
@@ -57,10 +59,12 @@ esterno ammesso è l'API Anthropic**, e il cliente deve saperlo.
 
 ## Cruscotto e server
 
-- Il server non riceve la chiave né `.env`, e non esegue il grafo (ADR-0019).
-- Docker pubblica la porta solo su `127.0.0.1`: una porta pubblicata senza indirizzo ascolta su tutte le interfacce.
-- `.data` e `projects/` entrano nel container per leggere, ma senza mount `:ro`, fragile con WAL: la sola lettura sta nella
+- Django e Next.js non ricevono la chiave né `.env`, e non eseguono il grafo (ADR-0019, ADR-0024).
+- Docker pubblica solo la porta di Next.js, su `127.0.0.1`: una porta pubblicata senza indirizzo ascolta su tutte le interfacce.
+- Fuori da Docker, Next.js parte con `-H 127.0.0.1`: di suo ascolta su `0.0.0.0`.
+- `.data` e `projects/` entrano solo nel container di Django, senza mount `:ro`, fragile con WAL: la sola lettura sta nella
   connessione.
+- La telemetria di Next.js resta spenta con `NEXT_TELEMETRY_DISABLED=1`, build compresa.
 - Le trascrizioni contengono i materiali del cliente: il cruscotto resta su questa macchina fino a M6.
 
 ## Verso il SaaS
@@ -71,6 +75,7 @@ Chiave API, materiali del cliente e sandbox non cambiano regole: cambiano le dif
 
 ## Regole operative
 
-- Nessun servizio ascolta su interfacce diverse da loopback, fino a M7.
+- Nessun servizio ascolta su interfacce diverse da loopback, fino all'ADR che in M6 deciderà come il cliente raggiunge
+  l'interfaccia.
 - Nessun launcher sconosciuto: `doctor` interroga solo CLI note.
 - `.env` non si versiona.

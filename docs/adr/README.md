@@ -24,7 +24,8 @@ vecchio. Date: 2026-10-31.
 | [0017](0017-il-cliente-riceve-ciò-che-lo-studio-ha-guardato.md) | Il cliente riceve ciò che lo studio ha guardato | Accettata |
 | [0018](0018-un-contratto-impossibile-non-si-apre.md) | Un contratto impossibile non si apre | Accettata |
 | [0019](0019-cruscotto-lato-di-lettura.md) | Il cruscotto è un lato di lettura separato | Accettata |
-| [0020](0020-django-react-taskfile-docker.md) | Django e React per il server, Taskfile e Docker attorno | Accettata |
+| [0020](0020-django-react-taskfile-docker.md) | Django e React per il server, Taskfile e Docker attorno | Accettata, Vite sostituito da Next.js in 0024 |
 | [0021](0021-monolite-modulare-a-slice.md) | Monolite modulare a slice, con Clean Architecture | Accettata |
 | [0022](0022-schema-prima-del-codice.md) | Lo schema viene prima del codice | Accettata |
 | [0023](0023-il-progetto-diventa-un-saas.md) | Il progetto diventa un SaaS | Accettata, rovescia un non-obiettivo di `00-PROJECT.md` |
+| [0024](0024-nextjs-per-l-interfaccia.md) | Next.js per l'interfaccia | Accettata, rovescia la scelta di Vite in 0020 |

@@ -80,9 +80,9 @@ Scelte in ADR-0020. Le versioni indicate sono verificate su questa macchina il 2
 | Django, Django Ninja | Server e API | Da aggiungere con `uv add`, ultima LTS di Django |
 | Alembic | Migrazioni del registro | Da aggiungere con `uv add` |
 | `import-linter` | Confini tra moduli | Da aggiungere con `uv add` |
-| Node | Build del frontend | 22.22.1 |
+| Node | Build ed esecuzione di Next.js, che chiede almeno la 20.9 | 22.22.1 |
 | pnpm | Dipendenze JavaScript, con quarantena | Da installare |
-| React, Vite, TypeScript | Cruscotto, in `web/` | Da aggiungere |
+| Next.js, TypeScript | Interfaccia, in `web/` (ADR-0024) | Da aggiungere. Al 2026-11-01 l'ultima fuori quarantena è la 16.4.2: la 16.4.3 è del 23 ottobre |
 | Playwright | Prove di fumo del cruscotto | Da aggiungere |
 | Task | Ingresso unico dei comandi | 3.54.0 |
 | Docker Compose | Server e servizi | 5.4.0 |

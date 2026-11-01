@@ -14,7 +14,7 @@ design e specifiche, mai codice di produzione.
 sceglie internamente, sviluppa le proposte e presenta al cliente un PDF con la sua raccomandazione, poi rifinisce la proposta
 scelta. Su `merlo3` il lavoro è arrivato al gate `concept` in 30 minuti e 13,29 $, e al gate `final` con 34,38 $.
 
-M1.6 porta misure confrontabili e un cruscotto con Django e React. M1.7 divide il motore in slice. Il progetto diventerà un SaaS
+M1.6 porta misure confrontabili e un cruscotto con Django e Next.js. M1.7 divide il motore in slice. Il progetto diventerà un SaaS
 dopo il primo cliente reale. I dettagli sono nella [roadmap](docs/02-ROADMAP.md).
 
 ## Avvio

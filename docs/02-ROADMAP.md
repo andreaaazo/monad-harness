@@ -271,7 +271,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
    restano vuote, e vuoto vuol dire non misurato.
 7. [x] **Artefatti per hash**: consegne, presentazioni e file giudicati in `.data/artifacts/`, con `agency artifacts`,
    `agency restore` e il controllo in `agency verify` ([ADR-0028](adr/0028-gli-artefatti-per-hash.md)).
-8. [ ] **Tipi espliciti**: via i `dict` di gate ed esiti, `ToolContext.extra` e `graph: object`.
+8. [x] **Tipi espliciti**: gate, decisioni ed esiti in `agency.contracts`, `ToolContext.extra` diviso in campi propri, il grafo
+   tipizzato. I checkpoint e le trascrizioni già salvati si leggono ancora, compreso il gate in pausa di `merlo3`.
 
 **Lettura**
 
@@ -320,7 +321,8 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
   `tests/test_sketch_flow.py`. Il TTFT dal vivo si vedrà con `merlo4`: i test lo misurano su uno stream simulato
 - [x] Un file giudicato resta recuperabile dal suo hash in `.data/artifacts/`: `tests/test_artifacts.py` e
   `tests/test_judgments.py`, a mano con `agency restore <hash> <file>`
-- [ ] `ToolContext.extra` e `graph: object` non esistono più, e gate ed esiti hanno tipi propri
+- [x] `ToolContext.extra` e `graph: object` non esistono più, e gate ed esiti hanno tipi propri:
+  `tests/test_explicit_types.py` e `make check`, che con `pyright` rifiuta l'uso dei vecchi `dict`
 - [ ] `agency report --json` riproduce i numeri di questa roadmap: 15,91 $ su `merlo`, 13,29 $ fino al gate `concept` di `merlo3`
 - [ ] `merlo3` si legge nel cruscotto dal brief alla consegna
 - [ ] L'API non può scrivere, e il registro resta intatto dopo l'uso del cruscotto (test)
@@ -520,5 +522,6 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 8 di M1.6, senza spesa: tipi espliciti al posto dei `dict` di gate ed esiti, di `ToolContext.extra` e di
-`graph: object`. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+Il punto 9 di M1.6, senza spesa: la slice `agency.insights`, con la connessione `mode=ro`, la proiezione rigenerabile in
+`.data/insights.sqlite` e `import-linter` in `make check`. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei
+ruoli.

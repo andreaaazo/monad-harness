@@ -7,13 +7,16 @@ import getpass
 import random
 import shutil
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import anthropic
 
 from agency.artifacts import FileStore, keeping
 from agency.config import Settings
 from agency.contracts.artifact import Origin
+from agency.contracts.gate import ConceptGate
 from agency.doctor import run_checks
 from agency.evaluation import blind
 from agency.gateway import BudgetExceeded
@@ -21,6 +24,9 @@ from agency.gateway.pricing import PRICES
 from agency.ledger import Ledger, LedgerOutdated
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 from agency.telemetry import report
+
+if TYPE_CHECKING:  # la sessione carica il motore: i comandi leggeri non la importano
+    from agency.runtime import Session
 
 LOGO_OUTPUTS = ["source/segno.vectorcraft", "exports/segno.svg", "construction.md"]
 LOGO_CHECKS = {"*.vectorcraft": ["master_open"], "*.svg": ["svg_audit", "svg_parity", "critique"]}
@@ -57,26 +63,26 @@ def _migrate(_: argparse.Namespace) -> int:
     return 0
 
 
-def _show(session, project: str) -> int:  # type: ignore[no-untyped-def]
+def _show(session: Session, project: str) -> int:
     print(report.render(session.ledger, project))
     for gate in session.pending(project):
         work = session.settings.project_dir(project) / "work"
-        print(f"\nIN ATTESA DEL CLIENTE: gate {gate['gate']}")
-        for file in gate["files"]:
+        print(f"\nIN ATTESA DEL CLIENTE: gate {gate.gate}")
+        for file in gate.files:
             print(f"  {work / file}")
-        if gate["gate"] == "concept":
-            print(f"Proposte: {', '.join(gate['options'])}. Lo studio raccomanda {gate['recommended']}.")
-            print(gate["reasons"])
+        if isinstance(gate, ConceptGate):
+            print(f"Proposte: {', '.join(gate.options)}. Lo studio raccomanda {gate.recommended}.")
+            print(gate.reasons)
             print(f"agency decide {project} --approve --choice X --text '…'  oppure  --reject --text '…'")
         else:
             print(f"agency decide {project} --approve --text '…'  oppure  --reject --text '…'")
     return 0
 
 
-def _guarded(project: str, session, action) -> int:  # type: ignore[no-untyped-def]
+def _guarded(project: str, session: Session, action: Callable[[], str]) -> int:
     """Il budget finito non è un errore: il lavoro resta salvato e la scelta passa al cliente."""
     try:
-        result = action()
+        outcome = action()
     except BudgetExceeded as exc:
         print(report.render(session.ledger, project))
         print(f"\nBUDGET FINITO: {exc}. Il lavoro è salvato.")
@@ -86,7 +92,6 @@ def _guarded(project: str, session, action) -> int:  # type: ignore[no-untyped-d
         print(f"\nAPI NON DISPONIBILE: {exc}. Il lavoro è salvato.")
         print(f"Per riprendere: agency resume {project}")
         return 3
-    outcome = (result or {}).get("outcome")
     if outcome:
         print(f"Esito: {outcome}")
     return _show(session, project)
@@ -136,9 +141,9 @@ def _decide(args: argparse.Namespace) -> int:
     gate = waiting[0]
     choice = (args.choice or "").strip().upper()
     if (
-        args.approve and gate["gate"] == "concept" and choice not in gate["options"]
+        args.approve and isinstance(gate, ConceptGate) and choice not in gate.options
     ):  # altrimenti si riesplora
-        print(f"Al gate concept scegli una proposta con --choice: {', '.join(gate['options'])}")
+        print(f"Al gate concept scegli una proposta con --choice: {', '.join(gate.options)}")
         return 1
     action = lambda: session.decide(args.project, args.approve, args.text, choice)  # noqa: E731
     return _guarded(args.project, session, action)

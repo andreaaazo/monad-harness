@@ -7,7 +7,8 @@ import io
 import json
 import shutil
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,7 @@ from agency.artifacts import keeping
 from agency.config import Settings
 from agency.contracts.artifact import ArtifactStore, Origin
 from agency.contracts.concept import ConceptCard
+from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import REVIEWERS, Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.ledger import ForbiddenAction, IllegalTransition, Ledger
 from agency.ledger.models import ConceptRow
@@ -51,8 +53,8 @@ class ToolContext:
     sandbox: Sandbox
     index: craft.CommandIndex
     artifacts: ArtifactStore
-    finished: tuple[str, str] | None = None
-    extra: dict[str, Any] = field(default_factory=dict)
+    finished: Outcome | None = None
+    warned_sketch: str = ""  # sha256 dello schizzo già avvisato: l'avviso vale una volta per versione
     mode: str = ""
     round: int = 1
     settings: Settings | None = None
@@ -61,6 +63,15 @@ class ToolContext:
     @property
     def work(self) -> Path:
         return self.sandbox.work
+
+    @cached_property
+    def finisher_outputs(self) -> tuple[str, ...]:
+        """I master di un rifinitore: il concetto è scelto, e lavora solo su quelli. Vuoto per gli altri."""
+        try:
+            spec = self.ledger.spec(self.ticket_id)
+        except KeyError:
+            return ()
+        return tuple(spec.outputs) if spec.prompt == "finisher" else ()
 
     def keep(self, paths: list[str], origin: Origin) -> dict[str, str]:
         """Conserva la versione attuale dei file prima dell'evento che la usa. Restituisce gli hash."""
@@ -364,13 +375,7 @@ def craft_describe(ctx: ToolContext, a: CraftDescribe, _: str) -> dict:
 def craft_run(ctx: ToolContext, a: CraftRun, operation_id: str) -> dict:
     if not a.document.endswith(".vectorcraft"):
         raise Refused("in questa fase craft_run lavora su documenti .vectorcraft")
-    if ctx.extra.get("finisher_outputs") is None:
-        try:
-            spec = ctx.ledger.spec(ctx.ticket_id)
-            ctx.extra["finisher_outputs"] = spec.outputs if spec.prompt == "finisher" else []
-        except KeyError:
-            ctx.extra["finisher_outputs"] = []
-    outputs = ctx.extra["finisher_outputs"]
+    outputs = ctx.finisher_outputs
     if outputs and a.document not in outputs:
         raise Refused("il concetto è scelto: lavori solo sui master in OUTPUT, niente file di esplorazione")
     safe = "".join(c if c.isalnum() else "_" for c in operation_id)
@@ -537,7 +542,7 @@ def hand_off(ctx: ToolContext, a: HandOff, _: str) -> dict:
     ]
     if not waiting:
         raise Refused("nessun ticket figlio da eseguire: apri i ticket, oppure consegna")
-    ctx.finished = ("handed_off", a.note)
+    ctx.finished = Outcome(state=OutcomeState.HANDED_OFF, note=a.note)
     return {"ok": True, "waiting": waiting}
 
 
@@ -559,7 +564,7 @@ def deliver(ctx: ToolContext, a: Deliver, _: str) -> dict:
         raise Refused("consegna rifiutata: gli output sono identici alla versione rimandata indietro")
     kept = ctx.keep(present, Origin.DELIVERY)
     ctx.ledger.apply(ctx.ticket_id, Action.DELIVER, ctx.actor, a.note, a.verdict, kept)
-    ctx.finished = ("delivered", a.note)
+    ctx.finished = Outcome(state=OutcomeState.DELIVERED, note=a.note)
     return {"ok": True, "status": "delivered"}
 
 
@@ -617,7 +622,7 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
             )
         )
         opened.append(ticket)
-    ctx.finished = ("handed_off", f"esplorazione con {len(opened)} leve")
+    ctx.finished = Outcome(state=OutcomeState.HANDED_OFF, note=f"esplorazione con {len(opened)} leve")
     return {"ok": True, "tickets": opened}
 
 
@@ -632,13 +637,13 @@ def submit_concept(ctx: ToolContext, a: ConceptCard, _: str) -> dict:
     sketch = inside(ctx.work, next(path for path in spec.outputs if path.startswith("schizzo-")))
     digest = sha256(sketch)
     warning = board.mark_problem(sketch)
-    if warning and ctx.extra.get("warned_sketch") != digest:  # l'avviso vale una volta per versione
-        ctx.extra["warned_sketch"] = digest
+    if warning and ctx.warned_sketch != digest:
+        ctx.warned_sketch = digest
         raise Refused(warning)
     kept = ctx.keep(present, Origin.DELIVERY)
     ctx.ledger.update_concept(ctx.ticket_id, card_json=a.model_dump_json(), status="schizzo")
     ctx.ledger.apply(ctx.ticket_id, Action.DELIVER, ctx.actor, a.concept, delivered=kept)
-    ctx.finished = ("delivered", a.concept)
+    ctx.finished = Outcome(state=OutcomeState.DELIVERED, note=a.concept)
     return {"ok": True}
 
 
@@ -678,9 +683,9 @@ def select_concepts(ctx: ToolContext, a: SelectConcepts, _: str) -> dict:
             )
     for anon in a.chosen:
         ctx.ledger.update_concept(available[anon].idea_ticket, status="selezionata")
-    result = a.model_dump()
-    ctx.finished = ("selected" if a.chosen else "no_concept", json.dumps(result, ensure_ascii=False))
-    return result
+    state = OutcomeState.SELECTED if a.chosen else OutcomeState.NO_CONCEPT
+    ctx.finished = Outcome(state=state, note=a.model_dump_json())
+    return a.model_dump()
 
 
 def draft_presentation(ctx: ToolContext, a: PresentConcepts, _: str) -> dict:
@@ -691,9 +696,8 @@ def draft_presentation(ctx: ToolContext, a: PresentConcepts, _: str) -> dict:
     if unknown:
         raise Refused(f"proposte inesistenti: {unknown}. Disponibili: {sorted(available)}")
     if not letters:
-        result = a.model_dump()
-        ctx.finished = ("no_concept", json.dumps(result, ensure_ascii=False))
-        return result
+        ctx.finished = Outcome(state=OutcomeState.NO_CONCEPT, note=a.model_dump_json())
+        return a.model_dump()
     if a.recommended not in letters:
         raise Refused("lo studio raccomanda una delle proposte che presenta")
     items = [
@@ -729,7 +733,7 @@ def present_concepts(ctx: ToolContext, _a: ConfirmPresentation, __: str) -> dict
         raise Refused(f"guarda queste pagine, così come sono ora, prima di mandarle al cliente: {missing}")
     text = draft.read_text(encoding="utf-8")
     ctx.keep([presentation.pdf_of(ctx.round)], Origin.PRESENTATION)
-    ctx.finished = ("presented", text)
+    ctx.finished = Outcome(state=OutcomeState.PRESENTED, note=text)
     return json.loads(text)
 
 
@@ -744,15 +748,25 @@ def reject_concept(ctx: ToolContext, a: RejectConcept, _: str) -> dict:
             Status.BLOCKED,
         ):
             ctx.ledger.apply(ticket, Action.CANCEL, ctx.actor, "concetto bocciato")
-    ctx.finished = ("concept_rejected", a.reason)
+    ctx.finished = Outcome(state=OutcomeState.CONCEPT_REJECTED, note=a.reason)
     return {"ok": True}
 
 
 def block(ctx: ToolContext, a: Block, _: str) -> dict:
     ctx.ledger.apply(ctx.ticket_id, Action.BLOCK, ctx.actor, a.reason)
-    ctx.finished = ("blocked", a.reason)
+    ctx.finished = Outcome(state=OutcomeState.BLOCKED, note=a.reason)
     return {"ok": True, "status": "blocked"}
 
+
+# Gli strumenti che chiudono sempre, e sempre con lo stesso esito.
+CLOSE_ALWAYS: dict[str, OutcomeState] = {
+    "deliver": OutcomeState.DELIVERED,
+    "block": OutcomeState.BLOCKED,
+    "hand_off": OutcomeState.HANDED_OFF,
+    "plan_exploration": OutcomeState.HANDED_OFF,
+    "submit_concept": OutcomeState.DELIVERED,
+    "reject_concept": OutcomeState.CONCEPT_REJECTED,
+}
 
 TOOLS: dict[str, Tool] = {
     tool.name: tool
@@ -932,24 +946,19 @@ class Toolbox:
         return self._result(tool_use_id, text, False)
 
     def _restore(self, name: str, stored: str) -> None:
-        states = {
-            "deliver": "delivered",
-            "block": "blocked",
-            "hand_off": "handed_off",
-            "plan_exploration": "handed_off",
-            "submit_concept": "delivered",
-            "reject_concept": "concept_rejected",
-        }
-        if name in states:
-            self.context.finished = (states[name], "ripreso dopo un'interruzione")
-        if name == "select_concepts":
-            state = "selected" if json.loads(stored)["chosen"] else "no_concept"
-            self.context.finished = (state, stored)
-        if name == "draft_presentation" and "pagine" not in json.loads(stored):
-            self.context.finished = ("no_concept", stored)
-        if name == "present_concepts":
-            state = "presented" if json.loads(stored)["proposals"] else "no_concept"
-            self.context.finished = (state, stored)
+        """Alla ripresa, uno strumento di chiusura già eseguito chiude di nuovo con lo stesso esito."""
+        if name in CLOSE_ALWAYS:
+            self.context.finished = Outcome(state=CLOSE_ALWAYS[name], note="ripreso dopo un'interruzione")
+        elif name == "select_concepts":
+            chosen = SelectConcepts.model_validate_json(stored).chosen
+            state = OutcomeState.SELECTED if chosen else OutcomeState.NO_CONCEPT
+            self.context.finished = Outcome(state=state, note=stored)
+        elif name == "draft_presentation" and "pagine" not in json.loads(stored):  # nessuna proposta regge
+            self.context.finished = Outcome(state=OutcomeState.NO_CONCEPT, note=stored)
+        elif name == "present_concepts":
+            proposals = PresentConcepts.model_validate_json(stored).proposals
+            state = OutcomeState.PRESENTED if proposals else OutcomeState.NO_CONCEPT
+            self.context.finished = Outcome(state=state, note=stored)
 
     @staticmethod
     def _result(tool_use_id: str, text: str, is_error: bool) -> dict:

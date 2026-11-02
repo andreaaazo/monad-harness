@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from agency.contracts.outcome import Outcome
+
 
 class Transcript:
     def __init__(self, path: Path) -> None:
@@ -35,8 +37,9 @@ class Transcript:
     def messages(self) -> list[dict]:
         return [entry["message"] for entry in self.entries() if "message" in entry]
 
-    def outcome(self) -> dict | None:
-        return next((entry["outcome"] for entry in self.entries() if "outcome" in entry), None)
+    def outcome(self) -> Outcome | None:
+        recorded = next((entry["outcome"] for entry in self.entries() if "outcome" in entry), None)
+        return None if recorded is None else Outcome.model_validate(recorded)
 
     def _write(self, entry: dict) -> None:
         with self.path.open("a", encoding="utf-8") as handle:
@@ -46,5 +49,5 @@ class Transcript:
     def append(self, message: dict) -> None:
         self._write({"message": message})
 
-    def finish(self, outcome: dict) -> None:
-        self._write({"outcome": outcome})
+    def finish(self, outcome: Outcome) -> None:
+        self._write({"outcome": outcome.model_dump(mode="json")})

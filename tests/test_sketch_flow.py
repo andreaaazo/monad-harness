@@ -15,12 +15,13 @@ from PIL import Image, ImageDraw
 from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.concept import ConceptCard
+from agency.contracts.gate import ConceptGate
 from agency.contracts.run import Fingerprint, changes
 from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType
 from agency.gateway import BudgetExceeded
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
-from agency.runtime import open_session
+from agency.runtime import Session, open_session
 from agency.tools import board, presentation
 from agency.tools.craft import CommandIndex
 from agency.tools.files import sha256
@@ -295,22 +296,33 @@ def context(tmp_path: Path, role: str = "critic", ticket: str = "T-1", round_: i
     )
 
 
+def concept_gate(session: Session, project: str) -> ConceptGate:
+    (gate,) = session.pending(project)
+    assert isinstance(gate, ConceptGate)
+    return gate
+
+
+def options(session: Session, project: str) -> list[str]:
+    return concept_gate(session, project).options
+
+
 def test_client_only_sees_developed_proposals_then_production_starts(tmp_path: Path) -> None:
     config = settings(tmp_path)
     transport = Router(full_script())
     session = open_session(config, transport)
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
     gate = session.pending("officina")[0]
-    assert (gate["gate"], gate["options"], gate["recommended"]) == ("concept", ["X", "Y"], "X")
-    assert gate["files"] == ["presentation/r1/presentazione.pdf"]
+    assert isinstance(gate, ConceptGate)
+    assert (gate.gate, gate.options, gate.recommended) == ("concept", ["X", "Y"], "X")
+    assert gate.files == ["presentation/r1/presentazione.pdf"]
     work = config.project_dir("officina") / "work"
-    assert (work / gate["files"][0]).read_bytes()[:4] == b"%PDF"
+    assert (work / gate.files[0]).read_bytes()[:4] == b"%PDF"
     concepts = session.ledger.concepts("officina", 1)
     assert {row.anon: row.status for row in concepts} == {"X": "proposta", "Y": "proposta", "Z": "schizzo"}
     titles = [session.ledger.spec(row.id).title for row in session.ledger.tickets("officina")]
     assert "Proposta X r1" in titles and not any(title.startswith("Rifinitura") for title in titles)
     session.decide("officina", True, "Mi piace la X", "X")
-    assert session.pending("officina")[0]["gate"] == "final"
+    assert session.pending("officina")[0].gate == "final"
     assert session.ledger.gates("officina")[0].choice == "X"
     spec = session.ledger.spec("T-0008")
     chosen = next(row for row in concepts if row.anon == "X")
@@ -390,7 +402,7 @@ def test_studio_can_drop_a_proposal_before_the_client(tmp_path: Path) -> None:
     script["T-0001:present"] = present_turn("Y")
     session = open_session(settings(tmp_path), Router(script))
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
-    assert session.pending("officina")[0]["options"] == ["Y"]
+    assert options(session, "officina") == ["Y"]
 
 
 def test_failed_proposal_does_not_stop_the_other(tmp_path: Path) -> None:
@@ -399,7 +411,7 @@ def test_failed_proposal_does_not_stop_the_other(tmp_path: Path) -> None:
     script["T-0001:present"] = present_turn("Y")
     session = open_session(settings(tmp_path), Router(script))
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
-    assert session.pending("officina")[0]["options"] == ["Y"]
+    assert options(session, "officina") == ["Y"]
 
 
 def test_weak_proposals_go_back_to_exploration(tmp_path: Path) -> None:
@@ -592,7 +604,7 @@ def test_budget_end_pauses_the_project_and_an_increase_resumes_it(tmp_path: Path
     session.ledger.set_budget("officina", 50)
     again = open_session(config, session_transport := Router(to_the_gate()))
     again.resume("officina")
-    assert again.pending("officina")[0]["gate"] == "concept"
+    assert again.pending("officina")[0].gate == "concept"
     assert "T-0001:plan" not in session_transport.requests  # il piano già fatto non si ripaga
 
 
@@ -636,7 +648,7 @@ def test_everything_delivered_or_shown_to_the_client_is_kept(tmp_path: Path) -> 
     config = settings(tmp_path)
     session = open_session(config, Router(full_script()))
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
-    (pdf,) = session.pending("officina")[0]["files"]
+    (pdf,) = session.pending("officina")[0].files
     session.decide("officina", True, "Mi piace la X", "X")
     session.decide("officina", True, "Approvato")
 
@@ -652,6 +664,30 @@ def test_everything_delivered_or_shown_to_the_client_is_kept(tmp_path: Path) -> 
     assert json.loads(ledger.gates("officina")[0].files_json) == {pdf: shown.sha256}
     assert {row.run for row in rows} <= {run.seq for run in ledger.runs("officina")}
     assert all(row.run is not None for row in rows)
+
+
+def test_a_blocked_plan_ends_the_project_and_says_why(tmp_path: Path) -> None:
+    script = {"T-0001:plan": [turn(use("block", reason="manca il nome del cliente"))]}
+    session = open_session(settings(tmp_path), Router(script))
+    outcome = session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    assert outcome == "bloccato: manca il nome del cliente"
+    assert [row.id for row in session.ledger.tickets("officina")] == ["T-0001"]
+    assert session.pending("officina") == []
+
+
+def test_client_refusing_the_final_work_sends_it_back_with_their_words(tmp_path: Path) -> None:
+    script = full_script()
+    script["T-0001"].append(turn(use("block", reason="aspetto il nuovo segno")))
+    session = open_session(settings(tmp_path), Router(script))
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.decide("officina", True, "Mi piace la X", "X")
+    assert session.pending("officina")[0].gate == "final"
+
+    outcome = session.decide("officina", False, "Il tratto è troppo sottile")
+
+    rework = [event for event in session.ledger.history("T-0001") if event.action == "rework"]
+    assert [event.note for event in rework] == ["Il tratto è troppo sottile"]
+    assert outcome == "bloccato: aspetto il nuovo segno"
 
 
 def test_resume_with_other_settings_shows_what_changed(tmp_path: Path) -> None:
@@ -864,7 +900,7 @@ def test_interrupted_exploration_resumes_without_repeating_work(tmp_path: Path) 
     again = Router(script)
     second = open_session(config, again)
     second.resume("officina")
-    assert second.pending("officina")[0]["gate"] == "concept"
+    assert second.pending("officina")[0].gate == "concept"
     assert not set(done) & set(again.requests)
     assert len(second.ledger.tickets("officina")) == 7
 
@@ -1004,7 +1040,7 @@ def test_presentation_cannot_reach_the_client_unseen(tmp_path: Path) -> None:
     assert len(refused) == 2
     assert "pagina-1.png" in refused[0]
     assert "pagina-7.png" in refused[1] and "pagina-1.png" not in refused[1]
-    assert session.pending("officina")[0]["recommended"] == "Y"
+    assert concept_gate(session, "officina").recommended == "Y"
 
 
 def test_empty_draft_goes_back_to_exploration_and_survives_a_resume(tmp_path: Path) -> None:

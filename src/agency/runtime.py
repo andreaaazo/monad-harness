@@ -6,17 +6,20 @@ import shutil
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
 from agency.agents.loop import AgentRunner
 from agency.artifacts import FileStore
 from agency.config import Settings
+from agency.contracts.gate import GATE, Decision, Gate
 from agency.contracts.run import RunCommand
 from agency.contracts.ticket import TicketSpec, TicketType
 from agency.gateway import AnthropicTransport, ModelGateway, Transport
-from agency.graph.workflow import build
+from agency.graph.workflow import Graph, ProjectState, build
 from agency.ledger import Ledger
 from agency.ledger.store import BUSY_SECONDS
 from agency.qa import delivery
@@ -28,14 +31,22 @@ from agency.tools.files import sha256
 GRAPH_STEPS = 100_000
 
 
+def _outcome(result: dict[str, Any] | None) -> str:
+    """L'esito del progetto dallo stato finale del grafo: vuoto se il lavoro aspetta il cliente.
+
+    LangGraph restituisce lo stato come dict, o niente se non c'era nulla da eseguire: è il confine.
+    """
+    return str((result or {}).get("outcome", ""))
+
+
 @dataclass
 class Session:
     settings: Settings
     ledger: Ledger
-    graph: object
+    graph: Graph
     gateway: ModelGateway
 
-    def _config(self, project: str) -> dict:
+    def _config(self, project: str) -> RunnableConfig:
         return {
             "configurable": {"thread_id": project},
             "recursion_limit": GRAPH_STEPS,
@@ -59,7 +70,7 @@ class Session:
         budget: float | None = None,
         model: str = "",
         effort: str = "",
-    ) -> dict:
+    ) -> str:
         work = self.settings.project_dir(project) / "work"
         work.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(brief, work / "brief.md")
@@ -77,32 +88,32 @@ class Session:
         )
         delivery.validate(spec)
         root = self.ledger.open(spec, project, {"brief.md": sha256(work / "brief.md")})
-        state = {
-            "project": project,
-            "root": root,
-            "round": 0,
-            "client_note": "",
-            "outcome": "",
-            "explore": explore,
-            "exploration": 0,
-            "chosen": "",
-            "route": "",
-        }
+        state = ProjectState(
+            project=project,
+            root=root,
+            round=0,
+            client_note="",
+            outcome="",
+            explore=explore,
+            exploration=0,
+            chosen="",
+            route="",
+        )
         self._record(project, RunCommand.RUN)
-        return self.graph.invoke(state, self._config(project))  # type: ignore[attr-defined]
+        return _outcome(self.graph.invoke(state, self._config(project)))
 
-    def resume(self, project: str) -> dict:
+    def resume(self, project: str) -> str:
         self._record(project, RunCommand.RESUME)
-        return self.graph.invoke(None, self._config(project))  # type: ignore[attr-defined]
+        return _outcome(self.graph.invoke(None, self._config(project)))
 
-    def decide(self, project: str, approved: bool, text: str, choice: str = "") -> dict:
-        command = Command(resume={"approved": approved, "text": text, "choice": choice})
+    def decide(self, project: str, approved: bool, text: str, choice: str = "") -> str:
+        decision = Decision(approved=approved, text=text, choice=choice)
         self._record(project, RunCommand.DECIDE)
-        return self.graph.invoke(command, self._config(project))  # type: ignore[attr-defined]
+        return _outcome(self.graph.invoke(Command(resume=decision.model_dump()), self._config(project)))
 
-    def pending(self, project: str) -> list[dict]:
-        state = self.graph.get_state(self._config(project))  # type: ignore[attr-defined]
-        return [item.value for task in state.tasks for item in task.interrupts]
+    def pending(self, project: str) -> list[Gate]:
+        state = self.graph.get_state(self._config(project))
+        return [GATE.validate_python(item.value) for task in state.tasks for item in task.interrupts]
 
 
 def open_session(settings: Settings, transport: Transport | None = None) -> Session:

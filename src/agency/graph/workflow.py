@@ -16,11 +16,14 @@ from typing import Any, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Send, interrupt
 
 from agency.agents.loop import AgentRunner
 from agency.config import Settings
 from agency.contracts.concept import ConceptCard
+from agency.contracts.gate import ConceptGate, Decision, FinalGate
+from agency.contracts.outcome import OutcomeState
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.ledger.models import GateRow
@@ -29,6 +32,7 @@ from agency.qa import delivery
 from agency.tools import board, presentation
 from agency.tools.files import sha256
 from agency.tools.sandbox import Sandbox
+from agency.tools.surface import PresentConcepts, SelectConcepts
 
 RUNNABLE = (Status.OPEN, Status.REWORK)
 SKETCH_CHECKS = {"*.vectorcraft": ["master_open"], "*.png": ["visual_review"]}
@@ -54,7 +58,12 @@ def _rework_note(ledger: Ledger, ticket: str) -> str:
     return next((e.note for e in reversed(ledger.history(ticket)) if e.action == "rework"), "")
 
 
-def build(runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer: BaseCheckpointSaver):
+type Graph = CompiledStateGraph[ProjectState, None, ProjectState, ProjectState]
+
+
+def build(
+    runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer: BaseCheckpointSaver
+) -> Graph:
     def work_dir(project: str):
         return settings.project_dir(project) / "work"
 
@@ -64,7 +73,7 @@ def build(runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer:
         turn = state["exploration"] + 1
         note = f"Esploratori disponibili: {settings.explorers}. {state['client_note']}"
         outcome = runner.run(state["root"], turn, note.strip(), mode="plan")
-        if outcome.state == "blocked":
+        if outcome.state is OutcomeState.BLOCKED:
             return {"exploration": turn, "outcome": f"bloccato: {outcome.note}"}
         return {"exploration": turn, "client_note": ""}
 
@@ -161,10 +170,10 @@ def build(runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer:
             spec = ledger.spec(ticket)
             if spec.prompt == "critic-board" and ledger.status(ticket)[0] is Status.DELIVERED:
                 ledger.apply(ticket, Action.ACCEPT, spec.sender, "referto letto")
-        if outcome.state == "selected":
+        if outcome.state is OutcomeState.SELECTED:
             return {"route": "prepare_proposals", "client_note": ""}
-        if outcome.state == "no_concept":
-            reasons = json.loads(outcome.note).get("reasons", "")
+        if outcome.state is OutcomeState.NO_CONCEPT:
+            reasons = SelectConcepts.model_validate_json(outcome.note).reasons
             return {"route": "plan", "client_note": f"Le idee precedenti non reggono: {reasons}"}
         return {"route": END, "outcome": f"bloccato: {outcome.note[:300]}"}
 
@@ -264,31 +273,35 @@ def build(runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer:
         if not ready:
             return {"route": END, "outcome": "bloccato: nessuna proposta è stata sviluppata"}
         outcome = runner.run(root, turn, "\n".join(lines), mode="present")
-        if outcome.state == "presented":  # il PDF esiste già: il direttore ne ha guardato ogni pagina
+        if (
+            outcome.state is OutcomeState.PRESENTED
+        ):  # il PDF esiste già: il direttore ne ha guardato ogni pagina
             return {"route": "concept_gate", "client_note": outcome.note}
-        if outcome.state == "no_concept":
-            reasons = json.loads(outcome.note).get("reasons", "")
+        if outcome.state is OutcomeState.NO_CONCEPT:
+            reasons = PresentConcepts.model_validate_json(outcome.note).reasons
             return {"route": "plan", "client_note": f"Le proposte non reggono: {reasons}"}
         return {"route": END, "outcome": f"bloccato: {outcome.note[:300]}"}
 
     def concept_gate(state: ProjectState) -> dict:
         project, turn = state["project"], state["exploration"]
-        selection = json.loads(state["client_note"])
-        options = [item["letter"] for item in selection["proposals"]]
+        selection = PresentConcepts.model_validate_json(state["client_note"])
+        if (
+            selection.recommended is None
+        ):  # draft_presentation non manda al cliente proposte senza raccomandazione
+            raise ValueError("presentazione senza raccomandazione: non si arriva al gate")
+        options = [item.letter for item in selection.proposals]
         file = presentation.pdf_of(turn)
-        decision = interrupt(
-            {
-                "gate": "concept",
-                "ticket": state["root"],
-                "files": [file],
-                "options": options,
-                "recommended": selection["recommended"],
-                "reasons": selection["reasons"],
-            }
+        gate = ConceptGate(
+            ticket=state["root"],
+            files=[file],
+            options=options,
+            recommended=selection.recommended,
+            reasons=selection.reasons,
         )
+        decision = Decision.model_validate(interrupt(gate.model_dump(mode="json")))
         digest = {file: sha256(work_dir(project) / file)}
-        choice = decision.get("choice") or ""
-        approved = bool(decision.get("approved")) and choice in options
+        choice = decision.choice
+        approved = decision.approved and choice in options
         recorded = {gate.files_json for gate in ledger.gates(project) if gate.gate == "concept"}
         if json.dumps(digest) not in recorded:
             ledger.add_gate(
@@ -298,13 +311,13 @@ def build(runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer:
                     gate="concept",
                     approved=approved,
                     choice=choice,
-                    text=decision.get("text", ""),
+                    text=decision.text,
                     files_json=json.dumps(digest),
                 )
             )
         if approved:
-            return {"route": "start_production", "chosen": choice, "client_note": decision.get("text", "")}
-        return {"route": "plan", "client_note": f"Il cliente chiede: {decision.get('text', '')}"}
+            return {"route": "start_production", "chosen": choice, "client_note": decision.text}
+        return {"route": "plan", "client_note": f"Il cliente chiede: {decision.text}"}
 
     def follow_route(state: ProjectState) -> str:
         return state["route"]
@@ -354,9 +367,9 @@ def build(runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer:
         if status in RUNNABLE:
             # Ogni turno del direttore è una nuova istanza: nessuno resta fermo ad aspettare.
             outcome = runner.run(root, turn, state["client_note"])
-            if outcome.state == "blocked":
+            if outcome.state is OutcomeState.BLOCKED:
                 return {"round": turn, "outcome": f"bloccato: {outcome.note}"}
-            if outcome.state == "concept_rejected":
+            if outcome.state is OutcomeState.CONCEPT_REJECTED:
                 return {
                     "round": turn,
                     "route": "rejected",
@@ -373,12 +386,13 @@ def build(runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer:
 
     def client_gate(state: ProjectState) -> dict:
         root = state["root"]
-        decision = interrupt({"gate": "final", "ticket": root, "files": sorted(ledger.delivered(root))})
+        gate = FinalGate(ticket=root, files=sorted(ledger.delivered(root)))
+        decision = Decision.model_validate(interrupt(gate.model_dump(mode="json")))
         if ledger.status(root)[0] is Status.ACCEPTED:
             return {"outcome": "approvato"}
-        if not decision.get("approved"):
-            ledger.apply(root, Action.REWORK, "router", decision.get("text") or "il cliente chiede modifiche")
-            return {"client_note": decision.get("text", ""), "outcome": ""}
+        if not decision.approved:
+            ledger.apply(root, Action.REWORK, "router", decision.text or "il cliente chiede modifiche")
+            return {"client_note": decision.text, "outcome": ""}
         project = state["project"]
         sandbox = Sandbox(work_dir(project), settings.toolchain_dir)
         problems = delivery.acceptance_problems(ledger, project, sandbox, root)
@@ -386,7 +400,7 @@ def build(runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer:
             text = "Accettazione rifiutata dal sistema:\n" + "\n".join(problems[:12])
             ledger.apply(root, Action.REWORK, "router", text)
             return {"client_note": text, "outcome": ""}
-        ledger.apply(root, Action.ACCEPT, "router", decision.get("text", ""))
+        ledger.apply(root, Action.ACCEPT, "router", decision.text)
         return {"outcome": "approvato"}
 
     def begin(state: ProjectState) -> str:

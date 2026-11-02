@@ -17,6 +17,7 @@ from agency.agents.loop import AgentRunner
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.config import Settings
+from agency.contracts.gate import ConceptGate, Gate
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.gateway import ModelGateway, ScriptedTransport
 from agency.ledger import Ledger
@@ -393,22 +394,22 @@ def test_a_crashed_measure_is_not_evidence(tmp_path: Path) -> None:
 
 
 class FakeSession:
-    def __init__(self, gates: list[dict], ledger: Ledger | None = None) -> None:
+    def __init__(self, gates: list[Gate], ledger: Ledger | None = None) -> None:
         self.gates = gates
         self.calls: list[tuple] = []
         self.ledger = ledger or Ledger(Path("/dev/null"))
         self.settings = Settings(_env_file=None)  # type: ignore[call-arg]
 
-    def pending(self, _: str) -> list[dict]:
+    def pending(self, _: str) -> list[Gate]:
         return self.gates
 
-    def decide(self, *arguments: object) -> dict:
+    def decide(self, *arguments: object) -> str:
         self.calls.append(arguments)
         self.gates = []
-        return {}
+        return ""
 
 
-CONCEPT = {"gate": "concept", "files": [], "options": ["V", "X"], "recommended": "V", "reasons": ""}
+CONCEPT = ConceptGate(ticket="T-0001", files=[], options=["V", "X"], recommended="V", reasons="")
 
 
 def decide(session: FakeSession, monkeypatch: pytest.MonkeyPatch, *arguments: str) -> int:
@@ -475,7 +476,7 @@ def test_blocked_outcome_is_shown(
 ) -> None:
     session = FakeSession([], Ledger(tmp_path / "l.sqlite"))
     monkeypatch.setattr(cli, "_show", lambda *_: 0)
-    cli._guarded("officina", session, lambda: {"outcome": "bloccato: manca il brief"})  # type: ignore[attr-defined]
+    cli._guarded("officina", session, lambda: "bloccato: manca il brief")  # type: ignore[attr-defined]
     assert "manca il brief" in capsys.readouterr().out
 
 

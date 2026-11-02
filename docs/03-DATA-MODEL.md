@@ -73,6 +73,16 @@ Contratto in `agency.contracts.ticket`. Regole principali:
 - Ogni output ha un controllo o un'esenzione motivata. Le cartelle non sono output.
 - L'attore arriva dall'harness: non è un campo compilato dall'agente.
 
+## Gate ed esiti
+
+Contratti in `agency.contracts.gate` e `agency.contracts.outcome` (ADR-0021: niente `dict` come contratto).
+
+- Un gate è `ConceptGate` (PDF, proposte, raccomandazione) oppure `FinalGate` (consegne del ticket principale). `Decision` è la
+  risposta del cliente. Nel checkpoint di LangGraph restano dict semplici, con il campo `gate` di sempre: il tipo vive nel codice,
+  e il formato salvato non dipende dal serializzatore.
+- L'esito di un'istanza è `Outcome`: uno dei sette `OutcomeState` e una nota. Per selezione e presentazione la nota è il JSON degli
+  argomenti dello strumento, che il grafo rilegge con lo stesso modello. Nelle trascrizioni resta `{"state", "note"}`.
+
 ## Master e derivazioni
 
 | Mezzo | Master | Apertura verificata con |

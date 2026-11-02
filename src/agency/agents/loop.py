@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-from dataclasses import dataclass
 
 from opentelemetry import trace
 
@@ -11,6 +10,7 @@ from agency.agents import prompts
 from agency.agents.transcript import Transcript
 from agency.config import Settings
 from agency.contracts.artifact import ArtifactStore
+from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import Action, Status, TicketSpec
 from agency.gateway import CallContext, ModelGateway, ModelRequest, ModelResponse
 from agency.ledger import IllegalTransition, Ledger
@@ -32,15 +32,6 @@ CLOSING = (
     "present_concepts",
     "block",
 )
-
-
-@dataclass(frozen=True)
-class Outcome:
-    state: str
-    note: str = ""
-
-    def to_dict(self) -> dict:
-        return {"state": self.state, "note": self.note}
 
 
 class AgentRunner:
@@ -74,8 +65,8 @@ class AgentRunner:
         instance = f"{self.instance_id(ticket_id, attempt)}{'-' + mode if mode else ''}"
         transcript = Transcript(self.settings.data_dir / "runs" / project / f"{instance}.jsonl")
         finished = transcript.outcome()
-        if finished:  # la ripresa non rifà un lavoro già concluso
-            return Outcome(finished["state"], finished.get("note", ""))
+        if finished is not None:  # la ripresa non rifà un lavoro già concluso
+            return finished
         work = self.settings.project_dir(project) / "work" / spec.workspace
         work.mkdir(parents=True, exist_ok=True)
         prompt = MODE_PROMPTS.get(mode) or spec.prompt or role
@@ -102,8 +93,8 @@ class AgentRunner:
                 {"agency.ticket": ticket_id, "agency.role": role, "agency.instance": instance}
             )
             outcome = self._loop(spec, prompt, context, toolbox, transcript, rework_note)
-            span.set_attribute("agency.outcome", outcome.state)
-        transcript.finish(outcome.to_dict())
+            span.set_attribute("agency.outcome", outcome.state.value)
+        transcript.finish(outcome)
         return outcome
 
     def _loop(
@@ -135,8 +126,8 @@ class AgentRunner:
                 content = messages[-1]["content"]
                 if any(block.get("type") == "tool_use" for block in content):
                     self._run_tools(content, toolbox, transcript, messages)
-                    if toolbox.context.finished:
-                        return Outcome(*toolbox.context.finished)
+                    if toolbox.context.finished is not None:
+                        return toolbox.context.finished
                 elif not content or content[-1].get("type") != "server_tool_use":
                     nudge = {"role": "user", "content": self._reminder(toolbox)}
                     transcript.append(nudge)
@@ -166,8 +157,8 @@ class AgentRunner:
             messages.append(assistant)
             if response.stop_reason == "tool_use":
                 self._run_tools(response.content, toolbox, transcript, messages)
-                if toolbox.context.finished:
-                    return Outcome(*toolbox.context.finished)
+                if toolbox.context.finished is not None:
+                    return toolbox.context.finished
                 reminded = False  # ha ripreso a lavorare: il promemoria vale per la prossima pausa
                 continue
             if response.stop_reason == "pause_turn":  # il server riprende da solo: nessun messaggio in più
@@ -187,7 +178,7 @@ class AgentRunner:
         for block in content:
             if block.get("type") == "tool_use":
                 results.append(toolbox.call(block["id"], block["name"], block.get("input") or {}))
-                if toolbox.context.finished:
+                if toolbox.context.finished is not None:
                     break  # dopo la chiusura il lavoro non cambia più: ciò che segue non si esegue
         reply = {"role": "user", "content": results}
         transcript.append(reply)
@@ -204,4 +195,4 @@ class AgentRunner:
         if status in (Status.OPEN, Status.REWORK):
             with contextlib.suppress(IllegalTransition):
                 self.ledger.apply(context.ticket_id, Action.BLOCK, role, reason)
-        return Outcome("blocked", reason)
+        return Outcome(state=OutcomeState.BLOCKED, note=reason)

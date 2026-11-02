@@ -14,6 +14,7 @@ from agency.agents.loop import AgentRunner
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.config import Settings
+from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType, Verdict
 from agency.gateway import BudgetExceeded, ModelGateway, ScriptedTransport
 from agency.ledger import Ledger
@@ -297,7 +298,8 @@ def test_finished_instance_is_not_run_again(tmp_path: Path) -> None:
     config = settings(tmp_path)
     run, transport, ledger = runner(config, [])
     ticket = ledger.open(production_spec(), "p")
-    Transcript(config.data_dir / "runs/p" / f"{ticket}-a1.jsonl").finish({"state": "delivered", "note": "x"})
+    done = Outcome(state=OutcomeState.DELIVERED, note="x")
+    Transcript(config.data_dir / "runs/p" / f"{ticket}-a1.jsonl").finish(done)
     assert run.run(ticket).state == "delivered"
     assert transport.requests == []
 
@@ -526,7 +528,7 @@ def test_full_project_reaches_the_client_gate_and_is_approved(tmp_path: Path) ->
     outputs = [master, svg, "construction.md"]
     checks = {"*.vectorcraft": ["master_open"], "*.svg": ["svg_audit", "critique"]}
     session.start("forno", brief, outputs, checks, explore=False)
-    assert session.pending("forno")[0]["gate"] == "final"
+    assert session.pending("forno")[0].gate == "final"
     assert session.ledger.status("T-0001")[0] is Status.DELIVERED
     assert session.ledger.status("T-0003") == (Status.ACCEPTED, Verdict.READY)
     session.decide("forno", True, "va bene così")

@@ -5,7 +5,7 @@ ADR in `docs/adr/`. Una decisione nuova o rovesciata è un ADR nuovo, non una mo
 
 ## Comandi
 
-- `make check` prima di dichiarare finito un lavoro: lint, confini tra moduli, tipi, test.
+- `make check` prima di dichiarare finito un lavoro: lint, confini tra moduli, tipi, test, schema e tipi TypeScript.
 - `uv run …` per tutto ciò che è Python; dipendenze solo con `uv add` e lock aggiornato.
 - `make doctor` controlla la macchina.
 

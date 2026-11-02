@@ -47,6 +47,7 @@ def build(host: str, port: int) -> WSGIServer:
         raise ValueError(f"{host} non è un indirizzo di loopback: il cruscotto resta su questa macchina")
     scrub(os.environ)
     os.environ["DJANGO_SETTINGS_MODULE"] = SETTINGS  # sempre queste: le difese stanno lì
+    # Import qui dentro: Django legge le impostazioni quando si carica, e la chiave deve essere già tolta.
     from django.core.wsgi import get_wsgi_application
 
     return make_server(host, port, get_wsgi_application(), server_class=_Server, handler_class=_Handler)

@@ -1,0 +1,2 @@
+# Quarantena: nessun pacchetto pubblicato da meno di due settimane, come exclude-newer per Python (06-SECURITY.md).
+minimumReleaseAge: 20160

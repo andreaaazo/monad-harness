@@ -1,0 +1,19 @@
+{
+  "name": "design-agency-dashboard",
+  "private": true,
+  "description": "L'interfaccia del cruscotto (ADR-0024). Per ora i tipi dell'API, generati da schemas/openapi.json.",
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "api:types": "openapi-typescript ../schemas/openapi.json --output src/api/schema.d.ts --immutable --alphabetize --root-types --root-types-no-schema-prefix",
+    "api:check": "pnpm run api:types --check",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

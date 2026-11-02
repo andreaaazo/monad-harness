@@ -1,0 +1,707 @@
+{
+  "components": {
+    "schemas": {
+      "IdeaView": {
+        "additionalProperties": false,
+        "properties": {
+          "anon": {
+            "title": "Anon",
+            "type": "string"
+          },
+          "concept": {
+            "title": "Concept",
+            "type": "string"
+          },
+          "lever": {
+            "title": "Lever",
+            "type": "string"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "round",
+          "anon",
+          "status",
+          "lever",
+          "concept"
+        ],
+        "title": "IdeaView",
+        "type": "object"
+      },
+      "JudgmentView": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "best": {
+            "title": "Best",
+            "type": "boolean"
+          },
+          "compared": {
+            "title": "Compared",
+            "type": "integer"
+          },
+          "comparison": {
+            "title": "Comparison",
+            "type": "string"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "judge": {
+            "title": "Judge",
+            "type": "string"
+          },
+          "letter": {
+            "title": "Letter",
+            "type": "string"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "specific": {
+            "title": "Specific",
+            "type": "boolean"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "judge",
+          "comparison",
+          "file",
+          "sha256",
+          "letter",
+          "level",
+          "specific",
+          "best",
+          "compared",
+          "why"
+        ],
+        "title": "JudgmentView",
+        "type": "object"
+      },
+      "Milestone": {
+        "additionalProperties": false,
+        "description": "Fino al gate `concept` approvato: quanto è costato e quanto è durato arrivarci.",
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "minutes": {
+            "title": "Minutes",
+            "type": "number"
+          }
+        },
+        "required": [
+          "cost_usd",
+          "calls",
+          "minutes"
+        ],
+        "title": "Milestone",
+        "type": "object"
+      },
+      "PhaseView": {
+        "additionalProperties": false,
+        "description": "Come ha lavorato il modello in una fase. Le medie valgono solo sulle chiamate misurate.",
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "mean_duration_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Duration Ms"
+          },
+          "measured": {
+            "title": "Measured",
+            "type": "integer"
+          },
+          "median_ttft_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Ttft Ms"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "reasoning_tokens": {
+            "title": "Reasoning Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "phase",
+          "calls",
+          "cost_usd",
+          "measured",
+          "mean_duration_ms",
+          "median_ttft_ms",
+          "reasoning_tokens"
+        ],
+        "title": "PhaseView",
+        "type": "object"
+      },
+      "Problem": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "Problem",
+        "type": "object"
+      },
+      "ProjectReport": {
+        "additionalProperties": false,
+        "properties": {
+          "budget_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Usd"
+          },
+          "cache_hit": {
+            "title": "Cache Hit",
+            "type": "number"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "effort": {
+            "title": "Effort",
+            "type": "string"
+          },
+          "ideas": {
+            "items": {
+              "$ref": "#/components/schemas/IdeaView"
+            },
+            "title": "Ideas",
+            "type": "array"
+          },
+          "judgments": {
+            "items": {
+              "$ref": "#/components/schemas/JudgmentView"
+            },
+            "title": "Judgments",
+            "type": "array"
+          },
+          "mean_context": {
+            "title": "Mean Context",
+            "type": "number"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "parallel": {
+            "title": "Parallel",
+            "type": "integer"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/PhaseView"
+            },
+            "title": "Phases",
+            "type": "array"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleView"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "ticket_types": {
+            "items": {
+              "$ref": "#/components/schemas/TypeCost"
+            },
+            "title": "Ticket Types",
+            "type": "array"
+          },
+          "tickets": {
+            "items": {
+              "$ref": "#/components/schemas/TicketView"
+            },
+            "title": "Tickets",
+            "type": "array"
+          },
+          "to_presentation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Milestone"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "project",
+          "budget_usd",
+          "model",
+          "effort",
+          "cost_usd",
+          "calls",
+          "cache_hit",
+          "mean_context",
+          "parallel",
+          "roles",
+          "phases",
+          "ticket_types",
+          "to_presentation",
+          "ideas",
+          "judgments",
+          "tickets",
+          "provenance"
+        ],
+        "title": "ProjectReport",
+        "type": "object"
+      },
+      "ProjectSummary": {
+        "additionalProperties": false,
+        "description": "Un progetto nell'elenco: quanto è costato, quante chiamate, quando ha lavorato.",
+        "properties": {
+          "budget_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Usd"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "first_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First At"
+          },
+          "last_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "budget_usd",
+          "cost_usd",
+          "calls",
+          "first_at",
+          "last_at"
+        ],
+        "title": "ProjectSummary",
+        "type": "object"
+      },
+      "Provenance": {
+        "additionalProperties": false,
+        "description": "Da cosa è nata la proiezione: chi la legge sa quando, da quale registro e quanto è completa.",
+        "properties": {
+          "built_at": {
+            "title": "Built At",
+            "type": "string"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "from_registry": {
+            "title": "From Registry",
+            "type": "integer"
+          },
+          "from_traces": {
+            "title": "From Traces",
+            "type": "integer"
+          },
+          "phases_derived": {
+            "title": "Phases Derived",
+            "type": "integer"
+          },
+          "phases_recorded": {
+            "title": "Phases Recorded",
+            "type": "integer"
+          },
+          "registry_revision": {
+            "title": "Registry Revision",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceStamp"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "unmeasured": {
+            "title": "Unmeasured",
+            "type": "integer"
+          },
+          "unreadable_trace_lines": {
+            "title": "Unreadable Trace Lines",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "built_at",
+          "sources",
+          "registry_revision",
+          "calls",
+          "from_registry",
+          "from_traces",
+          "unmeasured",
+          "phases_recorded",
+          "phases_derived",
+          "unreadable_trace_lines"
+        ],
+        "title": "Provenance",
+        "type": "object"
+      },
+      "RoleView": {
+        "additionalProperties": false,
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "mean_context": {
+            "title": "Mean Context",
+            "type": "number"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "calls",
+          "cost_usd",
+          "mean_context",
+          "output_tokens"
+        ],
+        "title": "RoleView",
+        "type": "object"
+      },
+      "SourceStamp": {
+        "additionalProperties": false,
+        "description": "Un file da cui nasce la proiezione, com'era quando è stato letto. Se manca, la dimensione è vuota.",
+        "properties": {
+          "modified_ns": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified Ns"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          }
+        },
+        "required": [
+          "name",
+          "size",
+          "modified_ns"
+        ],
+        "title": "SourceStamp",
+        "type": "object"
+      },
+      "TicketView": {
+        "additionalProperties": false,
+        "properties": {
+          "assignee": {
+            "title": "Assignee",
+            "type": "string"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "verdict",
+          "assignee",
+          "title",
+          "cost_usd"
+        ],
+        "title": "TicketView",
+        "type": "object"
+      },
+      "TypeCost": {
+        "additionalProperties": false,
+        "properties": {
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "ticket_type": {
+            "title": "Ticket Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket_type",
+          "cost_usd"
+        ],
+        "title": "TypeCost",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Il cruscotto in sola lettura: registro e tracce attraverso insights (ADR-0019).",
+    "title": "Design agency: cruscotto",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectSummary"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Projects"
+      }
+    },
+    "/api/projects/{name}/report": {
+      "get": {
+        "operationId": "projectReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Report"
+      }
+    },
+    "/api/provenance": {
+      "get": {
+        "operationId": "provenance",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Provenance"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Provenance"
+      }
+    }
+  },
+  "servers": []
+}

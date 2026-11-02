@@ -82,7 +82,9 @@ Scelte in ADR-0020. Le versioni indicate sono verificate su questa macchina il 2
 | Alembic | Migrazioni del registro | 1.20.0 |
 | `import-linter` | Confini tra moduli, in `make check` | 2.15 |
 | Node | Build ed esecuzione di Next.js, che chiede almeno la 20.9 | 22.22.1 |
-| pnpm | Dipendenze JavaScript, con quarantena | Da installare |
+| pnpm | Dipendenze JavaScript, con quarantena di due settimane. Si avvia con `npx` alla versione di `web/package.json` | 12.14.0 |
+| `openapi-typescript` | Tipi TypeScript da `schemas/openapi.json` (ADR-0032) | 7.13.0 |
+| TypeScript | Tipi dell'interfaccia, `strict` | 5.9.3: `openapi-typescript` non supporta ancora la 6 e la 7 |
 | Next.js, TypeScript | Interfaccia, in `web/` (ADR-0024) | Da aggiungere. Al 2026-11-01 l'ultima fuori quarantena è la 16.4.2: la 16.4.3 è del 23 ottobre |
 | Playwright | Prove di fumo del cruscotto | Da aggiungere |
 | Task | Ingresso unico dei comandi | 3.54.0 |

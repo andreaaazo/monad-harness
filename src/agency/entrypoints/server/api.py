@@ -18,7 +18,12 @@ from agency.insights.domain import Provenance
 from agency.insights.views import ProjectReport, ProjectSummary
 
 # Niente pagina di documentazione: caricherebbe script da una CDN. Lo schema resta in /api/openapi.json.
-api = NinjaAPI(title="Design agency: cruscotto", version="1", docs_url=None)
+api = NinjaAPI(
+    title="Design agency: cruscotto",
+    version="1",
+    description="Il cruscotto in sola lettura: registro e tracce attraverso insights (ADR-0019).",
+    docs_url=None,
+)
 _refresh = threading.Lock()  # una rigenerazione per volta: chi arriva dopo trova la proiezione già fatta
 
 
@@ -41,17 +46,23 @@ def registry_not_readable(request: HttpRequest, exc: application.RegistryNotRead
     return api.create_response(request, Problem(detail=str(exc)), status=503)
 
 
-@api.get("/provenance", response=Provenance)
+# Ogni route dichiara anche il 503: l'interfaccia sa che forma ha la risposta quando il registro non si legge.
+# I nomi delle operazioni sono espliciti, così i tipi TypeScript non dipendono da dove sta il codice Python.
+@api.get("/provenance", response={200: Provenance, 503: Problem}, operation_id="provenance")
 def provenance(request: HttpRequest) -> Provenance:
     return _projection().provenance()
 
 
-@api.get("/projects", response=list[ProjectSummary])
+@api.get("/projects", response={200: list[ProjectSummary], 503: Problem}, operation_id="listProjects")
 def projects(request: HttpRequest) -> list[ProjectSummary]:
     return application.projects(_projection())
 
 
-@api.get("/projects/{name}/report", response={200: ProjectReport, 404: Problem})
+@api.get(
+    "/projects/{name}/report",
+    response={200: ProjectReport, 404: Problem, 503: Problem},
+    operation_id="projectReport",
+)
 def report(request: HttpRequest, name: str) -> Status:
     projection = _projection()
     if name not in {summary.name for summary in application.projects(projection)}:

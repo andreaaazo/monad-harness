@@ -286,7 +286,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
 
 11. [x] **API Django** con Django Ninja: solo `GET`, solo loopback, senza chiave, in un processo separato dal motore,
     `uv run agency-server` ([ADR-0031](adr/0031-il-server-del-cruscotto.md)).
-12. [ ] **Schemi**: `schemas/openapi.json` versionato, tipi TypeScript generati, test contro le divergenze.
+12. [x] **Schemi**: `schemas/openapi.json` versionato, tipi TypeScript generati con `openapi-typescript`, controlli contro le
+    divergenze in `make check` ([ADR-0032](adr/0032-schemi-e-tipi-generati.md)).
 13. [ ] **Cruscotto Next.js** in TypeScript, con le sei viste qui sotto. È solo interfaccia: legge tutto dall'API Django, con le
     difese di ADR-0024.
 14. [ ] **Taskfile**: ingresso unico per Python, frontend e Docker. `make check` resta come alias.
@@ -330,7 +331,7 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
   Dopo `agency migrate`: `uv run agency report merlo --json` e `uv run agency report merlo3 --json`, campo `to_presentation`
 - [ ] `merlo3` si legge nel cruscotto dal brief alla consegna
 - [x] L'API non può scrivere, e il registro resta intatto dopo l'uso del cruscotto: `tests/test_server.py`
-- [ ] OpenAPI e tipi TypeScript non divergono (test)
+- [x] OpenAPI e tipi TypeScript non divergono: `tests/test_schemas.py` per modelli e schema, `make web` per schema e tipi
 - [x] `import-linter` in `make check`: `insights` non importa il motore, e il motore non importa Django. `make imports`
 - [ ] Django e Next.js ascoltano solo su loopback e non vedono né chiave né `.env` (test). Django è verificato da
   `tests/test_server.py`, Next.js arriva con il punto 13
@@ -527,5 +528,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 12 di M1.6, senza spesa: `schemas/openapi.json` versionato, i tipi TypeScript generati da lì e il test che li tiene
-allineati. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+Il punto 13 di M1.6, senza spesa: il cruscotto Next.js in `web/`, con le sei viste e le difese di ADR-0024, che legge tutto
+dall'API Django. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.

@@ -11,3 +11,6 @@ models/
 /.claude/sessions/
 /.claude/state/
 /.claude/settings.local.json
+
+# Interfaccia: le dipendenze si rimettono con make setup, dal lock versionato.
+/web/node_modules/

@@ -27,6 +27,7 @@ telemetry = ["langfuse>=3"]
 [project.scripts]
 agency = "agency.cli:main"
 agency-server = "agency.entrypoints.server.serve:main"
+agency-schemas = "agency.entrypoints.server.schema:main"
 
 [dependency-groups]
 dev = [

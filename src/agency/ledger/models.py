@@ -163,3 +163,22 @@ class RunRow(SQLModel, table=True):
     command: str
     digest: str
     fingerprint_json: str
+
+
+class JudgmentRow(SQLModel, table=True):
+    """Il voto di una persona su una versione precisa di un file, senza saperne l'origine. Solo aggiunte."""
+
+    __tablename__ = "judgments"  # type: ignore[assignment]
+
+    seq: int | None = Field(default=None, primary_key=True)
+    at: str
+    comparison: str = Field(index=True)
+    judge: str
+    letter: str
+    project: str = Field(index=True)
+    file: str
+    sha256: str
+    level: str
+    specific: bool
+    best: bool
+    why: str

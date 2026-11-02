@@ -8,7 +8,7 @@ from datetime import datetime
 
 from agency.contracts.run import Change, Fingerprint, changes
 from agency.ledger import Ledger
-from agency.ledger.models import RunRow
+from agency.ledger.models import JudgmentRow, RunRow
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
 NAMED = 5  # oltre, l'elenco delle differenze si legge con agency compare
@@ -96,6 +96,14 @@ def render(ledger: Ledger, project: str) -> str:
         for row in concepts:
             card = json.loads(row.card_json).get("concept", "")
             lines.append(f"  r{row.round} {row.anon or '-'} [{row.status}] {row.lever[:40]}: {card[:80]}")
+    judged = ledger.judgments(project)
+    if judged:
+        lines += ["", "Giudizi alla cieca:"]
+        for row in judged:
+            size = len(ledger.comparison(row.comparison))
+            lines.append(
+                f"  {row.at[:10]} {row.judge}, confronto {row.comparison}: {_verdict(row, size)}. {row.why}"
+            )
     lines += ["", "Ticket:"]
     for row in ledger.tickets(project):
         spec = ledger.spec(row.id)
@@ -154,4 +162,27 @@ def render_comparison(first: RunRow, second: RunRow) -> str:
     for change in found:
         where = f"{change.part} {change.item}".rstrip()
         lines.append(f"  {where}: {_value(change.before)} → {_value(change.after)}")
+    return "\n".join(lines)
+
+
+def _quality(row: JudgmentRow) -> str:
+    return f"{row.level}, {'specifico' if row.specific else 'generico'}"
+
+
+def _verdict(row: JudgmentRow, size: int) -> str:
+    rank = ""
+    if size > 1:
+        rank = f", il migliore di {size}" if row.best else f", non il migliore di {size}"
+    return f"{row.file} [{row.letter}] {_quality(row)}{rank}"
+
+
+def render_reveal(rows: list[JudgmentRow]) -> str:
+    """Dopo il giudizio, e solo allora: quale file c'era dietro ogni lettera."""
+    first = rows[0]
+    count = _count(len(rows), "giudizio", "giudizi")
+    lines = [f"Registrati {count} di {first.judge}, confronto {first.comparison}:"]
+    for row in rows:
+        best = ", il migliore" if row.best else ""
+        origin = f"{row.file} di {row.project}" if row.project else row.file
+        lines.append(f"  {row.letter} {_quality(row)}{best}: {origin}")
     return "\n".join(lines)

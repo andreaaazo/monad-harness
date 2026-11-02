@@ -265,7 +265,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
    ([ADR-0025](adr/0025-il-registro-si-aggiorna-solo-su-richiesta.md)).
 4. [x] **`runs`**: impronta di ogni `run`, `resume` e `decide`, con `agency runs` e `agency compare`. Oltre a prompt, registry,
    lock, CLI, modello ed effort contiene codice, Python e impostazioni ([ADR-0026](adr/0026-l-impronta-di-un-esecuzione.md)).
-5. [ ] **`judgments`** e `agency judge`: punteggio alla cieca legato allo sha256 del file giudicato.
+5. [x] **`judgments`** e `agency judge`: livello, test di sostituzione, migliore e perché, legati allo sha256 del file giudicato,
+   con lettere estratte a ogni confronto ([ADR-0027](adr/0027-il-giudizio-alla-cieca.md)).
 6. [ ] **`usage` più ricca**: esecuzione, fase, effort, durata, TTFT e ragionamento. Le righe vecchie restano vuote.
 7. [ ] **Artefatti per hash**: tabella e `.data/artifacts/`, descritti da M1 e mai costruiti.
 8. [ ] **Tipi espliciti**: via i `dict` di gate ed esiti, `ToolContext.extra` e `graph: object`.
@@ -515,5 +516,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 5 di M1.6, senza spesa: la tabella `judgments` e `agency judge`, il giudizio alla cieca legato allo sha256 del file
-giudicato. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+Il punto 6 di M1.6, senza spesa: `usage` registra esecuzione, fase, effort, durata, TTFT e ragionamento di ogni nuova chiamata.
+Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.

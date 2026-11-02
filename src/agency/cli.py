@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import getpass
+import random
+import shutil
 import sys
 from pathlib import Path
 
@@ -10,6 +13,7 @@ import anthropic
 
 from agency.config import Settings
 from agency.doctor import run_checks
+from agency.evaluation import blind
 from agency.gateway import BudgetExceeded
 from agency.gateway.pricing import PRICES
 from agency.ledger import Ledger, LedgerOutdated
@@ -165,6 +169,34 @@ def _compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _judge(args: argparse.Namespace) -> int:
+    settings = Settings()
+    ledger = Ledger(settings.ledger_path)
+    try:
+        found = blind.candidates([Path(path) for path in args.files], settings.projects_dir)
+    except blind.CannotCompare as exc:
+        print(f"Confronto non possibile: {exc}")
+        return 1
+    comparison = blind.comparison_id()
+    assigned = blind.assign(found, random.SystemRandom())
+    folder = settings.data_dir / "blind" / comparison
+    try:
+        copies = blind.lay_out(assigned, folder)
+        print(f"Confronto alla cieca di {len(copies)} file, nella cartella {folder.resolve()}:")
+        for copy in copies:
+            print(f"  {copy.name}")
+        print("Aprili e rispondi. Da dove vengono si vede solo dopo il giudizio.")
+        judgment = blind.interview(list(assigned), input, args.judge)
+    except (EOFError, KeyboardInterrupt):
+        print("\nGiudizio interrotto: nulla registrato")
+        return 1
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+    ledger.record_judgment(comparison, judgment, {letter: item.judged for letter, item in assigned.items()})
+    print(report.render_reveal(ledger.comparison(comparison)))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="agency", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -205,6 +237,12 @@ def main(argv: list[str] | None = None) -> int:
     compare.add_argument("first", type=int, help="numero dell'esecuzione, da agency runs")
     compare.add_argument("second", type=int)
     compare.set_defaults(fn=_compare)
+    judge = sub.add_parser("judge", help="giudizio alla cieca: file anonimi, poi il voto, poi l'origine")
+    judge.add_argument("files", nargs="+", help="i file da confrontare, dello stesso tipo")
+    judge.add_argument(
+        "--judge", default=getpass.getuser(), help="chi giudica; di solito l'utente del sistema"
+    )
+    judge.set_defaults(fn=_judge)
     args = parser.parse_args(argv)
     try:
         return args.fn(args)

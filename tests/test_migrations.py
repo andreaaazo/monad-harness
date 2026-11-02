@@ -162,7 +162,9 @@ def test_migrate_adopts_a_registry_older_than_the_migrations(tmp_path: Path) -> 
     assert Ledger(path).verify_chain()
 
 
-def test_migrate_adds_runs_to_a_registry_at_the_baseline_and_keeps_every_row(tmp_path: Path) -> None:
+def test_migrate_adds_the_new_tables_to_a_registry_at_the_baseline_and_keeps_every_row(
+    tmp_path: Path,
+) -> None:
     path = tmp_path / "l.sqlite"
     at_baseline(path)
     tables = [name for (name,) in read(path, "SELECT name FROM sqlite_master WHERE type = 'table'")]
@@ -171,9 +173,12 @@ def test_migrate_adds_runs_to_a_registry_at_the_baseline_and_keeps_every_row(tmp
     assert migrate(path).revision == schema.head()
 
     assert {table: read(path, f"SELECT * FROM {table}") for table in rows} == rows
-    assert read(path, "SELECT count(*) FROM runs") == [(0,)]
-    triggers = read(path, "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'runs'")
-    assert sorted(triggers) == [("runs_no_delete",), ("runs_no_update",)]
+    for table in ("runs", "judgments"):
+        assert read(path, f"SELECT count(*) FROM {table}") == [(0,)]
+        triggers = read(
+            path, f"SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{table}'"
+        )
+        assert sorted(triggers) == [(f"{table}_no_delete",), (f"{table}_no_update",)]
     assert Ledger(path).verify_chain()
 
 

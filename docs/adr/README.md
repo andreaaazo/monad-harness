@@ -31,3 +31,4 @@ vecchio. Date: 2026-10-31.
 | [0024](0024-nextjs-per-l-interfaccia.md) | Next.js per l'interfaccia | Accettata, rovescia la scelta di Vite in 0020 |
 | [0025](0025-il-registro-si-aggiorna-solo-su-richiesta.md) | Il registro si aggiorna solo su richiesta | Accettata |
 | [0026](0026-l-impronta-di-un-esecuzione.md) | L'impronta di un'esecuzione | Accettata, allarga la lista di 0022 |
+| [0027](0027-il-giudizio-alla-cieca.md) | Il giudizio alla cieca | Accettata |

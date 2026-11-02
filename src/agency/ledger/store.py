@@ -15,6 +15,7 @@ from sqlalchemy import event as sa_event
 from sqlalchemy import func
 from sqlmodel import Session, col, create_engine, select
 
+from agency.contracts.judgment import Judged, Judgment
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import (
     REVIEW_TYPES,
@@ -31,6 +32,7 @@ from agency.ledger.models import (
     EventRow,
     EvidenceRow,
     GateRow,
+    JudgmentRow,
     OperationRow,
     ProjectRow,
     RenderRow,
@@ -401,3 +403,43 @@ class Ledger:
     def run(self, seq: int) -> RunRow | None:
         with Session(self.engine) as session:
             return session.get(RunRow, seq)
+
+    # Giudizi alla cieca
+
+    def record_judgment(self, comparison: str, judgment: Judgment, files: dict[str, Judged]) -> None:
+        """Un confronto intero in una sola transazione: un giudizio a metà non resta nel registro."""
+        letters = [rating.letter for rating in judgment.ratings]
+        if sorted(files) != sorted(letters):
+            raise ValueError(f"lettere giudicate {letters}, lettere con un file {sorted(files)}")
+        at = now()
+        with Session(self.engine) as session:
+            for rating in judgment.ratings:
+                judged = files[rating.letter]
+                session.add(
+                    JudgmentRow(
+                        at=at,
+                        comparison=comparison,
+                        judge=judgment.judge,
+                        letter=rating.letter,
+                        project=judged.project,
+                        file=judged.file,
+                        sha256=judged.sha256,
+                        level=rating.level.value,
+                        specific=rating.specific,
+                        best=rating.letter == judgment.best,
+                        why=rating.why,
+                    )
+                )
+            session.commit()
+
+    def judgments(self, project: str) -> list[JudgmentRow]:
+        with Session(self.engine) as session:
+            query = select(JudgmentRow).where(JudgmentRow.project == project).order_by(col(JudgmentRow.seq))
+            return list(session.exec(query).all())
+
+    def comparison(self, comparison: str) -> list[JudgmentRow]:
+        with Session(self.engine) as session:
+            query = (
+                select(JudgmentRow).where(JudgmentRow.comparison == comparison).order_by(col(JudgmentRow.seq))
+            )
+            return list(session.exec(query).all())

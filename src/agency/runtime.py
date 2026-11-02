@@ -12,13 +12,14 @@ from langgraph.types import Command
 
 from agency.agents.loop import AgentRunner
 from agency.config import Settings
+from agency.contracts.run import RunCommand
 from agency.contracts.ticket import TicketSpec, TicketType
 from agency.gateway import AnthropicTransport, ModelGateway, Transport
 from agency.graph.workflow import build
 from agency.ledger import Ledger
 from agency.ledger.store import BUSY_SECONDS
 from agency.qa import delivery
-from agency.telemetry import configure
+from agency.telemetry import configure, fingerprint
 from agency.tools.craft import CommandIndex
 from agency.tools.files import sha256
 
@@ -38,6 +39,12 @@ class Session:
             "recursion_limit": GRAPH_STEPS,
             "max_concurrency": self.settings.max_parallel,
         }
+
+    def _record(self, project: str, command: RunCommand) -> None:
+        """Prima che il grafo lavori: anche un'esecuzione interrotta dal budget ha la sua impronta."""
+        choice = self.ledger.project(project)
+        model, effort = (choice.model, choice.effort) if choice else ("", "")
+        self.ledger.record_run(project, command, fingerprint.take(self.settings, model, effort))
 
     def start(
         self,
@@ -78,13 +85,16 @@ class Session:
             "chosen": "",
             "route": "",
         }
+        self._record(project, RunCommand.RUN)
         return self.graph.invoke(state, self._config(project))  # type: ignore[attr-defined]
 
     def resume(self, project: str) -> dict:
+        self._record(project, RunCommand.RESUME)
         return self.graph.invoke(None, self._config(project))  # type: ignore[attr-defined]
 
     def decide(self, project: str, approved: bool, text: str, choice: str = "") -> dict:
         command = Command(resume={"approved": approved, "text": text, "choice": choice})
+        self._record(project, RunCommand.DECIDE)
         return self.graph.invoke(command, self._config(project))  # type: ignore[attr-defined]
 
     def pending(self, project: str) -> list[dict]:

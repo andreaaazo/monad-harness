@@ -1,11 +1,17 @@
-"""Rapporto di costo: dove sono finiti i soldi di un progetto."""
+"""Rapporto di costo: dove sono finiti i soldi di un progetto, e con quale impronta ha lavorato."""
 
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 
+from agency.contracts.run import Change, Fingerprint, changes
 from agency.ledger import Ledger
+from agency.ledger.models import RunRow
+
+SHA256 = re.compile(r"[0-9a-f]{64}")
+NAMED = 5  # oltre, l'elenco delle differenze si legge con agency compare
 
 
 def _context(row) -> int:  # type: ignore[no-untyped-def]
@@ -98,4 +104,54 @@ def render(ledger: Ledger, project: str) -> str:
             f"  {row.id} {row.status}{verdict} → {spec.assignee}: {spec.title}"
             f" ({ledger.spent(project, row.id):.2f} $)"
         )
+    return "\n".join(lines)
+
+
+def _count(number: int, one: str, many: str) -> str:
+    return f"{number} {one if number == 1 else many}"
+
+
+def _value(value: str | None) -> str:
+    if value is None:
+        return "assente"
+    if value == "":
+        return "predefinito"
+    return value[:12] if SHA256.fullmatch(value) else value
+
+
+def _label(change: Change) -> str:
+    return change.item or change.part
+
+
+def _fingerprint(row: RunRow) -> Fingerprint:
+    return Fingerprint.model_validate_json(row.fingerprint_json)
+
+
+def render_runs(ledger: Ledger, project: str) -> str:
+    rows = ledger.runs(project)
+    if not rows:
+        return f"{project}: nessuna esecuzione con impronta. I lavori precedenti a M1.6 non la hanno"
+    lines = [f"{project}: {_count(len(rows), 'esecuzione', 'esecuzioni')}"]
+    previous: Fingerprint | None = None
+    for row in rows:
+        current = _fingerprint(row)
+        line = f"  #{row.seq:<5}{row.at}  {row.command:8}{row.digest[:12]}"
+        if previous is not None:
+            found = changes(previous, current)
+            names = ", ".join(_label(change) for change in found[:NAMED])
+            more = f" e altre {len(found) - NAMED}" if len(found) > NAMED else ""
+            count = _count(len(found), "differenza", "differenze")
+            line += f"  {count} dalla precedente: {names}{more}" if found else "  identica alla precedente"
+        lines.append(line)
+        previous = current
+    return "\n".join(lines)
+
+
+def render_comparison(first: RunRow, second: RunRow) -> str:
+    found = changes(_fingerprint(first), _fingerprint(second))
+    title = f"#{first.seq} {first.project} {first.command} → #{second.seq} {second.project} {second.command}"
+    lines = [f"{title}: {_count(len(found), 'differenza', 'differenze') if found else 'nessuna differenza'}"]
+    for change in found:
+        where = f"{change.part} {change.item}".rstrip()
+        lines.append(f"  {where}: {_value(change.before)} → {_value(change.after)}")
     return "\n".join(lines)

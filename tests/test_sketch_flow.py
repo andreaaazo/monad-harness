@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw
 
 from agency.config import Settings
 from agency.contracts.concept import ConceptCard
+from agency.contracts.run import Fingerprint, changes
 from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType
 from agency.gateway import BudgetExceeded
 from agency.ledger import Ledger
@@ -591,6 +592,36 @@ def test_budget_end_pauses_the_project_and_an_increase_resumes_it(tmp_path: Path
     again.resume("officina")
     assert again.pending("officina")[0]["gate"] == "concept"
     assert "T-0001:plan" not in session_transport.requests  # il piano già fatto non si ripaga
+
+
+def fingerprints(ledger: Ledger, project: str) -> list[Fingerprint]:
+    return [Fingerprint.model_validate_json(row.fingerprint_json) for row in ledger.runs(project)]
+
+
+def test_every_execution_of_a_project_records_its_fingerprint(tmp_path: Path) -> None:
+    session = open_session(settings(tmp_path), Router(full_script()))
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, model="claude-sonnet-5-5", effort="medium")
+    session.decide("officina", True, "Mi piace la X", "X")
+    session.decide("officina", True, "Approvato")
+    runs = session.ledger.runs("officina")
+    assert [row.command for row in runs] == ["run", "decide", "decide"]
+    assert len({row.digest for row in runs}) == 1
+    taken = fingerprints(session.ledger, "officina")[0]
+    assert (taken.model, taken.effort) == ("claude-sonnet-5-5", "medium")
+
+
+def test_resume_with_other_settings_shows_what_changed(tmp_path: Path) -> None:
+    session = open_session(settings(tmp_path), Router(to_the_gate()))
+    with pytest.raises(BudgetExceeded):
+        session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=0.09)
+    session.ledger.set_budget("officina", 50)
+    again = open_session(settings(tmp_path, explorer_effort="medium"), Router(to_the_gate()))
+    again.resume("officina")
+    first, second = fingerprints(again.ledger, "officina")
+    assert [row.command for row in again.ledger.runs("officina")] == ["run", "resume"]
+    assert [(c.part, c.before, c.after) for c in changes(first, second)] == [
+        ("explorer_effort", "high", "medium")
+    ]
 
 
 def test_exploration_continues_as_long_as_the_budget_allows(tmp_path: Path) -> None:

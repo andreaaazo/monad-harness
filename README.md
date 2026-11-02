@@ -31,6 +31,8 @@ uv run agency decide progetto --approve --choice X --text "…"   # gate del con
 uv run agency decide progetto --approve --text "…"              # gate finale
 uv run agency budget progetto 40        # alza il budget se è finito
 uv run agency resume progetto           # riprende dopo un'interruzione
+uv run agency runs progetto             # esecuzioni con la loro impronta, e cosa cambia dall'una all'altra
+uv run agency compare 3 7               # cosa cambia tra due esecuzioni, anche di progetti diversi
 uv run agency migrate                   # aggiorna il registro, dopo averne fatto una copia
 ```
 

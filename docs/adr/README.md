@@ -30,3 +30,4 @@ vecchio. Date: 2026-10-31.
 | [0023](0023-il-progetto-diventa-un-saas.md) | Il progetto diventa un SaaS | Accettata, rovescia un non-obiettivo di `00-PROJECT.md` |
 | [0024](0024-nextjs-per-l-interfaccia.md) | Next.js per l'interfaccia | Accettata, rovescia la scelta di Vite in 0020 |
 | [0025](0025-il-registro-si-aggiorna-solo-su-richiesta.md) | Il registro si aggiorna solo su richiesta | Accettata |
+| [0026](0026-l-impronta-di-un-esecuzione.md) | L'impronta di un'esecuzione | Accettata, allarga la lista di 0022 |

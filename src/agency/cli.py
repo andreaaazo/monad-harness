@@ -108,6 +108,9 @@ def _run(args: argparse.Namespace) -> int:
 def _resume(args: argparse.Namespace) -> int:
     from agency.runtime import open_session
 
+    if Ledger(Settings().ledger_path).project(args.project) is None:
+        print(f"Progetto sconosciuto: {args.project}")
+        return 1
     session = open_session(Settings())
     return _guarded(args.project, session, lambda: session.resume(args.project))
 
@@ -146,6 +149,22 @@ def _report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _runs(args: argparse.Namespace) -> int:
+    print(report.render_runs(Ledger(Settings().ledger_path), args.project))
+    return 0
+
+
+def _compare(args: argparse.Namespace) -> int:
+    ledger = Ledger(Settings().ledger_path)
+    first, second = ledger.run(args.first), ledger.run(args.second)
+    if first is None or second is None:
+        missing = [f"#{seq}" for seq, row in ((args.first, first), (args.second, second)) if row is None]
+        print(f"Esecuzione sconosciuta: {', '.join(missing)}. Quelle di un progetto: agency runs <progetto>")
+        return 1
+    print(report.render_comparison(first, second))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="agency", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -179,6 +198,13 @@ def main(argv: list[str] | None = None) -> int:
     show = sub.add_parser("report", help="costi e stato di un progetto")
     show.add_argument("project")
     show.set_defaults(fn=_report)
+    runs = sub.add_parser("runs", help="le esecuzioni di un progetto e cosa è cambiato dall'una all'altra")
+    runs.add_argument("project")
+    runs.set_defaults(fn=_runs)
+    compare = sub.add_parser("compare", help="cosa cambia tra due esecuzioni, anche di progetti diversi")
+    compare.add_argument("first", type=int, help="numero dell'esecuzione, da agency runs")
+    compare.add_argument("second", type=int)
+    compare.set_defaults(fn=_compare)
     args = parser.parse_args(argv)
     try:
         return args.fn(args)

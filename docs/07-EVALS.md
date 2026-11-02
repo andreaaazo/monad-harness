@@ -67,8 +67,8 @@ compito: ogni cambiamento di prompt o strumenti invalida la cache e cambia ciò 
 - Set separati per messa a punto e verifica: il test non si guarda mentre si ottimizza.
 - Un costo più basso non conta se la qualità scende.
 - Si misura il costo per lavoro completato, non per chiamata.
-- Ogni esecuzione registra versioni di prompt, modello, `effort`, CLI e lock. Da M1.6 lo fa la tabella `runs`: i lavori `merlo`
-  non hanno questa impronta.
+- Ogni esecuzione registra la propria impronta nella tabella `runs` (ADR-0026): prompt, registry, codice, lock, Python, CLI,
+  modello, `effort` e impostazioni. `agency compare` dice cosa cambia tra due esecuzioni. I lavori `merlo` non hanno impronta.
 
 ## Riferimenti `merlo`, `merlo2` e `merlo3`
 

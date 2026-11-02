@@ -22,7 +22,8 @@ Ogni dato ha un solo proprietario.
 ## Registro: solo in aggiunta
 
 `events` non si può modificare: lo impediscono i trigger SQLite, e la catena di hash rileva chi li
-aggira. `tickets` è una vista di comodo dello stato; la verità è la storia degli eventi. `agency verify`
+aggira. Gli stessi trigger proteggono `usage`, `evidence`, `renders`, `derivations`, `gates` e `runs`.
+`tickets` è una vista di comodo dello stato; la verità è la storia degli eventi. `agency verify`
 ricontrolla la catena.
 
 ### Tabelle
@@ -36,11 +37,11 @@ ricontrolla la catena.
 | `artifacts` | M1.6 | Hash, percorso, tipo, ticket di origine |
 | `renders` | M1 | Prova di render di una versione precisa di un file |
 | `derivations` | M1 | Master → export, con entrambi gli hash |
-| `usage` | M1 | Chiamata, ticket, ruolo, modello, token per tipo, costo. Da M1.6 anche fase, effort, durata, TTFT, ragionamento |
+| `usage` | M1 | Chiamata, ticket, ruolo, modello, token per tipo, costo. Da M1.6 anche esecuzione, fase, effort, durata, TTFT, ragionamento |
 | `operations` | M1 | `operation_id` degli effetti, per la ripresa senza duplicati |
 | `concepts` | M1.5 | Scheda dell'idea, leva, schizzo, lettera anonima, esito della selezione |
 | `gates` | M1.5 | Decisione del cliente: parole testuali, scelta, hash dei file |
-| `runs` | M1.6 | Esecuzione e impronta di prompt, registry, lock, CLI, modello ed effort |
+| `runs` | M1.6 | Ogni `run`, `resume` e `decide` con la sua impronta: prompt, registry, codice, lock, Python, CLI, modello, effort e impostazioni (ADR-0026) |
 | `judgments` | M1.6 | Punteggio alla cieca, chi l'ha dato, sha256 del file giudicato |
 | `client_log` | M2 | Domande, risposte, presentazioni, feedback, approvazioni |
 | `facts` | M2 | Fatto, provenienza, fonte |

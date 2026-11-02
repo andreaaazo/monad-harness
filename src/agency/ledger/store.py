@@ -15,6 +15,7 @@ from sqlalchemy import event as sa_event
 from sqlalchemy import func
 from sqlmodel import Session, col, create_engine, select
 
+from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import (
     REVIEW_TYPES,
     TRANSITIONS,
@@ -33,6 +34,7 @@ from agency.ledger.models import (
     OperationRow,
     ProjectRow,
     RenderRow,
+    RunRow,
     TicketRow,
     UsageRow,
 )
@@ -373,3 +375,29 @@ class Ledger:
                 OperationRow(id=operation_id, instance=instance, tool=tool, result_json=result_json, at=now())
             )
             session.commit()
+
+    # Esecuzioni
+
+    def record_run(self, project: str, command: RunCommand, fingerprint: Fingerprint) -> int:
+        row = RunRow(
+            at=now(),
+            project=project,
+            command=command.value,
+            digest=fingerprint.digest(),
+            fingerprint_json=fingerprint.model_dump_json(),
+        )
+        with Session(self.engine) as session:
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+        assert row.seq is not None
+        return row.seq
+
+    def runs(self, project: str) -> list[RunRow]:
+        with Session(self.engine) as session:
+            query = select(RunRow).where(RunRow.project == project).order_by(col(RunRow.seq))
+            return list(session.exec(query).all())
+
+    def run(self, seq: int) -> RunRow | None:
+        with Session(self.engine) as session:
+            return session.get(RunRow, seq)

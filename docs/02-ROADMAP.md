@@ -263,9 +263,10 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
 
 3. [x] **Migrazioni**: Alembic sul registro e `agency migrate`, provati su una copia di quello vero
    ([ADR-0025](adr/0025-il-registro-si-aggiorna-solo-su-richiesta.md)).
-4. [ ] **`runs`**: impronta di prompt, registry, lock, CLI, modello ed effort di ogni esecuzione.
+4. [x] **`runs`**: impronta di ogni `run`, `resume` e `decide`, con `agency runs` e `agency compare`. Oltre a prompt, registry,
+   lock, CLI, modello ed effort contiene codice, Python e impostazioni ([ADR-0026](adr/0026-l-impronta-di-un-esecuzione.md)).
 5. [ ] **`judgments`** e `agency judge`: punteggio alla cieca legato allo sha256 del file giudicato.
-6. [ ] **`usage` più ricca**: fase, effort, durata, TTFT e ragionamento. Le righe vecchie restano vuote.
+6. [ ] **`usage` più ricca**: esecuzione, fase, effort, durata, TTFT e ragionamento. Le righe vecchie restano vuote.
 7. [ ] **Artefatti per hash**: tabella e `.data/artifacts/`, descritti da M1 e mai costruiti.
 8. [ ] **Tipi espliciti**: via i `dict` di gate ed esiti, `ToolContext.extra` e `graph: object`.
 
@@ -310,8 +311,9 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
 - [x] Gli snapshot di strumenti e system prompt stanno nei test e bloccano `make check`: `tests/test_request_snapshots.py`
 - [x] `agency verify` passa su una copia del registro migrata: provato il 2026-11-02, con tutte le 3.814 righe identiche
   (`tests/test_migrations.py`)
-- [ ] Ogni nuova esecuzione registra la propria impronta, e due esecuzioni mostrano cosa è cambiato
-- [ ] Ogni nuova chiamata registra in `usage` fase, effort, durata, TTFT e ragionamento
+- [x] Ogni nuova esecuzione registra la propria impronta, e due esecuzioni mostrano cosa è cambiato: `tests/test_runs.py` e
+  `tests/test_sketch_flow.py`, a mano con `agency runs <progetto>` e `agency compare <n> <n>`
+- [ ] Ogni nuova chiamata registra in `usage` esecuzione, fase, effort, durata, TTFT e ragionamento
 - [ ] Un file giudicato resta recuperabile dal suo hash in `.data/artifacts/`
 - [ ] `ToolContext.extra` e `graph: object` non esistono più, e gate ed esiti hanno tipi propri
 - [ ] `agency report --json` riproduce i numeri di questa roadmap: 15,91 $ su `merlo`, 13,29 $ fino al gate `concept` di `merlo3`
@@ -513,5 +515,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 4 di M1.6, senza spesa: la tabella `runs` con l'impronta di ogni esecuzione. Dopo M1.7, M2 parte dal contesto delle
-istanze lunghe, prima dei ruoli.
+Il punto 5 di M1.6, senza spesa: la tabella `judgments` e `agency judge`, il giudizio alla cieca legato allo sha256 del file
+giudicato. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.

@@ -15,7 +15,7 @@ from sqlmodel import SQLModel
 
 from agency import cli
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
-from agency.ledger import Ledger, LedgerOutdated, schema
+from agency.ledger import Ledger, LedgerOutdated, chain, schema
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 
 REAL_SCHEMA = Path(__file__).parent / "fixtures" / "ledger_schema_0001.sql"
@@ -50,11 +50,39 @@ def filled(path: Path) -> None:
     ledger.engine.dispose()
 
 
+USAGE = (
+    "INSERT INTO usage (at, project, ticket_id, role, instance, model, input_tokens, output_tokens,"
+    " cache_read_tokens, cache_write_5m_tokens, cache_write_1h_tokens, cost_usd, stop_reason, request_id)"
+    " VALUES ('2026-10-31T10:00:00+00:00', 'prova', 'T-0001', 'identity-designer', 'i',"
+    " 'claude-opus-5-5', 100, 20, 0, 0, 0, 0.01, 'tool_use', 'req_1')"
+)
+EVENT = (
+    "INSERT INTO events (ticket_id, at, actor, action, note, prev_hash, hash) VALUES (?, ?, ?, ?, ?, ?, ?)"
+)
+
+
 def before_migrations(path: Path) -> None:
-    """Un registro com'era prima di Alembic: stesse tabelle, nessuna versione."""
-    filled(path)
+    """Un registro com'era prima di Alembic: lo schema reale di allora, una storia concatenata."""
     with closing(sqlite3.connect(path)) as connection:
-        connection.execute("DROP TABLE alembic_version")
+        connection.executescript(REAL_SCHEMA.read_text(encoding="utf-8"))
+        connection.execute(USAGE)
+        previous, at = chain.GENESIS, "2026-10-31T10:00:00+00:00"
+        for action, note in (("open", "Logo"), ("block", "manca il brief")):
+            digest = chain.digest(previous, "T-0001", at, "identity-designer", action, note)
+            connection.execute(EVENT, ("T-0001", at, "identity-designer", action, note, previous, digest))
+            previous = digest
+        connection.commit()
+
+
+def at_baseline(path: Path) -> None:
+    """Un registro già adottato da `agency migrate` alla prima revisione, prima che esistesse `runs`."""
+    before_migrations(path)
+    with closing(sqlite3.connect(path)) as connection:
+        connection.execute(
+            "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL,"
+            " CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+        )
+        connection.execute("INSERT INTO alembic_version VALUES (?)", (schema.BASELINE,))
         connection.commit()
 
 
@@ -132,6 +160,28 @@ def test_migrate_adopts_a_registry_older_than_the_migrations(tmp_path: Path) -> 
     assert result.revision == schema.head()
     assert read(path, "SELECT * FROM events ORDER BY seq") == events
     assert Ledger(path).verify_chain()
+
+
+def test_migrate_adds_runs_to_a_registry_at_the_baseline_and_keeps_every_row(tmp_path: Path) -> None:
+    path = tmp_path / "l.sqlite"
+    at_baseline(path)
+    tables = [name for (name,) in read(path, "SELECT name FROM sqlite_master WHERE type = 'table'")]
+    rows = {table: read(path, f"SELECT * FROM {table}") for table in tables if table != "alembic_version"}
+
+    assert migrate(path).revision == schema.head()
+
+    assert {table: read(path, f"SELECT * FROM {table}") for table in rows} == rows
+    assert read(path, "SELECT count(*) FROM runs") == [(0,)]
+    triggers = read(path, "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'runs'")
+    assert sorted(triggers) == [("runs_no_delete",), ("runs_no_update",)]
+    assert Ledger(path).verify_chain()
+
+
+def test_registry_at_the_baseline_is_refused_until_it_is_migrated(tmp_path: Path) -> None:
+    path = tmp_path / "l.sqlite"
+    at_baseline(path)
+    with pytest.raises(LedgerOutdated, match=f"revisione {schema.BASELINE}.*agency migrate"):
+        Ledger(path)
 
 
 def test_migrate_keeps_a_copy_of_the_registry_as_it_was(tmp_path: Path) -> None:

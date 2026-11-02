@@ -150,3 +150,16 @@ class OperationRow(SQLModel, table=True):
     tool: str
     result_json: str
     at: str
+
+
+class RunRow(SQLModel, table=True):
+    """Un'esecuzione del grafo con l'impronta di ciò che ne decide il comportamento. Solo in aggiunta."""
+
+    __tablename__ = "runs"  # type: ignore[assignment]
+
+    seq: int | None = Field(default=None, primary_key=True)
+    at: str
+    project: str = Field(index=True)
+    command: str
+    digest: str
+    fingerprint_json: str

@@ -57,6 +57,10 @@ La piramide dice se il sistema funziona. Le valutazioni dicono se il lavoro è b
 Oggi più della metà dei test sono flussi completi. Restano tutti fino alla fine di M1.7, perché sono la rete del refactor: i nuovi
 test nascono sulle regole pure.
 
+Gli snapshot in `tests/snapshots/requests/` fissano byte per byte strumenti e system prompt di ogni fase. Fallire è il loro
+compito: ogni cambiamento di prompt o strumenti invalida la cache e cambia ciò che il modello vede. Se è voluto, si aggiornano con
+`UPDATE_SNAPSHOTS=1 uv run pytest tests/test_request_snapshots.py`, e il diff si rivede prima del commit.
+
 ## Regole del confronto
 
 - Lo stesso brief almeno 3 volte per configurazione: una sola prova dice poco.

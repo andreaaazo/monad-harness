@@ -12,7 +12,8 @@ from agency.config import Settings
 from agency.doctor import run_checks
 from agency.gateway import BudgetExceeded
 from agency.gateway.pricing import PRICES
-from agency.ledger import Ledger
+from agency.ledger import Ledger, LedgerOutdated
+from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 from agency.telemetry import report
 
 LOGO_OUTPUTS = ["source/segno.vectorcraft", "exports/segno.svg", "construction.md"]
@@ -31,6 +32,19 @@ def _verify(_: argparse.Namespace) -> int:
     ok = Ledger(Settings().ledger_path).verify_chain()
     print("registro integro" if ok else "REGISTRO ALTERATO")
     return 0 if ok else 1
+
+
+def _migrate(_: argparse.Namespace) -> int:
+    path = Settings().ledger_path
+    if not path.is_file():
+        print("Nessun registro da aggiornare: si crea da solo alla prima apertura")
+        return 0
+    result = migrate(path)
+    if result.backup is None:
+        print(f"registro già aggiornato, revisione {result.revision}")
+    else:
+        print(f"registro aggiornato alla revisione {result.revision}. Copia del prima: {result.backup}")
+    return 0
 
 
 def _show(session, project: str) -> int:  # type: ignore[no-untyped-def]
@@ -137,6 +151,9 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor", help="controlla strumenti e configurazione").set_defaults(fn=_doctor)
     sub.add_parser("verify", help="verifica la catena di hash del registro").set_defaults(fn=_verify)
+    sub.add_parser("migrate", help="aggiorna il registro, dopo averne fatto una copia").set_defaults(
+        fn=_migrate
+    )
     run = sub.add_parser("run", help="esegue un brief di logo fino al gate del cliente")
     run.add_argument("project")
     run.add_argument("brief")
@@ -163,7 +180,11 @@ def main(argv: list[str] | None = None) -> int:
     show.add_argument("project")
     show.set_defaults(fn=_report)
     args = parser.parse_args(argv)
-    return args.fn(args)
+    try:
+        return args.fn(args)
+    except (LedgerOutdated, LedgerMismatch, ChainBroken) as exc:
+        print(f"REGISTRO: {exc}")
+        return 1
 
 
 if __name__ == "__main__":

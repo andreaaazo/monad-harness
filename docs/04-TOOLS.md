@@ -78,7 +78,7 @@ Scelte in ADR-0020. Le versioni indicate sono verificate su questa macchina il 2
 | Strumento | Uso | Stato |
 |---|---|---|
 | Django, Django Ninja | Server e API | Da aggiungere con `uv add`, ultima LTS di Django |
-| Alembic | Migrazioni del registro | Da aggiungere con `uv add` |
+| Alembic | Migrazioni del registro | 1.20.0 |
 | `import-linter` | Confini tra moduli | Da aggiungere con `uv add` |
 | Node | Build ed esecuzione di Next.js, che chiede almeno la 20.9 | 22.22.1 |
 | pnpm | Dipendenze JavaScript, con quarantena | Da installare |

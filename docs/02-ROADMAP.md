@@ -257,11 +257,12 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
 **Messa in sicurezza**
 
 1. [x] **Primo commit**: `51c511c`, con lo stato di lavoro di `.claude/` escluso da `.gitignore`.
-2. [ ] **Snapshot**: definizioni degli strumenti e system prompt per ruolo e fase.
+2. [x] **Snapshot**: definizioni degli strumenti e system prompt delle 11 fasi, byte per byte, in `tests/snapshots/requests/`.
 
 **Dati**
 
-3. [ ] **Migrazioni**: Alembic sul registro, provate su una copia di quello vero.
+3. [x] **Migrazioni**: Alembic sul registro e `agency migrate`, provati su una copia di quello vero
+   ([ADR-0025](adr/0025-il-registro-si-aggiorna-solo-su-richiesta.md)).
 4. [ ] **`runs`**: impronta di prompt, registry, lock, CLI, modello ed effort di ogni esecuzione.
 5. [ ] **`judgments`** e `agency judge`: punteggio alla cieca legato allo sha256 del file giudicato.
 6. [ ] **`usage` più ricca**: fase, effort, durata, TTFT e ragionamento. Le righe vecchie restano vuote.
@@ -306,8 +307,9 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
 
 ### Criteri di uscita
 
-- [ ] Gli snapshot di strumenti e system prompt stanno nei test e bloccano `make check`
-- [ ] `agency verify` passa su una copia del registro migrata
+- [x] Gli snapshot di strumenti e system prompt stanno nei test e bloccano `make check`: `tests/test_request_snapshots.py`
+- [x] `agency verify` passa su una copia del registro migrata: provato il 2026-11-02, con tutte le 3.814 righe identiche
+  (`tests/test_migrations.py`)
 - [ ] Ogni nuova esecuzione registra la propria impronta, e due esecuzioni mostrano cosa è cambiato
 - [ ] Ogni nuova chiamata registra in `usage` fase, effort, durata, TTFT e ragionamento
 - [ ] Un file giudicato resta recuperabile dal suo hash in `.data/artifacts/`
@@ -511,5 +513,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 2 di M1.6, senza spesa: gli snapshot di strumenti e system prompt per ruolo e fase. Dopo M1.7, M2 parte dal contesto
-delle istanze lunghe, prima dei ruoli.
+Il punto 4 di M1.6, senza spesa: la tabella `runs` con l'impronta di ogni esecuzione. Dopo M1.7, M2 parte dal contesto delle
+istanze lunghe, prima dei ruoli.

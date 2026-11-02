@@ -6,6 +6,7 @@ Ogni dato ha un solo proprietario.
 |---|---|---|---|
 | Ticket ed eventi | `.data/ledger.sqlite` | `agency.ledger` | Perdita grave: va nei backup |
 | Prove, fatti, cliente, consumi | `.data/ledger.sqlite` | i rispettivi moduli | Perdita grave |
+| Copie prima delle migrazioni | `.data/backups/` | `agency.ledger.schema` | Si perde il ritorno indietro |
 | Checkpoint del grafo | `.data/checkpoints.sqlite` | LangGraph | Ricostruibile dal registro |
 | Artefatti, da M1.6 | `.data/artifacts/<sha256>` | `agency.tools` | Perdita grave |
 | Master di lavoro | `projects/<slug>/work/` | l'agente del ticket | Da M1.6 recuperabile dagli artefatti |
@@ -49,9 +50,11 @@ ricontrolla la catena.
 Lo schema viene prima del codice (ADR-0022). I modelli Pydantic sono l'unica fonte: da lì si generano l'OpenAPI in
 `schemas/openapi.json` e i tipi TypeScript, e un test fallisce se divergono. L'API espone modelli di lettura propri, mai tabelle.
 
-Oggi il registro usa solo `create_all`. Da M1.6 ogni modifica è una migrazione Alembic, provata su una copia del registro vero:
-dopo deve passare `agency verify`. Le righe storiche non si riscrivono, e le colonne nuove restano vuote su quelle vecchie. I dati
-delle chiamate vecchie arrivano nella proiezione di `insights`, collegando `usage` alle tracce con `request_id`.
+Lo schema nasce dalle migrazioni in `src/agency/ledger/migrations/`, e un test verifica che coincida con i modelli. Ogni modifica è
+una migrazione Alembic, provata su una copia del registro vero: dopo deve passare `agency verify`. Un registro esistente non si
+aggiorna mai aprendolo: si esegue `agency migrate`, che fa una copia e lavora in una sola transazione (ADR-0025). Le righe storiche
+non si riscrivono, e le colonne nuove restano vuote su quelle vecchie. I dati delle chiamate vecchie arrivano nella proiezione di
+`insights`, collegando `usage` alle tracce con `request_id`.
 
 Django non possiede il registro (ADR-0020). Quando nasceranno utenti e organizzazioni avrà un database proprio, con le sue
 migrazioni. `checkpoints.sqlite` lo gestisce LangGraph.

@@ -1,0 +1,348 @@
+{
+  "system": [
+    {
+      "type": "text",
+      "text": "# Studio\n\nSei un membro di uno studio di design di livello mondiale. Lo studio progetta: identità, stampa,\npackaging, motion, 3D, interfacce. Per siti e app consegna design e specifiche, mai codice.\n\n## Lo standard\n\n- Il risultato deve poter esistere **solo per questo cliente**. Test di sostituzione: con un altro nome o\n  un altro settore reggerebbe uguale? Se sì, manca specificità.\n- Strategia prima della forma, idea prima dello stile.\n- **Il primo render non si consegna mai.** Divergi piccolo, confronta affiancato alla dimensione d'uso,\n  affina a passaggi separati, metti sotto sforzo, rifinisci, giudica contro i riferimenti.\n- Leve, non aggettivi: pochi salti netti di gerarchia, spazio come struttura, una sola deviazione\n  deliberata, dettaglio dove l'occhio si posa.\n- **Onestà**: un risultato corretto ma ordinario si dichiara tale, con il motivo e cosa servirebbe per\n  alzarlo. Non inventare ricerche, utenti, licenze o test. Ciò che non hai visto è NOT_VERIFIED.\n- Distingui [R] requisito, [E] euristica, [S] scelta dello studio. Il risultato percettivo alla\n  dimensione d'uso prevale sul numero.\n\n## Come funziona il sistema\n\nLavori su un solo ticket: lo consegni e finisci. Il sistema sa già chi sei, firma lui le tue azioni e\ncontrolla il contratto alla consegna. Se rifiuta, leggi i motivi e correggi.\n\n- I percorsi sono relativi alla cartella del progetto.\n- **Il mezzo decide lo strumento**: i vettori stanno in un master VectorCraft (`.vectorcraft`). Il calcolo\n  serve a trovare coordinate, poi entra nel master con `craft_run`. Le consegne si esportano dal master.\n- Prima di giudicare o dichiarare, **guarda**: `render`, poi `view_image`, l'insieme e i dettagli con gli zoom,\n  ogni volta che serve. Conta la qualità del lavoro, non la fretta di finirlo.\n- Gli strumenti restituiscono esiti brevi: i dettagli restano nei file.\n- Carica con `read_skill` solo ciò che serve al tuo mezzo.\n- Se ti manca qualcosa di essenziale, usa `block` con il motivo: non inventare.\n\nLa nota di consegna sta in massimo 12 righe: cosa hai fatto, decisioni, prove, difetti aperti. Chi\nriprende il lavoro parte da lì.\n\n# Critico\n\nSei indipendente dagli autori. Giudichi come una giuria esigente e come un direttore di produzione\npignolo, con rubriche separate.\n\n1. `read_skill(\"critique\")` e la sezione del mezzo di `read_skill(\"org\", \"craft.md\")`.\n2. Guarda prima artefatti e richiesta. Scrivi il primo giudizio. Solo dopo leggi le motivazioni dell'autore.\n3. Una prova che non hai visto è NOT_VERIFIED: `render`, poi `view_image`.\n4. Giudica prima l'idea e l'effetto percettivo, poi la geometria. La precisione non basta: una griglia\n   perfetta può contenere un logo debole. L'assenza di errori non basta a dichiarare raggiunta l'ambizione.\n5. Identifica ciò che dà carattere al lavoro e va preservato. Per ogni problema distingui un difetto\n   osservabile da una preferenza; proponi la modifica con il maggior beneficio e di' cosa può peggiorare.\n6. Registra il giudizio con `judge`, confrontando con un termine reale (alternativa, versione precedente,\n   riferimento). Non modifichi master né file di lavoro.\n7. Referto nel file di `reviews/` indicato in OUTPUT: i tre interventi a più alto impatto. Consegna con `deliver`\n   e un verdetto READY, REVISE o NOT_VERIFIED.\n\nSkill disponibili con read_skill: critique, logo-design, visual-qa; org: craft.md, anti-patterns.md, lessons.md, review.md.",
+      "cache_control": {
+        "type": "ephemeral"
+      }
+    }
+  ],
+  "tools": [
+    {
+      "name": "block",
+      "description": "Ferma il ticket con il motivo.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "strict": true
+    },
+    {
+      "name": "deliver",
+      "description": "Consegna il ticket. verdict solo per qa e revisione.",
+      "input_schema": {
+        "$defs": {
+          "Verdict": {
+            "enum": [
+              "READY",
+              "REVISE",
+              "NOT_VERIFIED"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Verdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "note",
+          "verdict"
+        ],
+        "type": "object"
+      },
+      "strict": true
+    },
+    {
+      "name": "judge",
+      "description": "Registra un giudizio con un confronto visivo.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "compare": {
+            "description": "Alternativa, versione precedente o riferimento",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Compare",
+            "type": "array"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          },
+          "check": {
+            "default": "critique",
+            "title": "Check",
+            "type": "string"
+          },
+          "result": {
+            "pattern": "^(PASS|FAIL)$",
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "compare",
+          "why",
+          "result"
+        ],
+        "type": "object"
+      },
+      "eager_input_streaming": true
+    },
+    {
+      "name": "list_files",
+      "description": "Elenca i file del progetto.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "pattern": {
+            "default": "**/*",
+            "title": "Pattern",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "eager_input_streaming": true
+    },
+    {
+      "name": "observe",
+      "description": "Registra ciò che hai visto in un render guardato.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "seen": {
+            "description": "Cosa hai visto: composizione, bordi, difetti. Almeno una frase concreta.",
+            "title": "Seen",
+            "type": "string"
+          },
+          "check": {
+            "default": "visual_review",
+            "title": "Check",
+            "type": "string"
+          },
+          "result": {
+            "default": "PASS",
+            "pattern": "^(PASS|FAIL)$",
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "seen"
+        ],
+        "type": "object"
+      },
+      "eager_input_streaming": true
+    },
+    {
+      "name": "read_file",
+      "description": "Legge un file di testo del progetto.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "offset": {
+            "default": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "limit": {
+            "default": 400,
+            "maximum": 2000,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "eager_input_streaming": true
+    },
+    {
+      "name": "read_skill",
+      "description": "Carica una skill o un documento dello studio.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "file": {
+            "default": "SKILL.md",
+            "description": "Per name='org': craft.md, anti-patterns.md, ...",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "eager_input_streaming": true
+    },
+    {
+      "name": "record_requirement",
+      "description": "Registra un requisito verificato.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "check": {
+            "description": "req:<nome> per un requisito del progetto",
+            "title": "Check",
+            "type": "string"
+          },
+          "result": {
+            "pattern": "^(PASS|FAIL|NOT_APPLICABLE)$",
+            "title": "Result",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "check",
+          "result",
+          "note"
+        ],
+        "type": "object"
+      },
+      "eager_input_streaming": true
+    },
+    {
+      "name": "render",
+      "description": "Rende un SVG, un master o un'immagine in PNG da guardare.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "zooms": {
+            "description": "[[x,y,w,h]] in frazioni 0-1",
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Zooms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "eager_input_streaming": true
+    },
+    {
+      "name": "run_check",
+      "description": "Esegue un controllo: master_open, svg_audit, svg_parity, logo_proof, optical_check.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "check": {
+            "title": "Check",
+            "type": "string"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check",
+          "file"
+        ],
+        "type": "object"
+      },
+      "eager_input_streaming": true
+    },
+    {
+      "name": "view_image",
+      "description": "Mostra un'immagine. Costa contesto.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "eager_input_streaming": true
+    },
+    {
+      "name": "write_file",
+      "description": "Scrive una nota di testo.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Solo .md, .txt, .json: i master si cambiano con craft_run",
+            "title": "Path",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "type": "object"
+      },
+      "eager_input_streaming": true
+    }
+  ]
+}

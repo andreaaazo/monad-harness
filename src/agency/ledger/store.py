@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import sqlite3
 import threading
@@ -13,8 +12,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import event as sa_event
-from sqlalchemy import func, text
-from sqlmodel import Session, SQLModel, col, create_engine, select
+from sqlalchemy import func
+from sqlmodel import Session, col, create_engine, select
 
 from agency.contracts.ticket import (
     REVIEW_TYPES,
@@ -24,6 +23,7 @@ from agency.contracts.ticket import (
     TicketSpec,
     Verdict,
 )
+from agency.ledger import chain, schema
 from agency.ledger.models import (
     ConceptRow,
     DerivationRow,
@@ -37,9 +37,7 @@ from agency.ledger.models import (
     UsageRow,
 )
 
-GENESIS = "0" * 64
-BUSY_SECONDS = 30
-APPEND_ONLY_TABLES = ("events", "evidence", "usage", "renders", "derivations", "gates")
+BUSY_SECONDS = schema.BUSY_SECONDS
 
 
 class IllegalTransition(Exception):
@@ -54,29 +52,13 @@ def now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
-def _digest(prev: str, ticket_id: str, at: str, actor: str, action: str, note: str) -> str:
-    payload = json.dumps([prev, ticket_id, at, actor, action, note], ensure_ascii=False)
-    return hashlib.sha256(payload.encode()).hexdigest()
-
-
 class Ledger:
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.engine = create_engine(f"sqlite:///{path}", connect_args={"timeout": BUSY_SECONDS})
         self._chain = threading.RLock()  # la catena di hash ha un solo scrittore per volta
         sa_event.listen(self.engine, "connect", self._configure)
-        with self.engine.begin() as conn:
-            conn.exec_driver_sql("BEGIN IMMEDIATE")  # due processi possono aprire il registro insieme
-            SQLModel.metadata.create_all(conn)
-            for table in APPEND_ONLY_TABLES:
-                for verb in ("UPDATE", "DELETE"):
-                    conn.execute(
-                        text(
-                            f"CREATE TRIGGER IF NOT EXISTS {table}_no_{verb.lower()} "
-                            f"BEFORE {verb} ON {table} "
-                            f"BEGIN SELECT RAISE(ABORT, '{table} è solo in aggiunta'); END"
-                        )
-                    )
+        schema.ensure_current(self.engine)
 
     @staticmethod
     def _configure(dbapi_connection: object, _record: object) -> None:
@@ -102,7 +84,7 @@ class Ledger:
 
     def _append(self, session: Session, ticket_id: str, actor: str, action: str, note: str) -> None:
         last = session.exec(select(EventRow).order_by(col(EventRow.seq).desc())).first()
-        prev = last.hash if last else GENESIS
+        prev = last.hash if last else chain.GENESIS
         at = now()
         session.add(
             EventRow(
@@ -112,7 +94,7 @@ class Ledger:
                 action=action,
                 note=note,
                 prev_hash=prev,
-                hash=_digest(prev, ticket_id, at, actor, action, note),
+                hash=chain.digest(prev, ticket_id, at, actor, action, note),
             )
         )
 
@@ -263,13 +245,7 @@ class Ledger:
 
     def verify_chain(self) -> bool:
         with Session(self.engine) as session:
-            prev = GENESIS
-            for row in session.exec(select(EventRow).order_by(col(EventRow.seq))).all():
-                expected = _digest(prev, row.ticket_id, row.at, row.actor, row.action, row.note)
-                if row.prev_hash != prev or row.hash != expected:
-                    return False
-                prev = row.hash
-        return True
+            return chain.intact(session.exec(select(EventRow).order_by(col(EventRow.seq))).all())
 
     # Consumi
 

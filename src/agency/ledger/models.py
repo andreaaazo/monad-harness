@@ -1,4 +1,4 @@
-"""Tabelle SQLite. Il proprietario dello schema è questo modulo; ogni modifica è una migrazione."""
+"""Le tabelle viste dal codice. Lo schema nasce dalle migrazioni: un test verifica che coincidano."""
 
 from __future__ import annotations
 

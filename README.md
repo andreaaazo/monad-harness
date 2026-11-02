@@ -31,6 +31,7 @@ uv run agency decide progetto --approve --choice X --text "…"   # gate del con
 uv run agency decide progetto --approve --text "…"              # gate finale
 uv run agency budget progetto 40        # alza il budget se è finito
 uv run agency resume progetto           # riprende dopo un'interruzione
+uv run agency migrate                   # aggiorna il registro, dopo averne fatto una copia
 ```
 
 Modello ed effort si scelgono con `--model` e `--effort`: sono, con il budget, gli unici vincoli al lavoro. I file di un progetto stanno in

@@ -25,6 +25,7 @@ from agency.insights import application as insights
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
+from agency.insights.views import ProjectReport
 from agency.ledger import Ledger, LedgerOutdated
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 from agency.ledger.store import now
@@ -68,8 +69,17 @@ def _migrate(_: argparse.Namespace) -> int:
     return 0
 
 
+def _report_of(settings: Settings, project: str) -> ProjectReport:
+    """Il rapporto passa da insights, come il cruscotto: prima si rigenera la proiezione, in sola lettura."""
+    projection = SqliteProjection(settings.insights_path)
+    insights.rebuild(
+        ReadOnlyRegistry(settings.ledger_path), JsonlTraces(settings.traces_path), projection, now()
+    )
+    return insights.report(projection, project)
+
+
 def _show(session: Session, project: str) -> int:
-    print(report.render(session.ledger, project))
+    print(report.render(_report_of(session.settings, project)))
     for gate in session.pending(project):
         work = session.settings.project_dir(project) / "work"
         print(f"\nIN ATTESA DEL CLIENTE: gate {gate.gate}")
@@ -89,7 +99,7 @@ def _guarded(project: str, session: Session, action: Callable[[], str]) -> int:
     try:
         outcome = action()
     except BudgetExceeded as exc:
-        print(report.render(session.ledger, project))
+        print(report.render(_report_of(session.settings, project)))
         print(f"\nBUDGET FINITO: {exc}. Il lavoro è salvato.")
         print(f"Per continuare: agency budget {project} <nuovo tetto>, poi agency resume {project}")
         return 2
@@ -165,7 +175,8 @@ def _budget(args: argparse.Namespace) -> int:
 
 
 def _report(args: argparse.Namespace) -> int:
-    print(report.render(Ledger(Settings().ledger_path), args.project))
+    view = _report_of(Settings(), args.project)
+    print(view.model_dump_json(indent=2) if args.json else report.render(view))
     return 0
 
 
@@ -253,11 +264,7 @@ def _insights(_: argparse.Namespace) -> int:
     """Legge il registro in sola lettura: si può usare anche mentre il motore lavora."""
     settings = Settings()
     registry, traces = ReadOnlyRegistry(settings.ledger_path), JsonlTraces(settings.traces_path)
-    try:
-        built = insights.rebuild(registry, traces, SqliteProjection(settings.insights_path), now())
-    except insights.RegistryNotReadable as exc:
-        print(f"REGISTRO: {exc}")
-        return 1
+    built = insights.rebuild(registry, traces, SqliteProjection(settings.insights_path), now())
     print(report.render_provenance(built, str(settings.insights_path)))
     return 0
 
@@ -292,8 +299,9 @@ def main(argv: list[str] | None = None) -> int:
     budget.add_argument("project")
     budget.add_argument("usd", type=float)
     budget.set_defaults(fn=_budget)
-    show = sub.add_parser("report", help="costi e stato di un progetto")
+    show = sub.add_parser("report", help="costi, fasi e stato di un progetto")
     show.add_argument("project")
+    show.add_argument("--json", action="store_true", help="il modello del rapporto, lo stesso del cruscotto")
     show.set_defaults(fn=_report)
     runs = sub.add_parser("runs", help="le esecuzioni di un progetto e cosa è cambiato dall'una all'altra")
     runs.add_argument("project")
@@ -321,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.fn(args)
-    except (LedgerOutdated, LedgerMismatch, ChainBroken) as exc:
+    except (LedgerOutdated, LedgerMismatch, ChainBroken, insights.RegistryNotReadable) as exc:
         print(f"REGISTRO: {exc}")
         return 1
 

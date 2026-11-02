@@ -279,7 +279,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
 9. [x] **Slice `agency.insights`**: connessione `mode=ro`, proiezione rigenerabile in `.data/insights.sqlite` con `agency insights`,
    nella forma di ADR-0021. `import-linter` in `make check`: `insights` non importa il motore, e il motore non importa Django
    ([ADR-0029](adr/0029-la-proiezione-di-insights.md)).
-10. [ ] **`agency report --json`**: stessi modelli Pydantic del cruscotto, al posto dei `dict` di `telemetry/report.py`.
+10. [x] **`agency report --json`**: `ProjectReport`, lo stesso modello per il testo, il JSON e il cruscotto, con una sezione per
+    fase ([ADR-0030](adr/0030-il-rapporto-passa-da-insights.md)).
 
 **Cruscotto**
 
@@ -324,7 +325,8 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
   `tests/test_judgments.py`, a mano con `agency restore <hash> <file>`
 - [x] `ToolContext.extra` e `graph: object` non esistono più, e gate ed esiti hanno tipi propri:
   `tests/test_explicit_types.py` e `make check`, che con `pyright` rifiuta l'uso dei vecchi `dict`
-- [ ] `agency report --json` riproduce i numeri di questa roadmap: 15,91 $ su `merlo`, 13,29 $ fino al gate `concept` di `merlo3`
+- [x] `agency report --json` riproduce i numeri di questa roadmap: 15,91 $ su `merlo`, 13,29 $ fino al gate `concept` di `merlo3`.
+  Dopo `agency migrate`: `uv run agency report merlo --json` e `uv run agency report merlo3 --json`, campo `to_presentation`
 - [ ] `merlo3` si legge nel cruscotto dal brief alla consegna
 - [ ] L'API non può scrivere, e il registro resta intatto dopo l'uso del cruscotto (test)
 - [ ] OpenAPI e tipi TypeScript non divergono (test)
@@ -523,5 +525,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 10 di M1.6, senza spesa: `agency report --json`, con gli stessi modelli Pydantic del cruscotto, che riproduce i numeri
-di questa roadmap. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+Il punto 11 di M1.6, senza spesa: l'API Django con Django Ninja, solo `GET` e solo loopback, che restituisce i modelli di
+`agency.insights`. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.

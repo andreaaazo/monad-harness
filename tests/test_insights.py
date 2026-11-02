@@ -21,6 +21,7 @@ from agency.insights.domain import (
     Call,
     Measures,
     PhaseSource,
+    Projected,
     Provenance,
     TicketRecord,
     TraceMeasure,
@@ -61,10 +62,24 @@ def usage(**extra: object) -> UsageRecord:
     return UsageRecord.model_validate(base | extra)
 
 
+def ticket(id_: str, type_: str, assignee: str, prompt: str = "") -> TicketRecord:
+    return TicketRecord(
+        id=id_,
+        project="merlo3",
+        type=type_,
+        assignee=assignee,
+        prompt=prompt,
+        title=f"Ticket {id_}",
+        status="accepted",
+        verdict=None,
+        created_at="2026-11-02T09:00:00+00:00",
+    )
+
+
 TICKETS = {
-    "T-0001": TicketRecord(id="T-0001", type="consegna", assignee="design-director", prompt=""),
-    "T-0002": TicketRecord(id="T-0002", type="schizzo", assignee="direction-a", prompt="explorer"),
-    "T-0009": TicketRecord(id="T-0009", type="revisione", assignee="critic", prompt=""),
+    "T-0001": ticket("T-0001", "consegna", "design-director"),
+    "T-0002": ticket("T-0002", "schizzo", "direction-a", "explorer"),
+    "T-0009": ticket("T-0009", "revisione", "critic"),
 }
 TRACE = TraceMeasure(request_id="req_1", duration_ms=8200, ttft_ms=1400, effort="high", reasoning_tokens=310)
 
@@ -278,7 +293,9 @@ class FakeRegistry:
 
     def read(self) -> RegistrySnapshot:
         calls = [usage(), usage(seq=2, request_id="req_2", phase="director-plan", duration_ms=10)]
-        return RegistrySnapshot(usage=calls, tickets=TICKETS)
+        return RegistrySnapshot(
+            usage=calls, tickets=TICKETS, projects=[], gates=[], concepts=[], judgments=[]
+        )
 
 
 @pytest.mark.parametrize(
@@ -318,6 +335,10 @@ def call(seq: int, project: str = "merlo3") -> Call:
     return projected
 
 
+def only(calls: list[Call]) -> Projected:
+    return Projected(calls=calls, projects=[], tickets=[], gates=[], concepts=[], judgments=[])
+
+
 def rebuilt(calls: int) -> Provenance:
     return Provenance(
         built_at="2026-11-02",
@@ -334,7 +355,7 @@ def rebuilt(calls: int) -> Provenance:
 
 def test_projection_columns_come_from_the_model(tmp_path: Path) -> None:
     projection = SqliteProjection(tmp_path / "insights.sqlite")
-    projection.replace([call(1)], rebuilt(1))
+    projection.replace(only([call(1)]), rebuilt(1))
     with closing(sqlite3.connect(tmp_path / "insights.sqlite")) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(calls)")]
         version = connection.execute("PRAGMA user_version").fetchone()[0]
@@ -345,7 +366,7 @@ def test_projection_columns_come_from_the_model(tmp_path: Path) -> None:
 def test_projection_reads_back_exactly_what_it_wrote_and_filters_by_project(tmp_path: Path) -> None:
     projection = SqliteProjection(tmp_path / "insights.sqlite")
     written = [call(1), call(2, "merlo"), call(3)]
-    projection.replace(written, rebuilt(3))
+    projection.replace(only(written), rebuilt(3))
     assert projection.calls() == written
     assert [item.seq for item in projection.calls("merlo3")] == [1, 3]
 
@@ -353,11 +374,11 @@ def test_projection_reads_back_exactly_what_it_wrote_and_filters_by_project(tmp_
 def test_a_reader_never_sees_a_half_written_projection(tmp_path: Path) -> None:
     path = tmp_path / "insights.sqlite"
     projection = SqliteProjection(path)
-    projection.replace([call(1)], rebuilt(1))
+    projection.replace(only([call(1)]), rebuilt(1))
     with closing(sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)) as reader:
         reader.execute("BEGIN")
         assert reader.execute("SELECT count(*) FROM calls").fetchone()[0] == 1
-        projection.replace([call(1), call(2)], rebuilt(2))
+        projection.replace(only([call(1), call(2)]), rebuilt(2))
         assert reader.execute("SELECT count(*) FROM calls").fetchone()[0] == 1  # la sua versione resta intera
     assert len(projection.calls()) == 2
     assert [item.name for item in tmp_path.iterdir()] == ["insights.sqlite"]
@@ -365,16 +386,16 @@ def test_a_reader_never_sees_a_half_written_projection(tmp_path: Path) -> None:
 
 def test_a_failed_rebuild_leaves_the_previous_projection(tmp_path: Path) -> None:
     projection = SqliteProjection(tmp_path / "insights.sqlite")
-    projection.replace([call(1)], rebuilt(1))
+    projection.replace(only([call(1)]), rebuilt(1))
     with pytest.raises(sqlite3.IntegrityError):
-        projection.replace([call(1), call(1)], rebuilt(2))  # due chiamate con lo stesso numero
+        projection.replace(only([call(1), call(1)]), rebuilt(2))  # due chiamate con lo stesso numero
     assert [item.seq for item in projection.calls()] == [1]
     assert [item.name for item in tmp_path.iterdir()] == ["insights.sqlite"]
 
 
 def test_an_old_projection_schema_is_not_read(tmp_path: Path) -> None:
     path = tmp_path / "insights.sqlite"
-    SqliteProjection(path).replace([call(1)], rebuilt(1))
+    SqliteProjection(path).replace(only([call(1)]), rebuilt(1))
     with closing(sqlite3.connect(path)) as connection:
         connection.execute("PRAGMA user_version = 0")
         connection.commit()

@@ -56,15 +56,79 @@ class UsageRecord(BaseModel):
     reasoning_tokens: int | None
 
 
+class ProjectRecord(BaseModel):
+    """Le scelte del cliente per un progetto. I progetti prima di M1.5 non le hanno."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    budget_usd: float
+    model: str
+    effort: str
+
+
 class TicketRecord(BaseModel):
-    """Ciò che serve di un ticket per leggere le sue chiamate."""
+    """Ciò che serve di un ticket per leggere le sue chiamate e il suo stato."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     id: str
+    project: str
     type: str
     assignee: str
     prompt: str
+    title: str
+    status: str
+    verdict: str | None
+    created_at: str
+
+
+class GateRecord(BaseModel):
+    """Una decisione del cliente a un gate. Le sue parole restano nel registro: qui servono quando e cosa."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    seq: int
+    at: str
+    project: str
+    gate: str
+    approved: bool
+    choice: str
+
+
+class ConceptRecord(BaseModel):
+    """Un'idea esplorata, con la sua lettera anonima e la frase della scheda."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    seq: int
+    project: str
+    round: int
+    letter: str
+    anon: str
+    lever: str
+    status: str
+    concept: str
+
+
+class JudgmentRecord(BaseModel):
+    """Il voto su un file di un confronto alla cieca. `compared` dice quanti file aveva il confronto."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    seq: int
+    at: str
+    comparison: str
+    judge: str
+    letter: str
+    project: str
+    file: str
+    sha256: str
+    level: str
+    specific: bool
+    best: bool
+    why: str
+    compared: int
 
 
 class TraceMeasure(BaseModel):
@@ -169,6 +233,19 @@ def project_calls(
             )
         )
     return calls
+
+
+class Projected(BaseModel):
+    """Tutto ciò che entra nella proiezione, in una volta sola."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    calls: list[Call]
+    projects: list[ProjectRecord]
+    tickets: list[TicketRecord]
+    gates: list[GateRecord]
+    concepts: list[ConceptRecord]
+    judgments: list[JudgmentRecord]
 
 
 class Provenance(BaseModel):

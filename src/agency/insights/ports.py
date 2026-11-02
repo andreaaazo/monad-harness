@@ -6,16 +6,44 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from agency.insights.domain import Call, Provenance, TicketRecord, TraceMeasure, UsageRecord
+from agency.insights.domain import (
+    Call,
+    ConceptRecord,
+    GateRecord,
+    JudgmentRecord,
+    Projected,
+    ProjectRecord,
+    Provenance,
+    TicketRecord,
+    TraceMeasure,
+    UsageRecord,
+)
 
 
 class RegistrySnapshot(BaseModel):
-    """Chiamate e ticket letti insieme, nella stessa transazione: una fotografia coerente."""
+    """Ciò che insights legge del registro, nella stessa transazione: una fotografia coerente."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     usage: list[UsageRecord]
     tickets: dict[str, TicketRecord]
+    projects: list[ProjectRecord]
+    gates: list[GateRecord]
+    concepts: list[ConceptRecord]
+    judgments: list[JudgmentRecord]
+
+
+class ProjectData(BaseModel):
+    """Ciò che la proiezione sa di un progetto: le viste nascono da qui."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    project: ProjectRecord | None
+    calls: list[Call]
+    tickets: list[TicketRecord]
+    gates: list[GateRecord]
+    concepts: list[ConceptRecord]
+    judgments: list[JudgmentRecord]
 
 
 class TraceReading(BaseModel):
@@ -38,6 +66,12 @@ class TraceReader(Protocol):
 
 
 class ProjectionWriter(Protocol):
-    def replace(self, calls: list[Call], provenance: Provenance) -> None:
+    def replace(self, projected: Projected, provenance: Provenance) -> None:
         """Sostituisce la proiezione intera, in un colpo solo: chi legge non vede mai metà lavoro."""
         ...
+
+
+class ProjectionReader(Protocol):
+    def project(self, name: str) -> ProjectData: ...
+
+    def provenance(self) -> Provenance: ...

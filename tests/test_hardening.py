@@ -5,6 +5,7 @@ from __future__ import annotations
 import itertools
 import json
 import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,7 @@ from agency.config import Settings
 from agency.contracts.gate import ConceptGate, Gate
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.gateway import ModelGateway, ScriptedTransport
+from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
 from agency.ledger.models import EvidenceRow, UsageRow
 from agency.qa import checks as qa
@@ -369,15 +371,18 @@ def usage(ticket: str, step: int, at: str = "2026-11-01T00:00:00+00:00", instanc
     )
 
 
-def test_report_counts_how_many_worked_at_once(tmp_path: Path) -> None:
+def test_report_counts_how_many_worked_at_once(
+    tmp_path: Path, report_of: Callable[[Path, str], ProjectReport]
+) -> None:
     ledger = Ledger(tmp_path / "l.sqlite")
     ticket = ledger.open(spec(), "p")
     for name in "abcde":
         ledger.record_usage(usage(ticket, 1, "2026-11-01T10:00:00+00:00", name))
         ledger.record_usage(usage(ticket, 2, "2026-11-01T10:05:00+00:00", name))
     ledger.record_usage(usage(ticket, 3, "2026-11-01T11:00:00+00:00", "dopo"))
-    assert report.summary(ledger, "p")["parallel"] == 5
-    assert "in parallelo: 5" in report.render(ledger, "p")
+    view = report_of(tmp_path / "l.sqlite", "p")
+    assert view.parallel == 5
+    assert "in parallelo: 5" in report.render(view)
 
 
 # Prove

@@ -26,7 +26,7 @@ make doctor     # strumenti della macchina
 cp .env.example .env   # poi inserisci ANTHROPIC_API_KEY
 
 uv run agency run progetto brief.md --budget 30   # lavora fino al gate del cliente
-uv run agency report progetto           # costi e stato dei ticket
+uv run agency report progetto           # costi, fasi e ticket; con --json il modello del cruscotto
 uv run agency decide progetto --approve --choice X --text "…"   # gate del concetto
 uv run agency decide progetto --approve --text "…"              # gate finale
 uv run agency budget progetto 40        # alza il budget se è finito

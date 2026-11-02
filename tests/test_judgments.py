@@ -16,6 +16,7 @@ from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
 from agency.evaluation import blind
+from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
 from agency.telemetry import report
 
@@ -233,10 +234,12 @@ def test_judgments_are_append_only(tmp_path: Path, statement: str) -> None:
         connection.exec_driver_sql(statement)
 
 
-def test_report_of_a_project_shows_its_judgments(tmp_path: Path) -> None:
+def test_report_of_a_project_shows_its_judgments(
+    tmp_path: Path, report_of: Callable[[Path, str], ProjectReport]
+) -> None:
     ledger = Ledger(tmp_path / "l.sqlite")
     ledger.record_judgment("s1", *comparison())
-    text = report.render(ledger, "merlo3")
+    text = report.render(report_of(tmp_path / "l.sqlite", "merlo3"))
     assert "Giudizi alla cieca:" in text
     assert "exports/segno.svg [B] eccellente, specifico, il migliore di 2" in text
 

@@ -12,6 +12,7 @@ import pytest
 
 from agency.agents.loop import AgentRunner
 from agency.agents.transcript import Transcript
+from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType, Verdict
 from agency.gateway import BudgetExceeded, ModelGateway, ScriptedTransport
@@ -59,7 +60,13 @@ def runner(config: Settings, responses: list[dict]) -> tuple[AgentRunner, Script
     ledger = Ledger(config.ledger_path)
     transport = ScriptedTransport(responses)
     index = CommandIndex.load(config.data_dir / "craft-index")
-    return AgentRunner(ModelGateway(transport, ledger, config), ledger, config, index), transport, ledger
+    return (
+        AgentRunner(
+            ModelGateway(transport, ledger, config), ledger, config, index, FileStore(config.artifacts_dir)
+        ),
+        transport,
+        ledger,
+    )
 
 
 def steps() -> list[dict]:
@@ -97,7 +104,16 @@ def test_author_cannot_deliver_without_master_then_can(tmp_path: Path) -> None:
 def test_schemas_have_no_identity_field(tmp_path: Path) -> None:
     config = settings(tmp_path)
     ledger = Ledger(config.ledger_path)
-    context = ToolContext("identity-designer", "p", "T-1", "i", ledger, Sandbox(tmp_path), CommandIndex([]))
+    context = ToolContext(
+        "identity-designer",
+        "p",
+        "T-1",
+        "i",
+        ledger,
+        Sandbox(tmp_path),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
     text = json.dumps(Toolbox(context).definitions())
     for field in ('"by"', '"actor"', '"signer"', '"from"', '"sender"'):
         assert field not in text
@@ -107,7 +123,16 @@ def test_role_cannot_use_tools_outside_its_set(tmp_path: Path) -> None:
     config = settings(tmp_path)
     ledger = Ledger(config.ledger_path)
     ticket = ledger.open(production_spec(), "p")
-    context = ToolContext("critic", "p", ticket, "i", ledger, Sandbox(tmp_path), CommandIndex([]))
+    context = ToolContext(
+        "critic",
+        "p",
+        ticket,
+        "i",
+        ledger,
+        Sandbox(tmp_path),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
     result = Toolbox(context).call("x", "craft_run", {"document": "a.vectorcraft", "steps": []})
     assert result["is_error"]
 
@@ -115,7 +140,16 @@ def test_role_cannot_use_tools_outside_its_set(tmp_path: Path) -> None:
 def test_reviewer_writes_only_reports(tmp_path: Path) -> None:
     config = settings(tmp_path)
     ledger = Ledger(config.ledger_path)
-    context = ToolContext("critic", "p", "T-1", "i", ledger, Sandbox(tmp_path), CommandIndex([]))
+    context = ToolContext(
+        "critic",
+        "p",
+        "T-1",
+        "i",
+        ledger,
+        Sandbox(tmp_path),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
     box = Toolbox(context)
     assert box.call("a", "write_file", {"path": "source/note.md", "content": "x"})["is_error"]
     assert not box.call("b", "write_file", {"path": "reviews/r.md", "content": "x"}).get("is_error")
@@ -124,7 +158,16 @@ def test_reviewer_writes_only_reports(tmp_path: Path) -> None:
 def test_author_cannot_write_vectors_by_hand(tmp_path: Path) -> None:
     config = settings(tmp_path)
     ledger = Ledger(config.ledger_path)
-    context = ToolContext("identity-designer", "p", "T-1", "i", ledger, Sandbox(tmp_path), CommandIndex([]))
+    context = ToolContext(
+        "identity-designer",
+        "p",
+        "T-1",
+        "i",
+        ledger,
+        Sandbox(tmp_path),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
     result = Toolbox(context).call("a", "write_file", {"path": "exports/a.svg", "content": "<svg/>"})
     assert result["is_error"]
 
@@ -132,7 +175,16 @@ def test_author_cannot_write_vectors_by_hand(tmp_path: Path) -> None:
 def test_path_outside_the_job_is_refused(tmp_path: Path) -> None:
     config = settings(tmp_path)
     ledger = Ledger(config.ledger_path)
-    context = ToolContext("critic", "p", "T-1", "i", ledger, Sandbox(tmp_path), CommandIndex([]))
+    context = ToolContext(
+        "critic",
+        "p",
+        "T-1",
+        "i",
+        ledger,
+        Sandbox(tmp_path),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
     assert Toolbox(context).call("a", "read_file", {"path": "../../etc/passwd"})["is_error"]
 
 
@@ -182,13 +234,17 @@ def test_interruption_resumes_without_repeating_effects(tmp_path: Path) -> None:
     }
     dying = Dies([turn(use("open_ticket", "t1", **child))])
     index = CommandIndex([])
-    first = AgentRunner(ModelGateway(dying, ledger, config), ledger, config, index)
+    first = AgentRunner(
+        ModelGateway(dying, ledger, config), ledger, config, index, FileStore(config.artifacts_dir)
+    )
     with pytest.raises(ConnectionError):
         first.run(root)
     assert len(ledger.children(root)) == 1
     # Riparte dalla trascrizione: nessuna chiamata ripetuta, nessun ticket doppio.
     again = ScriptedTransport([turn(use("hand_off", "t2", note="attendo il segno"))])
-    second = AgentRunner(ModelGateway(again, ledger, config), ledger, config, index)
+    second = AgentRunner(
+        ModelGateway(again, ledger, config), ledger, config, index, FileStore(config.artifacts_dir)
+    )
     assert second.run(root).state == "handed_off"
     assert len(ledger.children(root)) == 1
     assert len(again.requests) == 1
@@ -230,7 +286,9 @@ def test_interrupted_between_response_and_tools_does_not_duplicate(tmp_path: Pat
         operation=(f"{root}-a1:t1", f"{root}-a1", "open_ticket"),
     )
     again = ScriptedTransport([turn(use("hand_off", "t2", note="attendo il segno"))])
-    runner_ = AgentRunner(ModelGateway(again, ledger, config), ledger, config, CommandIndex([]))
+    runner_ = AgentRunner(
+        ModelGateway(again, ledger, config), ledger, config, CommandIndex([]), FileStore(config.artifacts_dir)
+    )
     assert runner_.run(root).state == "handed_off"
     assert len(ledger.children(root)) == 1
 
@@ -296,7 +354,9 @@ def test_observe_needs_a_render_really_viewed(tmp_path: Path) -> None:
     Image.new("RGB", (100, 100), (200, 30, 30)).save(work / "a.png")
     ledger = Ledger(config.ledger_path)
     ticket = ledger.open(production_spec(), "p")
-    context = ToolContext("critic", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]))
+    context = ToolContext(
+        "critic", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), FileStore(tmp_path / "artifacts")
+    )
     box = Toolbox(context)
     seen = "Quadrato rosso pieno, bordi netti, nessun difetto visibile nel render."
     arguments = {"file": "a.png", "seen": seen}
@@ -314,7 +374,16 @@ def test_big_images_are_reduced_and_rereads_are_allowed(tmp_path: Path) -> None:
     Image.new("RGB", (3000, 400)).save(tmp_path / "big.png")
     Image.new("RGB", (400, 400)).save(tmp_path / "ok.png")
     ledger = Ledger(config.ledger_path)
-    context = ToolContext("critic", "p", "T-1", "i", ledger, Sandbox(tmp_path), CommandIndex([]))
+    context = ToolContext(
+        "critic",
+        "p",
+        "T-1",
+        "i",
+        ledger,
+        Sandbox(tmp_path),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
     box = Toolbox(context)
     reduced = box.call("a", "view_image", {"path": "big.png"})
     assert not reduced.get("is_error") and "ridotta" in str(reduced["content"])
@@ -327,7 +396,16 @@ def test_big_images_are_reduced_and_rereads_are_allowed(tmp_path: Path) -> None:
 def test_child_ticket_outside_org_is_refused(tmp_path: Path) -> None:
     config = settings(tmp_path)
     ledger = Ledger(config.ledger_path)
-    context = ToolContext("design-director", "p", "T-1", "i", ledger, Sandbox(tmp_path), CommandIndex([]))
+    context = ToolContext(
+        "design-director",
+        "p",
+        "T-1",
+        "i",
+        ledger,
+        Sandbox(tmp_path),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
     arguments = {
         "title": "Ricerca",
         "request": "r",
@@ -488,7 +566,16 @@ def test_observe_accepts_an_image_really_viewed(tmp_path: Path) -> None:
     Image.new("RGB", (100, 100), (20, 90, 200)).save(tmp_path / "tavola.png")
     ledger = Ledger(config.ledger_path)
     ticket = ledger.open(production_spec(), "p")
-    context = ToolContext("critic", "p", ticket, "i", ledger, Sandbox(tmp_path), CommandIndex([]))
+    context = ToolContext(
+        "critic",
+        "p",
+        ticket,
+        "i",
+        ledger,
+        Sandbox(tmp_path),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
     box = Toolbox(context)
     arguments = {
         "file": "tavola.png",
@@ -519,7 +606,16 @@ def test_redelivery_with_identical_outputs_is_refused(tmp_path: Path) -> None:
         medium_why="solo un testo di prova",
     )
     ticket = ledger.open(spec, "p")
-    context = ToolContext("copywriter", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]))
+    context = ToolContext(
+        "copywriter",
+        "p",
+        ticket,
+        "i",
+        ledger,
+        Sandbox(work),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
     box = Toolbox(context)
     box.call(
         "a", "record_requirement", {"file": "nota.md", "check": "req:letta", "result": "PASS", "note": "ok"}

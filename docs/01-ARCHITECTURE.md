@@ -210,9 +210,9 @@ M1.7.
 ```text
 src/agency/
   shared/        contratti ed errori comuni
-  platform/      registro, gateway, sandbox, telemetria
+  platform/      registro, gateway, sandbox, telemetria, artefatti
   studio/        una slice per capacità
-    exploration/  selection/  proposal/  presentation/  finishing/  delivery/
+    exploration/  selection/  proposal/  presentation/  finishing/  delivery/  evaluation/
   process/       composizione del grafo
   insights/      slice di lettura per report e cruscotto
   entrypoints/   cli/ e server/ (Django)

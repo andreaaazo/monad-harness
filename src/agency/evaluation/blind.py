@@ -48,8 +48,12 @@ def candidates(paths: list[Path], projects_dir: Path) -> list[Candidate]:
     return found
 
 
+def _digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def _judged(path: Path, projects_dir: Path) -> Judged:
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = _digest(path)
     if projects_dir not in path.parent.parents:  # un file sciolto in projects/ non è di nessun progetto
         return Judged(project="", file=str(path), sha256=digest)
     project, *rest = path.relative_to(projects_dir).parts
@@ -69,14 +73,25 @@ def assign(found: list[Candidate], rng: random.Random) -> dict[str, Candidate]:
 
 
 def lay_out(assigned: dict[str, Candidate], folder: Path) -> list[Path]:
-    """Copie nuove, senza i metadati dell'originale: nemmeno la data dice da dove viene un file."""
+    """Copie nuove, senza i metadati dell'originale: nemmeno la data dice da dove viene un file.
+
+    Ogni copia deve avere l'hash letto all'inizio: si giudica, e si conserva, esattamente quella versione.
+    """
     folder.mkdir(parents=True)
     copies = []
     for letter, candidate in assigned.items():
         copy = folder / f"{letter}{candidate.path.suffix.lower()}"
         shutil.copyfile(candidate.path, copy)
+        if _digest(copy) != candidate.judged.sha256:
+            raise CannotCompare(f"{candidate.path} è cambiato mentre lo copiavo: riprova quando è fermo")
         copies.append(copy)
     return copies
+
+
+def changed(assigned: dict[str, Candidate], copies: list[Path]) -> list[str]:
+    """Le lettere la cui copia anonima non ha più l'hash del giudizio: il giudizio può durare minuti."""
+    pairs = zip(assigned.items(), copies, strict=True)
+    return [letter for (letter, candidate), copy in pairs if _digest(copy) != candidate.judged.sha256]
 
 
 def _choose[T](ask: Callable[[str], str], prompt: str, options: dict[str, T]) -> T:

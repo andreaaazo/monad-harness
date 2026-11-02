@@ -205,6 +205,19 @@ def _closing_pages(recommended: str, reasons: str) -> list[Image.Image]:
     return [page, *_text_pages("La nostra raccomandazione", columns[1:])]
 
 
+PDF = "presentazione.pdf"
+
+
+def folder_of(turn: int) -> str:
+    """La cartella della presentazione di un giro, relativa a work/."""
+    return f"presentation/r{turn}"
+
+
+def pdf_of(turn: int) -> str:
+    """Il file che il cliente riceve, relativo a work/."""
+    return f"{folder_of(turn)}/{PDF}"
+
+
 def proposal_files(work: Path, turn: int, anon: str) -> tuple[Path, tuple[Path, ...]]:
     letter = anon.lower()
     folder = work / f"proposals/r{turn}/{letter}"
@@ -222,5 +235,5 @@ def build(proposals: list[Proposal], recommended: str, reasons: str, folder: Pat
     for number, page in enumerate(pages, start=1):
         files.append(folder / f"pagina-{number}.png")
         page.save(files[-1])
-    pages[0].save(folder / "presentazione.pdf", save_all=True, append_images=pages[1:])
+    pages[0].save(folder / PDF, save_all=True, append_images=pages[1:])
     return files

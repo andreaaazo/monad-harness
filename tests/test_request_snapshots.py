@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from agency.agents.loop import AgentRunner
+from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
 from agency.contracts.ticket import Medium, TicketSpec, TicketType
 from agency.gateway import ModelGateway
@@ -74,7 +75,13 @@ def prefix(phase: Phase, tmp_path: Path) -> str:
     settings = Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "projects", _env_file=None)  # type: ignore[call-arg]
     ledger = Ledger(settings.ledger_path)
     transport = FirstRequest()
-    runner = AgentRunner(ModelGateway(transport, ledger, settings), ledger, settings, CommandIndex([]))
+    runner = AgentRunner(
+        ModelGateway(transport, ledger, settings),
+        ledger,
+        settings,
+        CommandIndex([]),
+        FileStore(settings.artifacts_dir),
+    )
     spec = TicketSpec(
         title="Prova",
         request="Prova",

@@ -10,6 +10,7 @@ from opentelemetry import trace
 from agency.agents import prompts
 from agency.agents.transcript import Transcript
 from agency.config import Settings
+from agency.contracts.artifact import ArtifactStore
 from agency.contracts.ticket import Action, Status, TicketSpec
 from agency.gateway import CallContext, ModelGateway, ModelRequest, ModelResponse
 from agency.ledger import IllegalTransition, Ledger
@@ -44,12 +45,18 @@ class Outcome:
 
 class AgentRunner:
     def __init__(
-        self, gateway: ModelGateway, ledger: Ledger, settings: Settings, index: CommandIndex
+        self,
+        gateway: ModelGateway,
+        ledger: Ledger,
+        settings: Settings,
+        index: CommandIndex,
+        artifacts: ArtifactStore,
     ) -> None:
         self.gateway = gateway
         self.ledger = ledger
         self.settings = settings
         self.index = index
+        self.artifacts = artifacts
 
     def instance_id(self, ticket_id: str, attempt: int) -> str:
         return f"{ticket_id}-a{attempt}"
@@ -81,9 +88,11 @@ class AgentRunner:
                 ledger=self.ledger,
                 sandbox=Sandbox(work, self.settings.toolchain_dir),
                 index=self.index,
+                artifacts=self.artifacts,
                 mode=mode,
                 round=exploration or attempt,
                 settings=self.settings,
+                run=self.gateway.run,
             ),
             tools_for(role, spec, mode),
         )

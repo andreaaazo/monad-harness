@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from sqlalchemy import Index
 from sqlmodel import Field, SQLModel
 
 
@@ -191,3 +192,27 @@ class JudgmentRow(SQLModel, table=True):
     specific: bool
     best: bool
     why: str
+
+
+class ArtifactRow(SQLModel, table=True):
+    """Una versione conservata: da quale file, per quale ticket ed esecuzione, perché. Solo in aggiunta.
+
+    Il contenuto sta nel deposito sotto il suo sha256. La stessa versione dello stesso file per lo stesso
+    motivo si registra una volta sola: la ripresa ripete il passo, il registro no.
+    """
+
+    __tablename__ = "artifacts"  # type: ignore[assignment]
+    __table_args__ = (
+        Index("ux_artifacts_kept", "sha256", "project", "path", "ticket_id", "origin", unique=True),
+    )
+
+    seq: int | None = Field(default=None, primary_key=True)
+    at: str
+    sha256: str  # l'indice unico comincia da qui: basta per cercare per hash
+    project: str = Field(index=True)
+    path: str
+    ticket_id: str
+    origin: str
+    run: int | None = None
+    media_type: str
+    size: int

@@ -20,7 +20,7 @@ fino a M7 (ADR-0023).
 | Copie dei materiali fuori dal progetto | Next.js salva immagini o risposte in `.next/cache` | `images.unoptimized`, `cache: 'no-store'` su ogni lettura, verificato da un test |
 | Custom node maligno | Codice in ComfyUI | Container senza uscita, niente Manager, nodi bloccati per hash |
 | Costo fuori controllo | Un loop che non finisce, o una scelta sbagliata al gate | Budget preventivo, tetto nella Console, `agency decide` che rifiuta una scelta inesistente |
-| Comando distruttivo | Sovrascrive un master | Artefatti per hash: ogni versione consegnata resta |
+| Comando distruttivo | Sovrascrive un master | Artefatti per hash: ogni versione consegnata resta, e `agency restore` la riporta |
 
 ## Sandbox
 

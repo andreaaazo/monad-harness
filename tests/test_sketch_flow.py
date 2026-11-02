@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw
 
+from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.concept import ConceptCard
 from agency.contracts.run import Fingerprint, changes
@@ -288,6 +289,7 @@ def context(tmp_path: Path, role: str = "critic", ticket: str = "T-1", round_: i
         ledger,
         Sandbox(tmp_path),
         CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
         round=round_,
         settings=settings(tmp_path),
     )
@@ -630,6 +632,28 @@ def test_every_call_knows_its_execution_and_phase(tmp_path: Path) -> None:
     assert all(row.effort in {"high", "medium"} and row.duration_ms is not None for row in usage)
 
 
+def test_everything_delivered_or_shown_to_the_client_is_kept(tmp_path: Path) -> None:
+    config = settings(tmp_path)
+    session = open_session(config, Router(full_script()))
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    (pdf,) = session.pending("officina")[0]["files"]
+    session.decide("officina", True, "Mi piace la X", "X")
+    session.decide("officina", True, "Approvato")
+
+    store, ledger = FileStore(config.artifacts_dir), session.ledger
+    rows = ledger.artifacts("officina")
+    kept = {(row.ticket_id, row.path, row.sha256) for row in rows if row.origin == "consegna"}
+    for ticket in ledger.tickets("officina"):
+        for path, digest in json.loads(ticket.delivered_json).items():
+            assert (ticket.id, path, digest) in kept
+            assert store.intact(digest)
+    (shown,) = [row for row in rows if row.origin == "presentazione"]
+    assert (shown.path, shown.ticket_id, shown.media_type) == (pdf, "T-0001", "application/pdf")
+    assert json.loads(ledger.gates("officina")[0].files_json) == {pdf: shown.sha256}
+    assert {row.run for row in rows} <= {run.seq for run in ledger.runs("officina")}
+    assert all(row.run is not None for row in rows)
+
+
 def test_resume_with_other_settings_shows_what_changed(tmp_path: Path) -> None:
     session = open_session(settings(tmp_path), Router(to_the_gate()))
     with pytest.raises(BudgetExceeded):
@@ -790,7 +814,9 @@ def test_finisher_cannot_explore(tmp_path: Path) -> None:
     )
     ticket = ledger.open(spec, "p")
     index = CommandIndex.load(tmp_path / "index")
-    ctx = ToolContext("identity-designer", "p", ticket, "i", ledger, Sandbox(tmp_path), index)
+    ctx = ToolContext(
+        "identity-designer", "p", ticket, "i", ledger, Sandbox(tmp_path), index, FileStore(tmp_path / "a")
+    )
     box = Toolbox(ctx)
     refused = box.call("a", "craft_run", {"document": "source/prova.vectorcraft", "steps": DRAW})
     assert refused["is_error"] and "niente file di esplorazione" in refused["content"]
@@ -1053,7 +1079,15 @@ def test_explorer_is_warned_once_then_can_insist(tmp_path: Path) -> None:
     work.mkdir()
     write_sketch(work / "schizzo-a.png", (20, 300, 240, 520), (920, 300, 1140, 520))
     ctx = ToolContext(
-        "direction-a", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), settings=settings(tmp_path)
+        "direction-a",
+        "p",
+        ticket,
+        "i",
+        ledger,
+        Sandbox(work),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+        settings=settings(tmp_path),
     )
     toolbox = Toolbox(ctx, tools_for("direction-a", spec))
     evidence = {

@@ -15,6 +15,7 @@ import pytest
 from agency import cli
 from agency.agents.loop import AgentRunner
 from agency.agents.transcript import Transcript
+from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.gateway import ModelGateway, ScriptedTransport
@@ -36,7 +37,14 @@ def context(tmp_path: Path, actor: str = "identity-designer", ticket: str = "T-1
     work = tmp_path / "work"
     work.mkdir(exist_ok=True)
     return ToolContext(
-        actor, "p", ticket, "i", Ledger(tmp_path / "l.sqlite"), Sandbox(work), CommandIndex([])
+        actor,
+        "p",
+        ticket,
+        "i",
+        Ledger(tmp_path / "l.sqlite"),
+        Sandbox(work),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
     )
 
 
@@ -163,7 +171,13 @@ def runner(config: Settings, responses: list[dict]) -> tuple[AgentRunner, Script
     ledger = Ledger(config.ledger_path)
     transport = ScriptedTransport(responses)
     index = CommandIndex([])
-    return AgentRunner(ModelGateway(transport, ledger, config), ledger, config, index), transport, ledger
+    return (
+        AgentRunner(
+            ModelGateway(transport, ledger, config), ledger, config, index, FileStore(config.artifacts_dir)
+        ),
+        transport,
+        ledger,
+    )
 
 
 def reply(*blocks: dict, stop: str = "tool_use") -> dict:
@@ -486,7 +500,16 @@ def open_review(director: ToolContext, assignee: str = "critic", **extra: Any) -
 
 
 def signed_by(director: ToolContext, role: str, ticket: str) -> ToolContext:
-    return ToolContext(role, "p", ticket, f"{ticket}-i", director.ledger, director.sandbox, CommandIndex([]))
+    return ToolContext(
+        role,
+        "p",
+        ticket,
+        f"{ticket}-i",
+        director.ledger,
+        director.sandbox,
+        CommandIndex([]),
+        director.artifacts,
+    )
 
 
 def proof(reviewer: ToolContext, check: str, result: str = "PASS") -> None:

@@ -275,7 +275,7 @@ def build(runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer:
         project, turn = state["project"], state["exploration"]
         selection = json.loads(state["client_note"])
         options = [item["letter"] for item in selection["proposals"]]
-        file = f"presentation/r{turn}/presentazione.pdf"
+        file = presentation.pdf_of(turn)
         decision = interrupt(
             {
                 "gate": "concept",

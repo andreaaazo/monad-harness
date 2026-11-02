@@ -12,6 +12,7 @@ import pytest
 from pydantic import ValidationError
 
 from agency import cli
+from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
 from agency.evaluation import blind
@@ -286,6 +287,58 @@ def test_judge_records_blind_then_reveals_and_removes_the_copies(
     assert list(Path("data/blind").iterdir()) == []
 
 
+def test_judged_files_are_kept_under_their_hash(
+    studio: Settings, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    paths = two_projects(Path.cwd())
+    answer(monkeypatch, ["buono", "no", "Regge", "ordinario", "si", "Generico", "A"], [])
+    assert cli.main(["judge", *map(str, paths), "--judge", "andrea"]) == 0
+    for path in paths:  # il file nel progetto può cambiare: la versione giudicata resta
+        path.write_text("sovrascritto", encoding="utf-8")
+
+    ledger, store = Ledger(studio.ledger_path), FileStore(studio.artifacts_dir)
+    for project, original in (("merlo", "<svg>merlo</svg>"), ("merlo3", "<svg>merlo3</svg>")):
+        (judged,) = ledger.judgments(project)
+        with store.open(judged.sha256) as handle:
+            assert handle.read() == original.encode()
+        (row,) = ledger.artifacts(project)
+        assert (row.sha256, row.origin, row.path, row.ticket_id) == (
+            judged.sha256,
+            "giudizio",
+            judged.file,
+            "",
+        )
+
+
+def test_a_blind_copy_changed_during_the_judgment_records_nothing(
+    studio: Settings, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    paths = two_projects(Path.cwd())
+    pending = ["buono", "no", "Regge", "ordinario", "si", "Generico", "A"]
+
+    def tampering_input(_prompt: str) -> str:
+        if len(pending) == 1:  # mentre si sceglie il migliore, qualcuno cambia una copia
+            (copy,) = Path("data/blind").glob("*/A.svg")
+            copy.write_text("<svg>altro</svg>", encoding="utf-8")
+        return pending.pop(0)
+
+    monkeypatch.setattr("builtins.input", tampering_input)
+
+    assert cli.main(["judge", *map(str, paths)]) == 1
+
+    assert "cambiat" in capsys.readouterr().out
+    ledger = Ledger(studio.ledger_path)
+    assert ledger.judgments("merlo") + ledger.judgments("merlo3") == []
+    assert ledger.artifacts("merlo") + ledger.artifacts("merlo3") == []
+
+
+def test_a_file_changed_while_it_is_copied_is_refused(tmp_path: Path) -> None:
+    found = blind.candidates(two_projects(tmp_path), tmp_path / "projects")
+    found[0].path.write_text("<svg>cambiato</svg>", encoding="utf-8")
+    with pytest.raises(blind.CannotCompare, match="cambiato"):
+        blind.lay_out(blind.assign(found, random.Random(1)), tmp_path / "blind" / "s")
+
+
 def test_interrupted_judgment_records_nothing_and_leaves_no_copies(
     studio: Settings, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -297,6 +350,7 @@ def test_interrupted_judgment_records_nothing_and_leaves_no_copies(
     assert "nulla registrato" in capsys.readouterr().out
     ledger = Ledger(studio.ledger_path)
     assert ledger.judgments("merlo") == [] and ledger.judgments("merlo3") == []
+    assert ledger.artifacts("merlo") == [] and not studio.artifacts_dir.exists()
     assert list(Path("data/blind").iterdir()) == []
 
 

@@ -11,6 +11,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
 from agency.agents.loop import AgentRunner
+from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.run import RunCommand
 from agency.contracts.ticket import TicketSpec, TicketType
@@ -113,7 +114,7 @@ def open_session(settings: Settings, transport: Transport | None = None) -> Sess
         transport = AnthropicTransport(key.get_secret_value() if key else None)
     gateway = ModelGateway(transport, ledger, settings)
     index = CommandIndex.load(settings.data_dir / "craft-index")
-    runner = AgentRunner(gateway, ledger, settings, index)
+    runner = AgentRunner(gateway, ledger, settings, index, FileStore(settings.artifacts_dir))
     connection = sqlite3.connect(settings.checkpoints_path, check_same_thread=False, timeout=BUSY_SECONDS)
     graph = build(runner, ledger, settings, SqliteSaver(connection))
     return Session(settings, ledger, graph, gateway)

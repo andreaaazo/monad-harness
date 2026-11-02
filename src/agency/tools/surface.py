@@ -16,7 +16,9 @@ from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from agency.agents import prompts
+from agency.artifacts import keeping
 from agency.config import Settings
+from agency.contracts.artifact import ArtifactStore, Origin
 from agency.contracts.concept import ConceptCard
 from agency.contracts.ticket import REVIEWERS, Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.ledger import ForbiddenAction, IllegalTransition, Ledger
@@ -48,15 +50,30 @@ class ToolContext:
     ledger: Ledger
     sandbox: Sandbox
     index: craft.CommandIndex
+    artifacts: ArtifactStore
     finished: tuple[str, str] | None = None
     extra: dict[str, Any] = field(default_factory=dict)
     mode: str = ""
     round: int = 1
     settings: Settings | None = None
+    run: int | None = None  # l'esecuzione in corso: None fuori da una sessione
 
     @property
     def work(self) -> Path:
         return self.sandbox.work
+
+    def keep(self, paths: list[str], origin: Origin) -> dict[str, str]:
+        """Conserva la versione attuale dei file prima dell'evento che la usa. Restituisce gli hash."""
+        files = {path: inside(self.work, path) for path in paths}
+        return keeping.keep(
+            self.artifacts,
+            self.ledger,
+            files,
+            project=self.project,
+            origin=origin,
+            ticket_id=self.ticket_id,
+            run=self.run,
+        )
 
 
 class Strict(BaseModel):
@@ -540,7 +557,8 @@ def deliver(ctx: ToolContext, a: Deliver, _: str) -> dict:
     reworked = any(event.action == "rework" for event in ctx.ledger.history(ctx.ticket_id))
     if spec.type is TicketType.PRODUCTION and reworked and hashes == ctx.ledger.delivered(ctx.ticket_id):
         raise Refused("consegna rifiutata: gli output sono identici alla versione rimandata indietro")
-    ctx.ledger.apply(ctx.ticket_id, Action.DELIVER, ctx.actor, a.note, a.verdict, hashes)
+    kept = ctx.keep(present, Origin.DELIVERY)
+    ctx.ledger.apply(ctx.ticket_id, Action.DELIVER, ctx.actor, a.note, a.verdict, kept)
     ctx.finished = ("delivered", a.note)
     return {"ok": True, "status": "delivered"}
 
@@ -617,9 +635,9 @@ def submit_concept(ctx: ToolContext, a: ConceptCard, _: str) -> dict:
     if warning and ctx.extra.get("warned_sketch") != digest:  # l'avviso vale una volta per versione
         ctx.extra["warned_sketch"] = digest
         raise Refused(warning)
-    hashes = {path: sha256(inside(ctx.work, path)) for path in present}
+    kept = ctx.keep(present, Origin.DELIVERY)
     ctx.ledger.update_concept(ctx.ticket_id, card_json=a.model_dump_json(), status="schizzo")
-    ctx.ledger.apply(ctx.ticket_id, Action.DELIVER, ctx.actor, a.concept, delivered=hashes)
+    ctx.ledger.apply(ctx.ticket_id, Action.DELIVER, ctx.actor, a.concept, delivered=kept)
     ctx.finished = ("delivered", a.concept)
     return {"ok": True}
 
@@ -689,7 +707,7 @@ def draft_presentation(ctx: ToolContext, a: PresentConcepts, _: str) -> dict:
         )
         for item in a.proposals
     ]
-    folder = inside(ctx.work, f"presentation/r{ctx.round}")
+    folder = inside(ctx.work, presentation.folder_of(ctx.round))
     pages = presentation.build(items, str(a.recommended), a.reasons, folder)
     (folder / "testi.json").write_text(a.model_dump_json(), encoding="utf-8")
     return {
@@ -700,7 +718,7 @@ def draft_presentation(ctx: ToolContext, a: PresentConcepts, _: str) -> dict:
 
 def present_concepts(ctx: ToolContext, _a: ConfirmPresentation, __: str) -> dict:
     """Manda al cliente l'ultima bozza, solo se è esattamente quella guardata."""
-    folder = inside(ctx.work, f"presentation/r{ctx.round}")
+    folder = inside(ctx.work, presentation.folder_of(ctx.round))
     draft = folder / "testi.json"
     if not draft.is_file():
         raise Refused("non c'è ancora una bozza: prima draft_presentation")
@@ -710,6 +728,7 @@ def present_concepts(ctx: ToolContext, _a: ConfirmPresentation, __: str) -> dict
     if missing:
         raise Refused(f"guarda queste pagine, così come sono ora, prima di mandarle al cliente: {missing}")
     text = draft.read_text(encoding="utf-8")
+    ctx.keep([presentation.pdf_of(ctx.round)], Origin.PRESENTATION)
     ctx.finished = ("presented", text)
     return json.loads(text)
 

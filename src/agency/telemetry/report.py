@@ -8,7 +8,7 @@ from datetime import datetime
 
 from agency.contracts.run import Change, Fingerprint, changes
 from agency.ledger import Ledger
-from agency.ledger.models import JudgmentRow, RunRow
+from agency.ledger.models import ArtifactRow, JudgmentRow, RunRow
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
 NAMED = 5  # oltre, l'elenco delle differenze si legge con agency compare
@@ -185,4 +185,36 @@ def render_reveal(rows: list[JudgmentRow]) -> str:
         best = ", il migliore" if row.best else ""
         origin = f"{row.file} di {row.project}" if row.project else row.file
         lines.append(f"  {row.letter} {_quality(row)}{best}: {origin}")
+    return "\n".join(lines)
+
+
+def _size(size: int) -> str:
+    for unit, scale in (("MB", 1 << 20), ("KB", 1 << 10)):
+        if size >= scale:
+            return f"{size / scale:.1f} {unit}"
+    return f"{size} B"
+
+
+def render_artifacts(rows: list[ArtifactRow], project: str) -> str:
+    if not rows:
+        return f"{project}: nessuna versione conservata. I lavori precedenti a M1.6 non ne hanno"
+    lines = [f"{project}: {_count(len(rows), 'versione conservata', 'versioni conservate')}"]
+    for row in rows:
+        lines.append(
+            f"  {row.sha256[:12]}  {row.origin}  {row.ticket_id or '-'}  {_size(row.size)}  {row.path}"
+        )
+    return "\n".join(lines)
+
+
+def render_restored(rows: list[ArtifactRow], destination: str) -> str:
+    lines = [f"Ripristinato {destination} dalla versione {rows[0].sha256[:12]}, conservata per:"]
+    for row in rows:
+        reason = f"{row.origin} di {row.ticket_id}" if row.ticket_id else row.origin
+        lines.append(f"  {reason}, {row.project or 'fuori dai progetti'}: {row.path}")
+    return "\n".join(lines)
+
+
+def render_damaged(rows: list[ArtifactRow]) -> str:
+    lines = ["ARTEFATTI DANNEGGIATI: queste versioni mancano dal deposito o non hanno più il loro hash"]
+    lines += [f"  {row.sha256[:12]}  {row.project or '-'}  {row.path}" for row in rows]
     return "\n".join(lines)

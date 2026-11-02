@@ -33,5 +33,9 @@ class Settings(BaseSettings):
     def checkpoints_path(self) -> Path:
         return self.data_dir / "checkpoints.sqlite"
 
+    @property
+    def artifacts_dir(self) -> Path:
+        return self.data_dir / "artifacts"
+
     def project_dir(self, slug: str) -> Path:
         return (self.projects_dir / slug).resolve()

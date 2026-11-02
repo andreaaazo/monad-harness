@@ -178,7 +178,7 @@ def test_migrate_adds_the_new_tables_to_a_registry_at_the_baseline_and_keeps_eve
     assert {table: read(path, query) for table, query in selects.items()} == rows
     added = "run, phase, effort, duration_ms, ttft_ms, reasoning_tokens"
     assert read(path, f"SELECT {added} FROM usage") == [(None,) * 6]
-    for table in ("runs", "judgments"):
+    for table in ("runs", "judgments", "artifacts"):
         assert read(path, f"SELECT count(*) FROM {table}") == [(0,)]
         triggers = read(
             path, f"SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{table}'"

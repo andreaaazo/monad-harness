@@ -269,7 +269,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
    con lettere estratte a ogni confronto ([ADR-0027](adr/0027-il-giudizio-alla-cieca.md)).
 6. [x] **`usage` più ricca**: esecuzione, fase, effort, durata, TTFT e ragionamento, con la migrazione `0004`. Le righe vecchie
    restano vuote, e vuoto vuol dire non misurato.
-7. [ ] **Artefatti per hash**: tabella e `.data/artifacts/`, descritti da M1 e mai costruiti.
+7. [x] **Artefatti per hash**: consegne, presentazioni e file giudicati in `.data/artifacts/`, con `agency artifacts`,
+   `agency restore` e il controllo in `agency verify` ([ADR-0028](adr/0028-gli-artefatti-per-hash.md)).
 8. [ ] **Tipi espliciti**: via i `dict` di gate ed esiti, `ToolContext.extra` e `graph: object`.
 
 **Lettura**
@@ -317,7 +318,8 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
   `tests/test_sketch_flow.py`, a mano con `agency runs <progetto>` e `agency compare <n> <n>`
 - [x] Ogni nuova chiamata registra in `usage` esecuzione, fase, effort, durata, TTFT e ragionamento: `tests/test_gateway.py` e
   `tests/test_sketch_flow.py`. Il TTFT dal vivo si vedrà con `merlo4`: i test lo misurano su uno stream simulato
-- [ ] Un file giudicato resta recuperabile dal suo hash in `.data/artifacts/`
+- [x] Un file giudicato resta recuperabile dal suo hash in `.data/artifacts/`: `tests/test_artifacts.py` e
+  `tests/test_judgments.py`, a mano con `agency restore <hash> <file>`
 - [ ] `ToolContext.extra` e `graph: object` non esistono più, e gate ed esiti hanno tipi propri
 - [ ] `agency report --json` riproduce i numeri di questa roadmap: 15,91 $ su `merlo`, 13,29 $ fino al gate `concept` di `merlo3`
 - [ ] `merlo3` si legge nel cruscotto dal brief alla consegna
@@ -518,5 +520,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 7 di M1.6, senza spesa: gli artefatti per hash, la tabella e `.data/artifacts/`, così un file giudicato resta
-recuperabile. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+Il punto 8 di M1.6, senza spesa: tipi espliciti al posto dei `dict` di gate ed esiti, di `ToolContext.extra` e di
+`graph: object`. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.

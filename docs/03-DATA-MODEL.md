@@ -9,7 +9,7 @@ Ogni dato ha un solo proprietario.
 | Copie prima delle migrazioni | `.data/backups/` | `agency.ledger.schema` | Si perde il ritorno indietro |
 | Copie anonime di un confronto | `.data/blind/<confronto>/` | `agency.evaluation` | Nulla: si cancellano alla fine del giudizio |
 | Checkpoint del grafo | `.data/checkpoints.sqlite` | LangGraph | Ricostruibile dal registro |
-| Artefatti, da M1.6 | `.data/artifacts/<sha256>` | `agency.tools` | Perdita grave |
+| Artefatti, da M1.6 | `.data/artifacts/<ab>/<sha256>` | `agency.artifacts` | Perdita grave |
 | Master di lavoro | `projects/<slug>/work/` | l'agente del ticket | Da M1.6 recuperabile dagli artefatti |
 | Trascrizioni delle istanze | `.data/runs/<slug>/` | `agency.agents` | Perdita grave: servono a ripresa e replay |
 | Indice dei comandi Craft | `.data/craft-index/` | `agency.tools.craft` | Rigenerabile |
@@ -23,7 +23,8 @@ Ogni dato ha un solo proprietario.
 ## Registro: solo in aggiunta
 
 `events` non si può modificare: lo impediscono i trigger SQLite, e la catena di hash rileva chi li
-aggira. Gli stessi trigger proteggono `usage`, `evidence`, `renders`, `derivations`, `gates`, `runs` e `judgments`.
+aggira. Gli stessi trigger proteggono `usage`, `evidence`, `renders`, `derivations`, `gates`, `runs`, `judgments` e
+`artifacts`.
 `tickets` è una vista di comodo dello stato; la verità è la storia degli eventi. `agency verify`
 ricontrolla la catena.
 
@@ -35,7 +36,7 @@ ricontrolla la catena.
 | `tickets` | M0 | Contratto, stato, verdetto |
 | `events` | M0 | Chi ha fatto cosa, quando, con quale hash precedente |
 | `evidence` | M1 | File, hash, controllo, esito, firma, prova, input confrontati |
-| `artifacts` | M1.6 | Hash, percorso, tipo, ticket di origine |
+| `artifacts` | M1.6 | Versione conservata: hash, progetto, percorso, ticket, esecuzione, motivo, tipo MIME, dimensione (ADR-0028) |
 | `renders` | M1 | Prova di render di una versione precisa di un file |
 | `derivations` | M1 | Master → export, con entrambi gli hash |
 | `usage` | M1 | Chiamata, ticket, ruolo, modello, token per tipo, costo. Da M1.6 anche esecuzione, fase, effort, durata, TTFT, ragionamento |
@@ -83,6 +84,9 @@ Contratto in `agency.contracts.ticket`. Regole principali:
 | 3D | `.blend` | intestazione del file, poi bpy |
 
 Un export è valido solo se `derivations` lega la sua versione a quella attuale del master.
+
+Ogni versione consegnata, mostrata al cliente o giudicata resta in `.data/artifacts/` (ADR-0028). `agency artifacts <progetto>`
+le elenca, `agency restore <hash> <file>` ne riporta una in un file nuovo, e `agency verify` controlla che ci siano tutte.
 
 ## Modello di scena (M3)
 

@@ -13,6 +13,7 @@ from pathlib import Path
 
 from sqlalchemy import event as sa_event
 from sqlalchemy import func
+from sqlalchemy.dialects.sqlite import insert
 from sqlmodel import Session, col, create_engine, select
 
 from agency.contracts.judgment import Judged, Judgment
@@ -27,6 +28,7 @@ from agency.contracts.ticket import (
 )
 from agency.ledger import chain, schema
 from agency.ledger.models import (
+    ArtifactRow,
     ConceptRow,
     DerivationRow,
     EventRow,
@@ -443,3 +445,28 @@ class Ledger:
                 select(JudgmentRow).where(JudgmentRow.comparison == comparison).order_by(col(JudgmentRow.seq))
             )
             return list(session.exec(query).all())
+
+    # Artefatti
+
+    def record_artifacts(self, rows: list[ArtifactRow]) -> None:
+        """Una versione già registrata per lo stesso file e motivo non si registra di nuovo."""
+        if not rows:
+            return
+        values = [row.model_dump(exclude={"seq"}) for row in rows]
+        with Session(self.engine) as session:
+            session.execute(insert(ArtifactRow).values(values).on_conflict_do_nothing())
+            session.commit()
+
+    def artifacts(self, project: str) -> list[ArtifactRow]:
+        with Session(self.engine) as session:
+            query = select(ArtifactRow).where(ArtifactRow.project == project).order_by(col(ArtifactRow.seq))
+            return list(session.exec(query).all())
+
+    def artifacts_with(self, prefix: str) -> list[ArtifactRow]:
+        with Session(self.engine) as session:
+            query = select(ArtifactRow).where(col(ArtifactRow.sha256).startswith(prefix, autoescape=True))
+            return list(session.exec(query.order_by(col(ArtifactRow.seq))).all())
+
+    def all_artifacts(self) -> list[ArtifactRow]:
+        with Session(self.engine) as session:
+            return list(session.exec(select(ArtifactRow).order_by(col(ArtifactRow.seq))).all())

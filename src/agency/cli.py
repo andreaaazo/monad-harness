@@ -11,7 +11,9 @@ from pathlib import Path
 
 import anthropic
 
+from agency.artifacts import FileStore, keeping
 from agency.config import Settings
+from agency.contracts.artifact import Origin
 from agency.doctor import run_checks
 from agency.evaluation import blind
 from agency.gateway import BudgetExceeded
@@ -33,9 +35,13 @@ def _doctor(_: argparse.Namespace) -> int:
 
 
 def _verify(_: argparse.Namespace) -> int:
-    ok = Ledger(Settings().ledger_path).verify_chain()
+    settings = Settings()
+    ledger = Ledger(settings.ledger_path)
+    ok = ledger.verify_chain()
     print("registro integro" if ok else "REGISTRO ALTERATO")
-    return 0 if ok else 1
+    broken = keeping.damaged(FileStore(settings.artifacts_dir), ledger)
+    print(report.render_damaged(broken) if broken else f"artefatti integri: {keeping.versions(ledger)}")
+    return 0 if ok and not broken else 1
 
 
 def _migrate(_: argparse.Namespace) -> int:
@@ -172,6 +178,7 @@ def _compare(args: argparse.Namespace) -> int:
 def _judge(args: argparse.Namespace) -> int:
     settings = Settings()
     ledger = Ledger(settings.ledger_path)
+    store = FileStore(settings.artifacts_dir)
     try:
         found = blind.candidates([Path(path) for path in args.files], settings.projects_dir)
     except blind.CannotCompare as exc:
@@ -187,6 +194,23 @@ def _judge(args: argparse.Namespace) -> int:
             print(f"  {copy.name}")
         print("Aprili e rispondi. Da dove vengono si vede solo dopo il giudizio.")
         judgment = blind.interview(list(assigned), input, args.judge)
+        altered = blind.changed(assigned, copies)
+        if altered:
+            raise blind.CannotCompare(f"le copie {', '.join(altered)} sono cambiate durante il giudizio")
+        for item, copy in zip(assigned.values(), copies, strict=True):  # si conserva ciò che si è guardato
+            judged = item.judged
+            keeping.keep(
+                store,
+                ledger,
+                {judged.file: copy},
+                project=judged.project,
+                origin=Origin.JUDGMENT,
+                ticket_id="",
+                run=None,
+            )
+    except blind.CannotCompare as exc:
+        print(f"Confronto non possibile: {exc}. Nulla registrato")
+        return 1
     except (EOFError, KeyboardInterrupt):
         print("\nGiudizio interrotto: nulla registrato")
         return 1
@@ -194,6 +218,24 @@ def _judge(args: argparse.Namespace) -> int:
         shutil.rmtree(folder, ignore_errors=True)
     ledger.record_judgment(comparison, judgment, {letter: item.judged for letter, item in assigned.items()})
     print(report.render_reveal(ledger.comparison(comparison)))
+    return 0
+
+
+def _artifacts(args: argparse.Namespace) -> int:
+    print(report.render_artifacts(Ledger(Settings().ledger_path).artifacts(args.project), args.project))
+    return 0
+
+
+def _restore(args: argparse.Namespace) -> int:
+    settings = Settings()
+    ledger, store = Ledger(settings.ledger_path), FileStore(settings.artifacts_dir)
+    destination = Path(args.destination)
+    try:
+        rows = keeping.restore(store, ledger, args.hash, destination)
+    except keeping.CannotRestore as exc:
+        print(f"Ripristino non possibile: {exc}")
+        return 1
+    print(report.render_restored(rows, str(destination)))
     return 0
 
 
@@ -243,6 +285,13 @@ def main(argv: list[str] | None = None) -> int:
         "--judge", default=getpass.getuser(), help="chi giudica; di solito l'utente del sistema"
     )
     judge.set_defaults(fn=_judge)
+    kept = sub.add_parser("artifacts", help="le versioni conservate di un progetto, con il loro hash")
+    kept.add_argument("project")
+    kept.set_defaults(fn=_artifacts)
+    restore = sub.add_parser("restore", help="riporta una versione conservata in un file nuovo")
+    restore.add_argument("hash", help="lo sha256, o le sue prime cifre (almeno 8)")
+    restore.add_argument("destination", help="il file da creare: se esiste già, non si tocca")
+    restore.set_defaults(fn=_restore)
     args = parser.parse_args(argv)
     try:
         return args.fn(args)

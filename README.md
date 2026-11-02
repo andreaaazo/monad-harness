@@ -34,6 +34,8 @@ uv run agency resume progetto           # riprende dopo un'interruzione
 uv run agency runs progetto             # esecuzioni con la loro impronta, e cosa cambia dall'una all'altra
 uv run agency compare 3 7               # cosa cambia tra due esecuzioni, anche di progetti diversi
 uv run agency judge a.svg b.svg         # giudizio alla cieca: file anonimi, poi il voto, poi l'origine
+uv run agency artifacts progetto        # versioni conservate per hash: consegne, presentazioni, giudizi
+uv run agency restore 2947a64f x.svg    # riporta una versione in un file nuovo, senza sovrascrivere
 uv run agency migrate                   # aggiorna il registro, dopo averne fatto una copia
 ```
 

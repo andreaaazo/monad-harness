@@ -32,6 +32,7 @@ class Session:
     settings: Settings
     ledger: Ledger
     graph: object
+    gateway: ModelGateway
 
     def _config(self, project: str) -> dict:
         return {
@@ -44,7 +45,8 @@ class Session:
         """Prima che il grafo lavori: anche un'esecuzione interrotta dal budget ha la sua impronta."""
         choice = self.ledger.project(project)
         model, effort = (choice.model, choice.effort) if choice else ("", "")
-        self.ledger.record_run(project, command, fingerprint.take(self.settings, model, effort))
+        run = self.ledger.record_run(project, command, fingerprint.take(self.settings, model, effort))
+        self.gateway.belongs_to(run)
 
     def start(
         self,
@@ -114,4 +116,4 @@ def open_session(settings: Settings, transport: Transport | None = None) -> Sess
     runner = AgentRunner(gateway, ledger, settings, index)
     connection = sqlite3.connect(settings.checkpoints_path, check_same_thread=False, timeout=BUSY_SECONDS)
     graph = build(runner, ledger, settings, SqliteSaver(connection))
-    return Session(settings, ledger, graph)
+    return Session(settings, ledger, graph, gateway)

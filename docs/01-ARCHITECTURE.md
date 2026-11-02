@@ -178,6 +178,10 @@ sistema, non l'agente, registra l'esito con firma e hash. Da `registry/checks.js
 OpenTelemetry dal primo giorno, con span per progetto, fase, ticket, chiamata e strumento. I costi stanno
 anche in SQLite, così il budget non dipende dalla telemetria. Il cruscotto arriva in M1.6, Langfuse in self-hosting in M4.
 
+Da M1.6 ogni chiamata registra in `usage` anche l'esecuzione, la fase, l'effort inviato, la durata, il TTFT e i token di
+ragionamento. Il TTFT si conta fino al primo `content_block_delta`, come nelle tracce dell'SDK, così le chiamate vecchie si
+confrontano con le nuove. La durata comprende i tentativi ripetuti. Un valore vuoto vuol dire non misurato, mai zero.
+
 ## Cruscotto e server
 
 Il cruscotto è un lato di lettura separato dal motore (ADR-0019). Il server è Django con Django Ninja (ADR-0020), l'interfaccia

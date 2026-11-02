@@ -267,7 +267,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
    lock, CLI, modello ed effort contiene codice, Python e impostazioni ([ADR-0026](adr/0026-l-impronta-di-un-esecuzione.md)).
 5. [x] **`judgments`** e `agency judge`: livello, test di sostituzione, migliore e perché, legati allo sha256 del file giudicato,
    con lettere estratte a ogni confronto ([ADR-0027](adr/0027-il-giudizio-alla-cieca.md)).
-6. [ ] **`usage` più ricca**: esecuzione, fase, effort, durata, TTFT e ragionamento. Le righe vecchie restano vuote.
+6. [x] **`usage` più ricca**: esecuzione, fase, effort, durata, TTFT e ragionamento, con la migrazione `0004`. Le righe vecchie
+   restano vuote, e vuoto vuol dire non misurato.
 7. [ ] **Artefatti per hash**: tabella e `.data/artifacts/`, descritti da M1 e mai costruiti.
 8. [ ] **Tipi espliciti**: via i `dict` di gate ed esiti, `ToolContext.extra` e `graph: object`.
 
@@ -314,7 +315,8 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
   (`tests/test_migrations.py`)
 - [x] Ogni nuova esecuzione registra la propria impronta, e due esecuzioni mostrano cosa è cambiato: `tests/test_runs.py` e
   `tests/test_sketch_flow.py`, a mano con `agency runs <progetto>` e `agency compare <n> <n>`
-- [ ] Ogni nuova chiamata registra in `usage` esecuzione, fase, effort, durata, TTFT e ragionamento
+- [x] Ogni nuova chiamata registra in `usage` esecuzione, fase, effort, durata, TTFT e ragionamento: `tests/test_gateway.py` e
+  `tests/test_sketch_flow.py`. Il TTFT dal vivo si vedrà con `merlo4`: i test lo misurano su uno stream simulato
 - [ ] Un file giudicato resta recuperabile dal suo hash in `.data/artifacts/`
 - [ ] `ToolContext.extra` e `graph: object` non esistono più, e gate ed esiti hanno tipi propri
 - [ ] `agency report --json` riproduce i numeri di questa roadmap: 15,91 $ su `merlo`, 13,29 $ fino al gate `concept` di `merlo3`
@@ -516,5 +518,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 6 di M1.6, senza spesa: `usage` registra esecuzione, fase, effort, durata, TTFT e ragionamento di ogni nuova chiamata.
-Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+Il punto 7 di M1.6, senza spesa: gli artefatti per hash, la tabella e `.data/artifacts/`, così un file giudicato resta
+recuperabile. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.

@@ -87,7 +87,7 @@ class AgentRunner:
             ),
             tools_for(role, spec, mode),
         )
-        context = CallContext(project, ticket_id, role, instance)
+        context = CallContext(project, ticket_id, role, instance, phase=prompt)
         with tracer.start_as_current_span("agent.run") as span:
             span.set_attributes(
                 {"agency.ticket": ticket_id, "agency.role": role, "agency.instance": instance}

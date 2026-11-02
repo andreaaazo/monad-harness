@@ -610,6 +610,26 @@ def test_every_execution_of_a_project_records_its_fingerprint(tmp_path: Path) ->
     assert (taken.model, taken.effort) == ("claude-sonnet-5-5", "medium")
 
 
+def test_every_call_knows_its_execution_and_phase(tmp_path: Path) -> None:
+    session = open_session(settings(tmp_path), Router(full_script()))
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.decide("officina", True, "Mi piace la X", "X")
+    first, second = (row.seq for row in session.ledger.runs("officina"))
+    usage = session.ledger.usage("officina")
+    phases = {run: {row.phase for row in usage if row.run == run} for run in (first, second)}
+    assert phases[first] == {
+        "director-plan",
+        "explorer",
+        "critic-board",
+        "director-select",
+        "proposer",
+        "director-present",
+    }
+    assert phases[second] == {"finisher", "design-director", "qa-inspector", "critic"}
+    assert {row.run for row in usage} == {first, second}
+    assert all(row.effort in {"high", "medium"} and row.duration_ms is not None for row in usage)
+
+
 def test_resume_with_other_settings_shows_what_changed(tmp_path: Path) -> None:
     session = open_session(settings(tmp_path), Router(to_the_gate()))
     with pytest.raises(BudgetExceeded):

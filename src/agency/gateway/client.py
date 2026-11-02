@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from opentelemetry import trace
@@ -29,6 +31,7 @@ class CallContext:
     ticket_id: str
     role: str
     instance: str
+    phase: str  # il prompt della fase: un ruolo ne ha più d'una, come il direttore
 
 
 @dataclass
@@ -77,10 +80,22 @@ def _fresh_tokens(message: dict) -> int:
 
 
 class ModelGateway:
-    def __init__(self, transport: Transport, ledger: Ledger, settings: Settings) -> None:
+    def __init__(
+        self,
+        transport: Transport,
+        ledger: Ledger,
+        settings: Settings,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self.transport = transport
         self.ledger = ledger
         self.settings = settings
+        self.clock = clock
+        self.run: int | None = None
+
+    def belongs_to(self, run: int) -> None:
+        """Le chiamate da qui in poi appartengono a questa esecuzione, registrata prima del grafo."""
+        self.run = run
 
     def _params(self, request: ModelRequest) -> dict:
         params: dict = {
@@ -132,8 +147,10 @@ class ModelGateway:
                     "gen_ai.request.model": request.model,
                 }
             )
+            started = self.clock()
             data = self._stream(params)
-            response = self._record(context, data)
+            duration_ms = round((self.clock() - started) * 1000)
+            response = self._record(context, request, data, duration_ms)
             span.set_attribute("agency.cost_usd", response.cost_usd)
         return response
 
@@ -146,8 +163,11 @@ class ModelGateway:
                     raise
         raise AssertionError("non raggiungibile")
 
-    def _record(self, context: CallContext, data: dict) -> ModelResponse:
+    def _record(
+        self, context: CallContext, request: ModelRequest, data: dict, duration_ms: int
+    ) -> ModelResponse:
         usage = data.get("usage") or {}
+        details = usage.get("output_tokens_details") or {}
         model = data.get("model") or ""
         cost = cost_usd(model, usage)
         breakdown = usage.get("cache_creation") or {}
@@ -169,6 +189,12 @@ class ModelGateway:
                 cost_usd=cost,
                 stop_reason=data.get("stop_reason") or "",
                 request_id=data.get("_request_id", ""),
+                run=self.run,
+                phase=context.phase,
+                effort=request.effort,
+                duration_ms=duration_ms,
+                ttft_ms=data.get("_ttft_ms"),
+                reasoning_tokens=details.get("thinking_tokens"),
             )
         )
         return ModelResponse(

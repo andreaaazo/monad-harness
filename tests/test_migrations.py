@@ -168,11 +168,16 @@ def test_migrate_adds_the_new_tables_to_a_registry_at_the_baseline_and_keeps_eve
     path = tmp_path / "l.sqlite"
     at_baseline(path)
     tables = [name for (name,) in read(path, "SELECT name FROM sqlite_master WHERE type = 'table'")]
-    rows = {table: read(path, f"SELECT * FROM {table}") for table in tables if table != "alembic_version"}
+    columns = {table: [row[1] for row in read(path, f"PRAGMA table_info({table})")] for table in tables}
+    columns.pop("alembic_version")
+    selects = {table: f"SELECT {', '.join(names)} FROM {table}" for table, names in columns.items()}
+    rows = {table: read(path, query) for table, query in selects.items()}
 
     assert migrate(path).revision == schema.head()
 
-    assert {table: read(path, f"SELECT * FROM {table}") for table in rows} == rows
+    assert {table: read(path, query) for table, query in selects.items()} == rows
+    added = "run, phase, effort, duration_ms, ttft_ms, reasoning_tokens"
+    assert read(path, f"SELECT {added} FROM usage") == [(None,) * 6]
     for table in ("runs", "judgments"):
         assert read(path, f"SELECT count(*) FROM {table}") == [(0,)]
         triggers = read(
@@ -207,14 +212,12 @@ def test_migrate_applies_new_migrations_after_the_baseline(
 ) -> None:
     path = tmp_path / "l.sqlite"
     filled(path)
-    add_migration(
-        tmp_path, monkeypatch, '    op.execute("ALTER TABLE usage ADD COLUMN duration_ms INTEGER")\n'
-    )
+    add_migration(tmp_path, monkeypatch, '    op.execute("ALTER TABLE usage ADD COLUMN prova_ms INTEGER")\n')
 
     assert migrate(path).revision == "9999"
 
     columns = [row[1] for row in read(path, "PRAGMA table_info(usage)")]
-    assert "duration_ms" in columns
+    assert "prova_ms" in columns
     assert read(path, "SELECT version_num FROM alembic_version") == [("9999",)]
 
 

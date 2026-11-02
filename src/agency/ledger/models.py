@@ -62,6 +62,15 @@ class UsageRow(SQLModel, table=True):
     cost_usd: float = 0.0
     stop_reason: str = ""
     request_id: str = ""
+    # Da M1.6. Vuoto vuol dire non misurato: le righe precedenti restano così, e non valgono zero.
+    run: int | None = Field(
+        default=None, index=True
+    )  # senza chiave esterna: una chiamata pagata si registra sempre
+    phase: str | None = None
+    effort: str | None = None
+    duration_ms: int | None = None
+    ttft_ms: int | None = None
+    reasoning_tokens: int | None = None
 
 
 class EvidenceRow(SQLModel, table=True):

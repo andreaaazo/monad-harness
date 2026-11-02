@@ -9,6 +9,7 @@ from opentelemetry import trace
 from agency.agents import prompts
 from agency.agents.transcript import Transcript
 from agency.config import Settings
+from agency.contracts import phase
 from agency.contracts.artifact import ArtifactStore
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import Action, Status, TicketSpec
@@ -19,7 +20,6 @@ from agency.tools.sandbox import Sandbox
 from agency.tools.surface import Toolbox, ToolContext, tools_for
 
 tracer = trace.get_tracer("agency.agents")
-MODE_PROMPTS = {"plan": "director-plan", "select": "director-select", "present": "director-present"}
 MAX_TOKENS = 32000
 API_MAX_TOKENS = 128000
 CLOSING = (
@@ -49,9 +49,6 @@ class AgentRunner:
         self.index = index
         self.artifacts = artifacts
 
-    def instance_id(self, ticket_id: str, attempt: int) -> str:
-        return f"{ticket_id}-a{attempt}"
-
     def run(
         self, ticket_id: str, attempt: int = 1, rework_note: str = "", mode: str = "", exploration: int = 0
     ) -> Outcome:
@@ -62,14 +59,14 @@ class AgentRunner:
         spec = self.ledger.spec(ticket_id)
         project = self.ledger.project_of(ticket_id)
         role = spec.assignee
-        instance = f"{self.instance_id(ticket_id, attempt)}{'-' + mode if mode else ''}"
+        instance = phase.instance(ticket_id, attempt, mode)
         transcript = Transcript(self.settings.data_dir / "runs" / project / f"{instance}.jsonl")
         finished = transcript.outcome()
         if finished is not None:  # la ripresa non rifà un lavoro già concluso
             return finished
         work = self.settings.project_dir(project) / "work" / spec.workspace
         work.mkdir(parents=True, exist_ok=True)
-        prompt = MODE_PROMPTS.get(mode) or spec.prompt or role
+        prompt = phase.of(role, spec.prompt, mode)
         toolbox = Toolbox(
             ToolContext(
                 actor=role,

@@ -276,8 +276,9 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
 
 **Lettura**
 
-9. [ ] **Slice `agency.insights`**: connessione `mode=ro`, proiezione rigenerabile in `.data/insights.sqlite`, nella forma di
-   ADR-0021. `import-linter` entra qui: `insights` non importa il motore, e il motore non importa Django.
+9. [x] **Slice `agency.insights`**: connessione `mode=ro`, proiezione rigenerabile in `.data/insights.sqlite` con `agency insights`,
+   nella forma di ADR-0021. `import-linter` in `make check`: `insights` non importa il motore, e il motore non importa Django
+   ([ADR-0029](adr/0029-la-proiezione-di-insights.md)).
 10. [ ] **`agency report --json`**: stessi modelli Pydantic del cruscotto, al posto dei `dict` di `telemetry/report.py`.
 
 **Cruscotto**
@@ -327,7 +328,7 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
 - [ ] `merlo3` si legge nel cruscotto dal brief alla consegna
 - [ ] L'API non può scrivere, e il registro resta intatto dopo l'uso del cruscotto (test)
 - [ ] OpenAPI e tipi TypeScript non divergono (test)
-- [ ] `import-linter` in `make check`: `insights` non importa il motore, e il motore non importa Django
+- [x] `import-linter` in `make check`: `insights` non importa il motore, e il motore non importa Django. `make imports`
 - [ ] Django e Next.js ascoltano solo su loopback e non vedono né chiave né `.env` (test)
 - [ ] Next.js non invia telemetria e non lascia copie di immagini o dati in `.next/cache` (test)
 - [ ] Almeno un test Playwright per vista
@@ -522,6 +523,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 9 di M1.6, senza spesa: la slice `agency.insights`, con la connessione `mode=ro`, la proiezione rigenerabile in
-`.data/insights.sqlite` e `import-linter` in `make check`. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei
-ruoli.
+Il punto 10 di M1.6, senza spesa: `agency report --json`, con gli stessi modelli Pydantic del cruscotto, che riproduce i numeri
+di questa roadmap. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.

@@ -21,7 +21,7 @@ dopo il primo cliente reale. I dettagli sono nella [roadmap](docs/02-ROADMAP.md)
 
 ```sh
 make setup      # dipendenze dal lock (Python 3.13, uv)
-make check      # lint, tipi, test
+make check      # lint, confini tra moduli, tipi, test
 make doctor     # strumenti della macchina
 cp .env.example .env   # poi inserisci ANTHROPIC_API_KEY
 
@@ -36,6 +36,7 @@ uv run agency compare 3 7               # cosa cambia tra due esecuzioni, anche 
 uv run agency judge a.svg b.svg         # giudizio alla cieca: file anonimi, poi il voto, poi l'origine
 uv run agency artifacts progetto        # versioni conservate per hash: consegne, presentazioni, giudizi
 uv run agency restore 2947a64f x.svg    # riporta una versione in un file nuovo, senza sovrascrivere
+uv run agency insights                  # proiezione per report e cruscotto, senza scrivere il registro
 uv run agency migrate                   # aggiorna il registro, dopo averne fatto una copia
 ```
 

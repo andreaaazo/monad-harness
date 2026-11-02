@@ -222,7 +222,8 @@ schemas/         OpenAPI generato e versionato
 
 Le dipendenze puntano verso l'interno: `entrypoints`, poi `process`, poi `studio` e `insights`, poi `platform`, poi `shared`.
 Dentro una slice il dominio tiene le regole pure, l'applicazione casi d'uso e porte, gli adattatori strumenti e nodi. Le slice non
-si importano tra loro, e `import-linter` in `make check` lo impone.
+si importano tra loro, e `import-linter` in `make check` lo impone. Da M1.6 impone due confini: `insights` non importa il motore,
+e il motore non importa Django. Le altre regole della tabella entrano con M1.7.
 
 | Libreria | Chi può importarla |
 |---|---|

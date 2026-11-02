@@ -21,8 +21,13 @@ from agency.doctor import run_checks
 from agency.evaluation import blind
 from agency.gateway import BudgetExceeded
 from agency.gateway.pricing import PRICES
+from agency.insights import application as insights
+from agency.insights.adapters.projection import SqliteProjection
+from agency.insights.adapters.registry import ReadOnlyRegistry
+from agency.insights.adapters.traces import JsonlTraces
 from agency.ledger import Ledger, LedgerOutdated
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
+from agency.ledger.store import now
 from agency.telemetry import report
 
 if TYPE_CHECKING:  # la sessione carica il motore: i comandi leggeri non la importano
@@ -244,6 +249,19 @@ def _restore(args: argparse.Namespace) -> int:
     return 0
 
 
+def _insights(_: argparse.Namespace) -> int:
+    """Legge il registro in sola lettura: si può usare anche mentre il motore lavora."""
+    settings = Settings()
+    registry, traces = ReadOnlyRegistry(settings.ledger_path), JsonlTraces(settings.traces_path)
+    try:
+        built = insights.rebuild(registry, traces, SqliteProjection(settings.insights_path), now())
+    except insights.RegistryNotReadable as exc:
+        print(f"REGISTRO: {exc}")
+        return 1
+    print(report.render_provenance(built, str(settings.insights_path)))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="agency", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -297,6 +315,9 @@ def main(argv: list[str] | None = None) -> int:
     restore.add_argument("hash", help="lo sha256, o le sue prime cifre (almeno 8)")
     restore.add_argument("destination", help="il file da creare: se esiste già, non si tocca")
     restore.set_defaults(fn=_restore)
+    sub.add_parser(
+        "insights", help="rigenera la proiezione per report e cruscotto, senza scrivere il registro"
+    ).set_defaults(fn=_insights)
     args = parser.parse_args(argv)
     try:
         return args.fn(args)

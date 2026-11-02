@@ -33,3 +33,4 @@ vecchio. Date: 2026-10-31.
 | [0026](0026-l-impronta-di-un-esecuzione.md) | L'impronta di un'esecuzione | Accettata, allarga la lista di 0022 |
 | [0027](0027-il-giudizio-alla-cieca.md) | Il giudizio alla cieca | Accettata |
 | [0028](0028-gli-artefatti-per-hash.md) | Gli artefatti per hash | Accettata |
+| [0029](0029-la-proiezione-di-insights.md) | La proiezione di insights | Accettata |

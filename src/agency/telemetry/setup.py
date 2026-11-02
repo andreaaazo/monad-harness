@@ -33,11 +33,11 @@ class JsonlExporter(SpanExporter):
 _configured = False
 
 
-def configure(data_dir: Path) -> None:
+def configure(traces: Path) -> None:
     global _configured
     if _configured:
         return
     provider = TracerProvider()
-    provider.add_span_processor(SimpleSpanProcessor(JsonlExporter(data_dir / "traces.jsonl")))
+    provider.add_span_processor(SimpleSpanProcessor(JsonlExporter(traces)))
     trace.set_tracer_provider(provider)
     _configured = True

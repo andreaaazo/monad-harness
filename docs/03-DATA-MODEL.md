@@ -57,7 +57,8 @@ Lo schema nasce dalle migrazioni in `src/agency/ledger/migrations/`, e un test v
 una migrazione Alembic, provata su una copia del registro vero: dopo deve passare `agency verify`. Un registro esistente non si
 aggiorna mai aprendolo: si esegue `agency migrate`, che fa una copia e lavora in una sola transazione (ADR-0025). Le righe storiche
 non si riscrivono, e le colonne nuove restano vuote su quelle vecchie. I dati delle chiamate vecchie arrivano nella proiezione di
-`insights`, collegando `usage` alle tracce con `request_id`.
+`insights`, collegando `usage` alle tracce con `request_id`: `agency insights` la rigenera, e ogni chiamata dice da dove vengono le
+sue misure e se la sua fase è registrata o ricavata (ADR-0029).
 
 Django non possiede il registro (ADR-0020). Quando nasceranno utenti e organizzazioni avrà un database proprio, con le sue
 migrazioni. `checkpoints.sqlite` lo gestisce LangGraph.

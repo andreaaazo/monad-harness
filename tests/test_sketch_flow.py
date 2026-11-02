@@ -19,6 +19,8 @@ from agency.contracts.gate import ConceptGate
 from agency.contracts.run import Fingerprint, changes
 from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType
 from agency.gateway import BudgetExceeded
+from agency.insights.adapters.registry import ReadOnlyRegistry
+from agency.insights.domain import derive_phase
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
 from agency.runtime import Session, open_session
@@ -688,6 +690,20 @@ def test_client_refusing_the_final_work_sends_it_back_with_their_words(tmp_path:
     rework = [event for event in session.ledger.history("T-0001") if event.action == "rework"]
     assert [event.note for event in rework] == ["Il tratto è troppo sottile"]
     assert outcome == "bloccato: aspetto il nuovo segno"
+
+
+def test_insights_derives_the_phase_the_engine_recorded_for_every_call(tmp_path: Path) -> None:
+    """La regola che ricava la fase delle chiamate vecchie è quella che il motore usa per le nuove."""
+    config = settings(tmp_path)
+    session = open_session(config, Router(full_script()))
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.decide("officina", True, "Mi piace la X", "X")
+    snapshot = ReadOnlyRegistry(config.ledger_path).read()
+    tickets, calls = snapshot.tickets, snapshot.usage
+    assert len({call.phase for call in calls}) == 10
+    for call in calls:
+        assert call.phase is not None
+        assert derive_phase(call, tickets) == call.phase
 
 
 def test_resume_with_other_settings_shows_what_changed(tmp_path: Path) -> None:

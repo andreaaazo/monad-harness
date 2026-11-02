@@ -37,5 +37,13 @@ class Settings(BaseSettings):
     def artifacts_dir(self) -> Path:
         return self.data_dir / "artifacts"
 
+    @property
+    def traces_path(self) -> Path:
+        return self.data_dir / "traces.jsonl"
+
+    @property
+    def insights_path(self) -> Path:
+        return self.data_dir / "insights.sqlite"
+
     def project_dir(self, slug: str) -> Path:
         return (self.projects_dir / slug).resolve()

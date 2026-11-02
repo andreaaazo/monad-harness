@@ -118,7 +118,7 @@ class Session:
 
 def open_session(settings: Settings, transport: Transport | None = None) -> Session:
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    configure(settings.data_dir)
+    configure(settings.traces_path)
     ledger = Ledger(settings.ledger_path)
     if transport is None:
         key = settings.anthropic_api_key

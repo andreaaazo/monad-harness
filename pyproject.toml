@@ -26,7 +26,12 @@ telemetry = ["langfuse>=3"]
 agency = "agency.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.9", "pyright>=1.1.390"]
+dev = [
+    "pytest>=8",
+    "ruff>=0.9",
+    "pyright>=1.1.390",
+    "import-linter>=2.15",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -56,3 +61,36 @@ typeCheckingMode = "standard"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.importlinter]
+root_package = "agency"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "insights legge e basta: niente motore, niente Ledger, niente librerie del motore (ADR-0019)"
+type = "forbidden"
+source_modules = ["agency.insights"]
+forbidden_modules = [
+  "agency.agents",
+  "agency.artifacts",
+  "agency.cli",
+  "agency.evaluation",
+  "agency.gateway",
+  "agency.graph",
+  "agency.ledger",
+  "agency.qa",
+  "agency.runtime",
+  "agency.telemetry",
+  "agency.tools",
+  "alembic",
+  "anthropic",
+  "langgraph",
+  "sqlalchemy",
+  "sqlmodel",
+]
+
+[[tool.importlinter.contracts]]
+name = "il motore non importa Django: Django legge attraverso insights (ADR-0020)"
+type = "forbidden"
+source_modules = ["agency"]
+forbidden_modules = ["django", "ninja"]

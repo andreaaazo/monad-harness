@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 
 from agency.contracts.run import Change, Fingerprint, changes
+from agency.insights.domain import Provenance
 from agency.ledger import Ledger
 from agency.ledger.models import ArtifactRow, JudgmentRow, RunRow
 
@@ -218,3 +219,16 @@ def render_damaged(rows: list[ArtifactRow]) -> str:
     lines = ["ARTEFATTI DANNEGGIATI: queste versioni mancano dal deposito o non hanno più il loro hash"]
     lines += [f"  {row.sha256[:12]}  {row.project or '-'}  {row.path}" for row in rows]
     return "\n".join(lines)
+
+
+def render_provenance(built: Provenance, path: str) -> str:
+    return "\n".join(
+        [
+            f"Proiezione rigenerata in {path}, dal registro alla revisione {built.registry_revision}:",
+            f"  {_count(built.calls, 'chiamata', 'chiamate')}",
+            f"  misure: {built.from_registry} dal registro, {built.from_traces} dalle tracce,"
+            f" {built.unmeasured} non misurate",
+            f"  fasi: {built.phases_recorded} registrate, {built.phases_derived} ricavate",
+            f"  righe di traccia illeggibili: {built.unreadable_trace_lines}",
+        ]
+    )

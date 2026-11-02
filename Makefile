@@ -1,9 +1,11 @@
-.PHONY: setup check test lint types doctor
+.PHONY: setup check test lint imports types doctor
 setup:
 	uv sync
-check: lint types test
+check: lint imports types test
 lint:
 	uv run ruff check . && uv run ruff format --check .
+imports:
+	uv run lint-imports
 types:
 	uv run pyright
 test:

@@ -284,7 +284,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
 
 **Cruscotto**
 
-11. [ ] **API Django** con Django Ninja: solo `GET`, solo loopback, senza chiave, in un processo separato dal motore.
+11. [x] **API Django** con Django Ninja: solo `GET`, solo loopback, senza chiave, in un processo separato dal motore,
+    `uv run agency-server` ([ADR-0031](adr/0031-il-server-del-cruscotto.md)).
 12. [ ] **Schemi**: `schemas/openapi.json` versionato, tipi TypeScript generati, test contro le divergenze.
 13. [ ] **Cruscotto Next.js** in TypeScript, con le sei viste qui sotto. È solo interfaccia: legge tutto dall'API Django, con le
     difese di ADR-0024.
@@ -328,10 +329,11 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
 - [x] `agency report --json` riproduce i numeri di questa roadmap: 15,91 $ su `merlo`, 13,29 $ fino al gate `concept` di `merlo3`.
   Dopo `agency migrate`: `uv run agency report merlo --json` e `uv run agency report merlo3 --json`, campo `to_presentation`
 - [ ] `merlo3` si legge nel cruscotto dal brief alla consegna
-- [ ] L'API non può scrivere, e il registro resta intatto dopo l'uso del cruscotto (test)
+- [x] L'API non può scrivere, e il registro resta intatto dopo l'uso del cruscotto: `tests/test_server.py`
 - [ ] OpenAPI e tipi TypeScript non divergono (test)
 - [x] `import-linter` in `make check`: `insights` non importa il motore, e il motore non importa Django. `make imports`
-- [ ] Django e Next.js ascoltano solo su loopback e non vedono né chiave né `.env` (test)
+- [ ] Django e Next.js ascoltano solo su loopback e non vedono né chiave né `.env` (test). Django è verificato da
+  `tests/test_server.py`, Next.js arriva con il punto 13
 - [ ] Next.js non invia telemetria e non lascia copie di immagini o dati in `.next/cache` (test)
 - [ ] Almeno un test Playwright per vista
 - [ ] `task check` esegue i controlli di Python e Next.js, e Docker Compose avvia Django e Next.js
@@ -525,5 +527,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 11 di M1.6, senza spesa: l'API Django con Django Ninja, solo `GET` e solo loopback, che restituisce i modelli di
-`agency.insights`. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+Il punto 12 di M1.6, senza spesa: `schemas/openapi.json` versionato, i tipi TypeScript generati da lì e il test che li tiene
+allineati. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.

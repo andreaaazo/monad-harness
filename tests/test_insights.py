@@ -19,10 +19,15 @@ from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.domain import (
     Call,
+    ConceptRecord,
+    GateRecord,
+    JudgmentRecord,
     Measures,
     PhaseSource,
     Projected,
+    ProjectRecord,
     Provenance,
+    SourceStamp,
     TicketRecord,
     TraceMeasure,
     UsageRecord,
@@ -288,6 +293,9 @@ class FakeRegistry:
     def __init__(self, revision: str | None) -> None:
         self._revision = revision
 
+    def stamp(self) -> list[SourceStamp]:
+        return [SourceStamp(name="ledger.sqlite", size=1, modified_ns=1)]
+
     def revision(self) -> str | None:
         return self._revision
 
@@ -342,6 +350,7 @@ def only(calls: list[Call]) -> Projected:
 def rebuilt(calls: int) -> Provenance:
     return Provenance(
         built_at="2026-11-02",
+        sources=[],
         registry_revision=application.READS_REVISION,
         calls=calls,
         from_registry=0,
@@ -391,6 +400,37 @@ def test_a_failed_rebuild_leaves_the_previous_projection(tmp_path: Path) -> None
         projection.replace(only([call(1), call(1)]), rebuilt(2))  # due chiamate con lo stesso numero
     assert [item.seq for item in projection.calls()] == [1]
     assert [item.name for item in tmp_path.iterdir()] == ["insights.sqlite"]
+
+
+def test_a_change_to_what_the_projection_stores_changes_its_schema_number() -> None:
+    """Se un modello salvato cambia e lo schema no, una proiezione vecchia si legge male invece di rifarsi.
+
+    Quando questo test fallisce: si alza SqliteProjection.SCHEMA e si aggiorna qui l'impronta.
+    """
+    stored = (Call, ProjectRecord, TicketRecord, GateRecord, ConceptRecord, JudgmentRecord, Provenance)
+    shape = json.dumps([model.model_json_schema() for model in stored], sort_keys=True)
+    assert (SqliteProjection.SCHEMA, hashlib.sha256(shape.encode()).hexdigest()[:16]) == (
+        3,
+        "09acddcb4981fe8a",
+    )
+
+
+def test_a_projection_of_the_previous_schema_is_rebuilt_not_misread(tmp_path: Path) -> None:
+    path = tmp_path / "insights.sqlite"
+    SqliteProjection(path).replace(only([call(1)]), rebuilt(1))
+    with closing(sqlite3.connect(path)) as connection:
+        connection.execute(
+            'UPDATE meta SET value = \'{"built_at": "ieri"}\''
+        )  # la provenienza di uno schema vecchio
+        connection.execute(f"PRAGMA user_version = {SqliteProjection.SCHEMA - 1}")
+        connection.commit()
+    built = application.current(
+        FakeRegistry(application.READS_REVISION),
+        JsonlTraces(tmp_path / "t.jsonl"),
+        SqliteProjection(path),
+        "oggi",
+    )
+    assert built.built_at == "oggi"
 
 
 def test_an_old_projection_schema_is_not_read(tmp_path: Path) -> None:

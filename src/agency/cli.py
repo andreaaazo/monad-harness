@@ -70,9 +70,9 @@ def _migrate(_: argparse.Namespace) -> int:
 
 
 def _report_of(settings: Settings, project: str) -> ProjectReport:
-    """Il rapporto passa da insights, come il cruscotto: prima si rigenera la proiezione, in sola lettura."""
+    """Il rapporto passa da insights, come il cruscotto: la proiezione si rifà se il registro è cambiato."""
     projection = SqliteProjection(settings.insights_path)
-    insights.rebuild(
+    insights.current(
         ReadOnlyRegistry(settings.ledger_path), JsonlTraces(settings.traces_path), projection, now()
     )
     return insights.report(projection, project)

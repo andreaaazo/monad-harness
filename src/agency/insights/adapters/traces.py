@@ -9,7 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agency.insights.domain import TraceMeasure
+from agency.insights.adapters.stamps import stamp
+from agency.insights.domain import SourceStamp, TraceMeasure
 from agency.insights.ports import TraceReading
 
 SPAN = "anthropic.messages.create"
@@ -38,6 +39,9 @@ def _measure(record: dict) -> TraceMeasure | None:
 class JsonlTraces:
     def __init__(self, path: Path) -> None:
         self.path = path
+
+    def stamp(self) -> list[SourceStamp]:
+        return [stamp(self.path)]
 
     def read(self) -> TraceReading:
         measures: dict[str, TraceMeasure] = {}

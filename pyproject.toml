@@ -15,6 +15,8 @@ dependencies = [
   "opentelemetry-exporter-otlp-proto-http>=1.30",
   "pillow>=11",
   "alembic>=1.20.0",
+  "django>=5.2,<5.3",
+  "django-ninja>=1.4",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +26,7 @@ telemetry = ["langfuse>=3"]
 
 [project.scripts]
 agency = "agency.cli:main"
+agency-server = "agency.entrypoints.server.serve:main"
 
 [dependency-groups]
 dev = [
@@ -31,6 +34,7 @@ dev = [
     "ruff>=0.9",
     "pyright>=1.1.390",
     "import-linter>=2.15",
+    "django-stubs>=5.2,<5.3",
 ]
 
 [build-system]
@@ -90,7 +94,49 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "il motore non importa Django: Django legge attraverso insights (ADR-0020)"
+name = "il motore non importa Django né il server: Django legge attraverso insights (ADR-0020)"
 type = "forbidden"
-source_modules = ["agency"]
-forbidden_modules = ["django", "ninja"]
+# Ogni pacchetto tranne gli ingressi, elencato a mano: un test verifica che non ne manchi nessuno.
+source_modules = [
+  "agency.agents",
+  "agency.artifacts",
+  "agency.cli",
+  "agency.config",
+  "agency.context",
+  "agency.contracts",
+  "agency.doctor",
+  "agency.evaluation",
+  "agency.gateway",
+  "agency.graph",
+  "agency.insights",
+  "agency.ledger",
+  "agency.qa",
+  "agency.runtime",
+  "agency.telemetry",
+  "agency.tools",
+]
+forbidden_modules = ["django", "ninja", "agency.entrypoints"]
+
+[[tool.importlinter.contracts]]
+name = "il server legge e basta: niente motore, niente Ledger, niente .env (ADR-0019)"
+type = "forbidden"
+source_modules = ["agency.entrypoints.server"]
+forbidden_modules = [
+  "agency.agents",
+  "agency.artifacts",
+  "agency.cli",
+  "agency.config",
+  "agency.evaluation",
+  "agency.gateway",
+  "agency.graph",
+  "agency.ledger",
+  "agency.qa",
+  "agency.runtime",
+  "agency.telemetry",
+  "agency.tools",
+  "alembic",
+  "anthropic",
+  "langgraph",
+  "sqlalchemy",
+  "sqlmodel",
+]

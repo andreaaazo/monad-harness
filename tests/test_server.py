@@ -1,0 +1,307 @@
+"""Il server del cruscotto: solo GET, solo loopback, senza chiave, senza database (M1.6, punto 11)."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import threading
+import tomllib
+import urllib.request
+from pathlib import Path
+
+import pytest
+
+# Django prima di tutto: Django Ninja legge le impostazioni già all'import.
+os.environ["DJANGO_SETTINGS_MODULE"] = "agency.entrypoints.server.settings"
+import django
+
+django.setup()
+
+from django.apps import apps  # noqa: E402
+from django.conf import settings  # noqa: E402
+from django.http import HttpRequest, HttpResponse  # noqa: E402
+from django.test import Client, RequestFactory, override_settings  # noqa: E402
+
+from agency.config import REPO_ROOT  # noqa: E402
+from agency.contracts.layout import DataLayout  # noqa: E402
+from agency.contracts.ticket import TicketSpec, TicketType  # noqa: E402
+from agency.entrypoints.server import serve  # noqa: E402
+from agency.entrypoints.server.middleware import ReadOnly  # noqa: E402
+from agency.insights.domain import Provenance  # noqa: E402
+from agency.insights.views import ProjectReport, ProjectSummary  # noqa: E402
+from agency.ledger import Ledger  # noqa: E402
+from agency.ledger.models import UsageRow  # noqa: E402
+
+
+def usage(seq: int, cost: float = 1.25, project: str = "officina") -> UsageRow:
+    return UsageRow(
+        at=f"2026-11-02T10:{seq:02d}:00+00:00",
+        project=project,
+        ticket_id="T-0001",
+        role="design-director",
+        instance="T-0001-a1",
+        model="claude-opus-5-5",
+        input_tokens=100,
+        output_tokens=20,
+        cost_usd=cost,
+        stop_reason="tool_use",
+        request_id=f"req_{project}_{seq}",
+    )
+
+
+@pytest.fixture
+def studio(tmp_path: Path) -> Ledger:
+    ledger = Ledger(tmp_path / "ledger.sqlite")
+    ledger.set_project("officina", 30)
+    spec = TicketSpec(
+        title="Consegna officina",
+        request="r",
+        type=TicketType.DELIVERY,
+        sender="router",
+        assignee="design-director",
+        outputs=["segno.svg"],
+        checks={"*.svg": ["svg_audit"]},
+    )
+    ledger.open(spec, "officina")
+    ledger.record_usage(usage(1))
+    ledger.record_usage(usage(2))
+    return ledger
+
+
+@pytest.fixture
+def client(tmp_path: Path, studio: Ledger):
+    studio.engine.dispose()
+    with override_settings(AGENCY_DATA_DIR=tmp_path):
+        yield Client(HTTP_HOST="127.0.0.1")
+
+
+def digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+# Cosa risponde
+
+
+def test_projects_lists_what_the_registry_knows(client: Client) -> None:
+    response = client.get("/api/projects")
+    assert response.status_code == 200
+    (summary,) = [ProjectSummary.model_validate(item) for item in response.json()]
+    assert (summary.name, summary.calls, summary.cost_usd, summary.budget_usd) == ("officina", 2, 2.5, 30.0)
+
+
+def test_report_is_the_same_model_as_agency_report(client: Client) -> None:
+    response = client.get("/api/projects/officina/report")
+    assert response.status_code == 200
+    report = ProjectReport.model_validate(response.json())
+    assert (report.project, report.calls, report.cost_usd) == ("officina", 2, 2.5)
+
+
+def test_an_unknown_project_is_not_found(client: Client) -> None:
+    response = client.get("/api/projects/fantasma/report")
+    assert response.status_code == 404
+    assert "fantasma" in response.json()["detail"]
+
+
+def test_provenance_says_where_the_data_came_from(client: Client) -> None:
+    provenance = Provenance.model_validate(client.get("/api/provenance").json())
+    assert (provenance.calls, provenance.from_registry, provenance.unmeasured) == (2, 0, 2)
+    assert {source.name for source in provenance.sources} == {
+        "ledger.sqlite",
+        "ledger.sqlite-wal",
+        "traces.jsonl",
+    }
+
+
+def test_the_dashboard_follows_the_engine_and_rebuilds_only_when_something_changed(
+    client: Client, tmp_path: Path, studio: Ledger
+) -> None:
+    projection = tmp_path / "insights.sqlite"
+    assert client.get("/api/provenance").status_code == 200
+    built = projection.stat().st_ino
+    assert client.get("/api/projects").status_code == 200
+    assert projection.stat().st_ino == built  # niente è cambiato: la proiezione non si rifà
+    ledger = Ledger(tmp_path / "ledger.sqlite")
+    ledger.record_usage(usage(3, cost=2.0))  # il motore lavora, e resta aperto: la riga nuova sta nel WAL
+    try:
+        report = ProjectReport.model_validate(client.get("/api/projects/officina/report").json())
+    finally:
+        ledger.engine.dispose()
+    assert (report.calls, report.cost_usd) == (3, 4.5)
+
+
+def test_an_outdated_registry_is_explained_not_hidden(tmp_path: Path) -> None:
+    import sqlite3
+    from contextlib import closing
+
+    with closing(sqlite3.connect(tmp_path / "ledger.sqlite")) as connection:
+        connection.execute("CREATE TABLE usage (seq INTEGER)")
+    with override_settings(AGENCY_DATA_DIR=tmp_path):
+        response = Client(HTTP_HOST="127.0.0.1").get("/api/projects")
+    assert response.status_code == 503
+    assert "agency migrate" in response.json()["detail"]
+
+
+# Cosa non fa
+
+
+ROUTES = ["/api/projects", "/api/projects/officina/report", "/api/provenance"]
+
+
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete", "head", "options"])
+def test_the_api_cannot_write_and_the_registry_stays_intact(
+    client: Client, tmp_path: Path, method: str
+) -> None:
+    before = digest(tmp_path / "ledger.sqlite")
+    for route in ROUTES:
+        assert client.get(route).status_code == 200
+        response = getattr(client, method)(route)
+        assert response.status_code == 405, (method, route)
+        assert response["Allow"] == "GET"
+    assert digest(tmp_path / "ledger.sqlite") == before
+
+
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
+def test_writes_stop_before_any_view_even_one_that_would_accept_them(method: str) -> None:
+    """La seconda difesa da sola: anche una route futura scritta per sbaglio non riceve una scrittura."""
+    reached: list[str] = []
+
+    def careless_view(request: HttpRequest) -> HttpResponse:
+        reached.append(request.method or "")
+        return HttpResponse("scritto")
+
+    request = getattr(RequestFactory(HTTP_HOST="127.0.0.1"), method)("/api/projects")
+    response = ReadOnly(careless_view)(request)
+    assert (response.status_code, reached) == (405, [])
+
+
+def test_a_foreign_host_is_refused_against_dns_rebinding(client: Client) -> None:
+    response = Client(HTTP_HOST="attaccante.example").get("/api/projects")
+    assert response.status_code == 400
+
+
+def test_answers_are_never_cached_and_never_sniffed(client: Client) -> None:
+    response = client.get("/api/projects")
+    assert response["Cache-Control"] == "no-store"
+    assert response["X-Content-Type-Options"] == "nosniff"
+    assert response["X-Frame-Options"] == "DENY"
+
+
+def test_no_docs_page_that_loads_scripts_from_a_cdn(client: Client) -> None:
+    assert client.get("/api/docs").status_code == 404
+
+
+def test_django_owns_no_model_and_no_database() -> None:
+    assert apps.get_models() == []
+    assert settings.DATABASES["default"]["ENGINE"] == "django.db.backends.dummy"  # cioè nessun database
+    assert settings.DEBUG is False
+    assert settings.ALLOWED_HOSTS == ["127.0.0.1", "localhost"]
+
+
+# Il processo
+
+
+@pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.10", "10.0.0.1", "example.com", "::", "localhost"])
+def test_the_server_refuses_anything_but_loopback(host: str) -> None:
+    with pytest.raises(ValueError, match="loopback"):
+        serve.build(host, 0)
+
+
+def test_the_server_removes_the_api_key_from_its_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-prova")
+    monkeypatch.setenv("AGENCY_ANTHROPIC_API_KEY", "sk-ant-prova")
+    server = serve.build("127.0.0.1", 0)
+    server.server_close()
+    assert "ANTHROPIC_API_KEY" not in os.environ and "AGENCY_ANTHROPIC_API_KEY" not in os.environ
+
+
+def test_the_server_listens_on_loopback_and_answers(
+    tmp_path: Path, studio: Ledger, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    studio.engine.dispose()
+    server = serve.build("127.0.0.1", 0)
+    host, port = server.server_address[:2]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://{host}:{port}/api/projects"
+        with override_settings(AGENCY_DATA_DIR=tmp_path), urllib.request.urlopen(url, timeout=10) as answer:
+            body = json.load(answer)
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert host == "127.0.0.1"
+    assert [item["name"] for item in body] == ["officina"]
+
+
+def test_the_server_never_reads_dotenv_nor_loads_the_engine_settings(tmp_path: Path) -> None:
+    """In un processo nuovo, con un .env che contiene una chiave: il server non la vede."""
+    (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-dal-dotenv\n", encoding="utf-8")
+    probe = (
+        "import os, sys\n"
+        "os.environ['DJANGO_SETTINGS_MODULE'] = 'agency.entrypoints.server.settings'\n"
+        "import django; django.setup()\n"
+        "from django.conf import settings\n"
+        "import agency.entrypoints.server.api, agency.entrypoints.server.serve\n"
+        "values = str(vars(settings._wrapped)) + str(dict(os.environ))\n"
+        "print('chiave' if 'sk-ant-dal-dotenv' in values else 'pulito', 'agency.config' in sys.modules)\n"
+    )
+    environment = {key: value for key, value in os.environ.items() if "ANTHROPIC" not in key}
+    done = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert done.stdout.split() == ["pulito", "False"]
+
+
+def test_the_server_runs_as_its_own_process(tmp_path: Path, studio: Ledger) -> None:
+    studio.engine.dispose()
+    environment = dict(os.environ, AGENCY_DATA_DIR=str(tmp_path), ANTHROPIC_API_KEY="sk-ant-prova")
+    process = subprocess.Popen(
+        [sys.executable, "-m", "agency.entrypoints.server", "--port", "0"],
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    try:
+        assert process.stdout is not None
+        line = process.stdout.readline()
+        url = line.split()[-1]
+        assert url.startswith("http://127.0.0.1:") and url.endswith("/api/")
+        with urllib.request.urlopen(f"{url}provenance", timeout=10) as answer:
+            assert json.load(answer)["calls"] == 2
+    finally:
+        process.terminate()
+        process.wait(timeout=10)
+
+
+# I confini
+
+
+def test_every_engine_package_is_forbidden_to_import_django() -> None:
+    """Il contratto elenca i pacchetti a mano: un pacchetto nuovo non deve sfuggirgli."""
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    contracts = config["tool"]["importlinter"]["contracts"]
+    (engine,) = [contract for contract in contracts if "django" in contract["forbidden_modules"]]
+    source = REPO_ROOT / "src" / "agency"
+    present = {
+        path.stem for path in source.iterdir() if path.suffix == ".py" or (path / "__init__.py").exists()
+    }
+    present -= {"__init__", "entrypoints"}
+    assert {module.removeprefix("agency.") for module in engine["source_modules"]} == present
+
+
+def test_the_data_layout_has_one_owner() -> None:
+    layout = DataLayout(Path("/dati"))
+    assert (layout.ledger, layout.traces, layout.insights) == (
+        Path("/dati/ledger.sqlite"),
+        Path("/dati/traces.jsonl"),
+        Path("/dati/insights.sqlite"),
+    )

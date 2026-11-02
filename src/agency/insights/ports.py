@@ -14,6 +14,7 @@ from agency.insights.domain import (
     Projected,
     ProjectRecord,
     Provenance,
+    SourceStamp,
     TicketRecord,
     TraceMeasure,
     UsageRecord,
@@ -54,6 +55,10 @@ class TraceReading(BaseModel):
 
 
 class RegistryReader(Protocol):
+    def stamp(self) -> list[SourceStamp]:
+        """I file del registro come sono ora: se cambiano, la proiezione è vecchia."""
+        ...
+
     def revision(self) -> str | None:
         """La revisione del registro, o None se è precedente alle migrazioni."""
         ...
@@ -62,6 +67,8 @@ class RegistryReader(Protocol):
 
 
 class TraceReader(Protocol):
+    def stamp(self) -> list[SourceStamp]: ...
+
     def read(self) -> TraceReading: ...
 
 
@@ -74,4 +81,12 @@ class ProjectionWriter(Protocol):
 class ProjectionReader(Protocol):
     def project(self, name: str) -> ProjectData: ...
 
+    def calls(self, project: str | None = None) -> list[Call]: ...
+
+    def projects(self) -> list[ProjectRecord]: ...
+
     def provenance(self) -> Provenance: ...
+
+
+class ProjectionStore(ProjectionReader, ProjectionWriter, Protocol):
+    """La proiezione che si legge e si rigenera: quella che usano il rapporto e il cruscotto."""

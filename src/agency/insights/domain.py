@@ -248,12 +248,23 @@ class Projected(BaseModel):
     judgments: list[JudgmentRecord]
 
 
+class SourceStamp(BaseModel):
+    """Un file da cui nasce la proiezione, com'era quando è stato letto. Se manca, la dimensione è vuota."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    size: int | None
+    modified_ns: int | None
+
+
 class Provenance(BaseModel):
     """Da cosa è nata la proiezione: chi la legge sa quando, da quale registro e quanto è completa."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     built_at: str
+    sources: list[SourceStamp]
     registry_revision: str
     calls: int
     from_registry: int
@@ -264,13 +275,16 @@ class Provenance(BaseModel):
     unreadable_trace_lines: int
 
 
-def provenance(calls: list[Call], *, built_at: str, revision: str, unreadable: int) -> Provenance:
+def provenance(
+    calls: list[Call], *, built_at: str, sources: list[SourceStamp], revision: str, unreadable: int
+) -> Provenance:
     def count(source: Measures) -> int:
         return sum(1 for call in calls if call.measures is source)
 
     recorded = sum(1 for call in calls if call.phase_source is PhaseSource.RECORDED)
     return Provenance(
         built_at=built_at,
+        sources=sources,
         registry_revision=revision,
         calls=len(calls),
         from_registry=count(Measures.REGISTRY),

@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 from agency.insights.domain import Projected, Provenance, project_calls, provenance
-from agency.insights.ports import ProjectionReader, ProjectionWriter, RegistryReader, TraceReader
-from agency.insights.views import ProjectReport, project_report
+from agency.insights.ports import (
+    ProjectionReader,
+    ProjectionStore,
+    ProjectionWriter,
+    RegistryReader,
+    TraceReader,
+)
+from agency.insights.views import ProjectReport, ProjectSummary, project_report, project_summaries
 
 # La revisione del registro che insights sa leggere. Un test la confronta con l'ultima migrazione:
 # una migrazione nuova obbliga a guardare se cambia qualcosa per chi legge.
@@ -32,6 +38,7 @@ def _why(revision: str | None) -> str:
 def rebuild(
     registry: RegistryReader, traces: TraceReader, projection: ProjectionWriter, built_at: str
 ) -> Provenance:
+    sources = registry.stamp() + traces.stamp()  # prima di leggere: una scrittura nel frattempo si vedrà dopo
     revision = registry.revision()
     if revision != READS_REVISION:
         raise RegistryNotReadable(_why(revision))
@@ -45,11 +52,30 @@ def rebuild(
         concepts=snapshot.concepts,
         judgments=snapshot.judgments,
     )
-    built = provenance(calls, built_at=built_at, revision=revision, unreadable=reading.unreadable)
+    built = provenance(
+        calls, built_at=built_at, sources=sources, revision=revision, unreadable=reading.unreadable
+    )
     projection.replace(projected, built)
     return built
+
+
+def current(
+    registry: RegistryReader, traces: TraceReader, projection: ProjectionStore, built_at: str
+) -> Provenance:
+    """La proiezione aggiornata: si rigenera solo se registro o tracce sono cambiati da quando è nata."""
+    try:
+        known: Provenance | None = projection.provenance()
+    except ProjectionOutdated:
+        known = None
+    if known is not None and known.sources == registry.stamp() + traces.stamp():
+        return known
+    return rebuild(registry, traces, projection, built_at)
 
 
 def report(projection: ProjectionReader, project: str) -> ProjectReport:
     """Il rapporto di un progetto dalla proiezione: un progetto sconosciuto ha un rapporto vuoto."""
     return project_report(project, projection.project(project), projection.provenance())
+
+
+def projects(projection: ProjectionReader) -> list[ProjectSummary]:
+    return project_summaries(projection.projects(), projection.calls())

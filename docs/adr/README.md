@@ -35,3 +35,4 @@ vecchio. Date: 2026-10-31.
 | [0028](0028-gli-artefatti-per-hash.md) | Gli artefatti per hash | Accettata |
 | [0029](0029-la-proiezione-di-insights.md) | La proiezione di insights | Accettata |
 | [0030](0030-il-rapporto-passa-da-insights.md) | Il rapporto passa da insights | Accettata |
+| [0031](0031-il-server-del-cruscotto.md) | Il server del cruscotto | Accettata |

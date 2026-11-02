@@ -12,7 +12,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from agency.insights.domain import Call, Measures, Provenance
+from agency.insights.domain import Call, Measures, ProjectRecord, Provenance
 from agency.insights.ports import ProjectData
 
 
@@ -82,6 +82,17 @@ class TicketView(_View):
     assignee: str
     title: str
     cost_usd: float
+
+
+class ProjectSummary(_View):
+    """Un progetto nell'elenco: quanto è costato, quante chiamate, quando ha lavorato."""
+
+    name: str
+    budget_usd: float | None
+    cost_usd: float
+    calls: int
+    first_at: str | None
+    last_at: str | None
 
 
 class ProjectReport(_View):
@@ -225,3 +236,21 @@ def project_report(name: str, data: ProjectData, provenance: Provenance) -> Proj
         ],
         provenance=provenance,
     )
+
+
+def project_summaries(projects: list[ProjectRecord], calls: list[Call]) -> list[ProjectSummary]:
+    """Ogni progetto che il registro conosce, per nome: anche senza chiamate o senza scelte del cliente."""
+    budgets = {project.name: project.budget_usd for project in projects}
+    by_project = _groups(calls, lambda call: call.project)
+    names = sorted(budgets.keys() | by_project.keys())
+    return [
+        ProjectSummary(
+            name=name,
+            budget_usd=budgets.get(name),
+            cost_usd=_cost(by_project.get(name, [])),
+            calls=len(by_project.get(name, [])),
+            first_at=min((call.at for call in by_project.get(name, [])), default=None),
+            last_at=max((call.at for call in by_project.get(name, [])), default=None),
+        )
+        for name in names
+    ]

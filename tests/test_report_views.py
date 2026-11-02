@@ -27,6 +27,7 @@ from agency.ledger.models import ConceptRow, GateRow, UsageRow
 
 PROVENANCE = Provenance(
     built_at="2026-11-02T12:00:00+00:00",
+    sources=[],
     registry_revision="0005",
     calls=0,
     from_registry=0,

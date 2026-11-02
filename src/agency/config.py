@@ -7,6 +7,8 @@ from pathlib import Path
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from agency.contracts.layout import DataLayout
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -26,24 +28,28 @@ class Settings(BaseSettings):
     )
 
     @property
+    def layout(self) -> DataLayout:
+        return DataLayout(self.data_dir)
+
+    @property
     def ledger_path(self) -> Path:
-        return self.data_dir / "ledger.sqlite"
+        return self.layout.ledger
 
     @property
     def checkpoints_path(self) -> Path:
-        return self.data_dir / "checkpoints.sqlite"
+        return self.layout.checkpoints
 
     @property
     def artifacts_dir(self) -> Path:
-        return self.data_dir / "artifacts"
+        return self.layout.artifacts
 
     @property
     def traces_path(self) -> Path:
-        return self.data_dir / "traces.jsonl"
+        return self.layout.traces
 
     @property
     def insights_path(self) -> Path:
-        return self.data_dir / "insights.sqlite"
+        return self.layout.insights
 
     def project_dir(self, slug: str) -> Path:
         return (self.projects_dir / slug).resolve()

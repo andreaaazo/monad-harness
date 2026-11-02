@@ -90,7 +90,7 @@ JUDGMENTS = _Table("judgments", JudgmentRecord, "seq")
 
 
 class SqliteProjection:
-    SCHEMA = 2
+    SCHEMA = 3
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -145,6 +145,10 @@ class SqliteProjection:
     def calls(self, project: str | None = None) -> list[Call]:
         with closing(self._connect()) as connection:
             return self._read(connection, CALLS, project)
+
+    def projects(self) -> list[ProjectRecord]:
+        with closing(self._connect()) as connection:
+            return self._read(connection, PROJECTS, None)
 
     def project(self, name: str) -> ProjectData:
         with closing(self._connect()) as connection:

@@ -37,6 +37,7 @@ uv run agency judge a.svg b.svg         # giudizio alla cieca: file anonimi, poi
 uv run agency artifacts progetto        # versioni conservate per hash: consegne, presentazioni, giudizi
 uv run agency restore 2947a64f x.svg    # riporta una versione in un file nuovo, senza sovrascrivere
 uv run agency insights                  # proiezione per report e cruscotto, senza scrivere il registro
+uv run agency-server                    # API del cruscotto su http://127.0.0.1:8000/api/, sola lettura
 uv run agency migrate                   # aggiorna il registro, dopo averne fatto una copia
 ```
 

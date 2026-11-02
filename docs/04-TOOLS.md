@@ -77,7 +77,8 @@ Scelte in ADR-0020. Le versioni indicate sono verificate su questa macchina il 2
 
 | Strumento | Uso | Stato |
 |---|---|---|
-| Django, Django Ninja | Server e API | Da aggiungere con `uv add`, ultima LTS di Django |
+| Django, Django Ninja | Server e API, `uv run agency-server` | Django 5.2.18 LTS, supportata fino ad aprile 2028; Django Ninja 1.7.1 |
+| `django-stubs` | Tipi di Django per `pyright`, solo sviluppo | 5.2.9 |
 | Alembic | Migrazioni del registro | 1.20.0 |
 | `import-linter` | Confini tra moduli, in `make check` | 2.15 |
 | Node | Build ed esecuzione di Next.js, che chiede almeno la 20.9 | 22.22.1 |

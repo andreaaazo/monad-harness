@@ -11,12 +11,14 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
+from agency.insights.adapters.stamps import stamp
 from agency.insights.application import RegistryNotReadable
 from agency.insights.domain import (
     ConceptRecord,
     GateRecord,
     JudgmentRecord,
     ProjectRecord,
+    SourceStamp,
     TicketRecord,
     UsageRecord,
 )
@@ -69,6 +71,17 @@ class ReadOnlyRegistry:
         )
         connection.execute("PRAGMA query_only = ON")
         return connection
+
+    def stamp(self) -> list[SourceStamp]:
+        """Il file principale e il WAL: con WAL una scrittura cambia il secondo prima del primo.
+
+        Un WAL vuoto vale come assente: non contiene dati, e la prima lettura in sola lettura lo crea. Quando
+        i dati passano dal WAL al file principale, cambia l'impronta del principale.
+        """
+        wal = stamp(self.path.with_name(f"{self.path.name}-wal"))
+        if wal.size == 0:
+            wal = SourceStamp(name=wal.name, size=None, modified_ns=None)
+        return [stamp(self.path), wal]
 
     def revision(self) -> str | None:
         with closing(self.connect()) as connection:

@@ -16,6 +16,7 @@ models/
 /.claude/settings.local.json
 # Le impronte delle fonti con cui Task decide se rifare la build: si rigenerano.
 /.task/
+/.worktrees/
 
 # Interfaccia: le dipendenze si rimettono con make setup, dal lock versionato.
 /web/node_modules/

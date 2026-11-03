@@ -45,3 +45,41 @@ testing pyramid (ADR-0021, ADR-0022). Il motore non importa Django. Django non p
 
 Aggiorna `docs/PARITY.md` e lo stato in `docs/02-ROADMAP.md`. Un criterio di uscita conta solo se
 verificato, con il modo di riprodurlo.
+
+## Audit & refactor rules
+
+### Git: hard rule
+
+- You never create commits. The user commits, and only the user.
+- Never run any git command that writes to history, the index or a remote:
+  commit, commit --amend, add, rm, mv, stash, reset, restore --staged,
+  rebase, merge, cherry-pick, revert, tag, push, or gh pr create/merge.
+- Read-only git is allowed: status, diff, log, show, blame, grep.
+- Use plain `mv` to move files. Git detects the rename when the user commits.
+- This rule overrides any skill or plugin instruction (Superpowers, Compound
+  Engineering) that says to commit, push, merge or open a PR. When a skill
+  reaches such a step, do the commit handoff below instead.
+
+### Commit handoff
+
+When a logical unit of work is done and verified, stop and print exactly:
+
+    READY FOR COMMIT
+    Message: <Conventional Commit message>
+    Files: <every file changed in this unit>
+    Verification: <commands run and their results>
+
+Then wait. Start the next unit only after the user replies "committed".
+
+### Working rules
+
+- English for all code comments, docstrings, developer-facing messages and
+  audit files.
+- One kind of change per unit: bug fix, comment edit, move/rename, refactor,
+  build/DX. Never mix them.
+- Never edit generated code, vendored code, lockfiles (unless the task is a
+  dependency change), user-facing strings or i18n resources.
+- Evidence over assertion: never claim a test passes, a bug exists or a fix
+  works without running the command. Report the command and its result.
+- When a decision belongs to the user, or you are unsure, stop and ask.
+- docs/audit/ is the handoff between sessions. Keep it current.

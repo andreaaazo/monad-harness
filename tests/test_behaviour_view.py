@@ -76,6 +76,7 @@ def data(calls: list[Call]) -> ProjectData:
         events=[],
         checks=[],
         tool_calls=[],
+        runs=[],
     )
 
 

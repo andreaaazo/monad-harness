@@ -16,6 +16,7 @@ from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.behaviour import BehaviourReport
+from agency.insights.compare import CompareReport
 from agency.insights.domain import Provenance
 from agency.insights.flow import FlowReport
 from agency.insights.quality import QualityReport
@@ -113,3 +114,20 @@ def quality(request: HttpRequest, name: str) -> Status:
     projection = _projection()
     unknown = _unknown(projection, name)
     return unknown if unknown is not None else Status(200, application.quality(projection, name))
+
+
+@api.get(
+    "/compare",
+    response={200: CompareReport, 400: Problem, 404: Problem, 503: Problem},
+    operation_id="compareProjects",
+)
+def compare(request: HttpRequest, before: str, after: str) -> Status:
+    """Due progetti diversi, tutti e due conosciuti dal registro."""
+    if before == after:
+        return Status(400, Problem(detail=f"scegli due progetti diversi: {before} due volte"))
+    projection = _projection()
+    for name in (before, after):
+        unknown = _unknown(projection, name)
+        if unknown is not None:
+            return unknown
+    return Status(200, application.compare(projection, before, after))

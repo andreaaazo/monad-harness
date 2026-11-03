@@ -22,6 +22,7 @@ from agency.insights.domain import (
     JudgmentRecord,
     Lifecycle,
     ProjectRecord,
+    RunRecord,
     SourceStamp,
     TicketRecord,
     UsageRecord,
@@ -54,6 +55,7 @@ CHECKS = (
     "SELECT seq, at, project, ticket_id, file, check_name, result, signer, note AS reason"
     " FROM evidence ORDER BY seq"
 )
+RUNS = f"SELECT {', '.join(RunRecord.model_fields)} FROM runs ORDER BY seq"
 REVISION = "SELECT version_num FROM alembic_version"
 HAS_REVISION = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'alembic_version'"
 
@@ -129,6 +131,7 @@ class ReadOnlyRegistry:
                         for row in connection.execute(EVENTS, EVENT_PARAMETERS)
                     ],
                     checks=[CheckRecord.model_validate(dict(row)) for row in connection.execute(CHECKS)],
+                    runs=[RunRecord.model_validate(dict(row)) for row in connection.execute(RUNS)],
                 )
             except sqlite3.OperationalError as exc:
                 raise RegistryNotReadable(f"il registro non si legge come atteso: {exc}") from exc

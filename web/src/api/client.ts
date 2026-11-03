@@ -62,5 +62,9 @@ export const api = {
   flow: (name: string) => read<Ok<"projectFlow">>(`/api/projects/${encodeURIComponent(name)}/flow`),
   behaviour: (name: string) => read<Ok<"projectBehaviour">>(`/api/projects/${encodeURIComponent(name)}/behaviour`),
   quality: (name: string) => read<Ok<"projectQuality">>(`/api/projects/${encodeURIComponent(name)}/quality`),
+  compare: (before: string, after: string) =>
+    read<Ok<"compareProjects">>(
+      `/api/compare?before=${encodeURIComponent(before)}&after=${encodeURIComponent(after)}`,
+    ),
   provenance: () => read<Ok<"provenance">>("/api/provenance"),
 };

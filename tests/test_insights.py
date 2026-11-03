@@ -15,6 +15,7 @@ from agency import cli
 from agency.agents.transcript import Transcript
 from agency.contracts import phase
 from agency.contracts.layout import DataLayout
+from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.insights import application
 from agency.insights.adapters.projection import SqliteProjection
@@ -34,6 +35,7 @@ from agency.insights.domain import (
     Projected,
     ProjectRecord,
     Provenance,
+    RunRecord,
     SourceStamp,
     TicketRecord,
     ToolCallRecord,
@@ -401,6 +403,39 @@ def test_the_registry_reader_reads_the_life_of_tickets_and_why_they_went_back(tm
     ]
 
 
+def fingerprint(**extra: object) -> Fingerprint:
+    base: dict[str, object] = {
+        "model": "",
+        "effort": "high",
+        "explorer_effort": "high",
+        "proposal_effort": "high",
+        "explorers": 5,
+        "max_parallel": 5,
+        "prompts": {"prompts/roles/critic.md": "a" * 64},
+        "registry": {"registry/roles.json": "b" * 64},
+        "code": {"src/agency/cli.py": "c" * 64},
+        "lock": "d" * 64,
+        "python": "3.13.1",
+        "tools": {"vectorcraft-cli": "vectorcraft 1.0"},
+    }
+    return Fingerprint.model_validate(base | extra)
+
+
+def test_the_registry_reader_reads_every_execution_with_its_fingerprint(tmp_path: Path) -> None:
+    ledger = Ledger(tmp_path / "ledger.sqlite")
+    first = ledger.record_run("merlo4", RunCommand.RUN, fingerprint())
+    second = ledger.record_run("merlo4", RunCommand.DECIDE, fingerprint(explorers=3))
+    ledger.engine.dispose()
+
+    runs = ReadOnlyRegistry(tmp_path / "ledger.sqlite").read().runs
+
+    assert [(run.seq, run.project, run.command, run.digest) for run in runs] == [
+        (first, "merlo4", "run", fingerprint().digest()),
+        (second, "merlo4", "decide", fingerprint(explorers=3).digest()),
+    ]
+    assert Fingerprint.model_validate_json(runs[1].fingerprint_json) == fingerprint(explorers=3)
+
+
 def test_the_registry_reader_reads_every_check_with_its_result_and_reason(tmp_path: Path) -> None:
     ledger = Ledger(tmp_path / "ledger.sqlite")
     ticket_id = proposal(ledger)
@@ -475,6 +510,7 @@ class FakeRegistry:
             judgments=[],
             events=[],
             checks=[],
+            runs=[],
         )
 
 
@@ -534,6 +570,7 @@ def only(calls: list[Call]) -> Projected:
         events=[],
         checks=[],
         tool_calls=[],
+        runs=[],
     )
 
 
@@ -631,12 +668,13 @@ def test_a_change_to_what_the_projection_stores_changes_its_schema_number() -> N
         EventRecord,
         CheckRecord,
         ToolCallRecord,
+        RunRecord,
         Provenance,
     )
     shape = json.dumps([model.model_json_schema() for model in stored], sort_keys=True)
     assert (SqliteProjection.SCHEMA, hashlib.sha256(shape.encode()).hexdigest()[:16]) == (
-        5,
-        "4ad1d3a921a65d3b",
+        6,
+        "783da0deafd739ad",
     )
 
 

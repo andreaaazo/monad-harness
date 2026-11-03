@@ -32,6 +32,7 @@ from agency.insights.domain import (
     Projected,
     ProjectRecord,
     Provenance,
+    RunRecord,
     TicketRecord,
     ToolCallRecord,
 )
@@ -93,10 +94,11 @@ JUDGMENTS = _Table("judgments", JudgmentRecord, "seq")
 EVENTS = _Table("events", EventRecord, "seq")
 CHECKS = _Table("checks", CheckRecord, "seq")
 TOOL_CALLS = _Table("tool_calls", ToolCallRecord, "seq")
+RUNS = _Table("runs", RunRecord, "seq")
 
 
 class SqliteProjection:
-    SCHEMA = 5
+    SCHEMA = 6
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -117,6 +119,7 @@ class SqliteProjection:
                 self._write(connection, EVENTS, projected.events)
                 self._write(connection, CHECKS, projected.checks)
                 self._write(connection, TOOL_CALLS, projected.tool_calls)
+                self._write(connection, RUNS, projected.runs)
                 connection.execute("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
                 connection.execute(
                     "INSERT INTO meta VALUES ('provenance', ?)", (provenance.model_dump_json(),)
@@ -159,6 +162,10 @@ class SqliteProjection:
         with closing(self._connect()) as connection:
             return self._read(connection, PROJECTS, None)
 
+    def judgments(self) -> list[JudgmentRecord]:
+        with closing(self._connect()) as connection:
+            return self._read(connection, JUDGMENTS, None)
+
     def project(self, name: str) -> ProjectData:
         with closing(self._connect()) as connection:
             connection.execute("BEGIN")  # le parti di un progetto dalla stessa versione della proiezione
@@ -173,6 +180,7 @@ class SqliteProjection:
                 events=self._read(connection, EVENTS, name),
                 checks=self._read(connection, CHECKS, name),
                 tool_calls=self._read(connection, TOOL_CALLS, name),
+                runs=self._read(connection, RUNS, name),
             )
 
     def provenance(self) -> Provenance:

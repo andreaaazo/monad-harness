@@ -19,6 +19,10 @@ export default function Layout({ children }: { readonly children: ReactNode }) {
             Cruscotto dello studio
           </Link>
           <span className="badge">sola lettura</span>
+          <nav aria-label="Cruscotto" className="sections">
+            <Link href="/">Progetti</Link>
+            <Link href="/compare">Confronto</Link>
+          </nav>
         </header>
         <main>{children}</main>
       </body>

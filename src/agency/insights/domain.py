@@ -194,6 +194,21 @@ class ToolCallRecord(BaseModel):
     refusal: str | None
 
 
+class RunRecord(BaseModel):
+    """Un'esecuzione del grafo, con l'impronta di ciò che ne decide il comportamento (ADR-0026). L'impronta
+    resta il JSON del registro: la legge `agency.contracts.run`, e un'impronta di una forma che questa
+    versione non conosce non rompe la proiezione."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    seq: int
+    at: str
+    project: str
+    command: str
+    digest: str
+    fingerprint_json: str
+
+
 class TraceMeasure(BaseModel):
     """Le misure che l'SDK scrive nella traccia di una richiesta."""
 
@@ -312,6 +327,7 @@ class Projected(BaseModel):
     events: list[EventRecord]
     checks: list[CheckRecord]
     tool_calls: list[ToolCallRecord]
+    runs: list[RunRecord]
 
 
 class SourceStamp(BaseModel):

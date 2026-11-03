@@ -31,6 +31,7 @@ from agency.contracts.ticket import TicketSpec, TicketType  # noqa: E402
 from agency.entrypoints.server import serve  # noqa: E402
 from agency.entrypoints.server.middleware import ReadOnly  # noqa: E402
 from agency.insights.behaviour import BehaviourReport  # noqa: E402
+from agency.insights.compare import CompareReport  # noqa: E402
 from agency.insights.domain import Provenance  # noqa: E402
 from agency.insights.flow import FlowReport  # noqa: E402
 from agency.insights.quality import QualityReport  # noqa: E402
@@ -109,6 +110,23 @@ def test_flow_and_behaviour_are_the_views_of_insights(client: Client) -> None:
     assert [(role.role, role.calls) for role in behaviour.roles] == [("design-director", 2)]
     quality = QualityReport.model_validate(client.get("/api/projects/officina/quality").json())
     assert (quality.project, quality.uses, quality.checks) == ("officina", 0, [])
+
+
+def test_compare_puts_two_projects_side_by_side_and_refuses_one_with_itself(
+    tmp_path: Path, studio: Ledger
+) -> None:
+    studio.set_project("bottega", 20)
+    studio.record_usage(usage(3, project="bottega"))
+    studio.engine.dispose()
+    with override_settings(AGENCY_DATA_DIR=tmp_path):
+        client = Client(HTTP_HOST="127.0.0.1")
+        report = CompareReport.model_validate(client.get("/api/compare?before=bottega&after=officina").json())
+        assert (report.before.project, report.after.project, report.after.calls) == ("bottega", "officina", 2)
+        same = client.get("/api/compare?before=officina&after=officina")
+        assert (same.status_code, "due volte" in same.json()["detail"]) == (400, True)
+        unknown = client.get("/api/compare?before=fantasma&after=officina")
+        assert (unknown.status_code, "fantasma" in unknown.json()["detail"]) == (404, True)
+        assert client.post("/api/compare?before=bottega&after=officina").status_code == 405
 
 
 @pytest.mark.parametrize("view", ["report", "flow", "behaviour", "quality"])

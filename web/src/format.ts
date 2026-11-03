@@ -33,4 +33,10 @@ export function oneLine(text: string, max: number): string {
     .join(" · ");
   return flat.length <= max ? flat : `${flat.slice(0, max - 1)}…`;
 }
+/** Una differenza con il suo segno, nel formato del valore: due valori che si leggono uguali sono invariati. */
+export function signed(value: number, format: (value: number) => string): string {
+  const size = format(Math.abs(value));
+  if (size === format(0)) return "invariato";
+  return `${value > 0 ? "+" : "−"}${size}`;
+}
 export const when = (iso: string | null): string => (iso === null ? "–" : `${moment.format(new Date(iso))} UTC`);

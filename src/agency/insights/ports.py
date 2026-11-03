@@ -16,6 +16,7 @@ from agency.insights.domain import (
     Projected,
     ProjectRecord,
     Provenance,
+    RunRecord,
     SourceStamp,
     TicketRecord,
     ToolCallRecord,
@@ -37,6 +38,7 @@ class RegistrySnapshot(BaseModel):
     judgments: list[JudgmentRecord]
     events: list[EventRecord]
     checks: list[CheckRecord]
+    runs: list[RunRecord]
 
 
 class ProjectData(BaseModel):
@@ -53,6 +55,7 @@ class ProjectData(BaseModel):
     events: list[EventRecord]
     checks: list[CheckRecord]
     tool_calls: list[ToolCallRecord]
+    runs: list[RunRecord]
 
 
 class TraceReading(BaseModel):
@@ -107,6 +110,10 @@ class ProjectionReader(Protocol):
     def calls(self, project: str | None = None) -> list[Call]: ...
 
     def projects(self) -> list[ProjectRecord]: ...
+
+    def judgments(self) -> list[JudgmentRecord]:
+        """Tutti i voti: un confronto alla cieca può mettere insieme file di più progetti."""
+        ...
 
     def provenance(self) -> Provenance: ...
 

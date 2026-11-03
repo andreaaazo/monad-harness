@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    readonly "/api/compare": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * Compare
+         * @description Due progetti diversi, tutti e due conosciuti dal registro.
+         */
+        readonly get: operations["compareProjects"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/projects": {
         readonly parameters: {
             readonly query?: never;
@@ -121,6 +141,31 @@ export interface components {
             /** Stop Reasons */
             readonly stop_reasons: readonly components["schemas"]["StopCount"][];
         };
+        /** BlindComparison */
+        readonly BlindComparison: {
+            /** At */
+            readonly at: string;
+            /** Comparison */
+            readonly comparison: string;
+            /** Judge */
+            readonly judge: string;
+            /** Votes */
+            readonly votes: readonly components["schemas"]["Vote"][];
+        };
+        /**
+         * ChangeView
+         * @description Una differenza fra due impronte: `None` vuol dire che da quella parte l'elemento non c'è.
+         */
+        readonly ChangeView: {
+            /** After */
+            readonly after: string | null;
+            /** Before */
+            readonly before: string | null;
+            /** Item */
+            readonly item: string;
+            /** Part */
+            readonly part: string;
+        };
         /** CheckFailure */
         readonly CheckFailure: {
             /** At */
@@ -155,6 +200,55 @@ export interface components {
             readonly runs: number;
             /** Subjects */
             readonly subjects: number;
+        };
+        /**
+         * Compared
+         * @description Quali impronte ci sono: le esecuzioni prima di M1.6 non la hanno.
+         * @enum {string}
+         */
+        readonly Compared: "entrambe" | "manca prima" | "manca dopo" | "nessuna";
+        /** CompareReport */
+        readonly CompareReport: {
+            readonly after: components["schemas"]["Side"];
+            readonly before: components["schemas"]["Side"];
+            readonly fingerprint: components["schemas"]["FingerprintDiff"];
+            /** Judgments */
+            readonly judgments: readonly components["schemas"]["BlindComparison"][];
+            /** Phases */
+            readonly phases: readonly components["schemas"]["PhasePair"][];
+        };
+        /**
+         * Execution
+         * @description Un'esecuzione: il comando, l'impronta, quanto ha speso, e quante differenze ha dalla precedente
+         *     leggibile. `readable` è falso per un'impronta di una forma che questa versione non conosce.
+         */
+        readonly Execution: {
+            /** At */
+            readonly at: string;
+            /** Calls */
+            readonly calls: number;
+            /** Changes From Previous */
+            readonly changes_from_previous: number | null;
+            /** Command */
+            readonly command: string;
+            /** Cost Usd */
+            readonly cost_usd: number;
+            /** Digest */
+            readonly digest: string;
+            /** Readable */
+            readonly readable: boolean;
+            /** Seq */
+            readonly seq: number;
+        };
+        /** FingerprintDiff */
+        readonly FingerprintDiff: {
+            /** After Run */
+            readonly after_run: number | null;
+            /** Before Run */
+            readonly before_run: number | null;
+            /** Changes */
+            readonly changes: readonly components["schemas"]["ChangeView"][];
+            readonly state: components["schemas"]["Compared"];
         };
         /** FlowReport */
         readonly FlowReport: {
@@ -308,6 +402,18 @@ export interface components {
             readonly started_at: string | null;
             /** Tickets */
             readonly tickets: number;
+        };
+        /**
+         * PhasePair
+         * @description Una fase dei due lati: `None` vuol dire che da quella parte la fase non c'è.
+         */
+        readonly PhasePair: {
+            /** After Usd */
+            readonly after_usd: number | null;
+            /** Before Usd */
+            readonly before_usd: number | null;
+            /** Phase */
+            readonly phase: string;
         };
         /**
          * PhaseView
@@ -542,6 +648,56 @@ export interface components {
             readonly title: string;
         };
         /**
+         * Side
+         * @description Un progetto: `model` ed `effort` vuoti sono i predefiniti, `None` un progetto senza la sua riga, di
+         *     prima di M1.5.
+         */
+        readonly Side: {
+            /** Blocked Usd */
+            readonly blocked_usd: number;
+            /** Budget Usd */
+            readonly budget_usd: number | null;
+            /** Cache Hit */
+            readonly cache_hit: number;
+            /** Calls */
+            readonly calls: number;
+            /** Cost Usd */
+            readonly cost_usd: number;
+            /** Delivery Status */
+            readonly delivery_status: string | null;
+            /** Effort */
+            readonly effort: string | null;
+            /** Executions */
+            readonly executions: readonly components["schemas"]["Execution"][];
+            /** First Pass */
+            readonly first_pass: number;
+            /** Instances */
+            readonly instances: number;
+            /** Mean Context */
+            readonly mean_context: number;
+            /** Model */
+            readonly model: string | null;
+            /** Peak Context */
+            readonly peak_context: number;
+            /** Project */
+            readonly project: string;
+            /** Redone Usd */
+            readonly redone_usd: number;
+            /** Subjects */
+            readonly subjects: number;
+            readonly to_presentation: components["schemas"]["Milestone"] | null;
+            /** Tool Refusals */
+            readonly tool_refusals: number;
+            /** Tool Uses */
+            readonly tool_uses: number;
+            /** Unrecorded Calls */
+            readonly unrecorded_calls: number;
+            /** Waiting Minutes */
+            readonly waiting_minutes: number;
+            /** Working Minutes */
+            readonly working_minutes: number;
+        };
+        /**
          * SourceStamp
          * @description Un file da cui nasce la proiezione, com'era quando è stato letto. Se manca, la dimensione è vuota.
          */
@@ -667,6 +823,23 @@ export interface components {
             /** Ticket Type */
             readonly ticket_type: string;
         };
+        /** Vote */
+        readonly Vote: {
+            /** Best */
+            readonly best: boolean;
+            /** File */
+            readonly file: string;
+            /** Letter */
+            readonly letter: string;
+            /** Level */
+            readonly level: string;
+            /** Project */
+            readonly project: string;
+            /** Specific */
+            readonly specific: boolean;
+            /** Why */
+            readonly why: string;
+        };
         /**
          * WaitView
          * @description Il run fermo per una decisione del cliente: dall'ultima chiamata prima del gate alla decisione.
@@ -689,8 +862,14 @@ export interface components {
     pathItems: never;
 }
 export type BehaviourReport = components['schemas']['BehaviourReport'];
+export type BlindComparison = components['schemas']['BlindComparison'];
+export type ChangeView = components['schemas']['ChangeView'];
 export type CheckFailure = components['schemas']['CheckFailure'];
 export type CheckSummary = components['schemas']['CheckSummary'];
+export type Compared = components['schemas']['Compared'];
+export type CompareReport = components['schemas']['CompareReport'];
+export type Execution = components['schemas']['Execution'];
+export type FingerprintDiff = components['schemas']['FingerprintDiff'];
 export type FlowReport = components['schemas']['FlowReport'];
 export type IdeaView = components['schemas']['IdeaView'];
 export type InstanceTurns = components['schemas']['InstanceTurns'];
@@ -700,6 +879,7 @@ export type Lifecycle = components['schemas']['Lifecycle'];
 export type Milestone = components['schemas']['Milestone'];
 export type Outcome = components['schemas']['Outcome'];
 export type PhaseFlow = components['schemas']['PhaseFlow'];
+export type PhasePair = components['schemas']['PhasePair'];
 export type PhaseView = components['schemas']['PhaseView'];
 export type Problem = components['schemas']['Problem'];
 export type ProjectReport = components['schemas']['ProjectReport'];
@@ -710,6 +890,7 @@ export type Refusal = components['schemas']['Refusal'];
 export type RoleBehaviour = components['schemas']['RoleBehaviour'];
 export type RoleView = components['schemas']['RoleView'];
 export type Setback = components['schemas']['Setback'];
+export type Side = components['schemas']['Side'];
 export type SourceStamp = components['schemas']['SourceStamp'];
 export type Step = components['schemas']['Step'];
 export type StopCount = components['schemas']['StopCount'];
@@ -718,9 +899,60 @@ export type TicketView = components['schemas']['TicketView'];
 export type ToolSummary = components['schemas']['ToolSummary'];
 export type Turn = components['schemas']['Turn'];
 export type TypeCost = components['schemas']['TypeCost'];
+export type Vote = components['schemas']['Vote'];
 export type WaitView = components['schemas']['WaitView'];
 export type $defs = Record<string, never>;
 export interface operations {
+    readonly compareProjects: {
+        readonly parameters: {
+            readonly query: {
+                readonly after: string;
+                readonly before: string;
+            };
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description OK */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["CompareReport"];
+                };
+            };
+            /** @description Bad Request */
+            readonly 400: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            readonly 503: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     readonly listProjects: {
         readonly parameters: {
             readonly query?: never;

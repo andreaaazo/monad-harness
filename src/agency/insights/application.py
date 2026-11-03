@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from agency.insights.behaviour import BehaviourReport, behaviour_report
+from agency.insights.compare import CompareReport, compare_report
 from agency.insights.domain import Projected, Provenance, SourceStamp, project_calls, provenance
 from agency.insights.flow import FlowReport, flow_report
 from agency.insights.ports import (
@@ -70,6 +71,7 @@ def rebuild(
         events=snapshot.events,
         checks=snapshot.checks,
         tool_calls=conversations.calls,
+        runs=snapshot.runs,
     )
     built = provenance(
         calls,
@@ -118,6 +120,18 @@ def behaviour(projection: ProjectionReader, project: str) -> BehaviourReport:
 def quality(projection: ProjectionReader, project: str) -> QualityReport:
     """La vista Strumenti e QA: controlli, rifiuti degli strumenti e passi indietro, con il loro motivo."""
     return quality_report(project, projection.project(project))
+
+
+def compare(projection: ProjectionReader, before: str, after: str) -> CompareReport:
+    """La vista Confronto: due progetti affiancati, le loro impronte, i giudizi alla cieca fra loro."""
+    return compare_report(
+        before,
+        projection.project(before),
+        after,
+        projection.project(after),
+        projection.judgments(),
+        projection.provenance(),
+    )
 
 
 def projects(projection: ProjectionReader) -> list[ProjectSummary]:

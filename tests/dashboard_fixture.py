@@ -2,9 +2,10 @@
 
 Un progetto inventato, `officina-e2e`, scritto con il motore vero: più fasi e più istanze, chiamate misurate e
 no, un gate approvato, idee, un giudizio, la storia dei ticket con una revisione bloccata e una rifinitura
-rimandata e rifatta, prove FAIL e PASS, e trascrizioni con due strumenti che dicono no. Gli istanti sono
-fissi, eventi compresi, così le viste mostrano sempre gli stessi numeri. La cartella si svuota e si riscrive
-a ogni esecuzione.
+rimandata e rifatta, prove FAIL e PASS, trascrizioni con due strumenti che dicono no, e due esecuzioni con
+la loro impronta. Accanto, `officina-prima`: lo stesso lavoro il giorno prima, con un'impronta diversa e un
+giudizio alla cieca che mette i due segni a confronto. Gli istanti sono fissi, eventi compresi, così le
+viste mostrano sempre gli stessi numeri. La cartella si svuota e si riscrive a ogni esecuzione.
 """
 
 from __future__ import annotations
@@ -18,11 +19,14 @@ from unittest.mock import patch
 from agency.agents.transcript import Transcript
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
 from agency.contracts.layout import DataLayout
+from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow, EvidenceRow, GateRow, UsageRow
 
 PROJECT = "officina-e2e"
+BEFORE = "officina-prima"
+DAY, DAY_BEFORE = "2026-11-02", "2026-11-01"
 # (minuto, istanza, ticket, ruolo, fase, costo, durata in ms o None se non misurata, TTFT in ms, stop_reason)
 CALLS = [
     (0, "T-0001-a1-plan", "T-0001", "design-director", "director-plan", 0.40, 21000, 9000, "tool_use"),
@@ -87,13 +91,115 @@ TRANSCRIPTS: dict[str, list[list[tuple[str, str | None]]]] = {
 }
 
 
-def at(minute: int) -> str:
-    return f"2026-11-02T10:{minute:02d}:00+00:00"
+def at(minute: int, day: str = DAY) -> str:
+    return f"{day}T10:{minute:02d}:00+00:00"
 
 
-def clock(minute: int) -> AbstractContextManager[object]:
+def clock(minute: int, day: str = DAY) -> AbstractContextManager[object]:
     """Il Ledger scrive l'istante di ogni evento con `now()`: qui lo si fissa, un evento alla volta."""
-    return patch("agency.ledger.store.now", return_value=at(minute))
+    return patch("agency.ledger.store.now", return_value=at(minute, day))
+
+
+# Le impronte: officina-prima esplorava con 5 direzioni e un altro prompt del designer.
+PRINT_BEFORE = Fingerprint(
+    model="",
+    effort="high",
+    explorer_effort="high",
+    proposal_effort="high",
+    explorers=5,
+    max_parallel=5,
+    prompts={"prompts/roles/identity-designer.md": "1" * 64, "prompts/roles/critic.md": "3" * 64},
+    registry={"registry/roles.json": "4" * 64},
+    code={"src/agency/cli.py": "5" * 64},
+    lock="6" * 64,
+    python="3.13.1",
+    tools={"vectorcraft-cli": "vectorcraft 1.0"},
+)
+PRINT_AFTER = PRINT_BEFORE.model_copy(
+    update={
+        "explorers": 3,
+        "prompts": {"prompts/roles/identity-designer.md": "2" * 64, "prompts/roles/critic.md": "3" * 64},
+    }
+)
+# officina-prima: (minuto, istanza, ticket, fase, costo), tutte dell'identity-designer tranne il piano
+CALLS_BEFORE = [
+    (0, "T-0007-a1-plan", "T-0007", "design-director", "director-plan", 0.50),
+    (3, "T-0008-a1", "T-0008", "identity-designer", "finisher", 3.00),
+    (9, "T-0008-a1", "T-0008", "identity-designer", "finisher", 2.50),
+]
+
+
+def usage(
+    number: int,
+    project: str,
+    day: str,
+    row: tuple,
+    turn: int,
+    run: int,
+    *,
+    stop_reason: str,
+    phase: str | None = None,
+    duration_ms: int | None = None,
+    ttft_ms: int | None = None,
+) -> UsageRow:
+    """Una chiamata della prova. Una chiamata misurata ha fase, effort, durata, TTFT e ragionamento."""
+    minute, instance, ticket, role, _, cost = row[:6]
+    measured = duration_ms is not None
+    return UsageRow(
+        at=at(minute, day),
+        project=project,
+        ticket_id=ticket,
+        role=role,
+        instance=instance,
+        model="claude-opus-5-5",
+        input_tokens=400,
+        output_tokens=120,
+        # Il contesto cresce turno dopo turno, come in un'istanza vera.
+        cache_read_tokens=3600 + 1600 * (turn - 1),
+        cache_write_5m_tokens=200,
+        cost_usd=cost,
+        stop_reason=stop_reason,
+        request_id=f"req_e2e_{number}",
+        run=run,
+        phase=phase if measured else None,
+        effort="high" if measured else None,
+        duration_ms=duration_ms,
+        ttft_ms=ttft_ms,
+        reasoning_tokens=60 if measured else None,
+    )
+
+
+def build_before(ledger: Ledger) -> int:
+    """Il progetto di prima: un piano e una rifinitura consegnata, con la sua esecuzione."""
+    ledger.set_project(BEFORE, 20.0, "", "high")
+    with clock(0, DAY_BEFORE):
+        run = ledger.record_run(BEFORE, RunCommand.RUN, PRINT_BEFORE)
+    for minute, title, kind, assignee, prompt in [
+        (0, "Consegna officina-prima", TicketType.DELIVERY, "design-director", ""),
+        (2, "Rifinitura X", TicketType.PRODUCTION, "identity-designer", "finisher"),
+    ]:
+        spec = TicketSpec(
+            title=title,
+            request="Prova del cruscotto",
+            type=kind,
+            sender="router" if kind is TicketType.DELIVERY else "design-director",
+            assignee=assignee,
+            outputs=["segno.svg"],
+            checks={"*.svg": ["svg_audit"]},
+            media=[] if kind is TicketType.DELIVERY else [Medium.VECTOR],
+            prompt=prompt,
+        )
+        with clock(minute, DAY_BEFORE):
+            ledger.open(spec, BEFORE)
+    turns: dict[str, int] = {}
+    for number, row in enumerate(CALLS_BEFORE, start=100):
+        turns[row[1]] = turns.get(row[1], 0) + 1
+        ledger.record_usage(
+            usage(number, BEFORE, DAY_BEFORE, row, turns[row[1]], run, stop_reason="end_turn")
+        )
+    with clock(10, DAY_BEFORE):
+        ledger.apply("T-0008", Action.DELIVER, "identity-designer")
+    return run
 
 
 def write_transcripts(layout: DataLayout) -> None:
@@ -120,6 +226,11 @@ def build(folder: Path) -> None:
     folder.mkdir(parents=True)
     ledger = Ledger(folder / "ledger.sqlite")
     ledger.set_project(PROJECT, 20.0, "", "high")
+    # Il lavoro fino al gate con `run`, il resto con `decide`: stessa impronta.
+    with clock(0):
+        started = ledger.record_run(PROJECT, RunCommand.RUN, PRINT_AFTER)
+    with clock(30):
+        decided = ledger.record_run(PROJECT, RunCommand.DECIDE, PRINT_AFTER)
     for minute, title, kind, assignee, prompt in TICKETS:
         spec = TicketSpec(
             title=title,
@@ -136,29 +247,21 @@ def build(folder: Path) -> None:
             ledger.open(spec, PROJECT)
     turns: dict[str, int] = {}
     for number, row in enumerate(CALLS, start=1):
-        minute, instance, ticket, role, phase, cost, duration, ttft, stop = row
+        minute, instance, _, _, phase, _, duration, ttft, stop = row
         turns[instance] = turns.get(instance, 0) + 1
+        run = started if minute < 30 else decided
         ledger.record_usage(
-            UsageRow(
-                at=at(minute),
-                project=PROJECT,
-                ticket_id=ticket,
-                role=role,
-                instance=instance,
-                model="claude-opus-5-5",
-                input_tokens=400,
-                output_tokens=120,
-                # Il contesto cresce turno dopo turno, come in un'istanza vera.
-                cache_read_tokens=3600 + 1600 * (turns[instance] - 1),
-                cache_write_5m_tokens=200,
-                cost_usd=cost,
+            usage(
+                number,
+                PROJECT,
+                DAY,
+                row,
+                turns[instance],
+                run,
                 stop_reason=stop,
-                request_id=f"req_e2e_{number}",
-                phase=phase if duration is not None else None,
-                effort="high" if duration is not None else None,
+                phase=phase,
                 duration_ms=duration,
                 ttft_ms=ttft,
-                reasoning_tokens=60 if duration is not None else None,
             )
         )
     for minute, ticket, action, actor, note in STEPS:
@@ -190,6 +293,25 @@ def build(folder: Path) -> None:
         "e2e",
         Judgment(judge="prova", ratings=[rating]),
         {"A": Judged(project=PROJECT, file="segno.svg", sha256="c" * 64)},
+    )
+    build_before(ledger)
+    # Il confronto alla cieca fra i due segni: chi giudica vede solo A e B.
+    ledger.record_judgment(
+        "prima-dopo",
+        Judgment(
+            judge="prova",
+            ratings=[
+                Rating(letter="A", level=Level.ORDINARY, specific=False, why="Potrebbe essere di chiunque"),
+                Rating(
+                    letter="B", level=Level.GOOD, specific=True, why="La coda dice il nome\nanche a 16 px"
+                ),
+            ],
+            best="B",
+        ),
+        {
+            "A": Judged(project=BEFORE, file="segno.svg", sha256="a" * 64),
+            "B": Judged(project=PROJECT, file="exports/segno.svg", sha256="b" * 64),
+        },
     )
     ledger.engine.dispose()
 

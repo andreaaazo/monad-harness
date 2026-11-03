@@ -39,6 +39,82 @@
         "title": "BehaviourReport",
         "type": "object"
       },
+      "BlindComparison": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "comparison": {
+            "title": "Comparison",
+            "type": "string"
+          },
+          "judge": {
+            "title": "Judge",
+            "type": "string"
+          },
+          "votes": {
+            "items": {
+              "$ref": "#/components/schemas/Vote"
+            },
+            "title": "Votes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "comparison",
+          "at",
+          "judge",
+          "votes"
+        ],
+        "title": "BlindComparison",
+        "type": "object"
+      },
+      "ChangeView": {
+        "additionalProperties": false,
+        "description": "Una differenza fra due impronte: `None` vuol dire che da quella parte l'elemento non c'è.",
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "item": {
+            "title": "Item",
+            "type": "string"
+          },
+          "part": {
+            "title": "Part",
+            "type": "string"
+          }
+        },
+        "required": [
+          "part",
+          "item",
+          "before",
+          "after"
+        ],
+        "title": "ChangeView",
+        "type": "object"
+      },
       "CheckFailure": {
         "additionalProperties": false,
         "properties": {
@@ -121,6 +197,156 @@
           "first_pass"
         ],
         "title": "CheckSummary",
+        "type": "object"
+      },
+      "CompareReport": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/Side"
+          },
+          "before": {
+            "$ref": "#/components/schemas/Side"
+          },
+          "fingerprint": {
+            "$ref": "#/components/schemas/FingerprintDiff"
+          },
+          "judgments": {
+            "items": {
+              "$ref": "#/components/schemas/BlindComparison"
+            },
+            "title": "Judgments",
+            "type": "array"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/PhasePair"
+            },
+            "title": "Phases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "before",
+          "after",
+          "phases",
+          "fingerprint",
+          "judgments"
+        ],
+        "title": "CompareReport",
+        "type": "object"
+      },
+      "Compared": {
+        "description": "Quali impronte ci sono: le esecuzioni prima di M1.6 non la hanno.",
+        "enum": [
+          "entrambe",
+          "manca prima",
+          "manca dopo",
+          "nessuna"
+        ],
+        "title": "Compared",
+        "type": "string"
+      },
+      "Execution": {
+        "additionalProperties": false,
+        "description": "Un'esecuzione: il comando, l'impronta, quanto ha speso, e quante differenze ha dalla precedente\nleggibile. `readable` è falso per un'impronta di una forma che questa versione non conosce.",
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "changes_from_previous": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changes From Previous"
+          },
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "readable": {
+            "title": "Readable",
+            "type": "boolean"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seq",
+          "at",
+          "command",
+          "digest",
+          "readable",
+          "calls",
+          "cost_usd",
+          "changes_from_previous"
+        ],
+        "title": "Execution",
+        "type": "object"
+      },
+      "FingerprintDiff": {
+        "additionalProperties": false,
+        "properties": {
+          "after_run": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Run"
+          },
+          "before_run": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before Run"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeView"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "state": {
+            "$ref": "#/components/schemas/Compared"
+          }
+        },
+        "required": [
+          "state",
+          "before_run",
+          "after_run",
+          "changes"
+        ],
+        "title": "FingerprintDiff",
         "type": "object"
       },
       "FlowReport": {
@@ -560,6 +786,45 @@
           "blocked_usd"
         ],
         "title": "PhaseFlow",
+        "type": "object"
+      },
+      "PhasePair": {
+        "additionalProperties": false,
+        "description": "Una fase dei due lati: `None` vuol dire che da quella parte la fase non c'è.",
+        "properties": {
+          "after_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Usd"
+          },
+          "before_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before Usd"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phase",
+          "before_usd",
+          "after_usd"
+        ],
+        "title": "PhasePair",
         "type": "object"
       },
       "PhaseView": {
@@ -1244,6 +1509,163 @@
         "title": "Setback",
         "type": "object"
       },
+      "Side": {
+        "additionalProperties": false,
+        "description": "Un progetto: `model` ed `effort` vuoti sono i predefiniti, `None` un progetto senza la sua riga, di\nprima di M1.5.",
+        "properties": {
+          "blocked_usd": {
+            "title": "Blocked Usd",
+            "type": "number"
+          },
+          "budget_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Usd"
+          },
+          "cache_hit": {
+            "title": "Cache Hit",
+            "type": "number"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "delivery_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Status"
+          },
+          "effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort"
+          },
+          "executions": {
+            "items": {
+              "$ref": "#/components/schemas/Execution"
+            },
+            "title": "Executions",
+            "type": "array"
+          },
+          "first_pass": {
+            "title": "First Pass",
+            "type": "integer"
+          },
+          "instances": {
+            "title": "Instances",
+            "type": "integer"
+          },
+          "mean_context": {
+            "title": "Mean Context",
+            "type": "number"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "peak_context": {
+            "title": "Peak Context",
+            "type": "integer"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "redone_usd": {
+            "title": "Redone Usd",
+            "type": "number"
+          },
+          "subjects": {
+            "title": "Subjects",
+            "type": "integer"
+          },
+          "to_presentation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Milestone"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tool_refusals": {
+            "title": "Tool Refusals",
+            "type": "integer"
+          },
+          "tool_uses": {
+            "title": "Tool Uses",
+            "type": "integer"
+          },
+          "unrecorded_calls": {
+            "title": "Unrecorded Calls",
+            "type": "integer"
+          },
+          "waiting_minutes": {
+            "title": "Waiting Minutes",
+            "type": "number"
+          },
+          "working_minutes": {
+            "title": "Working Minutes",
+            "type": "number"
+          }
+        },
+        "required": [
+          "project",
+          "model",
+          "effort",
+          "budget_usd",
+          "delivery_status",
+          "cost_usd",
+          "calls",
+          "instances",
+          "working_minutes",
+          "waiting_minutes",
+          "to_presentation",
+          "cache_hit",
+          "mean_context",
+          "peak_context",
+          "redone_usd",
+          "blocked_usd",
+          "subjects",
+          "first_pass",
+          "tool_uses",
+          "tool_refusals",
+          "executions",
+          "unrecorded_calls"
+        ],
+        "title": "Side",
+        "type": "object"
+      },
       "SourceStamp": {
         "additionalProperties": false,
         "description": "Un file da cui nasce la proiezione, com'era quando è stato letto. Se manca, la dimensione è vuota.",
@@ -1592,6 +2014,50 @@
         "title": "TypeCost",
         "type": "object"
       },
+      "Vote": {
+        "additionalProperties": false,
+        "properties": {
+          "best": {
+            "title": "Best",
+            "type": "boolean"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "letter": {
+            "title": "Letter",
+            "type": "string"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "specific": {
+            "title": "Specific",
+            "type": "boolean"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "letter",
+          "project",
+          "file",
+          "level",
+          "specific",
+          "best",
+          "why"
+        ],
+        "title": "Vote",
+        "type": "object"
+      },
       "WaitView": {
         "additionalProperties": false,
         "description": "Il run fermo per una decisione del cliente: dall'ultima chiamata prima del gate alla decisione.",
@@ -1631,6 +2097,75 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/compare": {
+      "get": {
+        "description": "Due progetti diversi, tutti e due conosciuti dal registro.",
+        "operationId": "compareProjects",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "before",
+            "required": true,
+            "schema": {
+              "title": "Before",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": true,
+            "schema": {
+              "title": "After",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Compare"
+      }
+    },
     "/api/projects": {
       "get": {
         "operationId": "listProjects",

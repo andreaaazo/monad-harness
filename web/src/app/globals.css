@@ -223,6 +223,55 @@ thead th {
   }
 }
 
+.sections {
+  display: flex;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.sections a {
+  color: var(--muted);
+}
+
+/* La scelta dei due progetti da confrontare. */
+.choose {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: center;
+  margin: 0 0 24px;
+}
+
+.choose select,
+.choose button {
+  font: inherit;
+  padding: 4px 8px;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px 24px;
+}
+
+.executions {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.executions li {
+  padding: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.best {
+  color: var(--ink);
+}
+
+.judged + .judged {
+  margin-top: 24px;
+}
+
 /* L'intestazione di un progetto: il nome e le sue viste. */
 .project h1 {
   margin-bottom: 8px;

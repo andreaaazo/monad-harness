@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { count, counted, minutes, oneLine, seconds, share, usd, when } from "./format.ts";
+import { count, counted, minutes, oneLine, seconds, share, signed, usd, when } from "./format.ts";
 
 test("soldi, conteggi e quote all'italiana", () => {
   assert.equal(usd(10.5), "10,50 $");
@@ -44,4 +44,12 @@ test("un testo su una riga: gli a capo diventano un punto in mezzo, il resto si 
   assert.equal(oneLine("  troppi   spazi\n\n\n  e righe vuote  ", 80), "troppi spazi · e righe vuote");
   assert.equal(oneLine("abcdefghij", 6), "abcde…");
   assert.equal(oneLine("", 6), "");
+});
+
+test("una differenza ha il suo segno, e due valori che si leggono uguali sono invariati", () => {
+  assert.equal(signed(1.2, usd), "+1,20 $");
+  assert.equal(signed(-0.5, usd), "−0,50 $");
+  assert.equal(signed(0.001, usd), "invariato");
+  assert.equal(signed(-3, count), "−3");
+  assert.equal(signed(90, minutes), "+1 h 30 min");
 });

@@ -46,3 +46,12 @@ export const status = (value: string): string => STATUSES[value] ?? value;
 export const pending = (value: string): string => PENDING[value] ?? status(value);
 export const step = (value: Lifecycle): string => STEPS[value];
 export const stop = (value: string): string => STOPS[value] ?? value;
+
+const SHA256 = /^[0-9a-f]{64}$/;
+
+/** Un valore dell'impronta come lo scrive agency compare: un hash in 12 caratteri, il vuoto è il predefinito. */
+export function fingerprintValue(value: string | null): string {
+  if (value === null) return "assente";
+  if (value === "") return "predefinito";
+  return SHA256.test(value) ? value.slice(0, 12) : value;
+}

@@ -99,6 +99,7 @@ def data(calls: list[Call], **extra: object) -> ProjectData:
         "events": [],
         "checks": [],
         "tool_calls": [],
+        "runs": [],
     }
     return ProjectData.model_validate(base | extra)
 
@@ -332,6 +333,7 @@ def test_a_project_without_calls_has_a_report_of_zeros() -> None:
         events=[],
         checks=[],
         tool_calls=[],
+        runs=[],
     )
     report = views.project_report("fantasma", empty, PROVENANCE)
     assert (report.cost_usd, report.calls, report.cache_hit, report.mean_context, report.parallel) == (

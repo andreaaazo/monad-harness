@@ -119,6 +119,7 @@ def data(**extra: object) -> ProjectData:
         "events": EVENTS,
         "checks": [],
         "tool_calls": [],
+        "runs": [],
     }
     return ProjectData.model_validate(base | extra)
 

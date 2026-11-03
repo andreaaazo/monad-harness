@@ -41,3 +41,4 @@ vecchio. Date: 2026-10-31.
 | [0034](0034-mise-per-gli-strumenti-locali.md) | mise per gli strumenti locali | Accettata, rovescia `npx` di 0032 |
 | [0035](0035-le-viste-fasi-e-modello.md) | Le viste Fasi e Modello | Accettata, i motivi dei passi indietro entrano con 0036 |
 | [0036](0036-la-vista-strumenti-e-qa.md) | La vista Strumenti e QA | Accettata |
+| [0037](0037-la-vista-confronto.md) | La vista Confronto | Accettata |

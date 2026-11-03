@@ -296,7 +296,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
       ([ADR-0035](adr/0035-le-viste-fasi-e-modello.md))
     - [x] **Strumenti e QA**: controlli al primo colpo, prove fallite, rifiuti degli strumenti e passi indietro, ognuno con il
       suo motivo ([ADR-0036](adr/0036-la-vista-strumenti-e-qa.md))
-    - [ ] **Confronto**
+    - [x] **Confronto**: due progetti affiancati con i numeri delle altre viste, l'impronta fra la fine dell'uno e l'inizio
+      dell'altro, i giudizi alla cieca che li contengono entrambi ([ADR-0037](adr/0037-la-vista-confronto.md))
     - [ ] **Replay**
 14. [ ] **Taskfile**: ingresso unico per Python, frontend e Docker. `make check` resta come alias.
 15. [ ] **Docker** per Django e Next.js, per ultimo. Il motore resta sull'host.
@@ -354,8 +355,8 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
 - [x] Next.js non invia telemetria e non lascia copie di immagini o dati in `.next/cache` (test): `make web` verifica che
   `next telemetry status` dica `Disabled` e che ogni script la spenga; `make e2e` verifica che il browser parli solo con Next.js
   e che nella build, server standalone compreso, non restino immagini, risposte in cache o dati del registro
-- [ ] Almeno un test Playwright per vista. Run, Fasi, Modello, Strumenti e QA: `web/e2e/run.spec.ts`, `phases.spec.ts`,
-  `model.spec.ts`, `quality.spec.ts`
+- [ ] Almeno un test Playwright per vista. Run, Fasi, Modello, Strumenti e QA, Confronto: `web/e2e/run.spec.ts`,
+  `phases.spec.ts`, `model.spec.ts`, `quality.spec.ts`, `compare.spec.ts`
 - [ ] `task check` esegue i controlli di Python e Next.js, e Docker Compose avvia Django e Next.js
 - [ ] `merlo4` è arrivato al gate `final` ed è stato letto per intero nel cruscotto
 

@@ -25,6 +25,7 @@ from agency.insights import application as insights
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
+from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger, LedgerOutdated
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
@@ -73,7 +74,11 @@ def _report_of(settings: Settings, project: str) -> ProjectReport:
     """Il rapporto passa da insights, come il cruscotto: la proiezione si rifà se il registro è cambiato."""
     projection = SqliteProjection(settings.insights_path)
     insights.current(
-        ReadOnlyRegistry(settings.ledger_path), JsonlTraces(settings.traces_path), projection, now()
+        ReadOnlyRegistry(settings.ledger_path),
+        JsonlTraces(settings.traces_path),
+        JsonlTranscripts(settings.layout.transcripts),
+        projection,
+        now(),
     )
     return insights.report(projection, project)
 
@@ -264,7 +269,8 @@ def _insights(_: argparse.Namespace) -> int:
     """Legge il registro in sola lettura: si può usare anche mentre il motore lavora."""
     settings = Settings()
     registry, traces = ReadOnlyRegistry(settings.ledger_path), JsonlTraces(settings.traces_path)
-    built = insights.rebuild(registry, traces, SqliteProjection(settings.insights_path), now())
+    transcripts = JsonlTranscripts(settings.layout.transcripts)
+    built = insights.rebuild(registry, traces, transcripts, SqliteProjection(settings.insights_path), now())
     print(report.render_provenance(built, str(settings.insights_path)))
     return 0
 

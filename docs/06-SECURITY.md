@@ -19,6 +19,7 @@ fino a M7 (ADR-0023).
 | Cruscotto esposto in rete | Materiali del cliente leggibili da fuori | Django e Next.js solo su loopback, porta pubblicata su `127.0.0.1`, verificato da un test |
 | DNS rebinding | Una pagina web fa puntare un suo nome a `127.0.0.1` e legge il cruscotto dal browser | Django: `ALLOWED_HOSTS` solo loopback, controllato su ogni richiesta (ADR-0031). Next.js: `src/proxy.ts` rifiuta ogni `Host` non loopback prima di pagine, `/api` e file statici, perché il suo proxy riscrive l'`Host` verso Django (ADR-0033). Test per entrambi |
 | Copie dei materiali fuori dal progetto | Next.js salva immagini o risposte in `.next/cache`, o un browser tiene in cache le pagine | `images.unoptimized`, `cache: 'no-store'` su ogni lettura, pagine sempre dinamiche, `Cache-Control: no-store` anche sulle pagine statiche. Verificato da un test |
+| Parole del progetto nella proiezione | I motivi di un no citano file e parole del cliente | Dalle trascrizioni entrano solo strumenti e rifiuti, dalle note solo i motivi dei passi indietro (ADR-0036). Restano in `.data/` come la loro fonte, e l'API li serve solo su loopback |
 | Custom node maligno | Codice in ComfyUI | Container senza uscita, niente Manager, nodi bloccati per hash |
 | Costo fuori controllo | Un loop che non finisce, o una scelta sbagliata al gate | Budget preventivo, tetto nella Console, `agency decide` che rifiuta una scelta inesistente |
 | Comando distruttivo | Sovrascrive un master | Artefatti per hash: ogni versione consegnata resta, e `agency restore` la riporta |

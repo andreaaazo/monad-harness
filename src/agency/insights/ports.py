@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 
 from agency.insights.domain import (
     Call,
+    CheckRecord,
     ConceptRecord,
     EventRecord,
     GateRecord,
@@ -17,6 +18,7 @@ from agency.insights.domain import (
     Provenance,
     SourceStamp,
     TicketRecord,
+    ToolCallRecord,
     TraceMeasure,
     UsageRecord,
 )
@@ -34,6 +36,7 @@ class RegistrySnapshot(BaseModel):
     concepts: list[ConceptRecord]
     judgments: list[JudgmentRecord]
     events: list[EventRecord]
+    checks: list[CheckRecord]
 
 
 class ProjectData(BaseModel):
@@ -48,12 +51,21 @@ class ProjectData(BaseModel):
     concepts: list[ConceptRecord]
     judgments: list[JudgmentRecord]
     events: list[EventRecord]
+    checks: list[CheckRecord]
+    tool_calls: list[ToolCallRecord]
 
 
 class TraceReading(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     measures: dict[str, TraceMeasure]
+    unreadable: int
+
+
+class TranscriptReading(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    calls: list[ToolCallRecord]
     unreadable: int
 
 
@@ -73,6 +85,14 @@ class TraceReader(Protocol):
     def stamp(self) -> list[SourceStamp]: ...
 
     def read(self) -> TraceReading: ...
+
+
+class TranscriptReader(Protocol):
+    def stamp(self) -> list[SourceStamp]:
+        """Una impronta per trascrizione: una che cambia, nasce o sparisce rende vecchia la proiezione."""
+        ...
+
+    def read(self) -> TranscriptReading: ...
 
 
 class ProjectionWriter(Protocol):

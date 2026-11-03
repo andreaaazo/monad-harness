@@ -33,6 +33,7 @@ from agency.entrypoints.server.middleware import ReadOnly  # noqa: E402
 from agency.insights.behaviour import BehaviourReport  # noqa: E402
 from agency.insights.domain import Provenance  # noqa: E402
 from agency.insights.flow import FlowReport  # noqa: E402
+from agency.insights.quality import QualityReport  # noqa: E402
 from agency.insights.views import ProjectReport, ProjectSummary  # noqa: E402
 from agency.ledger import Ledger  # noqa: E402
 from agency.ledger.models import UsageRow  # noqa: E402
@@ -106,9 +107,11 @@ def test_flow_and_behaviour_are_the_views_of_insights(client: Client) -> None:
     assert (flow.outcome.delivery_id, flow.outcome.delivery_status) == ("T-0001", "open")
     behaviour = BehaviourReport.model_validate(client.get("/api/projects/officina/behaviour").json())
     assert [(role.role, role.calls) for role in behaviour.roles] == [("design-director", 2)]
+    quality = QualityReport.model_validate(client.get("/api/projects/officina/quality").json())
+    assert (quality.project, quality.uses, quality.checks) == ("officina", 0, [])
 
 
-@pytest.mark.parametrize("view", ["report", "flow", "behaviour"])
+@pytest.mark.parametrize("view", ["report", "flow", "behaviour", "quality"])
 def test_an_unknown_project_is_not_found(client: Client, view: str) -> None:
     response = client.get(f"/api/projects/fantasma/{view}")
     assert response.status_code == 404
@@ -162,6 +165,7 @@ ROUTES = [
     "/api/projects/officina/report",
     "/api/projects/officina/flow",
     "/api/projects/officina/behaviour",
+    "/api/projects/officina/quality",
     "/api/provenance",
 ]
 
@@ -316,8 +320,9 @@ def test_every_engine_package_is_forbidden_to_import_django() -> None:
 
 def test_the_data_layout_has_one_owner() -> None:
     layout = DataLayout(Path("/dati"))
-    assert (layout.ledger, layout.traces, layout.insights) == (
+    assert (layout.ledger, layout.traces, layout.insights, layout.transcript("merlo", "T-0002-a1")) == (
         Path("/dati/ledger.sqlite"),
         Path("/dati/traces.jsonl"),
         Path("/dati/insights.sqlite"),
+        Path("/dati/runs/merlo/T-0002-a1.jsonl"),
     )

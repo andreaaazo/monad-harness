@@ -24,4 +24,13 @@ export function seconds(milliseconds: number | null): string {
   if (milliseconds === null) return "–";
   return Math.round(milliseconds / 100) < 600 ? `${tenths.format(milliseconds / 1000)} s` : minutes(milliseconds / 60_000);
 }
+/** Un testo su una riga: gli a capo diventano " · ", gli spazi si stringono; oltre `max` si taglia con "…". */
+export function oneLine(text: string, max: number): string {
+  const flat = text
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => line !== "")
+    .join(" · ");
+  return flat.length <= max ? flat : `${flat.slice(0, max - 1)}…`;
+}
 export const when = (iso: string | null): string => (iso === null ? "–" : `${moment.format(new Date(iso))} UTC`);

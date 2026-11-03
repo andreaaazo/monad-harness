@@ -61,5 +61,6 @@ export const api = {
   report: (name: string) => read<Ok<"projectReport">>(`/api/projects/${encodeURIComponent(name)}/report`),
   flow: (name: string) => read<Ok<"projectFlow">>(`/api/projects/${encodeURIComponent(name)}/flow`),
   behaviour: (name: string) => read<Ok<"projectBehaviour">>(`/api/projects/${encodeURIComponent(name)}/behaviour`),
+  quality: (name: string) => read<Ok<"projectQuality">>(`/api/projects/${encodeURIComponent(name)}/quality`),
   provenance: () => read<Ok<"provenance">>("/api/provenance"),
 };

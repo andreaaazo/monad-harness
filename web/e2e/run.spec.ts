@@ -7,7 +7,7 @@ import { basename, join, sep } from "node:path";
 import { expect, test } from "@playwright/test";
 
 import { CANARY } from "./canary";
-import { PROJECT } from "./project";
+import { PROJECT, VIEWS, pages } from "./project";
 
 const NEXT_PORT = 13765;
 const DJANGO_PORT = 18765;
@@ -59,7 +59,7 @@ test("vista Run: quanto è costato, quanto è durato, chi ha lavorato quando", a
 });
 
 test("un progetto che non esiste ha la sua pagina e il suo stato, in ogni vista", async ({ page }) => {
-  for (const path of ["/projects/fantasma", "/projects/fantasma/phases", "/projects/fantasma/model"]) {
+  for (const path of VIEWS.map((view) => `/projects/fantasma${view}`)) {
     const response = await page.goto(path);
     expect(response?.status(), path).toBe(404);
     await expect(page.getByRole("heading", { name: "Progetto sconosciuto" })).toBeVisible();
@@ -67,7 +67,7 @@ test("un progetto che non esiste ha la sua pagina e il suo stato, in ogni vista"
 });
 
 test("se Django è spento le pagine lo dicono e dicono come riavviarlo", async ({ page }) => {
-  for (const path of ["/", `/projects/${PROJECT}`, `/projects/${PROJECT}/phases`, `/projects/${PROJECT}/model`]) {
+  for (const path of pages()) {
     await page.goto(`http://127.0.0.1:${OFFLINE_PORT}${path}`);
     // Next.js ha già un suo role="alert", l'annunciatore delle rotte: si cerca quello della pagina.
     const alert = page.getByRole("main").getByRole("alert");
@@ -89,7 +89,7 @@ test("il browser parla solo con Next.js: niente CDN, niente telemetria, niente D
   page.on("response", (response) => {
     if (response.status() >= 400) failed.push(`${response.status()} ${response.url()}`);
   });
-  for (const path of ["/", `/projects/${PROJECT}`, `/projects/${PROJECT}/phases`, `/projects/${PROJECT}/model`]) {
+  for (const path of pages()) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
   }
@@ -160,6 +160,16 @@ test("un nome che punta a 127.0.0.1 non legge il cruscotto: né pagine, né /api
   }
 });
 
+test("su un telefono nessuna vista scorre in orizzontale, neanche con i dettagli aperti", async ({ browser }) => {
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  for (const path of pages()) {
+    await phone.goto(path);
+    await phone.locator("details summary").evaluateAll((items) => items.forEach((item) => (item as HTMLElement).click()));
+    expect(await phone.evaluate(() => document.documentElement.scrollWidth), path).toBeLessThanOrEqual(390);
+  }
+  await phone.close();
+});
+
 test("Next.js e Django ascoltano solo su loopback", async () => {
   const addresses = Object.values(networkInterfaces())
     .flat()
@@ -226,7 +236,7 @@ function everything(folder: string): string[] {
 }
 
 test("nella build non restano dati del registro, immagini o file .env", async ({ page }) => {
-  for (const path of ["/", `/projects/${PROJECT}`, `/projects/${PROJECT}/phases`, `/projects/${PROJECT}/model`]) {
+  for (const path of pages()) {
     await page.goto(path);
   }
   // Tutto ciò che la build e il server scrivono, cache del server standalone compresa; non le librerie copiate.

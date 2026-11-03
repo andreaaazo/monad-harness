@@ -5,6 +5,7 @@ const VIEWS = [
   { id: "run", label: "Run", path: "" },
   { id: "phases", label: "Fasi", path: "/phases" },
   { id: "model", label: "Modello", path: "/model" },
+  { id: "quality", label: "Strumenti e QA", path: "/quality" },
 ] as const;
 
 export type View = (typeof VIEWS)[number]["id"];

@@ -196,5 +196,6 @@ def render_provenance(built: Provenance, path: str) -> str:
             f" {built.unmeasured} non misurate",
             f"  fasi: {built.phases_recorded} registrate, {built.phases_derived} ricavate",
             f"  righe di traccia illeggibili: {built.unreadable_trace_lines}",
+            f"  righe di trascrizione illeggibili: {built.unreadable_transcript_lines}",
         ]
     )

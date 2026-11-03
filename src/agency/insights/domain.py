@@ -144,8 +144,13 @@ class Lifecycle(StrEnum):
     CANCEL = "cancel"
 
 
+# I passi indietro: un ticket rimandato, bloccato o annullato.
+SETBACKS = frozenset({Lifecycle.REWORK, Lifecycle.BLOCK, Lifecycle.CANCEL})
+
+
 class EventRecord(BaseModel):
-    """Un passo nella storia di un ticket: chi, cosa e quando. La nota resta nel registro."""
+    """Un passo nella storia di un ticket: chi, cosa e quando. `reason` è la nota di chi lo ha fatto, solo per
+    un passo indietro; le parole delle altre note restano nel registro."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -155,6 +160,38 @@ class EventRecord(BaseModel):
     ticket_id: str
     actor: str
     action: Lifecycle
+    reason: str | None
+
+
+class CheckRecord(BaseModel):
+    """Una prova su un file: quale controllo, con che esito, chi la firma e perché. FAIL è l'unico esito che
+    boccia: PASS, NOT_APPLICABLE e MEASURED no (qa/evidence.py)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    seq: int
+    at: str
+    project: str
+    ticket_id: str
+    file: str
+    check_name: str
+    result: str
+    signer: str
+    reason: str
+
+
+class ToolCallRecord(BaseModel):
+    """Una chiamata a uno strumento in una trascrizione. `refusal`: il testo dello strumento quando ha detto
+    no, accorciato; vuoto se ha risposto. `turn` conta le risposte del modello nell'istanza, da 1."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    seq: int
+    project: str
+    instance: str
+    turn: int
+    tool: str
+    refusal: str | None
 
 
 class TraceMeasure(BaseModel):
@@ -273,6 +310,8 @@ class Projected(BaseModel):
     concepts: list[ConceptRecord]
     judgments: list[JudgmentRecord]
     events: list[EventRecord]
+    checks: list[CheckRecord]
+    tool_calls: list[ToolCallRecord]
 
 
 class SourceStamp(BaseModel):
@@ -300,10 +339,17 @@ class Provenance(BaseModel):
     phases_recorded: int
     phases_derived: int
     unreadable_trace_lines: int
+    unreadable_transcript_lines: int
 
 
 def provenance(
-    calls: list[Call], *, built_at: str, sources: list[SourceStamp], revision: str, unreadable: int
+    calls: list[Call],
+    *,
+    built_at: str,
+    sources: list[SourceStamp],
+    revision: str,
+    unreadable: int,
+    unreadable_transcripts: int,
 ) -> Provenance:
     def count(source: Measures) -> int:
         return sum(1 for call in calls if call.measures is source)
@@ -320,4 +366,5 @@ def provenance(
         phases_recorded=recorded,
         phases_derived=len(calls) - recorded,
         unreadable_trace_lines=unreadable,
+        unreadable_transcript_lines=unreadable_transcripts,
     )

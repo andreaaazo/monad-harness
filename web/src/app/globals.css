@@ -211,7 +211,8 @@ thead th {
     grid-column: 1;
   }
 
-  .setbacks li {
+  .setbacks li,
+  .noes li {
     grid-template-columns: 1fr;
     gap: 2px;
   }
@@ -294,13 +295,16 @@ thead th {
   padding-left: 18px;
 }
 
-.setbacks {
+/* Liste di no: passi indietro, prove fallite, rifiuti degli strumenti. Quando, cosa e perché, la fase a lato. */
+.setbacks,
+.noes {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.setbacks li {
+.setbacks li,
+.noes li {
   display: grid;
   grid-template-columns: 170px 1fr auto;
   gap: 12px;
@@ -308,9 +312,60 @@ thead th {
   border-bottom: 1px solid var(--line);
 }
 
-.setbacks .when {
+/* Una riga lunga senza spazi (un JSON, un percorso) va a capo dove serve: non allarga mai la pagina. */
+.setbacks li > *,
+.noes li > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.setbacks .when,
+.noes .when {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+.said {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.said summary {
+  cursor: pointer;
+}
+
+.said pre {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  background: var(--panel);
+  border-radius: 6px;
+  color: var(--ink);
+}
+
+h3 {
+  font-size: 15px;
+  margin: 20px 0 8px;
+}
+
+/* Un gruppo di no: chiuso, con il numero nel titolo; si apre per leggere i motivi. */
+.group {
+  border-bottom: 1px solid var(--line);
+}
+
+.group > summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.group[open] > summary {
+  border-bottom: 1px solid var(--line);
 }
 
 .path {

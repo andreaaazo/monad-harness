@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from agency.insights import flow
-from agency.insights.domain import Call, EventRecord, Lifecycle, Measures, PhaseSource, TicketRecord
+from agency.insights.domain import SETBACKS, Call, EventRecord, Lifecycle, Measures, PhaseSource, TicketRecord
 from agency.insights.ports import ProjectData
 
 
@@ -57,8 +57,16 @@ def ticket(id_: str, type_: str, assignee: str, status: str, minute: int, prompt
 
 
 def event(seq: int, minute: int, ticket_id: str, actor: str, action: Lifecycle) -> EventRecord:
+    """Come lo legge il registro: il motivo c'è solo per un passo indietro."""
+    reason = f"Motivo del passo {seq}" if action in SETBACKS else None
     return EventRecord(
-        seq=seq, at=at(minute), project="officina", ticket_id=ticket_id, actor=actor, action=action
+        seq=seq,
+        at=at(minute),
+        project="officina",
+        ticket_id=ticket_id,
+        actor=actor,
+        action=action,
+        reason=reason,
     )
 
 
@@ -109,6 +117,8 @@ def data(**extra: object) -> ProjectData:
         "concepts": [],
         "judgments": [],
         "events": EVENTS,
+        "checks": [],
+        "tool_calls": [],
     }
     return ProjectData.model_validate(base | extra)
 
@@ -187,10 +197,11 @@ def test_a_call_that_ends_as_the_rework_arrives_belongs_to_the_attempt_before() 
 def test_setbacks_are_every_step_back_in_order_with_how_many_deliveries_came_before() -> None:
     report = flow.flow_report("officina", data())
     assert [
-        (item.at, item.action, item.ticket_id, item.phase, item.after_deliveries) for item in report.setbacks
+        (item.at, item.action, item.ticket_id, item.phase, item.after_deliveries, item.reason)
+        for item in report.setbacks
     ] == [
-        (at(28), Lifecycle.BLOCK, "T-0005", "critic", 0),
-        (at(30), Lifecycle.REWORK, "T-0004", "finisher", 1),
+        (at(28), Lifecycle.BLOCK, "T-0005", "critic", 0, "Motivo del passo 11"),
+        (at(30), Lifecycle.REWORK, "T-0004", "finisher", 1, "Motivo del passo 12"),
     ]
     assert report.setbacks[0].title == "Titolo T-0005"
 

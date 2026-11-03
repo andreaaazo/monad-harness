@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from agency.insights.behaviour import BehaviourReport, behaviour_report
-from agency.insights.domain import Projected, Provenance, project_calls, provenance
+from agency.insights.domain import Projected, Provenance, SourceStamp, project_calls, provenance
 from agency.insights.flow import FlowReport, flow_report
 from agency.insights.ports import (
     ProjectionReader,
@@ -11,7 +11,9 @@ from agency.insights.ports import (
     ProjectionWriter,
     RegistryReader,
     TraceReader,
+    TranscriptReader,
 )
+from agency.insights.quality import QualityReport, quality_report
 from agency.insights.views import ProjectReport, ProjectSummary, project_report, project_summaries
 
 # La revisione del registro che insights sa leggere. Un test la confronta con l'ultima migrazione:
@@ -37,14 +39,26 @@ def _why(revision: str | None) -> str:
     return f"registro alla revisione {revision}, più nuova della {READS_REVISION}: aggiorna insights"
 
 
+def _stamps(
+    registry: RegistryReader, traces: TraceReader, transcripts: TranscriptReader
+) -> list[SourceStamp]:
+    return registry.stamp() + traces.stamp() + transcripts.stamp()
+
+
 def rebuild(
-    registry: RegistryReader, traces: TraceReader, projection: ProjectionWriter, built_at: str
+    registry: RegistryReader,
+    traces: TraceReader,
+    transcripts: TranscriptReader,
+    projection: ProjectionWriter,
+    built_at: str,
 ) -> Provenance:
-    sources = registry.stamp() + traces.stamp()  # prima di leggere: una scrittura nel frattempo si vedrà dopo
+    sources = _stamps(
+        registry, traces, transcripts
+    )  # prima di leggere: una scrittura nel frattempo si vedrà dopo
     revision = registry.revision()
     if revision != READS_REVISION:
         raise RegistryNotReadable(_why(revision))
-    snapshot, reading = registry.read(), traces.read()
+    snapshot, reading, conversations = registry.read(), traces.read(), transcripts.read()
     calls = project_calls(snapshot.usage, snapshot.tickets, reading.measures)
     projected = Projected(
         calls=calls,
@@ -54,25 +68,36 @@ def rebuild(
         concepts=snapshot.concepts,
         judgments=snapshot.judgments,
         events=snapshot.events,
+        checks=snapshot.checks,
+        tool_calls=conversations.calls,
     )
     built = provenance(
-        calls, built_at=built_at, sources=sources, revision=revision, unreadable=reading.unreadable
+        calls,
+        built_at=built_at,
+        sources=sources,
+        revision=revision,
+        unreadable=reading.unreadable,
+        unreadable_transcripts=conversations.unreadable,
     )
     projection.replace(projected, built)
     return built
 
 
 def current(
-    registry: RegistryReader, traces: TraceReader, projection: ProjectionStore, built_at: str
+    registry: RegistryReader,
+    traces: TraceReader,
+    transcripts: TranscriptReader,
+    projection: ProjectionStore,
+    built_at: str,
 ) -> Provenance:
-    """La proiezione aggiornata: si rigenera solo se registro o tracce sono cambiati da quando è nata."""
+    """La proiezione aggiornata: si rigenera solo se registro, tracce o trascrizioni sono cambiati."""
     try:
         known: Provenance | None = projection.provenance()
     except ProjectionOutdated:
         known = None
-    if known is not None and known.sources == registry.stamp() + traces.stamp():
+    if known is not None and known.sources == _stamps(registry, traces, transcripts):
         return known
-    return rebuild(registry, traces, projection, built_at)
+    return rebuild(registry, traces, transcripts, projection, built_at)
 
 
 def report(projection: ProjectionReader, project: str) -> ProjectReport:
@@ -88,6 +113,11 @@ def flow(projection: ProjectionReader, project: str) -> FlowReport:
 def behaviour(projection: ProjectionReader, project: str) -> BehaviourReport:
     """La vista Modello: ruolo per ruolo e turno per turno."""
     return behaviour_report(project, projection.project(project))
+
+
+def quality(projection: ProjectionReader, project: str) -> QualityReport:
+    """La vista Strumenti e QA: controlli, rifiuti degli strumenti e passi indietro, con il loro motivo."""
+    return quality_report(project, projection.project(project))
 
 
 def projects(projection: ProjectionReader) -> list[ProjectSummary]:

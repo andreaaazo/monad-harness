@@ -55,6 +55,23 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/projects/{name}/quality": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Quality */
+        readonly get: operations["projectQuality"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/projects/{name}/report": {
         readonly parameters: {
             readonly query?: never;
@@ -103,6 +120,41 @@ export interface components {
             readonly roles: readonly components["schemas"]["RoleBehaviour"][];
             /** Stop Reasons */
             readonly stop_reasons: readonly components["schemas"]["StopCount"][];
+        };
+        /** CheckFailure */
+        readonly CheckFailure: {
+            /** At */
+            readonly at: string;
+            /** Check Name */
+            readonly check_name: string;
+            /** File */
+            readonly file: string;
+            /** Phase */
+            readonly phase: string;
+            /** Reason */
+            readonly reason: string;
+            /** Signer */
+            readonly signer: string;
+            /** Ticket Id */
+            readonly ticket_id: string;
+            /** Title */
+            readonly title: string;
+        };
+        /**
+         * CheckSummary
+         * @description Un controllo: quante prove, quante FAIL, su quanti file di un ticket, e su quanti è passato subito.
+         */
+        readonly CheckSummary: {
+            /** Check Name */
+            readonly check_name: string;
+            /** Failed */
+            readonly failed: number;
+            /** First Pass */
+            readonly first_pass: number;
+            /** Runs */
+            readonly runs: number;
+            /** Subjects */
+            readonly subjects: number;
         };
         /** FlowReport */
         readonly FlowReport: {
@@ -372,6 +424,53 @@ export interface components {
             readonly unmeasured: number;
             /** Unreadable Trace Lines */
             readonly unreadable_trace_lines: number;
+            /** Unreadable Transcript Lines */
+            readonly unreadable_transcript_lines: number;
+        };
+        /** QualityReport */
+        readonly QualityReport: {
+            /** Blocked */
+            readonly blocked: number;
+            /** Checks */
+            readonly checks: readonly components["schemas"]["CheckSummary"][];
+            /** Failures */
+            readonly failures: readonly components["schemas"]["CheckFailure"][];
+            /** First Pass */
+            readonly first_pass: number;
+            /** Project */
+            readonly project: string;
+            /** Refusals */
+            readonly refusals: readonly components["schemas"]["Refusal"][];
+            /** Refused */
+            readonly refused: number;
+            /** Setbacks */
+            readonly setbacks: readonly components["schemas"]["Setback"][];
+            /** Subjects */
+            readonly subjects: number;
+            /** Tools */
+            readonly tools: readonly components["schemas"]["ToolSummary"][];
+            /** Uses */
+            readonly uses: number;
+        };
+        /**
+         * Refusal
+         * @description Uno strumento che ha detto no, al turno `turn` dell'istanza, con le sue parole.
+         */
+        readonly Refusal: {
+            /** Instance */
+            readonly instance: string;
+            /** Message */
+            readonly message: string;
+            /** Phase */
+            readonly phase: string;
+            /** Role */
+            readonly role: string;
+            /** Ticket Id */
+            readonly ticket_id: string;
+            /** Tool */
+            readonly tool: string;
+            /** Turn */
+            readonly turn: number;
         };
         /**
          * RoleBehaviour
@@ -422,7 +521,8 @@ export interface components {
         };
         /**
          * Setback
-         * @description Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne.
+         * @description Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne, e perché, con le
+         *     parole di chi lo ha fatto.
          */
         readonly Setback: {
             readonly action: components["schemas"]["Lifecycle"];
@@ -434,6 +534,8 @@ export interface components {
             readonly at: string;
             /** Phase */
             readonly phase: string;
+            /** Reason */
+            readonly reason: string;
             /** Ticket Id */
             readonly ticket_id: string;
             /** Title */
@@ -523,6 +625,17 @@ export interface components {
             /** Verdict */
             readonly verdict: string | null;
         };
+        /** ToolSummary */
+        readonly ToolSummary: {
+            /** Instances */
+            readonly instances: number;
+            /** Refused */
+            readonly refused: number;
+            /** Tool */
+            readonly tool: string;
+            /** Uses */
+            readonly uses: number;
+        };
         /**
          * Turn
          * @description Una chiamata di un'istanza. Durata, TTFT e ragionamento sono vuoti se non è misurata.
@@ -576,6 +689,8 @@ export interface components {
     pathItems: never;
 }
 export type BehaviourReport = components['schemas']['BehaviourReport'];
+export type CheckFailure = components['schemas']['CheckFailure'];
+export type CheckSummary = components['schemas']['CheckSummary'];
 export type FlowReport = components['schemas']['FlowReport'];
 export type IdeaView = components['schemas']['IdeaView'];
 export type InstanceTurns = components['schemas']['InstanceTurns'];
@@ -590,6 +705,8 @@ export type Problem = components['schemas']['Problem'];
 export type ProjectReport = components['schemas']['ProjectReport'];
 export type ProjectSummary = components['schemas']['ProjectSummary'];
 export type Provenance = components['schemas']['Provenance'];
+export type QualityReport = components['schemas']['QualityReport'];
+export type Refusal = components['schemas']['Refusal'];
 export type RoleBehaviour = components['schemas']['RoleBehaviour'];
 export type RoleView = components['schemas']['RoleView'];
 export type Setback = components['schemas']['Setback'];
@@ -598,6 +715,7 @@ export type Step = components['schemas']['Step'];
 export type StopCount = components['schemas']['StopCount'];
 export type TicketFlow = components['schemas']['TicketFlow'];
 export type TicketView = components['schemas']['TicketView'];
+export type ToolSummary = components['schemas']['ToolSummary'];
 export type Turn = components['schemas']['Turn'];
 export type TypeCost = components['schemas']['TypeCost'];
 export type WaitView = components['schemas']['WaitView'];
@@ -690,6 +808,46 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": components["schemas"]["FlowReport"];
+                };
+            };
+            /** @description Not Found */
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            readonly 503: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    readonly projectQuality: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly name: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description OK */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["QualityReport"];
                 };
             };
             /** @description Not Found */

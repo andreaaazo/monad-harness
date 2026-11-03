@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { count, counted, minutes, seconds, share, usd, when } from "./format.ts";
+import { count, counted, minutes, oneLine, seconds, share, usd, when } from "./format.ts";
 
 test("soldi, conteggi e quote all'italiana", () => {
   assert.equal(usd(10.5), "10,50 $");
@@ -37,4 +37,11 @@ test("i tempi misurati in secondi sotto il minuto, poi in minuti; un tempo non m
 test("gli istanti in UTC, e un istante che manca è un trattino", () => {
   assert.equal(when("2026-11-02T10:30:00+00:00"), "02/11/26, 10:30 UTC");
   assert.equal(when(null), "–");
+});
+
+test("un testo su una riga: gli a capo diventano un punto in mezzo, il resto si taglia e lo dice", () => {
+  assert.equal(oneLine("consegna rifiutata:\nexports/segno.svg: 'svg_audit' è FAIL", 80), "consegna rifiutata: · exports/segno.svg: 'svg_audit' è FAIL");
+  assert.equal(oneLine("  troppi   spazi\n\n\n  e righe vuote  ", 80), "troppi spazi · e righe vuote");
+  assert.equal(oneLine("abcdefghij", 6), "abcde…");
+  assert.equal(oneLine("", 6), "");
 });

@@ -114,30 +114,32 @@ function Phases({ report }: { readonly report: ProjectReport }) {
       <p className="aside">
         Durata e TTFT sono misurati su {count(measured)} di {counted(report.calls, "chiamata", "chiamate")}.
       </p>
-      <table aria-label="Fasi">
-        <thead>
-          <tr>
-            <th scope="col">Fase</th>
-            <th scope="col" className="number">Chiamate</th>
-            <th scope="col" className="number">Costo</th>
-            <th scope="col" className="number">Durata media</th>
-            <th scope="col" className="number">TTFT mediano</th>
-            <th scope="col" className="number">Ragionamento</th>
-          </tr>
-        </thead>
-        <tbody>
-          {report.phases.map((phase) => (
-            <tr key={phase.phase}>
-              <th scope="row">{phase.phase}</th>
-              <td className="number">{count(phase.calls)}</td>
-              <td className="number">{usd(phase.cost_usd)}</td>
-              <td className="number">{seconds(phase.mean_duration_ms)}</td>
-              <td className="number">{seconds(phase.median_ttft_ms)}</td>
-              <td className="number">{count(phase.reasoning_tokens)}</td>
+      <div className="scroll" role="region" aria-label="Tabella delle fasi, scorre in orizzontale" tabIndex={0}>
+        <table aria-label="Fasi">
+          <thead>
+            <tr>
+              <th scope="col">Fase</th>
+              <th scope="col" className="number">Chiamate</th>
+              <th scope="col" className="number">Costo</th>
+              <th scope="col" className="number">Durata media</th>
+              <th scope="col" className="number">TTFT mediano</th>
+              <th scope="col" className="number">Ragionamento</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {report.phases.map((phase) => (
+              <tr key={phase.phase}>
+                <th scope="row">{phase.phase}</th>
+                <td className="number">{count(phase.calls)}</td>
+                <td className="number">{usd(phase.cost_usd)}</td>
+                <td className="number">{seconds(phase.mean_duration_ms)}</td>
+                <td className="number">{seconds(phase.median_ttft_ms)}</td>
+                <td className="number">{count(phase.reasoning_tokens)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
@@ -146,28 +148,30 @@ function Roles({ report }: { readonly report: ProjectReport }) {
   return (
     <section aria-labelledby="roles">
       <h2 id="roles">Per ruolo</h2>
-      <table aria-label="Ruoli">
-        <thead>
-          <tr>
-            <th scope="col">Ruolo</th>
-            <th scope="col" className="number">Chiamate</th>
-            <th scope="col" className="number">Costo</th>
-            <th scope="col" className="number">Contesto medio</th>
-            <th scope="col" className="number">Output</th>
-          </tr>
-        </thead>
-        <tbody>
-          {report.roles.map((role) => (
-            <tr key={role.role}>
-              <th scope="row">{role.role}</th>
-              <td className="number">{count(role.calls)}</td>
-              <td className="number">{usd(role.cost_usd)}</td>
-              <td className="number">{count(role.mean_context)}</td>
-              <td className="number">{count(role.output_tokens)}</td>
+      <div className="scroll" role="region" aria-label="Tabella dei ruoli, scorre in orizzontale" tabIndex={0}>
+        <table aria-label="Ruoli">
+          <thead>
+            <tr>
+              <th scope="col">Ruolo</th>
+              <th scope="col" className="number">Chiamate</th>
+              <th scope="col" className="number">Costo</th>
+              <th scope="col" className="number">Contesto medio</th>
+              <th scope="col" className="number">Output</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {report.roles.map((role) => (
+              <tr key={role.role}>
+                <th scope="row">{role.role}</th>
+                <td className="number">{count(role.calls)}</td>
+                <td className="number">{usd(role.cost_usd)}</td>
+                <td className="number">{count(role.mean_context)}</td>
+                <td className="number">{count(role.output_tokens)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
@@ -176,31 +180,33 @@ function Tickets({ report }: { readonly report: ProjectReport }) {
   return (
     <section aria-labelledby="tickets">
       <h2 id="tickets">Ticket</h2>
-      <table aria-label="Ticket">
-        <thead>
-          <tr>
-            <th scope="col">Ticket</th>
-            <th scope="col">Stato</th>
-            <th scope="col">Assegnato a</th>
-            <th scope="col">Titolo</th>
-            <th scope="col" className="number">Costo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {report.tickets.map((ticket) => (
-            <tr key={ticket.id}>
-              <th scope="row">{ticket.id}</th>
-              <td>
-                {ticket.status}
-                {ticket.verdict !== null ? ` · ${ticket.verdict}` : ""}
-              </td>
-              <td>{ticket.assignee}</td>
-              <td>{ticket.title}</td>
-              <td className="number">{usd(ticket.cost_usd)}</td>
+      <div className="scroll" role="region" aria-label="Tabella dei ticket, scorre in orizzontale" tabIndex={0}>
+        <table aria-label="Ticket">
+          <thead>
+            <tr>
+              <th scope="col">Ticket</th>
+              <th scope="col">Stato</th>
+              <th scope="col">Assegnato a</th>
+              <th scope="col">Titolo</th>
+              <th scope="col" className="number">Costo</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {report.tickets.map((ticket) => (
+              <tr key={ticket.id}>
+                <th scope="row">{ticket.id}</th>
+                <td>
+                  {ticket.status}
+                  {ticket.verdict !== null ? ` · ${ticket.verdict}` : ""}
+                </td>
+                <td>{ticket.assignee}</td>
+                <td>{ticket.title}</td>
+                <td className="number">{usd(ticket.cost_usd)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

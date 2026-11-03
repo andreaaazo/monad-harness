@@ -14,9 +14,11 @@ from agency.insights import application
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
+from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.behaviour import BehaviourReport
 from agency.insights.domain import Provenance
 from agency.insights.flow import FlowReport
+from agency.insights.quality import QualityReport
 from agency.insights.views import ProjectReport, ProjectSummary
 
 # Niente pagina di documentazione: caricherebbe script da una CDN. Lo schema resta in /api/openapi.json.
@@ -34,12 +36,14 @@ class Problem(Schema):
 
 
 def _projection() -> SqliteProjection:
-    """La proiezione aggiornata: si rifà solo se registro o tracce sono cambiati dall'ultima volta."""
+    """La proiezione aggiornata: si rifà solo se registro, tracce o trascrizioni sono cambiati."""
     layout = DataLayout(settings.AGENCY_DATA_DIR)
     projection = SqliteProjection(layout.insights)
     registry, traces = ReadOnlyRegistry(layout.ledger), JsonlTraces(layout.traces)
+    transcripts = JsonlTranscripts(layout.transcripts)
     with _refresh:
-        application.current(registry, traces, projection, datetime.now(UTC).isoformat(timespec="seconds"))
+        built_at = datetime.now(UTC).isoformat(timespec="seconds")
+        application.current(registry, traces, transcripts, projection, built_at)
     return projection
 
 
@@ -98,3 +102,14 @@ def behaviour(request: HttpRequest, name: str) -> Status:
     projection = _projection()
     unknown = _unknown(projection, name)
     return unknown if unknown is not None else Status(200, application.behaviour(projection, name))
+
+
+@api.get(
+    "/projects/{name}/quality",
+    response={200: QualityReport, 404: Problem, 503: Problem},
+    operation_id="projectQuality",
+)
+def quality(request: HttpRequest, name: str) -> Status:
+    projection = _projection()
+    unknown = _unknown(projection, name)
+    return unknown if unknown is not None else Status(200, application.quality(projection, name))

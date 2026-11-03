@@ -32,3 +32,11 @@ class DataLayout:
     @property
     def insights(self) -> Path:
         return self.root / "insights.sqlite"
+
+    @property
+    def transcripts(self) -> Path:
+        """Le trascrizioni delle istanze, una cartella per progetto."""
+        return self.root / "runs"
+
+    def transcript(self, project: str, instance: str) -> Path:
+        return self.transcripts / project / f"{instance}.jsonl"

@@ -4,8 +4,9 @@ import type { FlowReport, Outcome, PhaseFlow, Setback, TicketFlow } from "../../
 import { ApiError, api } from "../../../../api/client";
 import { readForPage } from "../../../../api/read";
 import { ProjectHeader } from "../../../../components/project-header";
+import { SetbackList } from "../../../../components/setbacks";
 import { Unavailable } from "../../../../components/unavailable";
-import { count, counted, usd, when } from "../../../../format";
+import { count, usd, when } from "../../../../format";
 import { pending, status, step } from "../../../../labels";
 
 export const dynamic = "force-dynamic";
@@ -128,26 +129,7 @@ function Setbacks({ setbacks }: { readonly setbacks: readonly Setback[] }) {
   return (
     <section aria-labelledby="setbacks">
       <h2 id="setbacks">Passi indietro</h2>
-      {setbacks.length === 0 ? (
-        <p>Nessun ticket rimandato, bloccato o annullato.</p>
-      ) : (
-        <ol className="setbacks" aria-label="Passi indietro">
-          {setbacks.map((item) => (
-            <li key={`${item.at}-${item.ticket_id}-${item.action}`}>
-              <span className="when">{when(item.at)}</span>
-              <span>
-                <strong>
-                  {item.ticket_id} {step(item.action)}
-                </strong>{" "}
-                da {item.actor}
-                {item.after_deliveries > 0 ? ` dopo ${counted(item.after_deliveries, "consegna", "consegne")}` : ""}:{" "}
-                {item.title}
-              </span>
-              <span className="aside">{item.phase}</span>
-            </li>
-          ))}
-        </ol>
-      )}
+      <SetbackList setbacks={setbacks} />
     </section>
   );
 }

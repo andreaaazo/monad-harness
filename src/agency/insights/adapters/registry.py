@@ -14,6 +14,8 @@ from pydantic import BaseModel, ConfigDict
 from agency.insights.adapters.stamps import stamp
 from agency.insights.application import RegistryNotReadable
 from agency.insights.domain import (
+    SETBACKS,
+    CheckRecord,
     ConceptRecord,
     EventRecord,
     GateRecord,
@@ -38,11 +40,19 @@ JUDGMENTS = (
     " (SELECT count(*) FROM judgments AS other WHERE other.comparison = judgments.comparison) AS compared"
     " FROM judgments ORDER BY seq"
 )
-# La storia dei ticket senza le prove, che hanno la loro tabella, e senza note. Il progetto viene dal ticket.
+# La storia dei ticket senza le prove, che hanno la loro tabella. La nota si legge solo per un passo indietro,
+# dove è il motivo. Il progetto viene dal ticket.
 EVENTS = (
-    "SELECT events.seq, events.at, tickets.project, events.ticket_id, events.actor, events.action"
+    "SELECT events.seq, events.at, tickets.project, events.ticket_id, events.actor, events.action,"
+    f" CASE WHEN events.action IN ({', '.join('?' for _ in SETBACKS)}) THEN events.note END AS reason"
     " FROM events JOIN tickets ON tickets.id = events.ticket_id"
     f" WHERE events.action IN ({', '.join('?' for _ in Lifecycle)}) ORDER BY events.seq"
+)
+EVENT_PARAMETERS = [*sorted(item.value for item in SETBACKS), *(item.value for item in Lifecycle)]
+# Le prove, con la loro nota: per un FAIL è il motivo. Prove e file restano dove sono, qui solo l'esito.
+CHECKS = (
+    "SELECT seq, at, project, ticket_id, file, check_name, result, signer, note AS reason"
+    " FROM evidence ORDER BY seq"
 )
 REVISION = "SELECT version_num FROM alembic_version"
 HAS_REVISION = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'alembic_version'"
@@ -116,8 +126,9 @@ class ReadOnlyRegistry:
                     ],
                     events=[
                         EventRecord.model_validate(dict(row))
-                        for row in connection.execute(EVENTS, [item.value for item in Lifecycle])
+                        for row in connection.execute(EVENTS, EVENT_PARAMETERS)
                     ],
+                    checks=[CheckRecord.model_validate(dict(row)) for row in connection.execute(CHECKS)],
                 )
             except sqlite3.OperationalError as exc:
                 raise RegistryNotReadable(f"il registro non si legge come atteso: {exc}") from exc

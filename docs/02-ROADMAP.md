@@ -294,7 +294,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
       tempo di lavoro è separato dalle attese del cliente, calcolate da `insights`
     - [x] **Fasi** e **Modello**: rework e passi indietro dalla storia dei ticket, contesto turno per turno su una scala sola
       ([ADR-0035](adr/0035-le-viste-fasi-e-modello.md))
-    - [ ] **Strumenti e QA**
+    - [x] **Strumenti e QA**: controlli al primo colpo, prove fallite, rifiuti degli strumenti e passi indietro, ognuno con il
+      suo motivo ([ADR-0036](adr/0036-la-vista-strumenti-e-qa.md))
     - [ ] **Confronto**
     - [ ] **Replay**
 14. [ ] **Taskfile**: ingresso unico per Python, frontend e Docker. `make check` resta come alias.
@@ -339,7 +340,9 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
 - [ ] `merlo3` si legge nel cruscotto dal brief alla consegna. Run, Fasi e Modello ci sono, provate il 2026-11-03 su una copia
   migrata del registro. Run: istanze e ticket uguali all'API per `merlo`, `merlo2` e `merlo3`, 2 h 1 min di lavoro e 16 h 20 min
   di attesa del gate `concept`. Fasi: tre consegne della rifinitura con 8,14 $ rifatti, due revisioni bloccate su tre per
-  critic e QA. Modello: contesto fino a 267.966 token in 128 turni
+  critic e QA. Modello: contesto fino a 267.966 token in 128 turni. Strumenti e QA: 83 controlli su 89 al primo colpo, 50
+  rifiuti degli strumenti su 1.225 usi; le revisioni bloccate dicono che il contratto chiedeva `review/…`, mentre il revisore
+  scrive solo in `reviews/`
 - [x] L'API non può scrivere, e il registro resta intatto dopo l'uso del cruscotto: `tests/test_server.py`
 - [x] OpenAPI e tipi TypeScript non divergono: `tests/test_schemas.py` per modelli e schema, `make web` per schema e tipi
 - [x] `import-linter` in `make check`: `insights` non importa il motore, e il motore non importa Django. `make imports`
@@ -351,7 +354,8 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
 - [x] Next.js non invia telemetria e non lascia copie di immagini o dati in `.next/cache` (test): `make web` verifica che
   `next telemetry status` dica `Disabled` e che ogni script la spenga; `make e2e` verifica che il browser parli solo con Next.js
   e che nella build, server standalone compreso, non restino immagini, risposte in cache o dati del registro
-- [ ] Almeno un test Playwright per vista. Run, Fasi e Modello: `web/e2e/run.spec.ts`, `phases.spec.ts`, `model.spec.ts`
+- [ ] Almeno un test Playwright per vista. Run, Fasi, Modello, Strumenti e QA: `web/e2e/run.spec.ts`, `phases.spec.ts`,
+  `model.spec.ts`, `quality.spec.ts`
 - [ ] `task check` esegue i controlli di Python e Next.js, e Docker Compose avvia Django e Next.js
 - [ ] `merlo4` è arrivato al gate `final` ed è stato letto per intero nel cruscotto
 

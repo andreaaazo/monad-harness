@@ -60,7 +60,7 @@ class AgentRunner:
         project = self.ledger.project_of(ticket_id)
         role = spec.assignee
         instance = phase.instance(ticket_id, attempt, mode)
-        transcript = Transcript(self.settings.data_dir / "runs" / project / f"{instance}.jsonl")
+        transcript = Transcript(self.settings.layout.transcript(project, instance))
         finished = transcript.outcome()
         if finished is not None:  # la ripresa non rifà un lavoro già concluso
             return finished

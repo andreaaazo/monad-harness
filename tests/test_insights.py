@@ -12,14 +12,18 @@ from pathlib import Path
 import pytest
 
 from agency import cli
+from agency.agents.transcript import Transcript
 from agency.contracts import phase
+from agency.contracts.layout import DataLayout
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.insights import application
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
+from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.domain import (
     Call,
+    CheckRecord,
     ConceptRecord,
     EventRecord,
     GateRecord,
@@ -32,6 +36,7 @@ from agency.insights.domain import (
     Provenance,
     SourceStamp,
     TicketRecord,
+    ToolCallRecord,
     TraceMeasure,
     UsageRecord,
     derive_phase,
@@ -210,6 +215,88 @@ def test_missing_traces_are_not_an_error(tmp_path: Path) -> None:
     assert (reading.measures, reading.unreadable) == ({}, 0)
 
 
+# Le trascrizioni: da ognuna solo gli strumenti usati e i loro rifiuti
+
+
+def turn(*blocks: dict) -> dict:
+    return {"role": "assistant", "content": list(blocks)}
+
+
+def results(*blocks: dict) -> dict:
+    return {"role": "user", "content": list(blocks)}
+
+
+def use(id_: str, name: str) -> dict:
+    return {"type": "tool_use", "id": id_, "name": name, "input": {"path": "segno.svg"}}
+
+
+def answer(id_: str, text: str, *, error: bool = False) -> dict:
+    block: dict[str, object] = {"type": "tool_result", "tool_use_id": id_, "content": text}
+    return block | {"is_error": True} if error else block
+
+
+def test_transcripts_give_every_tool_call_and_the_refusals_with_their_words(tmp_path: Path) -> None:
+    """Il motore scrive la trascrizione, insights la legge con lo stesso percorso: DataLayout."""
+    layout = DataLayout(tmp_path)
+    transcript = Transcript(layout.transcript("merlo4", "T-0002-a1"))
+    transcript.append({"role": "user", "content": "Il brief del cliente"})
+    transcript.append(
+        turn({"type": "text", "text": "Guardo il file"}, use("u1", "view_image"), use("u2", "deliver"))
+    )
+    content = [{"type": "text", "text": "consegna rifiutata:"}, {"type": "text", "text": "manca la prova"}]
+    transcript.append(
+        results(
+            answer("u1", "ok"),
+            {"type": "tool_result", "tool_use_id": "u2", "is_error": True, "content": content},
+        )
+    )
+    transcript.append(turn(use("u3", "deliver")))
+    transcript.append(results(answer("u3", '{"ok": true}')))
+
+    reading = JsonlTranscripts(layout.transcripts).read()
+
+    assert [(item.project, item.instance, item.turn, item.tool, item.refusal) for item in reading.calls] == [
+        ("merlo4", "T-0002-a1", 1, "view_image", None),
+        ("merlo4", "T-0002-a1", 1, "deliver", "consegna rifiutata:\nmanca la prova"),
+        ("merlo4", "T-0002-a1", 2, "deliver", None),
+    ]
+    assert [item.seq for item in reading.calls] == [1, 2, 3]
+    assert reading.unreadable == 0
+
+
+def test_a_half_written_line_is_counted_and_skipped_and_the_stamp_names_each_transcript(
+    tmp_path: Path,
+) -> None:
+    layout = DataLayout(tmp_path)
+    Transcript(layout.transcript("merlo4", "T-0002-a1")).append(turn(use("u1", "render")))
+    with layout.transcript("merlo4", "T-0002-a1").open("a", encoding="utf-8") as handle:
+        handle.write('{"message": {"role": "user", "cont')  # il motore sta scrivendo
+
+    transcripts = JsonlTranscripts(layout.transcripts)
+
+    reading = transcripts.read()
+    assert ([item.tool for item in reading.calls], reading.unreadable) == (["render"], 1)
+    assert [item.name for item in transcripts.stamp()] == ["runs/merlo4/T-0002-a1.jsonl"]
+
+
+def test_a_long_refusal_keeps_its_head_and_its_tail_and_says_where_it_was_cut(tmp_path: Path) -> None:
+    """craft_run risponde con il registro dei passi: l'errore può stare in fondo."""
+    layout = DataLayout(tmp_path)
+    transcript = Transcript(layout.transcript("merlo4", "T-0002-a1"))
+    transcript.append(turn(use("u1", "craft_run")))
+    log = "passo 1 ok\n" + "x" * 5000 + "\nstep 9 (select.set): no such object"
+    transcript.append(results(answer("u1", log, error=True)))
+    (call,) = JsonlTranscripts(layout.transcripts).read().calls
+    assert call.refusal is not None and len(call.refusal) == 2000
+    assert call.refusal.startswith("passo 1 ok") and call.refusal.endswith("no such object")
+    assert "\n[…]\n" in call.refusal
+
+
+def test_missing_transcripts_are_not_an_error(tmp_path: Path) -> None:
+    transcripts = JsonlTranscripts(DataLayout(tmp_path).transcripts)
+    assert (transcripts.read().calls, transcripts.read().unreadable, transcripts.stamp()) == ([], 0, [])
+
+
 # Il registro, in sola lettura
 
 
@@ -263,8 +350,7 @@ def test_ticket_events_are_the_opening_and_every_transition_the_engine_knows() -
     assert {item.value for item in Lifecycle} == {"open"} | {action.value for action in Action}
 
 
-def test_the_registry_reader_reads_the_life_of_tickets_without_their_words(tmp_path: Path) -> None:
-    ledger = Ledger(tmp_path / "ledger.sqlite")
+def proposal(ledger: Ledger) -> str:
     spec = TicketSpec(
         title="Proposta X r1",
         request="Il segno",
@@ -276,29 +362,62 @@ def test_the_registry_reader_reads_the_life_of_tickets_without_their_words(tmp_p
         media=[Medium.VECTOR],
         prompt="proposer",
     )
-    ticket_id = ledger.open(spec, "merlo4")
-    ledger.apply(ticket_id, Action.DELIVER, "identity-designer", note="Le parole del designer")
-    ledger.add_evidence(
-        EvidenceRow(
-            at="2026-11-02T10:00:00+00:00",
-            project="merlo4",
-            file="segno.svg",
-            sha256="a" * 64,
-            check_name="svg_audit",
-            result="PASS",
-            signer="tool",
-            ticket_id=ticket_id,
-        )
+    return ledger.open(spec, "merlo4")
+
+
+def evidence(ticket_id: str, check: str, result: str, note: str) -> EvidenceRow:
+    return EvidenceRow(
+        at="2026-11-02T10:00:00+00:00",
+        project="merlo4",
+        file="segno.svg",
+        sha256="a" * 64,
+        check_name=check,
+        result=result,
+        signer="tool",
+        ticket_id=ticket_id,
+        proof="proofs/segno.png",
+        note=note,
     )
+
+
+def test_the_registry_reader_reads_the_life_of_tickets_and_why_they_went_back(tmp_path: Path) -> None:
+    """Il motivo si legge solo per un passo indietro: è ciò che dice dove il lavoro sbaglia. Le parole di
+    una consegna o di un'apertura restano nel registro."""
+    ledger = Ledger(tmp_path / "ledger.sqlite")
+    ticket_id = proposal(ledger)
+    ledger.apply(ticket_id, Action.DELIVER, "identity-designer", note="Le parole del designer")
+    ledger.apply(ticket_id, Action.REWORK, "design-director", note="La coda è troppo sottile a 16 px")
+    ledger.add_evidence(evidence(ticket_id, "svg_audit", "PASS", "ok"))
     ledger.engine.dispose()
 
     events = ReadOnlyRegistry(tmp_path / "ledger.sqlite").read().events
 
-    assert [(event.project, event.ticket_id, event.actor, event.action) for event in events] == [
-        ("merlo4", ticket_id, "design-director", Lifecycle.OPEN),
-        ("merlo4", ticket_id, "identity-designer", Lifecycle.DELIVER),
+    assert [
+        (event.project, event.ticket_id, event.actor, event.action, event.reason) for event in events
+    ] == [
+        ("merlo4", ticket_id, "design-director", Lifecycle.OPEN, None),
+        ("merlo4", ticket_id, "identity-designer", Lifecycle.DELIVER, None),
+        ("merlo4", ticket_id, "design-director", Lifecycle.REWORK, "La coda è troppo sottile a 16 px"),
     ]
-    assert "note" not in EventRecord.model_fields
+
+
+def test_the_registry_reader_reads_every_check_with_its_result_and_reason(tmp_path: Path) -> None:
+    ledger = Ledger(tmp_path / "ledger.sqlite")
+    ticket_id = proposal(ledger)
+    ledger.add_evidence(evidence(ticket_id, "svg_audit", "FAIL", "3 nodi sottotracciati"))
+    ledger.add_evidence(evidence(ticket_id, "svg_audit", "PASS", ""))
+    ledger.engine.dispose()
+
+    checks = ReadOnlyRegistry(tmp_path / "ledger.sqlite").read().checks
+
+    assert [
+        (item.project, item.ticket_id, item.file, item.check_name, item.result, item.reason)
+        for item in checks
+    ] == [
+        ("merlo4", ticket_id, "segno.svg", "svg_audit", "FAIL", "3 nodi sottotracciati"),
+        ("merlo4", ticket_id, "segno.svg", "svg_audit", "PASS", ""),
+    ]
+    assert checks[0].signer == "tool"
 
 
 def test_the_registry_reader_works_while_the_engine_is_writing(tmp_path: Path) -> None:
@@ -348,7 +467,14 @@ class FakeRegistry:
     def read(self) -> RegistrySnapshot:
         calls = [usage(), usage(seq=2, request_id="req_2", phase="director-plan", duration_ms=10)]
         return RegistrySnapshot(
-            usage=calls, tickets=TICKETS, projects=[], gates=[], concepts=[], judgments=[], events=[]
+            usage=calls,
+            tickets=TICKETS,
+            projects=[],
+            gates=[],
+            concepts=[],
+            judgments=[],
+            events=[],
+            checks=[],
         )
 
 
@@ -361,7 +487,11 @@ def test_rebuild_refuses_a_registry_it_does_not_know(
     projection = SqliteProjection(tmp_path / "insights.sqlite")
     with pytest.raises(application.RegistryNotReadable, match=advice):
         application.rebuild(
-            FakeRegistry(revision), JsonlTraces(tmp_path / "t.jsonl"), projection, "2026-11-02"
+            FakeRegistry(revision),
+            JsonlTraces(tmp_path / "t.jsonl"),
+            JsonlTranscripts(tmp_path / "runs"),
+            projection,
+            "2026-11-02",
         )
     assert not (tmp_path / "insights.sqlite").exists()
 
@@ -372,7 +502,11 @@ def test_rebuild_projects_every_call_and_says_where_measures_came_from(tmp_path:
     projection = SqliteProjection(tmp_path / "insights.sqlite")
 
     built = application.rebuild(
-        FakeRegistry(application.READS_REVISION), JsonlTraces(traces), projection, "2026-11-02T11:00:00+00:00"
+        FakeRegistry(application.READS_REVISION),
+        JsonlTraces(traces),
+        JsonlTranscripts(tmp_path / "runs"),
+        projection,
+        "2026-11-02T11:00:00+00:00",
     )
 
     assert (built.calls, built.from_registry, built.from_traces, built.unmeasured) == (2, 1, 1, 0)
@@ -390,7 +524,17 @@ def call(seq: int, project: str = "merlo3") -> Call:
 
 
 def only(calls: list[Call]) -> Projected:
-    return Projected(calls=calls, projects=[], tickets=[], gates=[], concepts=[], judgments=[], events=[])
+    return Projected(
+        calls=calls,
+        projects=[],
+        tickets=[],
+        gates=[],
+        concepts=[],
+        judgments=[],
+        events=[],
+        checks=[],
+        tool_calls=[],
+    )
 
 
 def rebuilt(calls: int) -> Provenance:
@@ -405,6 +549,7 @@ def rebuilt(calls: int) -> Provenance:
         phases_recorded=0,
         phases_derived=calls,
         unreadable_trace_lines=0,
+        unreadable_transcript_lines=0,
     )
 
 
@@ -434,6 +579,7 @@ def event(seq: int, project: str, action: Lifecycle) -> EventRecord:
         ticket_id="T-0002",
         actor="x",
         action=action,
+        reason="perché" if action is Lifecycle.BLOCK else None,
     )
 
 
@@ -483,12 +629,14 @@ def test_a_change_to_what_the_projection_stores_changes_its_schema_number() -> N
         ConceptRecord,
         JudgmentRecord,
         EventRecord,
+        CheckRecord,
+        ToolCallRecord,
         Provenance,
     )
     shape = json.dumps([model.model_json_schema() for model in stored], sort_keys=True)
     assert (SqliteProjection.SCHEMA, hashlib.sha256(shape.encode()).hexdigest()[:16]) == (
-        4,
-        "d86fbe70ceece7c2",
+        5,
+        "4ad1d3a921a65d3b",
     )
 
 
@@ -504,10 +652,30 @@ def test_a_projection_of_the_previous_schema_is_rebuilt_not_misread(tmp_path: Pa
     built = application.current(
         FakeRegistry(application.READS_REVISION),
         JsonlTraces(tmp_path / "t.jsonl"),
+        JsonlTranscripts(tmp_path / "runs"),
         SqliteProjection(path),
         "oggi",
     )
     assert built.built_at == "oggi"
+
+
+def test_a_transcript_that_grows_makes_the_projection_old(tmp_path: Path) -> None:
+    """Un'istanza che lavora scrive la sua trascrizione: alla lettura dopo, la proiezione si rifà."""
+    layout = DataLayout(tmp_path)
+    transcript = Transcript(layout.transcript("merlo3", "T-0002-a1"))
+    transcript.append(turn(use("u1", "render")))
+    registry, traces = FakeRegistry(application.READS_REVISION), JsonlTraces(tmp_path / "t.jsonl")
+    projection, transcripts = (
+        SqliteProjection(tmp_path / "insights.sqlite"),
+        JsonlTranscripts(layout.transcripts),
+    )
+    assert application.current(registry, traces, transcripts, projection, "prima").built_at == "prima"
+    assert application.current(registry, traces, transcripts, projection, "poi").built_at == "prima"
+
+    transcript.append(results(answer("u1", "render non disponibile", error=True)))
+
+    assert application.current(registry, traces, transcripts, projection, "dopo").built_at == "dopo"
+    assert [item.refusal for item in projection.project("merlo3").tool_calls] == ["render non disponibile"]
 
 
 def test_an_old_projection_schema_is_not_read(tmp_path: Path) -> None:

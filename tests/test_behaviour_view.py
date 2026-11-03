@@ -66,7 +66,17 @@ CALLS = [
 
 
 def data(calls: list[Call]) -> ProjectData:
-    return ProjectData(project=None, calls=calls, tickets=[], gates=[], concepts=[], judgments=[], events=[])
+    return ProjectData(
+        project=None,
+        calls=calls,
+        tickets=[],
+        gates=[],
+        concepts=[],
+        judgments=[],
+        events=[],
+        checks=[],
+        tool_calls=[],
+    )
 
 
 def test_each_role_says_how_much_context_it_read_and_how_the_model_answered() -> None:

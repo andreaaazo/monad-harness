@@ -39,6 +39,90 @@
         "title": "BehaviourReport",
         "type": "object"
       },
+      "CheckFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "check_name": {
+            "title": "Check Name",
+            "type": "string"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "signer": {
+            "title": "Signer",
+            "type": "string"
+          },
+          "ticket_id": {
+            "title": "Ticket Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "check_name",
+          "ticket_id",
+          "title",
+          "phase",
+          "file",
+          "signer",
+          "reason"
+        ],
+        "title": "CheckFailure",
+        "type": "object"
+      },
+      "CheckSummary": {
+        "additionalProperties": false,
+        "description": "Un controllo: quante prove, quante FAIL, su quanti file di un ticket, e su quanti è passato subito.",
+        "properties": {
+          "check_name": {
+            "title": "Check Name",
+            "type": "string"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "first_pass": {
+            "title": "First Pass",
+            "type": "integer"
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          },
+          "subjects": {
+            "title": "Subjects",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "check_name",
+          "runs",
+          "failed",
+          "subjects",
+          "first_pass"
+        ],
+        "title": "CheckSummary",
+        "type": "object"
+      },
       "FlowReport": {
         "additionalProperties": false,
         "properties": {
@@ -831,6 +915,10 @@
           "unreadable_trace_lines": {
             "title": "Unreadable Trace Lines",
             "type": "integer"
+          },
+          "unreadable_transcript_lines": {
+            "title": "Unreadable Transcript Lines",
+            "type": "integer"
           }
         },
         "required": [
@@ -843,9 +931,134 @@
           "unmeasured",
           "phases_recorded",
           "phases_derived",
-          "unreadable_trace_lines"
+          "unreadable_trace_lines",
+          "unreadable_transcript_lines"
         ],
         "title": "Provenance",
+        "type": "object"
+      },
+      "QualityReport": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "title": "Blocked",
+            "type": "integer"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckSummary"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/CheckFailure"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "first_pass": {
+            "title": "First Pass",
+            "type": "integer"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "refusals": {
+            "items": {
+              "$ref": "#/components/schemas/Refusal"
+            },
+            "title": "Refusals",
+            "type": "array"
+          },
+          "refused": {
+            "title": "Refused",
+            "type": "integer"
+          },
+          "setbacks": {
+            "items": {
+              "$ref": "#/components/schemas/Setback"
+            },
+            "title": "Setbacks",
+            "type": "array"
+          },
+          "subjects": {
+            "title": "Subjects",
+            "type": "integer"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/ToolSummary"
+            },
+            "title": "Tools",
+            "type": "array"
+          },
+          "uses": {
+            "title": "Uses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project",
+          "subjects",
+          "first_pass",
+          "checks",
+          "failures",
+          "uses",
+          "refused",
+          "tools",
+          "refusals",
+          "blocked",
+          "setbacks"
+        ],
+        "title": "QualityReport",
+        "type": "object"
+      },
+      "Refusal": {
+        "additionalProperties": false,
+        "description": "Uno strumento che ha detto no, al turno `turn` dell'istanza, con le sue parole.",
+        "properties": {
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "ticket_id": {
+            "title": "Ticket Id",
+            "type": "string"
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          },
+          "turn": {
+            "title": "Turn",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instance",
+          "ticket_id",
+          "role",
+          "phase",
+          "turn",
+          "tool",
+          "message"
+        ],
+        "title": "Refusal",
         "type": "object"
       },
       "RoleBehaviour": {
@@ -984,7 +1197,7 @@
       },
       "Setback": {
         "additionalProperties": false,
-        "description": "Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne.",
+        "description": "Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne, e perché, con le\nparole di chi lo ha fatto.",
         "properties": {
           "action": {
             "$ref": "#/components/schemas/Lifecycle"
@@ -1005,6 +1218,10 @@
             "title": "Phase",
             "type": "string"
           },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
           "ticket_id": {
             "title": "Ticket Id",
             "type": "string"
@@ -1021,7 +1238,8 @@
           "ticket_id",
           "title",
           "phase",
-          "after_deliveries"
+          "after_deliveries",
+          "reason"
         ],
         "title": "Setback",
         "type": "object"
@@ -1248,6 +1466,35 @@
           "cost_usd"
         ],
         "title": "TicketView",
+        "type": "object"
+      },
+      "ToolSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "instances": {
+            "title": "Instances",
+            "type": "integer"
+          },
+          "refused": {
+            "title": "Refused",
+            "type": "integer"
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          },
+          "uses": {
+            "title": "Uses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tool",
+          "uses",
+          "refused",
+          "instances"
+        ],
+        "title": "ToolSummary",
         "type": "object"
       },
       "Turn": {
@@ -1513,6 +1760,55 @@
           }
         },
         "summary": "Flow"
+      }
+    },
+    "/api/projects/{name}/quality": {
+      "get": {
+        "operationId": "projectQuality",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Quality"
       }
     },
     "/api/projects/{name}/report": {

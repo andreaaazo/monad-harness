@@ -51,6 +51,8 @@ test("vista Fasi: dove si è fermato, le fasi in ordine di lavoro, i passi indie
   await expect(setbacks).toHaveCount(2);
   await expect(setbacks.nth(0)).toContainText("T-0006 bloccato da critic: Revisione segno X");
   await expect(setbacks.nth(1)).toContainText("T-0005 rimandato da design-director dopo 1 consegna: Rifinitura X");
+  // Il motivo, con le parole di chi lo ha fatto.
+  await expect(setbacks.nth(1)).toContainText("La coda sparisce a 16 px: ingrossala di 2 unità.");
 
   await expect(page.getByRole("list", { name: "Passi di T-0005" }).getByRole("listitem")).toHaveText([
     "aperto",

@@ -24,6 +24,7 @@ from pydantic.fields import FieldInfo
 from agency.insights.application import ProjectionOutdated
 from agency.insights.domain import (
     Call,
+    CheckRecord,
     ConceptRecord,
     EventRecord,
     GateRecord,
@@ -32,6 +33,7 @@ from agency.insights.domain import (
     ProjectRecord,
     Provenance,
     TicketRecord,
+    ToolCallRecord,
 )
 from agency.insights.ports import ProjectData
 
@@ -89,10 +91,12 @@ GATES = _Table("gates", GateRecord, "seq")
 CONCEPTS = _Table("concepts", ConceptRecord, "seq")
 JUDGMENTS = _Table("judgments", JudgmentRecord, "seq")
 EVENTS = _Table("events", EventRecord, "seq")
+CHECKS = _Table("checks", CheckRecord, "seq")
+TOOL_CALLS = _Table("tool_calls", ToolCallRecord, "seq")
 
 
 class SqliteProjection:
-    SCHEMA = 4
+    SCHEMA = 5
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -111,6 +115,8 @@ class SqliteProjection:
                 self._write(connection, CONCEPTS, projected.concepts)
                 self._write(connection, JUDGMENTS, projected.judgments)
                 self._write(connection, EVENTS, projected.events)
+                self._write(connection, CHECKS, projected.checks)
+                self._write(connection, TOOL_CALLS, projected.tool_calls)
                 connection.execute("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
                 connection.execute(
                     "INSERT INTO meta VALUES ('provenance', ?)", (provenance.model_dump_json(),)
@@ -165,6 +171,8 @@ class SqliteProjection:
                 concepts=self._read(connection, CONCEPTS, name),
                 judgments=self._read(connection, JUDGMENTS, name),
                 events=self._read(connection, EVENTS, name),
+                checks=self._read(connection, CHECKS, name),
+                tool_calls=self._read(connection, TOOL_CALLS, name),
             )
 
     def provenance(self) -> Provenance:

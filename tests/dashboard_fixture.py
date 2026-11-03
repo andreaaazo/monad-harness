@@ -1,9 +1,10 @@
 """Un registro di prova per le prove del cruscotto: `uv run python tests/dashboard_fixture.py <cartella>`.
 
 Un progetto inventato, `officina-e2e`, scritto con il motore vero: più fasi e più istanze, chiamate misurate e
-no, un gate approvato, idee, un giudizio, e la storia dei ticket con una revisione bloccata e una rifinitura
-rimandata e rifatta. Gli istanti sono fissi, eventi compresi, così le viste mostrano sempre gli stessi numeri.
-La cartella si svuota e si riscrive a ogni esecuzione.
+no, un gate approvato, idee, un giudizio, la storia dei ticket con una revisione bloccata e una rifinitura
+rimandata e rifatta, prove FAIL e PASS, e trascrizioni con due strumenti che dicono no. Gli istanti sono
+fissi, eventi compresi, così le viste mostrano sempre gli stessi numeri. La cartella si svuota e si riscrive
+a ogni esecuzione.
 """
 
 from __future__ import annotations
@@ -14,10 +15,12 @@ from contextlib import AbstractContextManager
 from pathlib import Path
 from unittest.mock import patch
 
+from agency.agents.transcript import Transcript
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
+from agency.contracts.layout import DataLayout
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
-from agency.ledger.models import ConceptRow, GateRow, UsageRow
+from agency.ledger.models import ConceptRow, EvidenceRow, GateRow, UsageRow
 
 PROJECT = "officina-e2e"
 # (minuto, istanza, ticket, ruolo, fase, costo, durata in ms o None se non misurata, TTFT in ms, stop_reason)
@@ -43,19 +46,45 @@ TICKETS = [
     (30, "Rifinitura X", TicketType.PRODUCTION, "identity-designer", "finisher"),
     (37, "Revisione segno X", TicketType.REVIEW, "critic", ""),
 ]
-# (minuto, ticket, azione, chi): consegne, accettazioni, il blocco del critico e il rimando del direttore
+BLOCKED = "Il contratto chiede review/critica.md, ma posso scrivere solo in reviews/.\nIl referto è pronto."
+REWORKED = "La coda sparisce a 16 px: ingrossala di 2 unità."
+# (minuto, ticket, azione, chi, nota): consegne, accettazioni, il blocco del critico, il rimando del direttore
 STEPS = [
-    (8, "T-0002", Action.DELIVER, "direction-a"),
-    (8, "T-0003", Action.DELIVER, "direction-b"),
-    (12, "T-0002", Action.ACCEPT, "design-director"),
-    (12, "T-0003", Action.ACCEPT, "design-director"),
-    (20, "T-0004", Action.DELIVER, "identity-designer"),
-    (24, "T-0004", Action.ACCEPT, "design-director"),
-    (36, "T-0005", Action.DELIVER, "identity-designer"),
-    (40, "T-0006", Action.BLOCK, "critic"),
-    (41, "T-0005", Action.REWORK, "design-director"),
-    (45, "T-0005", Action.DELIVER, "identity-designer"),
+    (8, "T-0002", Action.DELIVER, "direction-a", ""),
+    (8, "T-0003", Action.DELIVER, "direction-b", ""),
+    (12, "T-0002", Action.ACCEPT, "design-director", ""),
+    (12, "T-0003", Action.ACCEPT, "design-director", ""),
+    (20, "T-0004", Action.DELIVER, "identity-designer", "Le parole di una consegna restano nel registro"),
+    (24, "T-0004", Action.ACCEPT, "design-director", ""),
+    (36, "T-0005", Action.DELIVER, "identity-designer", ""),
+    (40, "T-0006", Action.BLOCK, "critic", BLOCKED),
+    (41, "T-0005", Action.REWORK, "design-director", REWORKED),
+    (45, "T-0005", Action.DELIVER, "identity-designer", ""),
 ]
+# (minuto, ticket, file, controllo, esito, chi firma, nota)
+CHECKS = [
+    (7, "T-0002", "foglio-a.png", "master_open", "PASS", "direction-a", ""),
+    (19, "T-0004", "proposta.svg", "svg_audit", "PASS", "identity-designer", ""),
+    (
+        35,
+        "T-0005",
+        "exports/segno.svg",
+        "svg_audit",
+        "FAIL",
+        "identity-designer",
+        "3 nodi sottotracciati\nnodi=24",
+    ),
+    (39, "T-0006", "exports/segno.svg", "visual_review", "FAIL", "critic", "La coda sparisce a 16 px"),
+    (43, "T-0005", "exports/segno.svg", "svg_audit", "PASS", "identity-designer", ""),
+]
+DELIVERY_REFUSED = "consegna rifiutata:\nexports/segno.svg: 'svg_audit' è FAIL"
+WRITE_REFUSED = "un revisore scrive solo in reviews/: non modifica il lavoro che giudica"
+# Le trascrizioni: per ogni istanza, i turni del modello con gli strumenti chiesti e chi ha detto no.
+TRANSCRIPTS: dict[str, list[list[tuple[str, str | None]]]] = {
+    "T-0002-a1": [[("view_image", None)], [("view_image", None)]],
+    "T-0005-a1": [[("deliver", DELIVERY_REFUSED)], [("render", None)], [("deliver", None)]],
+    "T-0006-a1": [[("write_file", WRITE_REFUSED)], [("block", None)]],
+}
 
 
 def at(minute: int) -> str:
@@ -65,6 +94,25 @@ def at(minute: int) -> str:
 def clock(minute: int) -> AbstractContextManager[object]:
     """Il Ledger scrive l'istante di ogni evento con `now()`: qui lo si fissa, un evento alla volta."""
     return patch("agency.ledger.store.now", return_value=at(minute))
+
+
+def write_transcripts(layout: DataLayout) -> None:
+    """Con la classe del motore: il formato è quello che il motore scrive davvero."""
+    for instance, turns in TRANSCRIPTS.items():
+        transcript = Transcript(layout.transcript(PROJECT, instance))
+        transcript.append({"role": "user", "content": "Prova del cruscotto"})
+        for number, tools in enumerate(turns, start=1):
+            uses = [
+                {"type": "tool_use", "id": f"{instance}-{number}-{index}", "name": name, "input": {}}
+                for index, (name, _) in enumerate(tools)
+            ]
+            transcript.append({"role": "assistant", "content": uses})
+            answers = [
+                {"type": "tool_result", "tool_use_id": use["id"], "content": refusal or "ok"}
+                | ({"is_error": True} if refusal is not None else {})
+                for use, (_, refusal) in zip(uses, tools, strict=True)
+            ]
+            transcript.append({"role": "user", "content": answers})
 
 
 def build(folder: Path) -> None:
@@ -113,9 +161,24 @@ def build(folder: Path) -> None:
                 reasoning_tokens=60 if duration is not None else None,
             )
         )
-    for minute, ticket, action, actor in STEPS:
+    for minute, ticket, action, actor, note in STEPS:
         with clock(minute):
-            ledger.apply(ticket, action, actor)
+            ledger.apply(ticket, action, actor, note=note)
+    for minute, ticket, file, check, result, signer, note in CHECKS:
+        ledger.add_evidence(
+            EvidenceRow(
+                at=at(minute),
+                project=PROJECT,
+                file=file,
+                sha256="d" * 64,
+                check_name=check,
+                result=result,
+                signer=signer,
+                ticket_id=ticket,
+                note=note,
+            )
+        )
+    write_transcripts(DataLayout(folder))
     ledger.add_gate(
         GateRow(at=at(30), project=PROJECT, gate="concept", approved=True, choice="X", files_json="{}")
     )

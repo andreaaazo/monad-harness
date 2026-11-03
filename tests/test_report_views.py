@@ -36,6 +36,7 @@ PROVENANCE = Provenance(
     phases_recorded=0,
     phases_derived=0,
     unreadable_trace_lines=0,
+    unreadable_transcript_lines=0,
 )
 
 
@@ -96,6 +97,8 @@ def data(calls: list[Call], **extra: object) -> ProjectData:
         "concepts": [],
         "judgments": [],
         "events": [],
+        "checks": [],
+        "tool_calls": [],
     }
     return ProjectData.model_validate(base | extra)
 
@@ -319,7 +322,17 @@ def test_a_run_without_decisions_is_all_work() -> None:
 
 
 def test_a_project_without_calls_has_a_report_of_zeros() -> None:
-    empty = ProjectData(project=None, calls=[], tickets=[], gates=[], concepts=[], judgments=[], events=[])
+    empty = ProjectData(
+        project=None,
+        calls=[],
+        tickets=[],
+        gates=[],
+        concepts=[],
+        judgments=[],
+        events=[],
+        checks=[],
+        tool_calls=[],
+    )
     report = views.project_report("fantasma", empty, PROVENANCE)
     assert (report.cost_usd, report.calls, report.cache_hit, report.mean_context, report.parallel) == (
         0.0,

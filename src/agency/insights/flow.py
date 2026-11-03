@@ -17,10 +17,9 @@ from pydantic import BaseModel, ConfigDict
 from agency.contracts import phase
 from agency.contracts.ticket import Status, TicketType
 from agency.insights import sums
-from agency.insights.domain import Call, EventRecord, Lifecycle, TicketRecord
+from agency.insights.domain import SETBACKS, Call, EventRecord, Lifecycle, TicketRecord
 from agency.insights.ports import ProjectData
 
-SETBACKS = frozenset({Lifecycle.REWORK, Lifecycle.BLOCK, Lifecycle.CANCEL})
 # Un ticket non ha finito finché è aperto, da rifare o consegnato senza essere accettato. La consegna al
 # cliente fa eccezione: consegnata, il progetto è finito.
 UNFINISHED = frozenset({Status.OPEN, Status.REWORK, Status.DELIVERED})
@@ -74,7 +73,8 @@ class PhaseFlow(_View):
 
 
 class Setback(_View):
-    """Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne."""
+    """Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne, e perché, con le
+    parole di chi lo ha fatto."""
 
     at: str
     action: Lifecycle
@@ -83,6 +83,7 @@ class Setback(_View):
     title: str
     phase: str
     after_deliveries: int
+    reason: str
 
 
 class Outcome(_View):
@@ -151,7 +152,8 @@ def _phase(name: str, calls: list[Call], tickets: list[TicketFlow]) -> PhaseFlow
     )
 
 
-def _setbacks(events: list[EventRecord], tickets: dict[str, TicketRecord]) -> list[Setback]:
+def setbacks(events: list[EventRecord], tickets: dict[str, TicketRecord]) -> list[Setback]:
+    """I passi indietro in ordine di tempo: li leggono la vista Fasi e la vista Strumenti e QA."""
     setbacks: list[Setback] = []
     delivered: dict[str, int] = {}
     for event in sorted(events, key=lambda event: event.seq):
@@ -169,6 +171,7 @@ def _setbacks(events: list[EventRecord], tickets: dict[str, TicketRecord]) -> li
                 title=ticket.title,
                 phase=ticket_phase(ticket),
                 after_deliveries=delivered.get(event.ticket_id, 0),
+                reason=event.reason or "",
             )
         )
     return setbacks
@@ -218,6 +221,6 @@ def flow_report(name: str, data: ProjectData) -> FlowReport:
         project=name,
         outcome=_outcome(data.tickets, data.events),
         phases=[_phase(item, calls_by_phase.get(item, []), tickets_by_phase.get(item, [])) for item in names],
-        setbacks=_setbacks(data.events, {ticket.id: ticket for ticket in data.tickets}),
+        setbacks=setbacks(data.events, {ticket.id: ticket for ticket in data.tickets}),
         tickets=tickets,
     )

@@ -90,7 +90,7 @@ Scelte in ADR-0020. Le versioni indicate sono verificate su questa macchina il 2
 | React | Componenti delle pagine | 19.3.1, con `@types/react` 19.3.0 |
 | Playwright | Prove di fumo del cruscotto, `make e2e` | 1.64.1, con Chromium `chromium-1248` già in cache. Se manca, Andrea lo installa: `mise exec -- pnpm --dir web exec playwright install chromium` |
 | `node --test` | Prove unitarie dell'interfaccia, senza dipendenze | Quello di Node, che esegue TypeScript da sé |
-| Task | Ingresso unico dei comandi | 3.54.0, da mise |
+| Task | Ingresso unico dei comandi, `Taskfile.yml` (ADR-0039); `make` è l'alias | 3.54.0, da mise |
 | Docker Compose | Server e servizi | 5.4.0 |
 
 ## Generazione (M4)

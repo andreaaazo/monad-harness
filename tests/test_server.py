@@ -6,6 +6,7 @@ import base64
 import hashlib
 import json
 import os
+import socket
 import subprocess
 import sys
 import threading
@@ -320,6 +321,21 @@ def test_django_owns_no_model_and_no_database() -> None:
 def test_the_server_refuses_anything_but_loopback(host: str) -> None:
     with pytest.raises(ValueError, match="loopback"):
         serve.build(host, 0)
+
+
+def test_a_busy_port_is_explained_not_dumped_as_a_traceback(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Un altro cruscotto acceso: lo si dice, e si dice come sceglierne un'altra."""
+    monkeypatch.setattr(serve.os, "environ", dict(os.environ))  # il server ripulisce l'ambiente: una copia
+    with socket.socket() as taken:
+        taken.bind(("127.0.0.1", 0))
+        taken.listen()
+        port = taken.getsockname()[1]
+        assert serve.main(["--port", str(port)]) == 1
+    error = capsys.readouterr().err
+    assert f"la porta {port} di 127.0.0.1 è già occupata" in error and "--port" in error
+    assert "Traceback" not in error
 
 
 def test_the_server_removes_the_api_key_from_its_environment(monkeypatch: pytest.MonkeyPatch) -> None:

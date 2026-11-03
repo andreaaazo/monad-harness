@@ -7,6 +7,7 @@ macchina (06-SECURITY.md). Come raggiungerlo da fuori lo decide un ADR in M6, no
 from __future__ import annotations
 
 import argparse
+import errno
 import ipaddress
 import os
 import sys
@@ -63,6 +64,15 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(f"SERVER: {exc}", file=sys.stderr)
         return 2
+    except OSError as exc:
+        if exc.errno != errno.EADDRINUSE:
+            raise
+        print(
+            f"SERVER: la porta {args.port} di {args.host} è già occupata, forse da un altro cruscotto acceso."
+            " Fermalo, o scegline un'altra con --port.",
+            file=sys.stderr,
+        )
+        return 1
     host, port = server.server_address[:2]
     print(f"Cruscotto in sola lettura su http://{host}:{port}/api/", flush=True)
     try:

@@ -21,9 +21,10 @@ dopo il primo cliente reale. I dettagli sono nella [roadmap](docs/02-ROADMAP.md)
 
 ```sh
 mise trust && mise install   # una volta: Node, pnpm, uv e Task alle versioni di mise.toml
-make setup      # dipendenze dai lock: Python 3.13 con uv, web/ con pnpm
-make check      # lint, confini tra moduli, tipi, test Python e web, prove Playwright del cruscotto
-make doctor     # strumenti della macchina
+task setup      # dipendenze dai lock: Python 3.13 con uv, web/ con pnpm
+task check      # lint, confini tra moduli, tipi, test Python e web, prove Playwright del cruscotto
+task doctor     # strumenti della macchina
+task            # tutti i comandi, una riga ciascuno; make check e gli altri restano come alias
 cp .env.example .env   # poi inserisci ANTHROPIC_API_KEY
 
 uv run agency run progetto brief.md --budget 30   # lavora fino al gate del cliente
@@ -38,10 +39,9 @@ uv run agency judge a.svg b.svg         # giudizio alla cieca: file anonimi, poi
 uv run agency artifacts progetto        # versioni conservate per hash: consegne, presentazioni, giudizi
 uv run agency restore 2947a64f x.svg    # riporta una versione in un file nuovo, senza sovrascrivere
 uv run agency insights                  # proiezione per report e cruscotto, senza scrivere il registro
-uv run agency-server                    # API del cruscotto su http://127.0.0.1:8000/api/, sola lettura
-pnpm --dir web build && pnpm --dir web start   # cruscotto su http://127.0.0.1:3000, sopra agency-server
-pnpm --dir web dev                      # lo stesso, ricaricato a ogni modifica
-uv run agency-schemas                   # rigenera schemas/openapi.json dai modelli di lettura
+task dashboard                          # cruscotto su http://127.0.0.1:3000, con l'API su :8000; sola lettura
+task dashboard:dev                      # lo stesso, con l'interfaccia ricaricata a ogni modifica
+task schemas                            # rigenera schemas/openapi.json e i tipi TypeScript
 uv run agency migrate                   # aggiorna il registro, dopo averne fatto una copia
 ```
 

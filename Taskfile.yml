@@ -1,0 +1,125 @@
+version: "3"
+
+# L'ingresso unico dei comandi (ADR-0020, ADR-0039): `task` elenca tutto, `make` ne è l'alias.
+# Gli strumenti hanno le versioni di mise.toml: con mise attivo nella shell sono nel PATH, altrimenti
+# `mise exec -- task …`. Niente dotenv: la chiave API sta in .env e la legge solo il gateway; qui arriverebbe a
+# ogni comando, Next.js compreso.
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+tasks:
+  default:
+    desc: I comandi, una riga ciascuno
+    silent: true
+    cmds:
+      - task --list
+
+  setup:
+    desc: Le dipendenze dai lock, Python con uv e web/ con pnpm
+    cmds:
+      - uv sync
+      - pnpm --dir web install --frozen-lockfile
+
+  check:
+    desc: "Tutti i controlli prima di dichiarare finito un lavoro: Python, interfaccia, prove Playwright"
+    cmds:
+      - task: lint
+      - task: imports
+      - task: types
+      - task: test
+      - task: web
+      - task: e2e
+
+  lint:
+    desc: Le regole e il formato di Ruff
+    cmds:
+      - uv run ruff check .
+      - uv run ruff format --check .
+
+  imports:
+    desc: I confini tra moduli, con import-linter
+    cmds:
+      - uv run lint-imports
+
+  types:
+    desc: I tipi di Python, con pyright
+    cmds:
+      - uv run pyright
+
+  test:
+    desc: "Le prove di Python; per una sola: task test -- tests/test_server.py"
+    cmds:
+      - uv run pytest {{.CLI_ARGS}}
+
+  web:
+    desc: "L'interfaccia senza server: tipi dallo schema, TypeScript, prove unitarie, difese di ADR-0024"
+    preconditions: &modules
+      - sh: test -d web/node_modules
+        msg: "web/node_modules manca: esegui task setup"
+    cmds:
+      - pnpm --dir web run api:check
+      - pnpm --dir web run typecheck
+      - pnpm --dir web run test
+      - pnpm --dir web run defenses
+
+  e2e:
+    desc: "Le prove Playwright, sui server veri e sulla build di produzione; per una sola: task e2e -- e2e/run.spec.ts"
+    preconditions: *modules
+    cmds:
+      - pnpm --dir web run build:e2e
+      - pnpm --dir web exec playwright test {{.CLI_ARGS}}
+
+  schemas:
+    desc: Rigenera schemas/openapi.json dai modelli di lettura, e da lì i tipi TypeScript
+    cmds:
+      - uv run agency-schemas
+      - pnpm --dir web run api:types
+
+  doctor:
+    desc: Gli strumenti della macchina
+    cmds:
+      - uv run agency doctor
+
+  dashboard:
+    desc: "Il cruscotto: API su http://127.0.0.1:8000/api/, interfaccia su http://127.0.0.1:3000"
+    # Se uno dei due si ferma, si ferma anche l'altro: un'interfaccia senza API mostrerebbe solo un errore.
+    failfast: true
+    deps: [dashboard:api, dashboard:ui]
+
+  dashboard:dev:
+    desc: Il cruscotto con l'interfaccia ricaricata a ogni modifica
+    failfast: true
+    deps: [dashboard:api, dashboard:watch]
+
+  dashboard:api:
+    desc: Solo l'API Django, in sola lettura, su loopback
+    cmds:
+      - uv run agency-server
+
+  dashboard:build:
+    desc: La build di produzione dell'interfaccia, rifatta solo se cambiano le sue fonti
+    preconditions: *modules
+    sources:
+      - web/src/**/*
+      - web/scripts/**/*
+      - web/next.config.mjs
+      - web/package.json
+      - web/pnpm-lock.yaml
+      - web/tsconfig.json
+    generates:
+      - web/.next/standalone/server.js
+    cmds:
+      - pnpm --dir web run build
+
+  dashboard:ui:
+    desc: Solo l'interfaccia, dalla build di produzione, su loopback
+    deps: [dashboard:build]
+    cmds:
+      - pnpm --dir web run start
+
+  dashboard:watch:
+    internal: true
+    preconditions: *modules
+    cmds:
+      - pnpm --dir web run dev

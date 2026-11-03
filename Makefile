@@ -1,27 +1,12 @@
-.PHONY: setup check test lint imports types web e2e doctor
-# Gli strumenti hanno le versioni di mise.toml: con mise attivo nella shell sono già nel PATH.
-# setup passa da `mise exec`, così funziona anche prima di attivarlo.
+# Alias di Taskfile.yml, l'ingresso unico dei comandi (ADR-0039): `make check` è `task check`.
+# mise exec dà le versioni di mise.toml anche quando mise non è attivo nella shell.
+TASKS := check lint imports types test web e2e schemas doctor dashboard
+.PHONY: setup $(TASKS)
+
+# Task viene da mise: prima si installano gli strumenti, poi si può chiamare.
 setup:
 	mise install
-	mise exec -- uv sync
-	mise exec -- pnpm --dir web install --frozen-lockfile
-check: lint imports types test web e2e
-lint:
-	uv run ruff check . && uv run ruff format --check .
-imports:
-	uv run lint-imports
-types:
-	uv run pyright
-test:
-	uv run pytest
-web:
-	@test -d web/node_modules || (echo "web/node_modules mancante: esegui make setup" && exit 1)
-	pnpm --dir web run api:check
-	pnpm --dir web run typecheck
-	pnpm --dir web run test
-	pnpm --dir web run defenses
-e2e:
-	pnpm --dir web run build:e2e
-	pnpm --dir web exec playwright test
-doctor:
-	uv run agency doctor
+	mise exec -- task setup
+
+$(TASKS):
+	mise exec -- task $@

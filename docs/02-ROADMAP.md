@@ -300,7 +300,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
       dell'altro, i giudizi alla cieca che li contengono entrambi ([ADR-0037](adr/0037-la-vista-confronto.md))
     - [x] **Replay**: un'istanza turno per turno, letta dalla sua trascrizione senza copiarla, con le misure di ogni chiamata
       e le immagini ([ADR-0038](adr/0038-la-vista-replay.md))
-14. [ ] **Taskfile**: ingresso unico per Python, frontend e Docker. `make check` resta come alias.
+14. [x] **Taskfile**: ingresso unico per Python e frontend, `make` come alias, il cruscotto con `task dashboard`
+    ([ADR-0039](adr/0039-taskfile-come-ingresso-unico.md)). I comandi di Docker arrivano con il punto 15.
 15. [ ] **Docker** per Django e Next.js, per ultimo. Il motore resta sull'host.
 
 **Prova reale**
@@ -358,7 +359,9 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
   e che nella build, server standalone compreso, non restino immagini, risposte in cache o dati del registro
 - [x] Almeno un test Playwright per vista: `web/e2e/run.spec.ts`, `phases.spec.ts`, `model.spec.ts`, `quality.spec.ts`,
   `compare.spec.ts`, `replay.spec.ts`, con `make e2e`
-- [ ] `task check` esegue i controlli di Python e Next.js, e Docker Compose avvia Django e Next.js
+- [ ] `task check` esegue i controlli di Python e Next.js, e Docker Compose avvia Django e Next.js. La prima metà è verificata:
+  `task check`, e `make check` che ne è l'alias, eseguono gli stessi controlli di prima (`tests/test_taskfile.py`). Docker
+  arriva con il punto 15
 - [ ] `merlo4` è arrivato al gate `final` ed è stato letto per intero nel cruscotto
 
 **Ereditati da M1 e M1.5:**

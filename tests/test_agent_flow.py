@@ -58,7 +58,9 @@ def production_spec() -> TicketSpec:
 
 
 def runner(config: Settings, responses: list[dict]) -> tuple[AgentRunner, ScriptedTransport, Ledger]:
+    """Il progetto `p` con il tetto che il cliente dichiarerebbe: senza, il gateway non spende (ADR-0043)."""
     ledger = Ledger(config.ledger_path)
+    ledger.set_project("p", 25.0)
     transport = ScriptedTransport(responses)
     index = CommandIndex.load(config.data_dir / "craft-index")
     return (
@@ -190,7 +192,7 @@ def test_path_outside_the_job_is_refused(tmp_path: Path) -> None:
 
 
 def test_budget_stop_keeps_the_work_and_resumes_after_an_increase(tmp_path: Path) -> None:
-    config = settings(tmp_path, project_budget_usd=0.12)
+    config = settings(tmp_path)
     responses = [turn(use("list_files", "t1")), turn(use("block", "t2", reason="prova finita"))]
     run, transport, ledger = runner(config, responses)
     ledger.set_project("p", 0.0003)
@@ -214,6 +216,7 @@ def test_interruption_resumes_without_repeating_effects(tmp_path: Path) -> None:
             return super().stream(params)
 
     ledger = Ledger(config.ledger_path)
+    ledger.set_project("p", 25.0)
     spec = TicketSpec(
         title="Piano",
         request="r",
@@ -257,6 +260,7 @@ def test_interrupted_between_response_and_tools_does_not_duplicate(tmp_path: Pat
     config = settings(tmp_path)
     (config.projects_dir / "p/work").mkdir(parents=True)
     ledger = Ledger(config.ledger_path)
+    ledger.set_project("p", 25.0)
     root = ledger.open(
         TicketSpec(
             title="Piano",
@@ -542,7 +546,7 @@ def test_full_project_reaches_the_client_gate_and_is_approved(tmp_path: Path) ->
     session = open_session(config, transport)
     outputs = [master, svg, "construction.md"]
     checks = {"*.vectorcraft": ["master_open"], "*.svg": ["svg_audit", "critique"]}
-    session.start("forno", brief, outputs, checks, explore=False)
+    session.start("forno", brief, outputs, checks, budget=1000.0, explore=False)
     assert session.pending("forno")[0].gate == "final"
     assert session.ledger.status("T-0001")[0] is Status.DELIVERED
     assert session.ledger.status("T-0003") == (Status.ACCEPTED, Verdict.READY)

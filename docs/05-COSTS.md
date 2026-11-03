@@ -39,8 +39,9 @@ uv run agency run progetto brief.md --budget 30 --model claude-opus-5-5 --effort
 uv run agency budget progetto 40
 ```
 
-Senza `--model` e `--effort` valgono le impostazioni per ruolo di `registry/roles.json`. Il budget ferma il lavoro prima
-di superarlo, e il lavoro riprende quando il cliente lo alza.
+Senza `--model` e `--effort` valgono le impostazioni per ruolo di `registry/roles.json`. `--budget` invece è obbligatorio,
+e non ha un default né nelle impostazioni né nell'ambiente (ADR-0043). Il budget ferma il lavoro prima di superarlo, e il
+lavoro riprende quando il cliente lo alza.
 
 Gli agenti non ricevono nessuna informazione su budget e spesa: nessun avviso e nessuna quota (ADR-0016). Il loro
 obiettivo è la qualità più alta. Il costo lo governa il cliente, non la fretta dei designer.

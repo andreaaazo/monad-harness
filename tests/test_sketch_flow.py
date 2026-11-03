@@ -116,6 +116,9 @@ class Router:
             return self.script[key].pop(0)
 
 
+BUDGET = 1000.0  # il tetto che ogni prova dichiara all'avvio, come agency run --budget (ADR-0043)
+
+
 def settings(tmp_path: Path, **extra: object) -> Settings:
     return Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "projects", _env_file=None, **extra)  # type: ignore[call-arg]
 
@@ -312,7 +315,7 @@ def test_client_only_sees_developed_proposals_then_production_starts(tmp_path: P
     config = settings(tmp_path)
     transport = Router(full_script())
     session = open_session(config, transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     gate = session.pending("officina")[0]
     assert isinstance(gate, ConceptGate)
     assert (gate.gate, gate.options, gate.recommended) == ("concept", ["X", "Y"], "X")
@@ -339,7 +342,7 @@ def test_client_only_sees_developed_proposals_then_production_starts(tmp_path: P
 def test_explorers_think_and_draw_in_one_instance(tmp_path: Path) -> None:
     transport = Router(to_the_gate())
     session = open_session(settings(tmp_path), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     assert len(session.ledger.spec("T-0002").outputs) == 4
     names = {tool["name"] for tool in transport.requests["T-0002"][0]["tools"]}
     assert {"craft_run", "view_image", "submit_concept"} <= names
@@ -352,7 +355,7 @@ def test_effort_can_be_lowered_to_medium(tmp_path: Path) -> None:
     script["T-0001:select"] = [turn(use("block", reason="prova finita"))]
     transport = Router(script)
     session = open_session(settings(tmp_path, explorer_effort="medium"), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     assert transport.requests["T-0003"][0]["output_config"] == {"effort": "medium"}
 
 
@@ -365,7 +368,7 @@ def test_explorer_cannot_close_without_having_looked(tmp_path: Path) -> None:
     script["T-0003"] = [turn(use("block", reason="prova finita"))]
     transport = Router(script)
     session = open_session(settings(tmp_path), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     refused = transport.requests["T-0002"][1]["messages"][-1]["content"][0]
     assert refused["is_error"] and "consegna rifiutata" in refused["content"]
 
@@ -376,7 +379,7 @@ def test_finisher_starts_from_the_approved_proposal(tmp_path: Path) -> None:
     script["T-0008"] = [turn(use("block", reason="prova finita"))]
     script["T-0001"] = [turn(use("block", reason="prova finita"))]
     session = open_session(config, Router(script))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "La Y", "Y")
     work = config.project_dir("officina") / "work"
     assert (work / MASTER).read_bytes() == (work / "proposals/r1/y/proposta-y.vectorcraft").read_bytes()
@@ -393,7 +396,7 @@ def test_proposals_run_in_parallel(tmp_path: Path) -> None:
             return super().stream(params)
 
     session = open_session(settings(tmp_path), Meeting(to_the_gate()))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     spec = session.ledger.spec("T-0006")
     assert "timbro: 16 mm" in spec.request
     assert spec.workspace == "proposals/r1/x"
@@ -403,7 +406,7 @@ def test_studio_can_drop_a_proposal_before_the_client(tmp_path: Path) -> None:
     script = to_the_gate()
     script["T-0001:present"] = present_turn("Y")
     session = open_session(settings(tmp_path), Router(script))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     assert options(session, "officina") == ["Y"]
 
 
@@ -412,7 +415,7 @@ def test_failed_proposal_does_not_stop_the_other(tmp_path: Path) -> None:
     script["T-0006"] = [turn(use("block", reason="Non regge alle dimensioni richieste"))]
     script["T-0001:present"] = present_turn("Y")
     session = open_session(settings(tmp_path), Router(script))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     assert options(session, "officina") == ["Y"]
 
 
@@ -423,7 +426,7 @@ def test_weak_proposals_go_back_to_exploration(tmp_path: Path) -> None:
     script["T-0001:plan"] = [*plan_turn(), turn(use("block", reason="prova finita"))]
     transport = Router(script)
     session = open_session(settings(tmp_path), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     assert session.pending("officina") == []
     assert "Nessuna è presentabile" in transport.requests["T-0001:plan"][1]["messages"][0]["content"]
 
@@ -495,7 +498,7 @@ def test_five_directions_run_together_and_reach_the_board(tmp_path: Path) -> Non
     script["T-0001:select"] = [turn(use("block", reason="prova finita"))]
     config = settings(tmp_path)
     session = open_session(config, Meeting(script))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     concepts = session.ledger.concepts("officina", 1)
     assert sorted(row.anon for row in concepts) == list("VWXYZ")
     assert {session.ledger.spec(row.idea_ticket).assignee for row in concepts} == {
@@ -513,7 +516,7 @@ def test_number_of_directions_can_go_back_to_three(tmp_path: Path) -> None:
     script["T-0001:select"] = [turn(use("block", reason="prova finita"))]
     transport = Router(script)
     session = open_session(settings(tmp_path, explorers=3), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     assert len(session.ledger.concepts("officina", 1)) == 3
     assert "Esploratori disponibili: 3" in transport.requests["T-0001:plan"][0]["messages"][0]["content"]
 
@@ -526,7 +529,7 @@ def test_explorers_do_not_see_each_other(tmp_path: Path) -> None:
     }
     transport = Router(script)
     session = open_session(settings(tmp_path), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     result = transport.requests["T-0002"][1]["messages"][-1]["content"][0]
     assert result["is_error"] and "fuori" in result["content"]
 
@@ -616,7 +619,15 @@ def fingerprints(ledger: Ledger, project: str) -> list[Fingerprint]:
 
 def test_every_execution_of_a_project_records_its_fingerprint(tmp_path: Path) -> None:
     session = open_session(settings(tmp_path), Router(full_script()))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, model="claude-sonnet-5-5", effort="medium")
+    session.start(
+        "officina",
+        brief(tmp_path),
+        OUTPUTS,
+        CHECKS,
+        budget=BUDGET,
+        model="claude-sonnet-5-5",
+        effort="medium",
+    )
     session.decide("officina", True, "Mi piace la X", "X")
     session.decide("officina", True, "Approvato")
     runs = session.ledger.runs("officina")
@@ -628,7 +639,7 @@ def test_every_execution_of_a_project_records_its_fingerprint(tmp_path: Path) ->
 
 def test_every_call_knows_its_execution_and_phase(tmp_path: Path) -> None:
     session = open_session(settings(tmp_path), Router(full_script()))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "Mi piace la X", "X")
     first, second = (row.seq for row in session.ledger.runs("officina"))
     usage = session.ledger.usage("officina")
@@ -649,7 +660,7 @@ def test_every_call_knows_its_execution_and_phase(tmp_path: Path) -> None:
 def test_everything_delivered_or_shown_to_the_client_is_kept(tmp_path: Path) -> None:
     config = settings(tmp_path)
     session = open_session(config, Router(full_script()))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     (pdf,) = session.pending("officina")[0].files
     session.decide("officina", True, "Mi piace la X", "X")
     session.decide("officina", True, "Approvato")
@@ -671,7 +682,7 @@ def test_everything_delivered_or_shown_to_the_client_is_kept(tmp_path: Path) -> 
 def test_a_blocked_plan_ends_the_project_and_says_why(tmp_path: Path) -> None:
     script = {"T-0001:plan": [turn(use("block", reason="manca il nome del cliente"))]}
     session = open_session(settings(tmp_path), Router(script))
-    outcome = session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    outcome = session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     assert outcome == "bloccato: manca il nome del cliente"
     assert [row.id for row in session.ledger.tickets("officina")] == ["T-0001"]
     assert session.pending("officina") == []
@@ -681,7 +692,7 @@ def test_client_refusing_the_final_work_sends_it_back_with_their_words(tmp_path:
     script = full_script()
     script["T-0001"].append(turn(use("block", reason="aspetto il nuovo segno")))
     session = open_session(settings(tmp_path), Router(script))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "Mi piace la X", "X")
     assert session.pending("officina")[0].gate == "final"
 
@@ -696,7 +707,7 @@ def test_insights_derives_the_phase_the_engine_recorded_for_every_call(tmp_path:
     """La regola che ricava la fase delle chiamate vecchie è quella che il motore usa per le nuove."""
     config = settings(tmp_path)
     session = open_session(config, Router(full_script()))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "Mi piace la X", "X")
     snapshot = ReadOnlyRegistry(config.ledger_path).read()
     tickets, calls = snapshot.tickets, snapshot.usage
@@ -729,7 +740,7 @@ def test_exploration_continues_as_long_as_the_budget_allows(tmp_path: Path) -> N
     script |= {f"T-{6 + n:04d}": explorer_turns("abc"[n]) for n in range(3)}
     script["T-0009"] = board_turns("XYZ", failing="XYZ")
     session = open_session(settings(tmp_path), Router(script))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     assert len(session.ledger.concepts("officina", 2)) == 3
 
 
@@ -772,7 +783,7 @@ def test_critic_judges_blind(tmp_path: Path) -> None:
     script["T-0001:select"] = [turn(use("block", reason="prova finita"))]
     transport = Router(script)
     session = open_session(settings(tmp_path), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     requests = transport.requests["T-0005"]
     assert requests[1]["messages"][-1]["content"][0]["is_error"]
     assert requests[2]["messages"][-1]["content"][0]["is_error"]
@@ -816,7 +827,7 @@ def test_nothing_passes_the_first_look_starts_a_new_exploration(tmp_path: Path) 
     script["T-0001:select"] = [turn(use("select_concepts", chosen=[], reasons="Nessun segno regge"))]
     transport = Router(script)
     session = open_session(settings(tmp_path), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     assert "Nessun segno regge" in transport.requests["T-0001:plan"][1]["messages"][0]["content"]
 
 
@@ -825,7 +836,7 @@ def test_client_can_refuse_every_proposal(tmp_path: Path) -> None:
     script["T-0001:plan"] = [*plan_turn(), turn(use("block", reason="prova finita"))]
     transport = Router(script)
     session = open_session(settings(tmp_path), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", False, "Troppo freddo, voglio calore")
     assert not session.ledger.gates("officina")[0].approved
     assert "calore" in transport.requests["T-0001:plan"][1]["messages"][0]["content"]
@@ -835,7 +846,7 @@ def test_choice_outside_the_options_is_not_approved(tmp_path: Path) -> None:
     script = to_the_gate()
     script["T-0001:plan"] = [*plan_turn(), turn(use("block", reason="prova finita"))]
     session = open_session(settings(tmp_path), Router(script))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "Prendo la Z", "Z")
     assert not session.ledger.gates("officina")[0].approved
     titles = [session.ledger.spec(row.id).title for row in session.ledger.tickets("officina")]
@@ -882,7 +893,7 @@ def test_rejected_concept_goes_back_to_exploration(tmp_path: Path) -> None:
     script["T-0001:plan"] = [*plan_turn(), turn(use("block", reason="prova finita"))]
     transport = Router(script)
     session = open_session(settings(tmp_path), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "Mi piace la X", "X")
     assert "sparisce" in transport.requests["T-0001:plan"][1]["messages"][0]["content"]
 
@@ -894,7 +905,7 @@ def test_one_failed_explorer_does_not_stop_the_others(tmp_path: Path) -> None:
     script["T-0005"] = board_turns("YZ")
     script["T-0001:select"] = [turn(use("block", reason="prova finita"))]
     session = open_session(settings(tmp_path), Router(script))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     assert sorted(row.anon for row in session.ledger.concepts("officina", 1) if row.anon) == ["Y", "Z"]
 
 
@@ -911,7 +922,7 @@ def test_interrupted_exploration_resumes_without_repeating_work(tmp_path: Path) 
     dying = Dies(script)
     session = open_session(config, dying)
     with pytest.raises(ConnectionError):
-        session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+        session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     done = {key: len(value) for key, value in dying.requests.items()}
     again = Router(script)
     second = open_session(config, again)
@@ -932,7 +943,7 @@ def test_second_exploration_is_rated_on_its_own_letters(tmp_path: Path) -> None:
         turn(use("block", reason="prova finita")),
     ]
     session = open_session(settings(tmp_path), Router(script))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     work = settings(tmp_path).project_dir("officina") / "work"
     rated = json.loads((work / "board/r2/reviews/valutazione.json").read_text())
     assert {item["letter"] for item in rated} == {"Y", "Z"}
@@ -960,7 +971,7 @@ def test_new_concept_after_a_rejection_gets_its_own_production(tmp_path: Path) -
     script["T-0013"] = second
     script["T-0001:present"] = [*script["T-0001:present"], *present_turn("Y", round_=2)]
     session = open_session(settings(tmp_path), Router(script))
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "Mi piace la X", "X")
     session.decide("officina", True, "Mi piace la Y", "Y")
     assert session.ledger.spec("T-0014").prompt == "finisher"
@@ -1046,7 +1057,7 @@ def test_presentation_cannot_reach_the_client_unseen(tmp_path: Path) -> None:
     ]
     transport = Router(script)
     session = open_session(settings(tmp_path), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     refused = [
         message["content"][0]["content"]
         for message in transport.requests["T-0001:present"][-1]["messages"]
@@ -1074,7 +1085,7 @@ def test_empty_draft_goes_back_to_exploration_and_survives_a_resume(tmp_path: Pa
     script["T-0001:plan"] = [*plan_turn(), turn(use("block", reason="prova finita"))]
     transport = Router(script)
     session = open_session(settings(tmp_path), transport)
-    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS)
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     assert "Nessuna regge" in transport.requests["T-0001:plan"][1]["messages"][0]["content"]
 
 

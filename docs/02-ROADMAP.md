@@ -307,13 +307,20 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
 
 **Prova reale**
 
-16. [ ] **`merlo3` contro `merlo`**: primo giudizio alla cieca registrato, senza spesa. Lo strumento è pronto e provato sui due
-    `segno.svg` reali, con una tavola che li mostra alla pari e un migliore che non contraddice i livelli
-    ([ADR-0041](adr/0041-la-tavola-del-giudizio.md)). Manca il voto, che è di Andrea: `uv run agency migrate`, poi
-    `uv run agency judge projects/merlo/work/exports/segno.svg projects/merlo3/work/exports/segno.svg`.
+16. [x] **`merlo3` contro `merlo`**: primo giudizio alla cieca registrato, senza spesa, il 2026-11-03 (confronto `123b003a`).
+    `merlo3` eccellente e migliore, `merlo` buono, tutti e due specifici. I due `segno.svg` erano sulla tavola, alla pari, e il
+    migliore non può contraddire i livelli ([ADR-0041](adr/0041-la-tavola-del-giudizio.md)). Si rilegge con
+    `uv run agency report merlo3` e nella vista Confronto, `/compare?before=merlo&after=merlo3`.
 17. [ ] **`merlo4`**: brief E1 dal vivo, solo su richiesta di Andrea, tetto 30 $. Prima esecuzione con impronta e con ADR-0017 e
     ADR-0018 attivi dall'inizio. Con i costi di `merlo3` il tetto è stretto: si rivede prima di partire. È una prova sola, quindi
     il risultato è indicativo: le 3 prove di `07-EVALS.md` costerebbero circa 100 $.
+    - [x] Preparato il 2026-11-03, senza spesa. Il brief è identico a quello di `merlo` e `merlo3`. `agency doctor` passa.
+      L'impronta di partenza è 5 esploratori, effort `high`, `vectorcraft-cli` 0.18.0. Il tetto si dichiara per forza
+      all'avvio ([ADR-0043](adr/0043-il-tetto-si-dichiara-all-avvio.md)): l'ambiente di Andrea ne dava uno di 40 $.
+    - [x] Il segno da battere è quello di `merlo3` ([ADR-0042](adr/0042-il-riferimento-di-qualita-e-merlo3.md)).
+    - [ ] Avvio, da Andrea, con il tetto che dichiara: `uv run agency run merlo4 evals/briefs/E1.md --budget <usd>`
+    - [ ] Gate `concept` e gate `final` decisi da Andrea, con `agency decide merlo4`
+    - [ ] Giudizio alla cieca del segno finale contro quello di `merlo3`, e lettura per intero nel cruscotto
 18. [ ] **Confronto con la CLI** sullo stesso brief. Questa prova ha un tetto proprio, da dichiarare prima di partire.
 
 ### Le viste
@@ -370,10 +377,13 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
 
 **Ereditati da M1 e M1.5:**
 
-- [ ] **Il segno scelto batte quello di `merlo` nel giudizio alla cieca di Andrea**
+- [x] **Il segno scelto batte quello di `merlo` nel giudizio alla cieca di Andrea**: `merlo3` eccellente e migliore, `merlo`
+  buono, il 2026-11-03 (punto 16). `uv run agency report merlo3`
 - [ ] Stesso brief su CLI e harness: qualità non inferiore alla cieca
 - [ ] Stesso brief su CLI e harness: costo inferiore
-- [ ] Il test di sostituzione passa: il segno scelto dice ciò che rende unico il cliente
+- [x] Il test di sostituzione passa: il segno scelto dice ciò che rende unico il cliente. Nello stesso giudizio Andrea ha detto
+  che il segno di `merlo3`, con un altro nome, non reggerebbe. Nel perché ci legge il merlo, e nel cerchio vuoto la ruota e la
+  chiave inglese dell'officina: la riparazione che in M1.5 diceva solo l'adesivo
 - [ ] Presentazione pronta entro 45 minuti e 12 $, con 2 o 3 proposte confrontabili
 - [ ] Lavoro completo fino al gate `final` entro 22 $
 

@@ -184,7 +184,9 @@ def test_unexpected_tool_failure_goes_back_to_the_model(tmp_path: Path) -> None:
 
 
 def runner(config: Settings, responses: list[dict]) -> tuple[AgentRunner, ScriptedTransport, Ledger]:
+    """Il progetto `p` con il tetto che il cliente dichiarerebbe: senza, il gateway non spende (ADR-0043)."""
     ledger = Ledger(config.ledger_path)
+    ledger.set_project("p", 25.0)
     transport = ScriptedTransport(responses)
     index = CommandIndex([])
     return (
@@ -464,8 +466,39 @@ def test_run_refuses_a_project_that_already_exists(
     ledger.set_project("officina", 30)
     session = FakeSession([], ledger)
     monkeypatch.setattr("agency.runtime.open_session", lambda _: session)
-    assert cli.main(["run", "officina", "brief.md"]) == 1
+    assert cli.main(["run", "officina", "brief.md", "--budget", "30"]) == 1
     assert "esiste già" in capsys.readouterr().out
+
+
+def test_run_does_not_start_without_a_declared_budget(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Il tetto lo dichiara chi avvia (ADR-0043): un valore dell'ambiente non è una scelta del cliente."""
+    monkeypatch.setenv("AGENCY_PROJECT_BUDGET_USD", "40")
+    opened: list[object] = []
+    monkeypatch.setattr("agency.runtime.open_session", lambda settings: opened.append(settings))
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(["run", "officina", "brief.md"])
+    assert stopped.value.code == 2
+    assert "--budget" in capsys.readouterr().err
+    assert opened == []
+
+
+@pytest.mark.parametrize("amount", ["0", "-5", "nan", "inf", "trenta"])
+@pytest.mark.parametrize("command", [["run", "officina", "brief.md", "--budget"], ["budget", "officina"]])
+def test_a_budget_is_a_positive_amount_of_dollars(
+    command: list[str], amount: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr("agency.runtime.open_session", lambda _: pytest.fail("non doveva partire"))
+    with pytest.raises(SystemExit) as stopped:
+        cli.main([*command, amount])
+    assert stopped.value.code == 2
+    assert "importo positivo in dollari" in capsys.readouterr().err
+
+
+def test_settings_have_no_budget_of_their_own() -> None:
+    """Prima c'era AGENCY_PROJECT_BUDGET_USD: 25 $ nel codice, 40 $ nell'ambiente, 30 $ nella roadmap."""
+    assert not any("budget" in name for name in Settings.model_fields)
 
 
 def test_budget_of_an_unknown_project_is_explained(

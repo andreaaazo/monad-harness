@@ -66,15 +66,17 @@ class Session:
         brief: Path,
         outputs: list[str],
         checks: dict[str, list[str]],
+        *,
+        budget: float,
         explore: bool = True,
-        budget: float | None = None,
         model: str = "",
         effort: str = "",
     ) -> str:
+        """`budget` è il tetto dichiarato da chi avvia, in dollari: non ha un valore di default (ADR-0043)."""
         work = self.settings.project_dir(project) / "work"
         work.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(brief, work / "brief.md")
-        self.ledger.set_project(project, budget or self.settings.project_budget_usd, model, effort)
+        self.ledger.set_project(project, budget, model, effort)
         spec = TicketSpec(
             title=f"Consegna {project}",
             request=brief.read_text(encoding="utf-8"),

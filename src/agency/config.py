@@ -17,7 +17,6 @@ class Settings(BaseSettings):
 
     data_dir: Path = Path(".data")
     projects_dir: Path = Path("projects")
-    project_budget_usd: float = 25.0
     explorer_effort: str = "high"
     proposal_effort: str = "high"
     explorers: int = 5

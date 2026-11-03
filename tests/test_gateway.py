@@ -48,10 +48,17 @@ def request() -> ModelRequest:
 
 
 def gateway(
-    tmp_path: Path, transport: ScriptedTransport, clock: Callable[[], float] = time.monotonic, **limits: float
+    tmp_path: Path,
+    transport: ScriptedTransport,
+    clock: Callable[[], float] = time.monotonic,
+    budget: float | None = 25.0,
 ) -> ModelGateway:
-    settings = Settings(data_dir=tmp_path, _env_file=None, **limits)  # type: ignore[call-arg]
-    return ModelGateway(transport, Ledger(settings.ledger_path), settings, clock=clock)
+    """Il progetto `p` di CONTEXT, con il tetto che il cliente ha dichiarato. None: nessun tetto."""
+    settings = Settings(data_dir=tmp_path, _env_file=None)  # type: ignore[call-arg]
+    ledger = Ledger(settings.ledger_path)
+    if budget is not None:
+        ledger.set_project(CONTEXT.project, budget)
+    return ModelGateway(transport, ledger, settings, clock=clock)
 
 
 def test_cost_counts_cache_at_its_own_price() -> None:
@@ -176,7 +183,7 @@ def test_anthropic_transport_measures_the_first_chunk_without_calling_the_api() 
 
 def test_project_ceiling_stops_before_the_call(tmp_path: Path) -> None:
     transport = ScriptedTransport([reply()])
-    gw = gateway(tmp_path, transport, project_budget_usd=0.01)
+    gw = gateway(tmp_path, transport, budget=0.01)
     with pytest.raises(BudgetExceeded, match="spesi"):
         gw.call(CONTEXT, request())
     assert transport.requests == []
@@ -184,18 +191,27 @@ def test_project_ceiling_stops_before_the_call(tmp_path: Path) -> None:
 
 def test_project_ceiling_counts_previous_spend(tmp_path: Path) -> None:
     transport = ScriptedTransport([reply(output=10_000), reply()])
-    gw = gateway(tmp_path, transport, project_budget_usd=0.25)
+    gw = gateway(tmp_path, transport, budget=0.25)
     previous = gw.call(CONTEXT, request())
     with pytest.raises(BudgetExceeded, match="spesi"):
         gw.call(CONTEXT, request(), previous)
     assert len(transport.requests) == 1
 
 
-def test_budget_chosen_for_the_project_wins(tmp_path: Path) -> None:
-    gw = gateway(tmp_path, ScriptedTransport([]))
-    gw.ledger.set_project("p", 0.01)
-    with pytest.raises(BudgetExceeded):
+def test_a_project_without_a_declared_budget_spends_nothing(tmp_path: Path) -> None:
+    """Prima valeva il tetto delle impostazioni: ora senza un tetto dichiarato non parte nulla (ADR-0043)."""
+    counted: list[dict] = []
+
+    class Counting(ScriptedTransport):
+        def count_tokens(self, params: dict) -> int:
+            counted.append(params)
+            return super().count_tokens(params)
+
+    transport = Counting([reply()])
+    gw = gateway(tmp_path, transport, budget=None)
+    with pytest.raises(BudgetExceeded, match="p non ha un tetto dichiarato"):
         gw.call(CONTEXT, request())
+    assert transport.requests == [] and counted == []  # niente esce, nemmeno per contare i token
 
 
 def test_malformed_tool_json_is_retried(tmp_path: Path) -> None:

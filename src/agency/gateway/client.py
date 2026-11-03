@@ -123,20 +123,23 @@ class ModelGateway:
         return (input_cost + EXPECTED_OUTPUT_TOKENS * price.output) / 1_000_000
 
     def project_limit(self, project: str) -> float:
+        """Il tetto che il cliente ha dichiarato all'avvio: un progetto senza non spende (ADR-0043)."""
         row = self.ledger.project(project)
-        return row.budget_usd if row else self.settings.project_budget_usd
+        if row is None:
+            raise BudgetExceeded(f"{project} non ha un tetto dichiarato: si dichiara con agency run --budget")
+        return row.budget_usd
 
-    def authorize(self, context: CallContext, estimate: float) -> None:
+    def authorize(self, context: CallContext, limit: float, estimate: float) -> None:
         """L'unico vincolo è il budget scelto dal cliente: nessun altro tetto ferma il lavoro."""
         spent = self.ledger.spent(context.project)
-        limit = self.project_limit(context.project)
         if spent + estimate > limit:
             raise BudgetExceeded(f"{spent:.2f} $ spesi su {limit:.2f} $")
 
     def call(
         self, context: CallContext, request: ModelRequest, previous: ModelResponse | None = None
     ) -> ModelResponse:
-        self.authorize(context, self.estimate_usd(request, previous))
+        limit = self.project_limit(context.project)  # prima della stima: senza tetto non esce nulla
+        self.authorize(context, limit, self.estimate_usd(request, previous))
         params = self._params(request)
         with tracer.start_as_current_span("model.call") as span:
             span.set_attributes(

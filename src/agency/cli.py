@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import math
 import random
 import shutil
 import sys
@@ -115,6 +116,17 @@ def _guarded(project: str, session: Session, action: Callable[[], str]) -> int:
     if outcome:
         print(f"Esito: {outcome}")
     return _show(session, project)
+
+
+def _dollars(text: str) -> float:
+    """Un tetto di spesa: un importo positivo e finito. Zero, negativi, `nan` e `inf` non sono tetti."""
+    try:
+        amount = float(text)
+    except ValueError:
+        amount = math.nan
+    if not math.isfinite(amount) or amount <= 0:
+        raise argparse.ArgumentTypeError(f"{text!r}: il tetto è un importo positivo in dollari, come 30")
+    return amount
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -292,7 +304,12 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run", help="esegue un brief di logo fino al gate del cliente")
     run.add_argument("project")
     run.add_argument("brief")
-    run.add_argument("--budget", type=float, help="tetto di spesa del progetto, in dollari")
+    run.add_argument(
+        "--budget",
+        type=_dollars,
+        required=True,
+        help="tetto di spesa del progetto, in dollari: lo dichiara chi avvia, non ha un default",
+    )
     run.add_argument("--model", choices=sorted(PRICES), help="modello per tutti i ruoli")
     run.add_argument("--effort", choices=["low", "medium", "high"], help="effort per tutti i ruoli")
     run.set_defaults(fn=_run)
@@ -309,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
     decide.set_defaults(fn=_decide)
     budget = sub.add_parser("budget", help="cambia il tetto di spesa di un progetto")
     budget.add_argument("project")
-    budget.add_argument("usd", type=float)
+    budget.add_argument("usd", type=_dollars, help="il nuovo tetto, in dollari")
     budget.set_defaults(fn=_budget)
     show = sub.add_parser("report", help="costi, fasi e stato di un progetto")
     show.add_argument("project")

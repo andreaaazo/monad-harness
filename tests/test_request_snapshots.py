@@ -74,6 +74,7 @@ class FirstRequest:
 def prefix(phase: Phase, tmp_path: Path) -> str:
     settings = Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "projects", _env_file=None)  # type: ignore[call-arg]
     ledger = Ledger(settings.ledger_path)
+    ledger.set_project("prova", 25.0)  # senza un tetto dichiarato la richiesta non partirebbe (ADR-0043)
     transport = FirstRequest()
     runner = AgentRunner(
         ModelGateway(transport, ledger, settings),

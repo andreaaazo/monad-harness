@@ -40,7 +40,8 @@ Test con risposte registrate: il sistema rifiuta ciò che deve rifiutare. Sono `
   ordinario / buono / eccellente. È la misura principale. Da M1.6 si registra con `agency judge` nella tabella `judgments`,
   legato allo sha256 del file (ADR-0027): le lettere si estraggono a ogni confronto, e con più file si sceglie anche il
   migliore, che sta tra i livelli più alti. I file si guardano su una tavola che mette ogni disegno alla stessa misura,
-  grande e a 64, 32 e 16 px (ADR-0041). Finora nessun giudizio è stato salvato.
+  grande e a 64, 32 e 16 px (ADR-0041). Il primo è del 2026-11-03: `merlo3` eccellente e migliore, `merlo` buono, tutti e due
+  specifici.
 - **Critica automatica**: rubrica di `critique`, utile per trovare difetti. Non sostituisce il giudizio umano.
 - **Test di sostituzione**: il risultato reggerebbe con un altro nome? Si registra sì o no, nello stesso giudizio alla cieca.
 
@@ -74,14 +75,15 @@ compito: ogni cambiamento di prompt o strumenti invalida la cache e cambia ciò 
 
 ## Riferimenti `merlo`, `merlo2` e `merlo3`
 
-`merlo` è il riferimento di qualità: il suo segno finale va battuto. `merlo2` è il riferimento di tempi del flusso
-parallelo, e mostra cosa non fare: segni deboli, geometrici, a prima vista generici. `merlo3` è il riferimento del flusso
-definitivo: 13,29 $ fino alla presentazione, 34,38 $ fino al gate `final`, ma con una tavola non alla pari (ADR-0017). `merlo4`
-sarà il primo riferimento con impronta e giudizio registrati.
+`merlo3` è il riferimento di qualità e del flusso (ADR-0042). Il suo segno ha battuto quello di `merlo` nel giudizio
+alla cieca del 2026-11-03, e va battuto nella versione giudicata, sha256 `2947a64f2ad1…`, conservata negli artefatti. Il
+flusso: 13,29 $ fino alla presentazione e 34,38 $ fino al gate `final`, ma con una tavola non alla pari (ADR-0017).
+`merlo2` è il riferimento di tempi del flusso parallelo, e mostra cosa non fare: segni deboli, geometrici, a prima vista
+generici. `merlo` resta un riferimento storico. `merlo4` sarà il primo riferimento con impronta e giudizio registrati.
 
-Ogni prova su E1 si confronta con `merlo` (`docs/02-ROADMAP.md`): tempo e costo fino al concetto scelto, costo fino
-al gate, bocciature del concetto dopo la scelta, diversità delle idee, test di sostituzione. Le tavole di `merlo`
-restano in `projects/merlo/` per il giudizio alla cieca.
+Ogni prova su E1 si confronta con `merlo3` (`docs/02-ROADMAP.md`): giudizio alla cieca del segno finale contro il suo,
+tempo e costo fino al concetto scelto, costo fino al gate, bocciature del concetto dopo la scelta, diversità delle idee,
+test di sostituzione. Le tavole di `merlo` restano in `projects/merlo/`.
 
 ## Confronto con Claude Code
 

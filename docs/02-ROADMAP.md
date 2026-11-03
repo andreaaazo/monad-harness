@@ -288,7 +288,7 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
     `uv run agency-server` ([ADR-0031](adr/0031-il-server-del-cruscotto.md)).
 12. [x] **Schemi**: `schemas/openapi.json` versionato, tipi TypeScript generati con `openapi-typescript`, controlli contro le
     divergenze in `make check` ([ADR-0032](adr/0032-schemi-e-tipi-generati.md)).
-13. [ ] **Cruscotto Next.js** in TypeScript, con le sei viste qui sotto. È solo interfaccia: legge tutto dall'API Django, con le
+13. [x] **Cruscotto Next.js** in TypeScript, con le sei viste qui sotto. È solo interfaccia: legge tutto dall'API Django, con le
     difese di ADR-0024 e le due aggiunte da [ADR-0033](adr/0033-il-cruscotto-next-js.md). In cinque parti:
     - [x] **Run**, con le fondamenta: client unico, server standalone, controllo dell'`Host`, prove Playwright e unitarie. Il
       tempo di lavoro è separato dalle attese del cliente, calcolate da `insights`
@@ -298,7 +298,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
       suo motivo ([ADR-0036](adr/0036-la-vista-strumenti-e-qa.md))
     - [x] **Confronto**: due progetti affiancati con i numeri delle altre viste, l'impronta fra la fine dell'uno e l'inizio
       dell'altro, i giudizi alla cieca che li contengono entrambi ([ADR-0037](adr/0037-la-vista-confronto.md))
-    - [ ] **Replay**
+    - [x] **Replay**: un'istanza turno per turno, letta dalla sua trascrizione senza copiarla, con le misure di ogni chiamata
+      e le immagini ([ADR-0038](adr/0038-la-vista-replay.md))
 14. [ ] **Taskfile**: ingresso unico per Python, frontend e Docker. `make check` resta come alias.
 15. [ ] **Docker** per Django e Next.js, per ultimo. Il motore resta sull'host.
 
@@ -338,12 +339,12 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
   `tests/test_explicit_types.py` e `make check`, che con `pyright` rifiuta l'uso dei vecchi `dict`
 - [x] `agency report --json` riproduce i numeri di questa roadmap: 15,91 $ su `merlo`, 13,29 $ fino al gate `concept` di `merlo3`.
   Dopo `agency migrate`: `uv run agency report merlo --json` e `uv run agency report merlo3 --json`, campo `to_presentation`
-- [ ] `merlo3` si legge nel cruscotto dal brief alla consegna. Run, Fasi e Modello ci sono, provate il 2026-11-03 su una copia
-  migrata del registro. Run: istanze e ticket uguali all'API per `merlo`, `merlo2` e `merlo3`, 2 h 1 min di lavoro e 16 h 20 min
-  di attesa del gate `concept`. Fasi: tre consegne della rifinitura con 8,14 $ rifatti, due revisioni bloccate su tre per
-  critic e QA. Modello: contesto fino a 267.966 token in 128 turni. Strumenti e QA: 83 controlli su 89 al primo colpo, 50
-  rifiuti degli strumenti su 1.225 usi; le revisioni bloccate dicono che il contratto chiedeva `review/…`, mentre il revisore
-  scrive solo in `reviews/`
+- [x] `merlo3` si legge nel cruscotto dal brief alla consegna: provato il 2026-11-03 su una copia migrata del registro, in tutte
+  le sei viste. Run: 2 h 1 min di lavoro e 16 h 20 min di attesa del gate `concept`. Fasi: tre consegne della rifinitura, 8,14 $
+  rifatti. Modello: contesto fino a 267.966 token in 128 turni. Strumenti e QA: 83 controlli su 89 al primo colpo, e le revisioni
+  bloccate dicono che il contratto chiedeva `review/…` mentre il revisore scrive solo in `reviews/`. Confronto con `merlo`: +18,47 $.
+  Replay: dal compito di T-0021-a1-plan alla consegna di T-0021-a7, turno per turno con le immagini. Si rifà con `agency migrate`,
+  `uv run agency-server` e `pnpm --dir web build && pnpm --dir web start`
 - [x] L'API non può scrivere, e il registro resta intatto dopo l'uso del cruscotto: `tests/test_server.py`
 - [x] OpenAPI e tipi TypeScript non divergono: `tests/test_schemas.py` per modelli e schema, `make web` per schema e tipi
 - [x] `import-linter` in `make check`: `insights` non importa il motore, e il motore non importa Django. `make imports`
@@ -355,8 +356,8 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
 - [x] Next.js non invia telemetria e non lascia copie di immagini o dati in `.next/cache` (test): `make web` verifica che
   `next telemetry status` dica `Disabled` e che ogni script la spenga; `make e2e` verifica che il browser parli solo con Next.js
   e che nella build, server standalone compreso, non restino immagini, risposte in cache o dati del registro
-- [ ] Almeno un test Playwright per vista. Run, Fasi, Modello, Strumenti e QA, Confronto: `web/e2e/run.spec.ts`,
-  `phases.spec.ts`, `model.spec.ts`, `quality.spec.ts`, `compare.spec.ts`
+- [x] Almeno un test Playwright per vista: `web/e2e/run.spec.ts`, `phases.spec.ts`, `model.spec.ts`, `quality.spec.ts`,
+  `compare.spec.ts`, `replay.spec.ts`, con `make e2e`
 - [ ] `task check` esegue i controlli di Python e Next.js, e Docker Compose avvia Django e Next.js
 - [ ] `merlo4` è arrivato al gate `final` ed è stato letto per intero nel cruscotto
 

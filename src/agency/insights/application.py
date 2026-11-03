@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from agency.insights.behaviour import BehaviourReport, behaviour_report
 from agency.insights.compare import CompareReport, compare_report
-from agency.insights.domain import Projected, Provenance, SourceStamp, project_calls, provenance
+from agency.insights.domain import (
+    Projected,
+    Provenance,
+    SourceStamp,
+    TranscriptImage,
+    project_calls,
+    provenance,
+)
 from agency.insights.flow import FlowReport, flow_report
 from agency.insights.ports import (
     ProjectionReader,
@@ -15,6 +22,7 @@ from agency.insights.ports import (
     TranscriptReader,
 )
 from agency.insights.quality import QualityReport, quality_report
+from agency.insights.replay import ReplayReport, replay_report
 from agency.insights.views import ProjectReport, ProjectSummary, project_report, project_summaries
 
 # La revisione del registro che insights sa leggere. Un test la confronta con l'ultima migrazione:
@@ -132,6 +140,20 @@ def compare(projection: ProjectionReader, before: str, after: str) -> CompareRep
         projection.judgments(),
         projection.provenance(),
     )
+
+
+def replay(
+    projection: ProjectionReader, transcripts: TranscriptReader, project: str, instance: str
+) -> ReplayReport | None:
+    """La vista Replay di un'istanza, o None se non ha trascrizione: la trascrizione si legge ora, intera."""
+    record = transcripts.transcript(project, instance)
+    if record is None:
+        return None
+    return replay_report(record, [call for call in projection.calls(project) if call.instance == instance])
+
+
+def image(transcripts: TranscriptReader, project: str, instance: str, index: int) -> TranscriptImage | None:
+    return transcripts.image(project, instance, index)
 
 
 def projects(projection: ProjectionReader) -> list[ProjectSummary]:

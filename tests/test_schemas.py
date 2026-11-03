@@ -65,6 +65,8 @@ def test_operations_have_names_that_do_not_depend_on_where_the_code_lives() -> N
         "GET /api/projects/{name}/behaviour": "projectBehaviour",
         "GET /api/projects/{name}/quality": "projectQuality",
         "GET /api/compare": "compareProjects",
+        "GET /api/projects/{name}/instances/{instance}/replay": "instanceReplay",
+        "GET /api/projects/{name}/instances/{instance}/images/{index}": "instanceImage",
         "GET /api/provenance": "provenance",
     }
 

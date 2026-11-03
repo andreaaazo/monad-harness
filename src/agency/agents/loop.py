@@ -150,7 +150,7 @@ class AgentRunner:
                 continue
             limit = MAX_TOKENS
             assistant = {"role": "assistant", "content": response.content}
-            transcript.append(assistant)
+            transcript.append(assistant, request_id=response.request_id)
             messages.append(assistant)
             if response.stop_reason == "tool_use":
                 self._run_tools(response.content, toolbox, transcript, messages)

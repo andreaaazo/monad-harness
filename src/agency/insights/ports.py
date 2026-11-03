@@ -21,6 +21,8 @@ from agency.insights.domain import (
     TicketRecord,
     ToolCallRecord,
     TraceMeasure,
+    TranscriptImage,
+    TranscriptRecord,
     UsageRecord,
 )
 
@@ -96,6 +98,14 @@ class TranscriptReader(Protocol):
         ...
 
     def read(self) -> TranscriptReading: ...
+
+    def transcript(self, project: str, instance: str) -> TranscriptRecord | None:
+        """Un'istanza turno per turno, o None se non c'è o il nome non è quello di un'istanza."""
+        ...
+
+    def image(self, project: str, instance: str, index: int) -> TranscriptImage | None:
+        """L'immagine `index` della trascrizione, solo se è di un tipo che il cruscotto serve."""
+        ...
 
 
 class ProjectionWriter(Protocol):

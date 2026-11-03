@@ -10,8 +10,11 @@ viste mostrano sempre gli stessi numeri. La cartella si svuota e si riscrive a o
 
 from __future__ import annotations
 
+import base64
 import shutil
+import struct
 import sys
+import zlib
 from contextlib import AbstractContextManager
 from pathlib import Path
 from unittest.mock import patch
@@ -19,6 +22,7 @@ from unittest.mock import patch
 from agency.agents.transcript import Transcript
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
 from agency.contracts.layout import DataLayout
+from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
@@ -83,11 +87,54 @@ CHECKS = [
 ]
 DELIVERY_REFUSED = "consegna rifiutata:\nexports/segno.svg: 'svg_audit' è FAIL"
 WRITE_REFUSED = "un revisore scrive solo in reviews/: non modifica il lavoro che giudica"
-# Le trascrizioni: per ogni istanza, i turni del modello con gli strumenti chiesti e chi ha detto no.
-TRANSCRIPTS: dict[str, list[list[tuple[str, str | None]]]] = {
-    "T-0002-a1": [[("view_image", None)], [("view_image", None)]],
-    "T-0005-a1": [[("deliver", DELIVERY_REFUSED)], [("render", None)], [("deliver", None)]],
-    "T-0006-a1": [[("write_file", WRITE_REFUSED)], [("block", None)]],
+THOUGHT = "Guardo prima il foglio intero, poi il dettaglio"
+REMINDER = "Ricorda di consegnare con deliver"
+SVG = b"<svg xmlns='http://www.w3.org/2000/svg' onload='alert(1)'/>"
+
+
+def png(width: int, height: int) -> bytes:
+    """Una PNG vera, di un solo colore: il browser la deve poter disegnare."""
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+    rows = b"".join(b"\x00" + b"\x2a\x78\xd6\xff" * width for _ in range(height))
+    header = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(rows))
+        + chunk(b"IEND", b"")
+    )
+
+
+def picture(media_type: str, data: bytes) -> dict:
+    return {
+        "type": "image",
+        "source": {"type": "base64", "media_type": media_type, "data": base64.b64encode(data).decode()},
+    }
+
+
+# Le trascrizioni: per ogni istanza, i turni del modello. Un turno è la chiamata che lo ha prodotto (il
+# numero della riga di usage, per il suo request_id; None in una trascrizione di prima di M1.6), ciò che il
+# modello ha pensato e scritto, gli strumenti chiesti col rifiuto o col risultato, i messaggi dell'harness.
+Turn = tuple[int | None, list[str], list[str], list[tuple[str, str | None, list[dict]]], list[str]]
+TRANSCRIPTS: dict[str, tuple[list[Turn], tuple[OutcomeState, str] | None]] = {
+    "T-0002-a1": (
+        [
+            (2, [THOUGHT], ["Apro il foglio"], [("view_image", None, [picture("image/png", png(4, 2))])], []),
+            (4, [], [], [("view_image", None, [picture("image/svg+xml", SVG)])], [REMINDER]),
+        ],
+        (OutcomeState.DELIVERED, "Foglio consegnato"),
+    ),
+    "T-0005-a1": (
+        [(9, [], [], [("deliver", DELIVERY_REFUSED, []), ("render", None, []), ("deliver", None, [])], [])],
+        (OutcomeState.DELIVERED, ""),
+    ),
+    # Di prima di M1.6: senza request_id, i turni si legano alle chiamate per ordine.
+    "T-0006-a1": ([(None, [], [], [("write_file", WRITE_REFUSED, []), ("block", None, [])], [])], None),
+    # La sola risposta, tagliata dal limite di token, non entra in trascrizione.
+    "T-0004-a1": ([], None),
 }
 
 
@@ -204,21 +251,42 @@ def build_before(ledger: Ledger) -> int:
 
 def write_transcripts(layout: DataLayout) -> None:
     """Con la classe del motore: il formato è quello che il motore scrive davvero."""
-    for instance, turns in TRANSCRIPTS.items():
+    for instance, (turns, closed) in TRANSCRIPTS.items():
         transcript = Transcript(layout.transcript(PROJECT, instance))
         transcript.append({"role": "user", "content": "Prova del cruscotto"})
-        for number, tools in enumerate(turns, start=1):
+        for number, (call, thoughts, words, tools, notes) in enumerate(turns, start=1):
             uses = [
-                {"type": "tool_use", "id": f"{instance}-{number}-{index}", "name": name, "input": {}}
-                for index, (name, _) in enumerate(tools)
+                {
+                    "type": "tool_use",
+                    "id": f"{instance}-{number}-{index}",
+                    "name": name,
+                    "input": {"turno": number},
+                }
+                for index, (name, _, _) in enumerate(tools)
             ]
-            transcript.append({"role": "assistant", "content": uses})
+            content = [
+                *({"type": "thinking", "thinking": thought, "signature": "firma"} for thought in thoughts),
+                *({"type": "text", "text": text} for text in words),
+                *uses,
+            ]
+            transcript.append(
+                {"role": "assistant", "content": content},
+                request_id=f"req_e2e_{call}" if call is not None else None,
+            )
             answers = [
-                {"type": "tool_result", "tool_use_id": use["id"], "content": refusal or "ok"}
+                {
+                    "type": "tool_result",
+                    "tool_use_id": use["id"],
+                    "content": refusal or [{"type": "text", "text": "ok"}, *images],
+                }
                 | ({"is_error": True} if refusal is not None else {})
-                for use, (_, refusal) in zip(uses, tools, strict=True)
+                for use, (_, refusal, images) in zip(uses, tools, strict=True)
             ]
             transcript.append({"role": "user", "content": answers})
+            for note in notes:
+                transcript.append({"role": "user", "content": note})
+        if closed is not None:
+            transcript.finish(Outcome(state=closed[0], note=closed[1]))
 
 
 def build(folder: Path) -> None:

@@ -46,8 +46,10 @@ class Transcript:
             handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
             handle.flush()
 
-    def append(self, message: dict) -> None:
-        self._write({"message": message})
+    def append(self, message: dict, request_id: str | None = None) -> None:
+        """`request_id` lega una risposta del modello alla sua riga di `usage`: lo legge il Replay. La ripresa
+        legge solo il messaggio."""
+        self._write({"message": message} | ({"request_id": request_id} if request_id else {}))
 
     def finish(self, outcome: Outcome) -> None:
         self._write({"outcome": outcome.model_dump(mode="json")})

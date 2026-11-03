@@ -62,9 +62,22 @@ export const api = {
   flow: (name: string) => read<Ok<"projectFlow">>(`/api/projects/${encodeURIComponent(name)}/flow`),
   behaviour: (name: string) => read<Ok<"projectBehaviour">>(`/api/projects/${encodeURIComponent(name)}/behaviour`),
   quality: (name: string) => read<Ok<"projectQuality">>(`/api/projects/${encodeURIComponent(name)}/quality`),
+  replay: (name: string, instance: string) =>
+    read<Ok<"instanceReplay">>(
+      `/api/projects/${encodeURIComponent(name)}/instances/${encodeURIComponent(instance)}/replay`,
+    ),
   compare: (before: string, after: string) =>
     read<Ok<"compareProjects">>(
       `/api/compare?before=${encodeURIComponent(before)}&after=${encodeURIComponent(after)}`,
     ),
   provenance: () => read<Ok<"provenance">>("/api/provenance"),
+};
+
+/**
+ * Gli indirizzi che il browser chiede da sé, a Next.js, che li inoltra a Django con i rewrites (ADR-0033):
+ * le immagini di una trascrizione. Non passano da `fetch`, quindi nemmeno dal server di Next.js.
+ */
+export const browserPaths = {
+  image: (name: string, instance: string, index: number) =>
+    `/api/projects/${encodeURIComponent(name)}/instances/${encodeURIComponent(instance)}/images/${index}`,
 };

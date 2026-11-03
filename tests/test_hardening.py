@@ -154,6 +154,19 @@ def test_transcript_keeps_a_whole_line_that_only_lost_its_newline(tmp_path: Path
     assert [m["content"] for m in Transcript(first.path).messages()] == ["intera", "due"]
 
 
+def test_a_response_keeps_its_request_id_and_the_resumed_messages_stay_the_same(tmp_path: Path) -> None:
+    """Il Replay lega ogni turno alla sua riga di usage col request_id; la ripresa legge solo i messaggi."""
+    transcript = Transcript(tmp_path / "t.jsonl")
+    transcript.append({"role": "user", "content": "uno"})
+    transcript.append({"role": "assistant", "content": [{"type": "text", "text": "due"}]}, request_id="req_7")
+    entries = Transcript(transcript.path).entries()
+    assert [entry.get("request_id") for entry in entries] == [None, "req_7"]
+    assert Transcript(transcript.path).messages() == [
+        {"role": "user", "content": "uno"},
+        {"role": "assistant", "content": [{"type": "text", "text": "due"}]},
+    ]
+
+
 def test_broken_image_does_not_kill_the_work(tmp_path: Path) -> None:
     ctx = context(tmp_path)
     (ctx.work / "rotta.png").write_bytes(b"non sono un'immagine")

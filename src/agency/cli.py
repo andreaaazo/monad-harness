@@ -76,7 +76,7 @@ def _report_of(settings: Settings, project: str) -> ProjectReport:
     insights.current(
         ReadOnlyRegistry(settings.ledger_path),
         JsonlTraces(settings.traces_path),
-        JsonlTranscripts(settings.layout.transcripts),
+        JsonlTranscripts(settings.layout),
         projection,
         now(),
     )
@@ -269,7 +269,7 @@ def _insights(_: argparse.Namespace) -> int:
     """Legge il registro in sola lettura: si può usare anche mentre il motore lavora."""
     settings = Settings()
     registry, traces = ReadOnlyRegistry(settings.ledger_path), JsonlTraces(settings.traces_path)
-    transcripts = JsonlTranscripts(settings.layout.transcripts)
+    transcripts = JsonlTranscripts(settings.layout)
     built = insights.rebuild(registry, traces, transcripts, SqliteProjection(settings.insights_path), now())
     print(report.render_provenance(built, str(settings.insights_path)))
     return 0

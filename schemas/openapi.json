@@ -1,6 +1,16 @@
 {
   "components": {
     "schemas": {
+      "Alignment": {
+        "description": "Come si sono legati turni e chiamate.",
+        "enum": [
+          "per richiesta",
+          "per ordine",
+          "nessuna"
+        ],
+        "title": "Alignment",
+        "type": "string"
+      },
       "BehaviourReport": {
         "additionalProperties": false,
         "properties": {
@@ -425,6 +435,31 @@
         "title": "IdeaView",
         "type": "object"
       },
+      "ImageRef": {
+        "additionalProperties": false,
+        "description": "Un'immagine restituita a un'istanza: la sua posizione nella trascrizione, da 0, il suo tipo, e se il\ncruscotto la serve.",
+        "properties": {
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "media_type": {
+            "title": "Media Type",
+            "type": "string"
+          },
+          "servable": {
+            "title": "Servable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "index",
+          "media_type",
+          "servable"
+        ],
+        "title": "ImageRef",
+        "type": "object"
+      },
       "InstanceTurns": {
         "additionalProperties": false,
         "properties": {
@@ -606,6 +641,82 @@
         ],
         "title": "Lifecycle",
         "type": "string"
+      },
+      "Measured": {
+        "additionalProperties": false,
+        "description": "Una chiamata: quanto è costata, quanto contesto ha letto, quanto ha aspettato, perché si è fermata.",
+        "properties": {
+          "cache_read_tokens": {
+            "title": "Cache Read Tokens",
+            "type": "integer"
+          },
+          "context": {
+            "title": "Context",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "reasoning_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Tokens"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "stop_reason": {
+            "title": "Stop Reason",
+            "type": "string"
+          },
+          "ttft_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttft Ms"
+          }
+        },
+        "required": [
+          "seq",
+          "cost_usd",
+          "context",
+          "cache_read_tokens",
+          "output_tokens",
+          "reasoning_tokens",
+          "duration_ms",
+          "ttft_ms",
+          "stop_reason"
+        ],
+        "title": "Measured",
+        "type": "object"
       },
       "Milestone": {
         "additionalProperties": false,
@@ -1324,6 +1435,215 @@
           "message"
         ],
         "title": "Refusal",
+        "type": "object"
+      },
+      "ReplayReport": {
+        "additionalProperties": false,
+        "properties": {
+          "alignment": {
+            "$ref": "#/components/schemas/Alignment"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "images": {
+            "title": "Images",
+            "type": "integer"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "outcome_note": {
+            "title": "Outcome Note",
+            "type": "string"
+          },
+          "outcome_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome State"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "task": {
+            "title": "Task",
+            "type": "string"
+          },
+          "ticket_id": {
+            "title": "Ticket Id",
+            "type": "string"
+          },
+          "trailing_discarded": {
+            "items": {
+              "$ref": "#/components/schemas/Measured"
+            },
+            "title": "Trailing Discarded",
+            "type": "array"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayTurn"
+            },
+            "title": "Turns",
+            "type": "array"
+          },
+          "unreadable": {
+            "title": "Unreadable",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project",
+          "instance",
+          "ticket_id",
+          "role",
+          "phase",
+          "task",
+          "alignment",
+          "calls",
+          "cost_usd",
+          "images",
+          "outcome_state",
+          "outcome_note",
+          "unreadable",
+          "turns",
+          "trailing_discarded"
+        ],
+        "title": "ReplayReport",
+        "type": "object"
+      },
+      "ReplayTool": {
+        "additionalProperties": false,
+        "properties": {
+          "answered": {
+            "title": "Answered",
+            "type": "boolean"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/ImageRef"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "input": {
+            "title": "Input",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "refused": {
+            "title": "Refused",
+            "type": "boolean"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "input",
+          "answered",
+          "refused",
+          "result",
+          "images"
+        ],
+        "title": "ReplayTool",
+        "type": "object"
+      },
+      "ReplayTurn": {
+        "additionalProperties": false,
+        "description": "Un turno: la chiamata che lo ha prodotto, quelle scartate prima, ciò che il modello ha pensato,\nscritto e chiesto, e i messaggi dell'harness che lo seguono.",
+        "properties": {
+          "discarded": {
+            "items": {
+              "$ref": "#/components/schemas/Measured"
+            },
+            "title": "Discarded",
+            "type": "array"
+          },
+          "hidden_thinking": {
+            "title": "Hidden Thinking",
+            "type": "integer"
+          },
+          "measured": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Measured"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "text": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Text",
+            "type": "array"
+          },
+          "thinking": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Thinking",
+            "type": "array"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayTool"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "number",
+          "measured",
+          "discarded",
+          "thinking",
+          "hidden_thinking",
+          "text",
+          "tools",
+          "notes"
+        ],
+        "title": "ReplayTurn",
         "type": "object"
       },
       "RoleBehaviour": {
@@ -2295,6 +2615,151 @@
           }
         },
         "summary": "Flow"
+      }
+    },
+    "/api/projects/{name}/instances/{instance}/images/{index}": {
+      "get": {
+        "description": "L'immagine `index` della trascrizione: solo PNG, JPEG, GIF e WebP, mai incorniciata né eseguita.",
+        "operationId": "instanceImage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "instance",
+            "required": true,
+            "schema": {
+              "title": "Instance",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "index",
+            "required": true,
+            "schema": {
+              "title": "Index",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/gif": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "L'immagine restituita all'istanza, nel suo tipo"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Image"
+      }
+    },
+    "/api/projects/{name}/instances/{instance}/replay": {
+      "get": {
+        "operationId": "instanceReplay",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "instance",
+            "required": true,
+            "schema": {
+              "title": "Instance",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Replay"
       }
     },
     "/api/projects/{name}/quality": {

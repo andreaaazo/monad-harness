@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from agency.contracts.layout import DataLayout
 from agency.insights import application
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.registry import ReadOnlyRegistry
@@ -21,7 +22,7 @@ def report_of(tmp_path: Path) -> Callable[[Path, str], ProjectReport]:
 
     def read(ledger: Path, project: str) -> ProjectReport:
         projection = SqliteProjection(tmp_path / "insights.sqlite")
-        traces, transcripts = JsonlTraces(tmp_path / "traces.jsonl"), JsonlTranscripts(tmp_path / "runs")
+        traces, transcripts = JsonlTraces(tmp_path / "traces.jsonl"), JsonlTranscripts(DataLayout(tmp_path))
         application.rebuild(
             ReadOnlyRegistry(ledger), traces, transcripts, projection, "2026-11-02T12:00:00+00:00"
         )

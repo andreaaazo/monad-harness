@@ -61,7 +61,9 @@ non si riscrivono, e le colonne nuove restano vuote su quelle vecchie. I dati de
 sue misure e se la sua fase è registrata o ricavata (ADR-0029). La proiezione contiene anche progetti, ticket, gate, idee,
 giudizi, la storia dei ticket con il motivo dei soli passi indietro (ADR-0035), le prove dei controlli e, dalle trascrizioni in
 `.data/runs/`, le chiamate agli strumenti con i loro rifiuti (ADR-0036), e le esecuzioni con la loro impronta (ADR-0037): è tutto
-ciò che legge `agency report`, che passa da lì come il cruscotto (ADR-0030).
+ciò che legge `agency report`, che passa da lì come il cruscotto (ADR-0030). Le trascrizioni intere non entrano nella
+proiezione: la vista Replay legge quella di un'istanza quando la si apre, e ogni risposta del modello porta il suo `request_id`
+(ADR-0038).
 
 Django non possiede il registro (ADR-0020). Quando nasceranno utenti e organizzazioni avrà un database proprio, con le sue
 migrazioni. `checkpoints.sqlite` lo gestisce LangGraph.

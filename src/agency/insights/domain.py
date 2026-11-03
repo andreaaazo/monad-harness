@@ -194,6 +194,67 @@ class ToolCallRecord(BaseModel):
     refusal: str | None
 
 
+class ImageRef(BaseModel):
+    """Un'immagine restituita a un'istanza: la sua posizione nella trascrizione, da 0, il suo tipo, e se il
+    cruscotto la serve."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    index: int
+    media_type: str
+    servable: bool
+
+
+class ToolExchange(BaseModel):
+    """Uno strumento chiesto dal modello e la sua risposta. `answered` è falso se la risposta non c'è: il
+    lavoro si è fermato prima."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    input: str
+    answered: bool
+    refused: bool
+    result: str
+    images: list[ImageRef]
+
+
+class AssistantTurn(BaseModel):
+    """Una risposta del modello in trascrizione. `request_id` c'è dalle trascrizioni di M1.6 in poi; `notes`
+    sono i messaggi dell'harness che la seguono, come un promemoria."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    request_id: str | None
+    thinking: list[str]
+    hidden_thinking: int
+    text: list[str]
+    tools: list[ToolExchange]
+    notes: list[str]
+
+
+class TranscriptRecord(BaseModel):
+    """La trascrizione di un'istanza, letta quando la si apre: non entra nella proiezione (ADR-0038)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    project: str
+    instance: str
+    task: str
+    turns: list[AssistantTurn]
+    outcome_state: str | None
+    outcome_note: str
+    images: int
+    unreadable: int
+
+
+class TranscriptImage(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    media_type: str
+    data: bytes
+
+
 class RunRecord(BaseModel):
     """Un'esecuzione del grafo, con l'impronta di ciò che ne decide il comportamento (ADR-0026). L'impronta
     resta il JSON del registro: la legge `agency.contracts.run`, e un'impronta di una forma che questa

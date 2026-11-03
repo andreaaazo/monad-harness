@@ -322,6 +322,21 @@ def test_truncated_response_is_not_added_to_history(tmp_path: Path) -> None:
     assert len(transport.requests[1]["messages"]) == 1
 
 
+def test_each_answer_in_the_transcript_names_its_request_and_a_truncated_one_is_not_there(
+    tmp_path: Path,
+) -> None:
+    """Il Replay lega ogni turno alla sua chiamata con questo request_id."""
+    config = settings(tmp_path)
+    partial = turn(use("list_files", "t1"), stop="max_tokens") | {"_request_id": "req_tagliata"}
+    final = turn(use("block", "t2", reason="manca il brief")) | {"_request_id": "req_blocco"}
+    run, _, ledger = runner(config, [partial, final])
+    ticket = ledger.open(production_spec(), "p")
+    run.run(ticket)
+    entries = Transcript(config.layout.transcript("p", f"{ticket}-a1")).entries()
+    answers = [entry for entry in entries if entry.get("message", {}).get("role") == "assistant"]
+    assert [entry.get("request_id") for entry in answers] == ["req_blocco"]
+
+
 def test_agent_ending_without_delivery_is_reminded_then_blocked(tmp_path: Path) -> None:
     config = settings(tmp_path)
     text = {"type": "text", "text": "fatto"}

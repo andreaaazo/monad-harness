@@ -6,6 +6,12 @@ import type { operations } from "./schema";
 
 export type * from "./schema";
 
-/** La risposta 200 di un'operazione, per nome: `Ok<"projectReport">` è un ProjectReport. */
-export type Ok<Operation extends keyof operations> =
-  operations[Operation]["responses"][200]["content"]["application/json"];
+/** Le operazioni che rispondono in JSON: tutte tranne le immagini, che il browser chiede da sé. */
+export type JsonOperation = {
+  [Name in keyof operations]: operations[Name]["responses"][200]["content"] extends { "application/json": unknown }
+    ? Name
+    : never;
+}[keyof operations];
+
+/** La risposta 200 di un'operazione JSON, per nome: `Ok<"projectReport">` è un ProjectReport. */
+export type Ok<Operation extends JsonOperation> = operations[Operation]["responses"][200]["content"]["application/json"];

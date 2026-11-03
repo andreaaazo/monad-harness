@@ -33,7 +33,7 @@ vecchio. Date: 2026-10-31.
 | [0026](0026-l-impronta-di-un-esecuzione.md) | L'impronta di un'esecuzione | Accettata, allarga la lista di 0022 |
 | [0027](0027-il-giudizio-alla-cieca.md) | Il giudizio alla cieca | Accettata |
 | [0028](0028-gli-artefatti-per-hash.md) | Gli artefatti per hash | Accettata |
-| [0029](0029-la-proiezione-di-insights.md) | La proiezione di insights | Accettata, gli strumenti delle trascrizioni entrano con 0036 |
+| [0029](0029-la-proiezione-di-insights.md) | La proiezione di insights | Accettata; dalle trascrizioni solo strumenti e rifiuti (0036), il Replay le legge senza copiarle (0038) |
 | [0030](0030-il-rapporto-passa-da-insights.md) | Il rapporto passa da insights | Accettata |
 | [0031](0031-il-server-del-cruscotto.md) | Il server del cruscotto | Accettata |
 | [0032](0032-schemi-e-tipi-generati.md) | Schemi e tipi generati | Accettata, `npx` sostituito da mise in 0034 |
@@ -42,3 +42,4 @@ vecchio. Date: 2026-10-31.
 | [0035](0035-le-viste-fasi-e-modello.md) | Le viste Fasi e Modello | Accettata, i motivi dei passi indietro entrano con 0036 |
 | [0036](0036-la-vista-strumenti-e-qa.md) | La vista Strumenti e QA | Accettata |
 | [0037](0037-la-vista-confronto.md) | La vista Confronto | Accettata |
+| [0038](0038-la-vista-replay.md) | La vista Replay | Accettata, rovescia le trascrizioni nella proiezione di 0029 |

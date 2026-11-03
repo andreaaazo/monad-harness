@@ -55,3 +55,16 @@ export function fingerprintValue(value: string | null): string {
   if (value === "") return "predefinito";
   return SHA256.test(value) ? value.slice(0, 12) : value;
 }
+
+/** Come si è chiuso il lavoro di un'istanza (`contracts.outcome.OutcomeState`). */
+const OUTCOMES: Readonly<Record<string, string>> = {
+  delivered: "consegnato",
+  handed_off: "passato ad altri ticket",
+  selected: "idee scelte",
+  no_concept: "nessun concetto",
+  presented: "presentato al cliente",
+  concept_rejected: "concetto respinto",
+  blocked: "bloccato",
+};
+
+export const outcome = (value: string | null): string => (value === null ? "non chiuso" : (OUTCOMES[value] ?? value));

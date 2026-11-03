@@ -244,6 +244,9 @@ test("nella build non restano dati del registro, immagini o file .env", async ({
     (path) => !path.includes(`${sep}standalone${sep}node_modules${sep}`),
   );
   expect(written.filter((path) => /[/\\](images|fetch-cache)$/.test(path))).toEqual([]);
+  // Le immagini del Replay passano dal proxy di Next.js: nessuna deve restare scritta nella build.
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+  expect(written.filter((path) => statSync(path).isFile() && readFileSync(path).subarray(0, 4).equals(png))).toEqual([]);
   expect(written.filter((path) => /[/\\]\.env[^/\\]*$/.test(path))).toEqual([]);
   const copies = written.filter(
     (path) => statSync(path).isFile() && /officina-e2e|Rifinitura X/.test(readFileSync(path, "latin1")),

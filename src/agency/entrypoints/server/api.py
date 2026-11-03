@@ -14,12 +14,13 @@ from agency.insights import application
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
-from agency.insights.adapters.transcripts import JsonlTranscripts
+from agency.insights.adapters.transcripts import IMAGE_TYPES, JsonlTranscripts
 from agency.insights.behaviour import BehaviourReport
 from agency.insights.compare import CompareReport
 from agency.insights.domain import Provenance
 from agency.insights.flow import FlowReport
 from agency.insights.quality import QualityReport
+from agency.insights.replay import ReplayReport
 from agency.insights.views import ProjectReport, ProjectSummary
 
 # Niente pagina di documentazione: caricherebbe script da una CDN. Lo schema resta in /api/openapi.json.
@@ -36,12 +37,16 @@ class Problem(Schema):
     detail: str
 
 
+def _transcripts() -> JsonlTranscripts:
+    return JsonlTranscripts(DataLayout(settings.AGENCY_DATA_DIR))
+
+
 def _projection() -> SqliteProjection:
     """La proiezione aggiornata: si rifà solo se registro, tracce o trascrizioni sono cambiati."""
     layout = DataLayout(settings.AGENCY_DATA_DIR)
     projection = SqliteProjection(layout.insights)
     registry, traces = ReadOnlyRegistry(layout.ledger), JsonlTraces(layout.traces)
-    transcripts = JsonlTranscripts(layout.transcripts)
+    transcripts = JsonlTranscripts(layout)
     with _refresh:
         built_at = datetime.now(UTC).isoformat(timespec="seconds")
         application.current(registry, traces, transcripts, projection, built_at)
@@ -131,3 +136,50 @@ def compare(request: HttpRequest, before: str, after: str) -> Status:
         if unknown is not None:
             return unknown
     return Status(200, application.compare(projection, before, after))
+
+
+@api.get(
+    "/projects/{name}/instances/{instance}/replay",
+    response={200: ReplayReport, 404: Problem, 503: Problem},
+    operation_id="instanceReplay",
+)
+def replay(request: HttpRequest, name: str, instance: str) -> Status:
+    projection = _projection()
+    unknown = _unknown(projection, name)
+    if unknown is not None:
+        return unknown
+    report = application.replay(projection, _transcripts(), name, instance)
+    if report is None:
+        return Status(404, Problem(detail=f"nessuna trascrizione per {instance} in {name}"))
+    return Status(200, report)
+
+
+# Un'immagine è byte, non JSON: lo schema dice i tipi che può avere.
+_PICTURE = {
+    200: {
+        "description": "L'immagine restituita all'istanza, nel suo tipo",
+        "content": {
+            media: {"schema": {"type": "string", "format": "binary"}} for media in sorted(IMAGE_TYPES)
+        },
+    }
+}
+
+
+@api.get(
+    "/projects/{name}/instances/{instance}/images/{index}",
+    response={404: Problem, 503: Problem},
+    operation_id="instanceImage",
+    openapi_extra={"responses": _PICTURE},
+)
+def image(request: HttpRequest, name: str, instance: str, index: int) -> HttpResponse | Status:
+    """L'immagine `index` della trascrizione: solo PNG, JPEG, GIF e WebP, mai incorniciata né eseguita."""
+    unknown = _unknown(_projection(), name)
+    if unknown is not None:
+        return unknown
+    picture = application.image(_transcripts(), name, instance, index)
+    if picture is None:
+        return Status(404, Problem(detail=f"nessuna immagine {index} per {instance} in {name}"))
+    response = HttpResponse(picture.data, content_type=picture.media_type)
+    response["Content-Security-Policy"] = "default-src 'none'; sandbox"
+    response["Content-Disposition"] = "inline"
+    return response

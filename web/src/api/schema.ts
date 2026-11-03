@@ -75,6 +75,43 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/projects/{name}/instances/{instance}/images/{index}": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * Image
+         * @description L'immagine `index` della trascrizione: solo PNG, JPEG, GIF e WebP, mai incorniciata né eseguita.
+         */
+        readonly get: operations["instanceImage"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/projects/{name}/instances/{instance}/replay": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Replay */
+        readonly get: operations["instanceReplay"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/projects/{name}/quality": {
         readonly parameters: {
             readonly query?: never;
@@ -130,6 +167,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * Alignment
+         * @description Come si sono legati turni e chiamate.
+         * @enum {string}
+         */
+        readonly Alignment: "per richiesta" | "per ordine" | "nessuna";
         /** BehaviourReport */
         readonly BehaviourReport: {
             /** Instances */
@@ -275,6 +318,19 @@ export interface components {
             /** Status */
             readonly status: string;
         };
+        /**
+         * ImageRef
+         * @description Un'immagine restituita a un'istanza: la sua posizione nella trascrizione, da 0, il suo tipo, e se il
+         *     cruscotto la serve.
+         */
+        readonly ImageRef: {
+            /** Index */
+            readonly index: number;
+            /** Media Type */
+            readonly media_type: string;
+            /** Servable */
+            readonly servable: boolean;
+        };
         /** InstanceTurns */
         readonly InstanceTurns: {
             /** Cache Hit */
@@ -346,6 +402,30 @@ export interface components {
          * @enum {string}
          */
         readonly Lifecycle: "open" | "deliver" | "accept" | "rework" | "block" | "resume" | "cancel";
+        /**
+         * Measured
+         * @description Una chiamata: quanto è costata, quanto contesto ha letto, quanto ha aspettato, perché si è fermata.
+         */
+        readonly Measured: {
+            /** Cache Read Tokens */
+            readonly cache_read_tokens: number;
+            /** Context */
+            readonly context: number;
+            /** Cost Usd */
+            readonly cost_usd: number;
+            /** Duration Ms */
+            readonly duration_ms: number | null;
+            /** Output Tokens */
+            readonly output_tokens: number;
+            /** Reasoning Tokens */
+            readonly reasoning_tokens: number | null;
+            /** Seq */
+            readonly seq: number;
+            /** Stop Reason */
+            readonly stop_reason: string;
+            /** Ttft Ms */
+            readonly ttft_ms: number | null;
+        };
         /**
          * Milestone
          * @description Fino al gate `concept` approvato: quanto è costato e quanto è durato arrivarci.
@@ -577,6 +657,75 @@ export interface components {
             readonly tool: string;
             /** Turn */
             readonly turn: number;
+        };
+        /** ReplayReport */
+        readonly ReplayReport: {
+            readonly alignment: components["schemas"]["Alignment"];
+            /** Calls */
+            readonly calls: number;
+            /** Cost Usd */
+            readonly cost_usd: number;
+            /** Images */
+            readonly images: number;
+            /** Instance */
+            readonly instance: string;
+            /** Outcome Note */
+            readonly outcome_note: string;
+            /** Outcome State */
+            readonly outcome_state: string | null;
+            /** Phase */
+            readonly phase: string;
+            /** Project */
+            readonly project: string;
+            /** Role */
+            readonly role: string;
+            /** Task */
+            readonly task: string;
+            /** Ticket Id */
+            readonly ticket_id: string;
+            /** Trailing Discarded */
+            readonly trailing_discarded: readonly components["schemas"]["Measured"][];
+            /** Turns */
+            readonly turns: readonly components["schemas"]["ReplayTurn"][];
+            /** Unreadable */
+            readonly unreadable: number;
+        };
+        /** ReplayTool */
+        readonly ReplayTool: {
+            /** Answered */
+            readonly answered: boolean;
+            /** Images */
+            readonly images: readonly components["schemas"]["ImageRef"][];
+            /** Input */
+            readonly input: string;
+            /** Name */
+            readonly name: string;
+            /** Refused */
+            readonly refused: boolean;
+            /** Result */
+            readonly result: string;
+        };
+        /**
+         * ReplayTurn
+         * @description Un turno: la chiamata che lo ha prodotto, quelle scartate prima, ciò che il modello ha pensato,
+         *     scritto e chiesto, e i messaggi dell'harness che lo seguono.
+         */
+        readonly ReplayTurn: {
+            /** Discarded */
+            readonly discarded: readonly components["schemas"]["Measured"][];
+            /** Hidden Thinking */
+            readonly hidden_thinking: number;
+            readonly measured: components["schemas"]["Measured"] | null;
+            /** Notes */
+            readonly notes: readonly string[];
+            /** Number */
+            readonly number: number;
+            /** Text */
+            readonly text: readonly string[];
+            /** Thinking */
+            readonly thinking: readonly string[];
+            /** Tools */
+            readonly tools: readonly components["schemas"]["ReplayTool"][];
         };
         /**
          * RoleBehaviour
@@ -861,6 +1010,7 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type Alignment = components['schemas']['Alignment'];
 export type BehaviourReport = components['schemas']['BehaviourReport'];
 export type BlindComparison = components['schemas']['BlindComparison'];
 export type ChangeView = components['schemas']['ChangeView'];
@@ -872,10 +1022,12 @@ export type Execution = components['schemas']['Execution'];
 export type FingerprintDiff = components['schemas']['FingerprintDiff'];
 export type FlowReport = components['schemas']['FlowReport'];
 export type IdeaView = components['schemas']['IdeaView'];
+export type ImageRef = components['schemas']['ImageRef'];
 export type InstanceTurns = components['schemas']['InstanceTurns'];
 export type InstanceView = components['schemas']['InstanceView'];
 export type JudgmentView = components['schemas']['JudgmentView'];
 export type Lifecycle = components['schemas']['Lifecycle'];
+export type Measured = components['schemas']['Measured'];
 export type Milestone = components['schemas']['Milestone'];
 export type Outcome = components['schemas']['Outcome'];
 export type PhaseFlow = components['schemas']['PhaseFlow'];
@@ -887,6 +1039,9 @@ export type ProjectSummary = components['schemas']['ProjectSummary'];
 export type Provenance = components['schemas']['Provenance'];
 export type QualityReport = components['schemas']['QualityReport'];
 export type Refusal = components['schemas']['Refusal'];
+export type ReplayReport = components['schemas']['ReplayReport'];
+export type ReplayTool = components['schemas']['ReplayTool'];
+export type ReplayTurn = components['schemas']['ReplayTurn'];
 export type RoleBehaviour = components['schemas']['RoleBehaviour'];
 export type RoleView = components['schemas']['RoleView'];
 export type Setback = components['schemas']['Setback'];
@@ -1040,6 +1195,92 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": components["schemas"]["FlowReport"];
+                };
+            };
+            /** @description Not Found */
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            readonly 503: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    readonly instanceImage: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly index: number;
+                readonly instance: string;
+                readonly name: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description L'immagine restituita all'istanza, nel suo tipo */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "image/gif": string;
+                    readonly "image/jpeg": string;
+                    readonly "image/png": string;
+                    readonly "image/webp": string;
+                };
+            };
+            /** @description Not Found */
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            readonly 503: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    readonly instanceReplay: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly instance: string;
+                readonly name: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description OK */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ReplayReport"];
                 };
             };
             /** @description Not Found */

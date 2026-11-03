@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -25,6 +26,7 @@ from django.conf import settings  # noqa: E402
 from django.http import HttpRequest, HttpResponse  # noqa: E402
 from django.test import Client, RequestFactory, override_settings  # noqa: E402
 
+from agency.agents.transcript import Transcript  # noqa: E402
 from agency.config import REPO_ROOT  # noqa: E402
 from agency.contracts.layout import DataLayout  # noqa: E402
 from agency.contracts.ticket import TicketSpec, TicketType  # noqa: E402
@@ -35,6 +37,7 @@ from agency.insights.compare import CompareReport  # noqa: E402
 from agency.insights.domain import Provenance  # noqa: E402
 from agency.insights.flow import FlowReport  # noqa: E402
 from agency.insights.quality import QualityReport  # noqa: E402
+from agency.insights.replay import ReplayReport  # noqa: E402
 from agency.insights.views import ProjectReport, ProjectSummary  # noqa: E402
 from agency.ledger import Ledger  # noqa: E402
 from agency.ledger.models import UsageRow  # noqa: E402
@@ -127,6 +130,78 @@ def test_compare_puts_two_projects_side_by_side_and_refuses_one_with_itself(
         unknown = client.get("/api/compare?before=fantasma&after=officina")
         assert (unknown.status_code, "fantasma" in unknown.json()["detail"]) == (404, True)
         assert client.post("/api/compare?before=bottega&after=officina").status_code == 405
+
+
+PNG = b"\x89PNG\r\n\x1a\n un pixel"
+
+
+def replayable(tmp_path: Path) -> None:
+    """L'istanza T-0001-a1 di officina, come la scrive il motore: un'immagine PNG e una SVG."""
+    transcript = Transcript(DataLayout(tmp_path).transcript("officina", "T-0001-a1"))
+    transcript.append({"role": "user", "content": "Il compito"})
+    transcript.append(
+        {
+            "role": "assistant",
+            "content": [{"type": "tool_use", "id": "u1", "name": "view_image", "input": {}}],
+        },
+        request_id="req_officina_1",
+    )
+    pictures = [
+        {
+            "type": "image",
+            "source": {"type": "base64", "media_type": kind, "data": base64.b64encode(data).decode()},
+        }
+        for kind, data in (("image/png", PNG), ("image/svg+xml", b"<svg onload='alert(1)'/>"))
+    ]
+    transcript.append(
+        {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "u1", "content": pictures}]}
+    )
+
+
+def test_replay_reads_an_instance_turn_by_turn_with_the_measures_of_its_call(
+    client: Client, tmp_path: Path
+) -> None:
+    replayable(tmp_path)
+    response = client.get("/api/projects/officina/instances/T-0001-a1/replay")
+    assert response.status_code == 200
+    report = ReplayReport.model_validate(response.json())
+    assert (report.task, report.alignment, len(report.turns), report.images) == (
+        "Il compito",
+        "per richiesta",
+        1,
+        2,
+    )
+    assert report.turns[0].measured is not None and report.turns[0].measured.cost_usd == 1.25
+
+
+def test_an_image_is_served_as_itself_never_cached_framed_sniffed_or_run(
+    client: Client, tmp_path: Path
+) -> None:
+    replayable(tmp_path)
+    response = client.get("/api/projects/officina/instances/T-0001-a1/images/0")
+    assert (response.status_code, response["Content-Type"], response.content) == (200, "image/png", PNG)
+    assert response["Cache-Control"] == "no-store"
+    assert response["X-Content-Type-Options"] == "nosniff"
+    assert response["Content-Security-Policy"] == "default-src 'none'; sandbox"
+    assert client.get("/api/projects/officina/instances/T-0001-a1/images/1").status_code == 404  # SVG
+    assert client.get("/api/projects/officina/instances/T-0001-a1/images/2").status_code == 404
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/projects/officina/instances/T-0009-a1/replay",
+        "/api/projects/officina/instances/..%2F..%2Fledger/replay",
+        "/api/projects/fantasma/instances/T-0001-a1/replay",
+        "/api/projects/officina/instances/T-0001-a1/images/-1",
+        "/api/projects/fantasma/instances/T-0001-a1/images/0",
+    ],
+)
+def test_what_is_not_a_known_instance_or_image_is_not_found(
+    client: Client, tmp_path: Path, path: str
+) -> None:
+    replayable(tmp_path)
+    assert client.get(path).status_code == 404
 
 
 @pytest.mark.parametrize("view", ["report", "flow", "behaviour", "quality"])

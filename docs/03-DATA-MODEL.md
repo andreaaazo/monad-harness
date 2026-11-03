@@ -7,7 +7,7 @@ Ogni dato ha un solo proprietario.
 | Ticket ed eventi | `.data/ledger.sqlite` | `agency.ledger` | Perdita grave: va nei backup |
 | Prove, fatti, cliente, consumi | `.data/ledger.sqlite` | i rispettivi moduli | Perdita grave |
 | Copie prima delle migrazioni | `.data/backups/` | `agency.ledger.schema` | Si perde il ritorno indietro |
-| Copie anonime di un confronto | `.data/blind/<confronto>/` | `agency.evaluation` | Nulla: si cancellano alla fine del giudizio |
+| Copie anonime e tavola di un confronto | `.data/blind/<confronto>/` | `agency.evaluation` | Nulla: si cancellano alla fine del giudizio |
 | Checkpoint del grafo | `.data/checkpoints.sqlite` | LangGraph | Ricostruibile dal registro |
 | Artefatti, da M1.6 | `.data/artifacts/<ab>/<sha256>` | `agency.artifacts` | Perdita grave |
 | Master di lavoro | `projects/<slug>/work/` | l'agente del ticket | Da M1.6 recuperabile dagli artefatti |
@@ -44,7 +44,7 @@ ricontrolla la catena.
 | `concepts` | M1.5 | Scheda dell'idea, leva, schizzo, lettera anonima, esito della selezione |
 | `gates` | M1.5 | Decisione del cliente: parole testuali, scelta, hash dei file |
 | `runs` | M1.6 | Ogni `run`, `resume` e `decide` con la sua impronta: prompt, registry, codice, lock, Python, CLI, modello, effort e impostazioni (ADR-0026) |
-| `judgments` | M1.6 | Ogni file di un confronto alla cieca: livello, test di sostituzione, migliore, perché, chi giudica, sha256 (ADR-0027) |
+| `judgments` | M1.6 | Ogni file di un confronto alla cieca: livello, test di sostituzione, migliore, perché, chi giudica, sha256 (ADR-0027). Il migliore sta tra i livelli più alti (ADR-0041) |
 | `client_log` | M2 | Domande, risposte, presentazioni, feedback, approvazioni |
 | `facts` | M2 | Fatto, provenienza, fonte |
 

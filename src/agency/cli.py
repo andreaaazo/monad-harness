@@ -18,7 +18,7 @@ from agency.config import Settings
 from agency.contracts.artifact import Origin
 from agency.contracts.gate import ConceptGate
 from agency.doctor import run_checks
-from agency.evaluation import blind
+from agency.evaluation import blind, board
 from agency.gateway import BudgetExceeded
 from agency.gateway.pricing import PRICES
 from agency.insights import application as insights
@@ -215,10 +215,16 @@ def _judge(args: argparse.Namespace) -> int:
     folder = settings.data_dir / "blind" / comparison
     try:
         copies = blind.lay_out(assigned, folder)
+        sheet = board.lay_board(dict(zip(assigned, copies, strict=True)), folder, board.vectorcraft())
         print(f"Confronto alla cieca di {len(copies)} file, nella cartella {folder.resolve()}:")
+        if sheet is not None:
+            print(f"  {sheet.name}  {board.SHOWN}")
         for copy in copies:
             print(f"  {copy.name}")
-        print("Aprili e rispondi. Da dove vengono si vede solo dopo il giudizio.")
+        if sheet is None:
+            kind = copies[0].suffix
+            print(f"Per i file {kind} non c'è una tavola: si guardano come sono, anche a misure diverse.")
+        print("Guarda e rispondi. Da dove vengono si vede solo dopo il giudizio.")
         judgment = blind.interview(list(assigned), input, args.judge)
         altered = blind.changed(assigned, copies)
         if altered:

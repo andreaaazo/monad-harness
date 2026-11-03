@@ -88,4 +88,6 @@ Chiave API, materiali del cliente e sandbox non cambiano regole: cambiano le dif
 - Nessun servizio ascolta su interfacce diverse da loopback, fino all'ADR che in M6 deciderà come il cliente raggiunge
   l'interfaccia.
 - Nessun launcher sconosciuto: `doctor` interroga solo CLI note.
+- La tavola del giudizio passa a `vectorcraft-cli` solo `PATH` e `HOME`: la chiave non gli arriva nemmeno se è nell'ambiente di
+  chi giudica, e un test lo verifica (ADR-0041).
 - `.env` non si versiona.

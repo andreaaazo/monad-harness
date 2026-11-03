@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from agency.config import Settings
 
 BINARIES: tuple[tuple[str, bool, str], ...] = (
-    ("vectorcraft-cli", True, "master vettoriali"),
+    ("vectorcraft-cli", True, "master vettoriali e tavola del giudizio"),
     ("effectcraft-cli", True, "master motion"),
     ("figcraft-cli", True, "master di interfaccia"),
     ("photocraft-cli", True, "master immagine"),

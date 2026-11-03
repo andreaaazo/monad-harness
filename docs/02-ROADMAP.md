@@ -307,7 +307,10 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
 
 **Prova reale**
 
-16. [ ] **`merlo3` contro `merlo`**: primo giudizio alla cieca registrato, senza spesa.
+16. [ ] **`merlo3` contro `merlo`**: primo giudizio alla cieca registrato, senza spesa. Lo strumento è pronto e provato sui due
+    `segno.svg` reali, con una tavola che li mostra alla pari e un migliore che non contraddice i livelli
+    ([ADR-0041](adr/0041-la-tavola-del-giudizio.md)). Manca il voto, che è di Andrea: `uv run agency migrate`, poi
+    `uv run agency judge projects/merlo/work/exports/segno.svg projects/merlo3/work/exports/segno.svg`.
 17. [ ] **`merlo4`**: brief E1 dal vivo, solo su richiesta di Andrea, tetto 30 $. Prima esecuzione con impronta e con ADR-0017 e
     ADR-0018 attivi dall'inizio. Con i costi di `merlo3` il tetto è stretto: si rivede prima di partire. È una prova sola, quindi
     il risultato è indicativo: le 3 prove di `07-EVALS.md` costerebbero circa 100 $.

@@ -16,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from agency.contracts.judgment import Judged, Judgment, Level, Rating
+from agency.contracts.judgment import Judged, Judgment, Level, Rating, below_the_top
 
 LETTERS = string.ascii_uppercase
 SAME = {"sì": True, "si": True, "no": False}
@@ -116,9 +116,19 @@ def interview(letters: list[str], ask: Callable[[str], str], judge: str) -> Judg
         same = _choose(ask, f"Con un altro nome {letter} reggerebbe lo stesso? (sì, no): ", SAME)
         why = _reason(ask, f"Perché {letter}? ")
         ratings.append(Rating(letter=letter, level=level, specific=not same, why=why))
-    best = None
-    if len(letters) > 1:
-        best = _choose(
-            ask, f"Il migliore tra {', '.join(letters)}: ", {item.lower(): item for item in letters}
-        )
+    best = _best(ask, ratings) if len(letters) > 1 else None
     return Judgment(judge=judge, ratings=ratings, best=best)
+
+
+def _best(ask: Callable[[str], str], ratings: list[Rating]) -> str:
+    """Una scelta che contraddice i livelli si spiega e si richiede: di solito è un tasto sbagliato."""
+    letters = [rating.letter for rating in ratings]
+    question = f"Il migliore tra {', '.join(letters)}: "
+    prompt = question
+    while True:
+        best = _choose(ask, prompt, {letter.lower(): letter for letter in letters})
+        reason = below_the_top(ratings, best)
+        if reason is None:
+            return best
+        escape = "Per cambiare un livello interrompi con Ctrl-C, e non si registra nulla."
+        prompt = f"{reason}. {escape}\n{question}"

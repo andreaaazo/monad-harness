@@ -15,10 +15,11 @@ from agency import cli
 from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
-from agency.evaluation import blind
+from agency.evaluation import blind, board
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
 from agency.telemetry import report
+from drawings import FakeVectorcraft, svg
 
 
 def rating(letter: str, level: Level = Level.GOOD, specific: bool = True, why: str = "Si legge") -> Rating:
@@ -39,6 +40,14 @@ def test_comparison_needs_the_best_among_its_letters() -> None:
     with pytest.raises(ValidationError, match="migliore"):
         Judgment(judge="andrea", ratings=[rating("A"), rating("B")], best="C")
     assert Judgment(judge="andrea", ratings=[rating("A"), rating("B")], best="B").best == "B"
+
+
+def test_the_best_cannot_have_a_lower_level_than_another_letter() -> None:
+    """Un eccellente non perde da un buono: altrimenti il giudizio non dice quale segno vince."""
+    with pytest.raises(ValidationError, match="livello più alto è eccellente"):
+        Judgment(judge="andrea", ratings=[rating("A"), rating("B", Level.EXCELLENT)], best="A")
+    tied = [rating("A", Level.EXCELLENT), rating("B", Level.EXCELLENT), rating("C")]
+    assert {Judgment(judge="andrea", ratings=tied, best=letter).best for letter in "AB"} == {"A", "B"}
 
 
 def test_single_file_has_no_best() -> None:
@@ -76,27 +85,23 @@ def files(tmp_path: Path, contents: dict[str, str]) -> list[Path]:
     return paths
 
 
+# Le tele dei due segno.svg reali: 98 × 118,5 px e 800 × 600 px, con il disegno al 91% e al 76%.
+MERLO = svg((98, 118.5), (6, 6, 86, 108))
+MERLO3 = svg((800, 600), (99, 115, 609, 355))
+
+
 def two_projects(tmp_path: Path) -> list[Path]:
     return files(
         tmp_path,
-        {
-            "projects/merlo/work/exports/segno.svg": "<svg>merlo</svg>",
-            "projects/merlo3/work/exports/segno.svg": "<svg>merlo3</svg>",
-        },
+        {"projects/merlo/work/exports/segno.svg": MERLO, "projects/merlo3/work/exports/segno.svg": MERLO3},
     )
 
 
 def test_candidates_know_project_file_and_hash(tmp_path: Path) -> None:
     found = blind.candidates(two_projects(tmp_path), tmp_path / "projects")
     assert [candidate.judged for candidate in found] == [
-        Judged(
-            project="merlo", file="exports/segno.svg", sha256=hashlib.sha256(b"<svg>merlo</svg>").hexdigest()
-        ),
-        Judged(
-            project="merlo3",
-            file="exports/segno.svg",
-            sha256=hashlib.sha256(b"<svg>merlo3</svg>").hexdigest(),
-        ),
+        Judged(project=project, file="exports/segno.svg", sha256=hashlib.sha256(body.encode()).hexdigest())
+        for project, body in (("merlo", MERLO), ("merlo3", MERLO3))
     ]
 
 
@@ -164,13 +169,33 @@ def test_interview_asks_level_substitution_and_reason_for_each_letter_then_the_b
 
 
 def test_interview_asks_again_until_the_answer_is_one_of_the_options() -> None:
-    answers = ["ottimo", "buono", "forse", "si", "  ", "Regge", "eccellente", "no", "Unico", "C", "a"]
+    answers = ["ottimo", "buono", "forse", "si", "  ", "Regge", "eccellente", "no", "Unico", "C", "b"]
     judgment = blind.interview(["A", "B"], scripted(answers), "andrea")
     assert judgment.ratings == [
         Rating(letter="A", level=Level.GOOD, specific=False, why="Regge"),
         Rating(letter="B", level=Level.EXCELLENT, specific=True, why="Unico"),
     ]
+    assert judgment.best == "B"
+
+
+def test_a_best_below_the_highest_level_is_explained_and_asked_again() -> None:
+    """La prova generale del punto 16: eccellente A, ordinario B, e B scelto per sbaglio."""
+    answers = ["eccellente", "no", "Unico", "ordinario", "si", "Generico", "b", "a"]
+    prompts: list[str] = []
+
+    def ask(prompt: str) -> str:
+        prompts.append(prompt)
+        return answers.pop(0)
+
+    judgment = blind.interview(["A", "B"], ask, "andrea")
+
     assert judgment.best == "A"
+    assert prompts[-2] == "Il migliore tra A, B: "
+    assert prompts[-1] == (
+        "B è ordinario, e il livello più alto è eccellente (A): il migliore è tra questi. "
+        "Per cambiare un livello interrompi con Ctrl-C, e non si registra nulla.\n"
+        "Il migliore tra A, B: "
+    )
 
 
 def test_single_file_interview_does_not_ask_for_the_best() -> None:
@@ -252,6 +277,7 @@ def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "projects"))
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(board, "vectorcraft", FakeVectorcraft)  # la tavola senza dipendere dalla macchina
     return Settings(_env_file=None)  # type: ignore[call-arg]
 
 
@@ -279,7 +305,8 @@ def test_judge_records_blind_then_reveals_and_removes_the_copies(
     assert cli.main(["judge", *map(str, paths), "--judge", "andrea"]) == 0
 
     out = capsys.readouterr().out
-    assert seen[0] == ["A.svg", "B.svg"]
+    assert seen[0] == ["A.svg", "B.svg", "tavola.png"]
+    assert "tavola.png  i disegni alla stessa misura" in out
     assert "merlo" not in out.split("Registrati")[0]
     assert "Registrati 2 giudizi di andrea" in out
     ledger = Ledger(studio.ledger_path)
@@ -300,7 +327,7 @@ def test_judged_files_are_kept_under_their_hash(
         path.write_text("sovrascritto", encoding="utf-8")
 
     ledger, store = Ledger(studio.ledger_path), FileStore(studio.artifacts_dir)
-    for project, original in (("merlo", "<svg>merlo</svg>"), ("merlo3", "<svg>merlo3</svg>")):
+    for project, original in (("merlo", MERLO), ("merlo3", MERLO3)):
         (judged,) = ledger.judgments(project)
         with store.open(judged.sha256) as handle:
             assert handle.read() == original.encode()
@@ -369,3 +396,43 @@ def test_judge_refuses_an_unfair_comparison_before_showing_anything(
     assert "tipi diversi" in capsys.readouterr().out
     assert seen == []
     assert not Path("data/blind").exists()
+
+
+def test_a_file_that_cannot_be_drawn_is_refused_before_any_question(
+    studio: Settings, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Un disegno vuoto non si mette alla pari con un altro: si rifiuta, e la cartella anonima se ne va."""
+    paths = files(
+        Path.cwd(),
+        {
+            "projects/merlo/work/exports/segno.svg": MERLO,
+            "projects/vuoto/work/exports/segno.svg": svg((100, 100), (10, 10, 0, 0)),
+        },
+    )
+    seen: list[list[str]] = []
+    answer(monkeypatch, [], seen)
+
+    assert cli.main(["judge", *map(str, paths)]) == 1
+
+    out = capsys.readouterr().out
+    assert "non ha niente di disegnato. Nulla registrato" in out
+    assert "vuoto" not in out  # il rifiuto dice la lettera, non il progetto
+    assert seen == []
+    assert Ledger(studio.ledger_path).judgments("merlo") == []
+    assert list(Path("data/blind").iterdir()) == []
+
+
+def test_a_type_without_a_board_is_judged_as_it_is_and_says_so(
+    studio: Settings, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    paths = files(
+        Path.cwd(),
+        {"projects/merlo/work/tavola.pdf": "%PDF-1.7 a", "projects/merlo3/work/tavola.pdf": "%PDF-1.7 b"},
+    )
+    seen: list[list[str]] = []
+    answer(monkeypatch, ["buono", "no", "Regge", "ordinario", "si", "Generico", "A"], seen)
+
+    assert cli.main(["judge", *map(str, paths)]) == 0
+
+    assert seen[0] == ["A.pdf", "B.pdf"]
+    assert "Per i file .pdf non c'è una tavola" in capsys.readouterr().out

@@ -14,6 +14,11 @@ class Level(StrEnum):
     GOOD = "buono"
     EXCELLENT = "eccellente"
 
+    @property
+    def rank(self) -> int:
+        """Ordinario, buono, eccellente: l'ordine in cui sono scritti."""
+        return list(Level).index(self)
+
 
 class Rating(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", str_strip_whitespace=True)
@@ -42,7 +47,22 @@ class Judgment(BaseModel):
             raise ValueError("con un solo file non c'è un migliore")
         if len(letters) > 1 and self.best not in letters:
             raise ValueError(f"il migliore deve essere una delle lettere: {', '.join(letters)}")
+        if self.best is not None and (reason := below_the_top(self.ratings, self.best)):
+            raise ValueError(reason)
         return self
+
+
+def below_the_top(ratings: list[Rating], best: str) -> str | None:
+    """Perché `best` non può essere il migliore, o None se può: un eccellente non perde da un buono.
+
+    Altrimenti il giudizio non direbbe quale segno vince. A pari livello decide la scelta (ADR-0041).
+    """
+    top = max(ratings, key=lambda rating: rating.level.rank).level
+    chosen = next(rating for rating in ratings if rating.letter == best)
+    if chosen.level == top:
+        return None
+    higher = ", ".join(rating.letter for rating in ratings if rating.level == top)
+    return f"{best} è {chosen.level}, e il livello più alto è {top} ({higher}): il migliore è tra questi"
 
 
 class Judged(BaseModel):

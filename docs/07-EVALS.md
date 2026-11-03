@@ -39,7 +39,8 @@ Test con risposte registrate: il sistema rifiuta ciò che deve rifiutare. Sono `
 - **Giudizio umano alla cieca**: Andrea confronta file anonimi e assegna un punteggio contro riferimenti
   ordinario / buono / eccellente. È la misura principale. Da M1.6 si registra con `agency judge` nella tabella `judgments`,
   legato allo sha256 del file (ADR-0027): le lettere si estraggono a ogni confronto, e con più file si sceglie anche il
-  migliore. Finora nessun giudizio è stato salvato.
+  migliore, che sta tra i livelli più alti. I file si guardano su una tavola che mette ogni disegno alla stessa misura,
+  grande e a 64, 32 e 16 px (ADR-0041). Finora nessun giudizio è stato salvato.
 - **Critica automatica**: rubrica di `critique`, utile per trovare difetti. Non sostituisce il giudizio umano.
 - **Test di sostituzione**: il risultato reggerebbe con un altro nome? Si registra sì o no, nello stesso giudizio alla cieca.
 

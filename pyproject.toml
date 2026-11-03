@@ -141,3 +141,29 @@ forbidden_modules = [
   "sqlalchemy",
   "sqlmodel",
 ]
+
+[[tool.importlinter.contracts]]
+name = "il giudizio dipende solo dai contratti: niente motore, niente registro (ADR-0027)"
+type = "forbidden"
+source_modules = ["agency.evaluation"]
+forbidden_modules = [
+  "agency.agents",
+  "agency.artifacts",
+  "agency.cli",
+  "agency.config",
+  "agency.context",
+  "agency.doctor",
+  "agency.gateway",
+  "agency.graph",
+  "agency.insights",
+  "agency.ledger",
+  "agency.qa",
+  "agency.runtime",
+  "agency.telemetry",
+  "agency.tools",
+  "alembic",
+  "anthropic",
+  "langgraph",
+  "sqlalchemy",
+  "sqlmodel",
+]

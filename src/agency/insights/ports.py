@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from agency.insights.domain import (
     Call,
     ConceptRecord,
+    EventRecord,
     GateRecord,
     JudgmentRecord,
     Projected,
@@ -32,6 +33,7 @@ class RegistrySnapshot(BaseModel):
     gates: list[GateRecord]
     concepts: list[ConceptRecord]
     judgments: list[JudgmentRecord]
+    events: list[EventRecord]
 
 
 class ProjectData(BaseModel):
@@ -45,6 +47,7 @@ class ProjectData(BaseModel):
     gates: list[GateRecord]
     concepts: list[ConceptRecord]
     judgments: list[JudgmentRecord]
+    events: list[EventRecord]
 
 
 class TraceReading(BaseModel):

@@ -62,7 +62,7 @@ for (const path of sources) {
   expect(!/["']use server["']/.test(text), `${where}: niente Server Action, sarebbero un secondo backend`);
   expect(!/\/route\.(ts|tsx|js|mjs)$/.test(path), `${where}: niente Route Handler, sarebbero un secondo backend`);
   // Una pagina statica costruita con Django acceso porterebbe dentro la build i dati di quel momento.
-  if (/[/\\]page\.(tsx|ts|jsx|js)$/.test(path)) {
+  if (path.startsWith(join(root, "src", "app")) && /[/\\]page\.(tsx|ts|jsx|js)$/.test(path)) {
     expect(
       /^export const dynamic = "force-dynamic";$/m.test(text),
       `${where}: ogni pagina è dinamica (export const dynamic = "force-dynamic")`,

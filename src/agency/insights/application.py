@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from agency.insights.behaviour import BehaviourReport, behaviour_report
 from agency.insights.domain import Projected, Provenance, project_calls, provenance
+from agency.insights.flow import FlowReport, flow_report
 from agency.insights.ports import (
     ProjectionReader,
     ProjectionStore,
@@ -51,6 +53,7 @@ def rebuild(
         gates=snapshot.gates,
         concepts=snapshot.concepts,
         judgments=snapshot.judgments,
+        events=snapshot.events,
     )
     built = provenance(
         calls, built_at=built_at, sources=sources, revision=revision, unreadable=reading.unreadable
@@ -75,6 +78,16 @@ def current(
 def report(projection: ProjectionReader, project: str) -> ProjectReport:
     """Il rapporto di un progetto dalla proiezione: un progetto sconosciuto ha un rapporto vuoto."""
     return project_report(project, projection.project(project), projection.provenance())
+
+
+def flow(projection: ProjectionReader, project: str) -> FlowReport:
+    """La vista Fasi: dalle idee alla consegna, i passi indietro e dove si è fermato."""
+    return flow_report(project, projection.project(project))
+
+
+def behaviour(projection: ProjectionReader, project: str) -> BehaviourReport:
+    """La vista Modello: ruolo per ruolo e turno per turno."""
+    return behaviour_report(project, projection.project(project))
 
 
 def projects(projection: ProjectionReader) -> list[ProjectSummary]:

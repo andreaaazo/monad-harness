@@ -7,8 +7,8 @@ import { basename, join, sep } from "node:path";
 import { expect, test } from "@playwright/test";
 
 import { CANARY } from "./canary";
+import { PROJECT } from "./project";
 
-const PROJECT = "officina-e2e";
 const NEXT_PORT = 13765;
 const DJANGO_PORT = 18765;
 const OFFLINE_PORT = 13766;
@@ -16,7 +16,7 @@ const OFFLINE_PORT = 13766;
 test("la pagina dei progetti elenca il registro e dice da dove vengono i dati", async ({ page }) => {
   await page.goto("/");
   const row = page.getByRole("row", { name: new RegExp(PROJECT) });
-  await expect(row).toContainText("10,50 $");
+  await expect(row).toContainText("10,80 $");
   await expect(row).toContainText("20,00 $");
   await expect(page.getByLabel("Provenienza dei dati")).toContainText("revisione 0005");
 });
@@ -25,8 +25,9 @@ test("vista Run: quanto è costato, quanto è durato, chi ha lavorato quando", a
   await page.goto("/");
   await page.getByRole("link", { name: PROJECT }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(PROJECT);
+  await expect(page.getByRole("link", { name: "Run" })).toHaveAttribute("aria-current", "page");
   const summary = page.getByLabel("Riepilogo");
-  await expect(summary).toContainText("10,50 $");
+  await expect(summary).toContainText("10,80 $");
   await expect(summary).toContainText("su 20,00 $");
   // 44 minuti dalla prima all'ultima chiamata, 6 fermi fra la presentazione e la decisione del cliente.
   await expect(summary).toContainText("38,0 min");
@@ -34,7 +35,7 @@ test("vista Run: quanto è costato, quanto è durato, chi ha lavorato quando", a
   await expect(summary.getByText("Fino alla presentazione")).toBeVisible();
   await expect(summary).toContainText("6,00 $");
   const timeline = page.getByRole("list", { name: "Timeline delle istanze" }).getByRole("listitem");
-  await expect(timeline).toHaveCount(8);
+  await expect(timeline).toHaveCount(10);
   // In ordine di inizio: director-select (T-0001, minuto 12) viene dopo le esplorazioni di T-0002 e T-0003, e
   // l'attesa del gate sta fra la presentazione e la rifinitura.
   const order = [
@@ -46,23 +47,27 @@ test("vista Run: quanto è costato, quanto è durato, chi ha lavorato quando", a
     "director-present",
     "in attesa del cliente",
     "finisher",
+    "critic",
+    "finisher",
   ];
   for (const [position, phase] of order.entries()) await expect(timeline.nth(position)).toContainText(phase);
   await expect(timeline.nth(6)).toContainText("ferma per 6,0 min");
   const phases = page.getByRole("table", { name: "Fasi" });
   await expect(phases.getByRole("row", { name: /finisher/ })).toContainText("4,50 $");
   await expect(phases.getByRole("row", { name: /explorer/ })).toContainText("2,1 s");
-  await expect(page.getByRole("table", { name: "Ticket" }).getByRole("row")).toHaveCount(6);
+  await expect(page.getByRole("table", { name: "Ticket" }).getByRole("row")).toHaveCount(7);
 });
 
-test("un progetto che non esiste ha la sua pagina e il suo stato", async ({ page }) => {
-  const response = await page.goto("/projects/fantasma");
-  expect(response?.status()).toBe(404);
-  await expect(page.getByRole("heading", { name: "Progetto sconosciuto" })).toBeVisible();
+test("un progetto che non esiste ha la sua pagina e il suo stato, in ogni vista", async ({ page }) => {
+  for (const path of ["/projects/fantasma", "/projects/fantasma/phases", "/projects/fantasma/model"]) {
+    const response = await page.goto(path);
+    expect(response?.status(), path).toBe(404);
+    await expect(page.getByRole("heading", { name: "Progetto sconosciuto" })).toBeVisible();
+  }
 });
 
 test("se Django è spento le pagine lo dicono e dicono come riavviarlo", async ({ page }) => {
-  for (const path of ["/", `/projects/${PROJECT}`]) {
+  for (const path of ["/", `/projects/${PROJECT}`, `/projects/${PROJECT}/phases`, `/projects/${PROJECT}/model`]) {
     await page.goto(`http://127.0.0.1:${OFFLINE_PORT}${path}`);
     // Next.js ha già un suo role="alert", l'annunciatore delle rotte: si cerca quello della pagina.
     const alert = page.getByRole("main").getByRole("alert");
@@ -84,9 +89,10 @@ test("il browser parla solo con Next.js: niente CDN, niente telemetria, niente D
   page.on("response", (response) => {
     if (response.status() >= 400) failed.push(`${response.status()} ${response.url()}`);
   });
-  await page.goto("/");
-  await page.goto(`/projects/${PROJECT}`);
-  await page.waitForLoadState("networkidle");
+  for (const path of ["/", `/projects/${PROJECT}`, `/projects/${PROJECT}/phases`, `/projects/${PROJECT}/model`]) {
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+  }
   expect(requests.filter((url) => url.includes("/_next/static/")).length).toBeGreaterThan(0);
   expect(requests.filter((url) => !url.startsWith(`http://127.0.0.1:${NEXT_PORT}/`))).toEqual([]);
   // Il server standalone serve da sé i file statici: se la build non li copia, qui c'è un 404.
@@ -220,8 +226,9 @@ function everything(folder: string): string[] {
 }
 
 test("nella build non restano dati del registro, immagini o file .env", async ({ page }) => {
-  await page.goto("/");
-  await page.goto(`/projects/${PROJECT}`);
+  for (const path of ["/", `/projects/${PROJECT}`, `/projects/${PROJECT}/phases`, `/projects/${PROJECT}/model`]) {
+    await page.goto(path);
+  }
   // Tutto ciò che la build e il server scrivono, cache del server standalone compresa; non le librerie copiate.
   const written = everything(join(process.cwd(), ".next-e2e")).filter(
     (path) => !path.includes(`${sep}standalone${sep}node_modules${sep}`),

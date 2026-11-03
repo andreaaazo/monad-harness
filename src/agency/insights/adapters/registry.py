@@ -15,8 +15,10 @@ from agency.insights.adapters.stamps import stamp
 from agency.insights.application import RegistryNotReadable
 from agency.insights.domain import (
     ConceptRecord,
+    EventRecord,
     GateRecord,
     JudgmentRecord,
+    Lifecycle,
     ProjectRecord,
     SourceStamp,
     TicketRecord,
@@ -35,6 +37,12 @@ JUDGMENTS = (
     "SELECT seq, at, comparison, judge, letter, project, file, sha256, level, specific, best, why,"
     " (SELECT count(*) FROM judgments AS other WHERE other.comparison = judgments.comparison) AS compared"
     " FROM judgments ORDER BY seq"
+)
+# La storia dei ticket senza le prove, che hanno la loro tabella, e senza note. Il progetto viene dal ticket.
+EVENTS = (
+    "SELECT events.seq, events.at, tickets.project, events.ticket_id, events.actor, events.action"
+    " FROM events JOIN tickets ON tickets.id = events.ticket_id"
+    f" WHERE events.action IN ({', '.join('?' for _ in Lifecycle)}) ORDER BY events.seq"
 )
 REVISION = "SELECT version_num FROM alembic_version"
 HAS_REVISION = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'alembic_version'"
@@ -105,6 +113,10 @@ class ReadOnlyRegistry:
                     concepts=[_concept(row) for row in connection.execute(CONCEPTS)],
                     judgments=[
                         JudgmentRecord.model_validate(dict(row)) for row in connection.execute(JUDGMENTS)
+                    ],
+                    events=[
+                        EventRecord.model_validate(dict(row))
+                        for row in connection.execute(EVENTS, [item.value for item in Lifecycle])
                     ],
                 )
             except sqlite3.OperationalError as exc:

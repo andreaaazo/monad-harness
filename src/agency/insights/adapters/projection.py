@@ -25,6 +25,7 @@ from agency.insights.application import ProjectionOutdated
 from agency.insights.domain import (
     Call,
     ConceptRecord,
+    EventRecord,
     GateRecord,
     JudgmentRecord,
     Projected,
@@ -87,10 +88,11 @@ TICKETS = _Table("tickets", TicketRecord, "id")
 GATES = _Table("gates", GateRecord, "seq")
 CONCEPTS = _Table("concepts", ConceptRecord, "seq")
 JUDGMENTS = _Table("judgments", JudgmentRecord, "seq")
+EVENTS = _Table("events", EventRecord, "seq")
 
 
 class SqliteProjection:
-    SCHEMA = 3
+    SCHEMA = 4
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -108,6 +110,7 @@ class SqliteProjection:
                 self._write(connection, GATES, projected.gates)
                 self._write(connection, CONCEPTS, projected.concepts)
                 self._write(connection, JUDGMENTS, projected.judgments)
+                self._write(connection, EVENTS, projected.events)
                 connection.execute("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
                 connection.execute(
                     "INSERT INTO meta VALUES ('provenance', ?)", (provenance.model_dump_json(),)
@@ -161,6 +164,7 @@ class SqliteProjection:
                 gates=self._read(connection, GATES, name),
                 concepts=self._read(connection, CONCEPTS, name),
                 judgments=self._read(connection, JUDGMENTS, name),
+                events=self._read(connection, EVENTS, name),
             )
 
     def provenance(self) -> Provenance:

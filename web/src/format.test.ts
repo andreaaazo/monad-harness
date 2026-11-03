@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { count, minutes, seconds, share, usd, when } from "./format.ts";
+import { count, counted, minutes, seconds, share, usd, when } from "./format.ts";
 
 test("soldi, conteggi e quote all'italiana", () => {
   assert.equal(usd(10.5), "10,50 $");
   assert.equal(count(81014), "81.014");
   assert.equal(share(0.687), "69%");
+});
+
+test("un numero con il suo nome, al singolare solo per uno", () => {
+  assert.deepEqual(
+    [0, 1, 2, 1000].map((value) => counted(value, "turno", "turni")),
+    ["0 turni", "1 turno", "2 turni", "1000 turni"],
+  );
 });
 
 test("le durate in decimi sotto l'ora, in ore e minuti da un'ora in su", () => {

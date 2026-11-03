@@ -5,7 +5,10 @@ __pycache__/
 .ruff_cache/
 .env
 .data/
+# I materiali del cliente non si versionano, ovunque stiano. L'unica eccezione è la rotta del cruscotto con lo
+# stesso nome: sono pagine, non materiali.
 projects/
+!/web/src/app/projects/
 models/
 /.claude/memory/
 /.claude/sessions/

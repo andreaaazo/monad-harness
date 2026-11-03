@@ -61,6 +61,8 @@ def test_operations_have_names_that_do_not_depend_on_where_the_code_lives() -> N
     assert names == {
         "GET /api/projects": "listProjects",
         "GET /api/projects/{name}/report": "projectReport",
+        "GET /api/projects/{name}/flow": "projectFlow",
+        "GET /api/projects/{name}/behaviour": "projectBehaviour",
         "GET /api/provenance": "provenance",
     }
 

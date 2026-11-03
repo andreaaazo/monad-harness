@@ -30,7 +30,9 @@ from agency.contracts.layout import DataLayout  # noqa: E402
 from agency.contracts.ticket import TicketSpec, TicketType  # noqa: E402
 from agency.entrypoints.server import serve  # noqa: E402
 from agency.entrypoints.server.middleware import ReadOnly  # noqa: E402
+from agency.insights.behaviour import BehaviourReport  # noqa: E402
 from agency.insights.domain import Provenance  # noqa: E402
+from agency.insights.flow import FlowReport  # noqa: E402
 from agency.insights.views import ProjectReport, ProjectSummary  # noqa: E402
 from agency.ledger import Ledger  # noqa: E402
 from agency.ledger.models import UsageRow  # noqa: E402
@@ -99,8 +101,16 @@ def test_report_is_the_same_model_as_agency_report(client: Client) -> None:
     assert (report.project, report.calls, report.cost_usd) == ("officina", 2, 2.5)
 
 
-def test_an_unknown_project_is_not_found(client: Client) -> None:
-    response = client.get("/api/projects/fantasma/report")
+def test_flow_and_behaviour_are_the_views_of_insights(client: Client) -> None:
+    flow = FlowReport.model_validate(client.get("/api/projects/officina/flow").json())
+    assert (flow.outcome.delivery_id, flow.outcome.delivery_status) == ("T-0001", "open")
+    behaviour = BehaviourReport.model_validate(client.get("/api/projects/officina/behaviour").json())
+    assert [(role.role, role.calls) for role in behaviour.roles] == [("design-director", 2)]
+
+
+@pytest.mark.parametrize("view", ["report", "flow", "behaviour"])
+def test_an_unknown_project_is_not_found(client: Client, view: str) -> None:
+    response = client.get(f"/api/projects/fantasma/{view}")
     assert response.status_code == 404
     assert "fantasma" in response.json()["detail"]
 
@@ -147,7 +157,13 @@ def test_an_outdated_registry_is_explained_not_hidden(tmp_path: Path) -> None:
 # Cosa non fa
 
 
-ROUTES = ["/api/projects", "/api/projects/officina/report", "/api/provenance"]
+ROUTES = [
+    "/api/projects",
+    "/api/projects/officina/report",
+    "/api/projects/officina/flow",
+    "/api/projects/officina/behaviour",
+    "/api/provenance",
+]
 
 
 @pytest.mark.parametrize("method", ["post", "put", "patch", "delete", "head", "options"])

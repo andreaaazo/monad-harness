@@ -1,5 +1,5 @@
 import type { InstanceView, WaitView } from "../api";
-import { minutes, seconds, usd, when } from "../format";
+import { counted, minutes, seconds, usd, when } from "../format";
 import { between, workScale } from "../timescale";
 
 /**
@@ -68,7 +68,7 @@ function Instance({
       </span>
       <span className="facts">
         da {minutes(between(start, instance.started_at))} per {minutes(between(instance.started_at, instance.ended_at))},{" "}
-        {instance.calls} chiamate, {usd(instance.cost_usd)}, modello {seconds(instance.model_ms)}
+        {counted(instance.calls, "chiamata", "chiamate")}, {usd(instance.cost_usd)}, modello {seconds(instance.model_ms)}
       </span>
     </li>
   );

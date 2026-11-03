@@ -13,6 +13,7 @@ import pytest
 
 from agency import cli
 from agency.contracts import phase
+from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.insights import application
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.registry import ReadOnlyRegistry
@@ -20,8 +21,10 @@ from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.domain import (
     Call,
     ConceptRecord,
+    EventRecord,
     GateRecord,
     JudgmentRecord,
+    Lifecycle,
     Measures,
     PhaseSource,
     Projected,
@@ -36,7 +39,7 @@ from agency.insights.domain import (
 )
 from agency.insights.ports import RegistrySnapshot
 from agency.ledger import Ledger
-from agency.ledger.models import UsageRow
+from agency.ledger.models import EvidenceRow, UsageRow
 from agency.ledger.schema import head
 
 
@@ -255,6 +258,49 @@ def test_the_registry_reader_reads_and_cannot_write(tmp_path: Path) -> None:
     assert digest(path) == before
 
 
+def test_ticket_events_are_the_opening_and_every_transition_the_engine_knows() -> None:
+    """Le prove hanno la loro tabella: nella storia di un ticket contano l'apertura e le transizioni."""
+    assert {item.value for item in Lifecycle} == {"open"} | {action.value for action in Action}
+
+
+def test_the_registry_reader_reads_the_life_of_tickets_without_their_words(tmp_path: Path) -> None:
+    ledger = Ledger(tmp_path / "ledger.sqlite")
+    spec = TicketSpec(
+        title="Proposta X r1",
+        request="Il segno",
+        type=TicketType.PROPOSAL,
+        sender="design-director",
+        assignee="identity-designer",
+        outputs=["segno.svg"],
+        checks={"*.svg": ["svg_audit"]},
+        media=[Medium.VECTOR],
+        prompt="proposer",
+    )
+    ticket_id = ledger.open(spec, "merlo4")
+    ledger.apply(ticket_id, Action.DELIVER, "identity-designer", note="Le parole del designer")
+    ledger.add_evidence(
+        EvidenceRow(
+            at="2026-11-02T10:00:00+00:00",
+            project="merlo4",
+            file="segno.svg",
+            sha256="a" * 64,
+            check_name="svg_audit",
+            result="PASS",
+            signer="tool",
+            ticket_id=ticket_id,
+        )
+    )
+    ledger.engine.dispose()
+
+    events = ReadOnlyRegistry(tmp_path / "ledger.sqlite").read().events
+
+    assert [(event.project, event.ticket_id, event.actor, event.action) for event in events] == [
+        ("merlo4", ticket_id, "design-director", Lifecycle.OPEN),
+        ("merlo4", ticket_id, "identity-designer", Lifecycle.DELIVER),
+    ]
+    assert "note" not in EventRecord.model_fields
+
+
 def test_the_registry_reader_works_while_the_engine_is_writing(tmp_path: Path) -> None:
     path = tmp_path / "ledger.sqlite"
     ledger = filled_registry(path)
@@ -302,7 +348,7 @@ class FakeRegistry:
     def read(self) -> RegistrySnapshot:
         calls = [usage(), usage(seq=2, request_id="req_2", phase="director-plan", duration_ms=10)]
         return RegistrySnapshot(
-            usage=calls, tickets=TICKETS, projects=[], gates=[], concepts=[], judgments=[]
+            usage=calls, tickets=TICKETS, projects=[], gates=[], concepts=[], judgments=[], events=[]
         )
 
 
@@ -344,7 +390,7 @@ def call(seq: int, project: str = "merlo3") -> Call:
 
 
 def only(calls: list[Call]) -> Projected:
-    return Projected(calls=calls, projects=[], tickets=[], gates=[], concepts=[], judgments=[])
+    return Projected(calls=calls, projects=[], tickets=[], gates=[], concepts=[], judgments=[], events=[])
 
 
 def rebuilt(calls: int) -> Provenance:
@@ -380,6 +426,28 @@ def test_projection_reads_back_exactly_what_it_wrote_and_filters_by_project(tmp_
     assert [item.seq for item in projection.calls("merlo3")] == [1, 3]
 
 
+def event(seq: int, project: str, action: Lifecycle) -> EventRecord:
+    return EventRecord(
+        seq=seq,
+        at=f"2026-11-02T10:0{seq}:00+00:00",
+        project=project,
+        ticket_id="T-0002",
+        actor="x",
+        action=action,
+    )
+
+
+def test_projection_keeps_the_events_of_each_project(tmp_path: Path) -> None:
+    projection = SqliteProjection(tmp_path / "insights.sqlite")
+    events = [
+        event(1, "merlo3", Lifecycle.OPEN),
+        event(2, "merlo", Lifecycle.OPEN),
+        event(3, "merlo3", Lifecycle.BLOCK),
+    ]
+    projection.replace(only([]).model_copy(update={"events": events}), rebuilt(0))
+    assert projection.project("merlo3").events == [events[0], events[2]]
+
+
 def test_a_reader_never_sees_a_half_written_projection(tmp_path: Path) -> None:
     path = tmp_path / "insights.sqlite"
     projection = SqliteProjection(path)
@@ -407,11 +475,20 @@ def test_a_change_to_what_the_projection_stores_changes_its_schema_number() -> N
 
     Quando questo test fallisce: si alza SqliteProjection.SCHEMA e si aggiorna qui l'impronta.
     """
-    stored = (Call, ProjectRecord, TicketRecord, GateRecord, ConceptRecord, JudgmentRecord, Provenance)
+    stored = (
+        Call,
+        ProjectRecord,
+        TicketRecord,
+        GateRecord,
+        ConceptRecord,
+        JudgmentRecord,
+        EventRecord,
+        Provenance,
+    )
     shape = json.dumps([model.model_json_schema() for model in stored], sort_keys=True)
     assert (SqliteProjection.SCHEMA, hashlib.sha256(shape.encode()).hexdigest()[:16]) == (
-        3,
-        "09acddcb4981fe8a",
+        4,
+        "d86fbe70ceece7c2",
     )
 
 

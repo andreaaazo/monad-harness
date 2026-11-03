@@ -14,7 +14,9 @@ from agency.insights import application
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
+from agency.insights.behaviour import BehaviourReport
 from agency.insights.domain import Provenance
+from agency.insights.flow import FlowReport
 from agency.insights.views import ProjectReport, ProjectSummary
 
 # Niente pagina di documentazione: caricherebbe script da una CDN. Lo schema resta in /api/openapi.json.
@@ -58,6 +60,13 @@ def projects(request: HttpRequest) -> list[ProjectSummary]:
     return application.projects(_projection())
 
 
+def _unknown(projection: SqliteProjection, name: str) -> Status | None:
+    """Un progetto che il registro non conosce è un 404, non una vista vuota."""
+    if name in {summary.name for summary in application.projects(projection)}:
+        return None
+    return Status(404, Problem(detail=f"progetto sconosciuto: {name}"))
+
+
 @api.get(
     "/projects/{name}/report",
     response={200: ProjectReport, 404: Problem, 503: Problem},
@@ -65,6 +74,27 @@ def projects(request: HttpRequest) -> list[ProjectSummary]:
 )
 def report(request: HttpRequest, name: str) -> Status:
     projection = _projection()
-    if name not in {summary.name for summary in application.projects(projection)}:
-        return Status(404, Problem(detail=f"progetto sconosciuto: {name}"))
-    return Status(200, application.report(projection, name))
+    unknown = _unknown(projection, name)
+    return unknown if unknown is not None else Status(200, application.report(projection, name))
+
+
+@api.get(
+    "/projects/{name}/flow",
+    response={200: FlowReport, 404: Problem, 503: Problem},
+    operation_id="projectFlow",
+)
+def flow(request: HttpRequest, name: str) -> Status:
+    projection = _projection()
+    unknown = _unknown(projection, name)
+    return unknown if unknown is not None else Status(200, application.flow(projection, name))
+
+
+@api.get(
+    "/projects/{name}/behaviour",
+    response={200: BehaviourReport, 404: Problem, 503: Problem},
+    operation_id="projectBehaviour",
+)
+def behaviour(request: HttpRequest, name: str) -> Status:
+    projection = _projection()
+    unknown = _unknown(projection, name)
+    return unknown if unknown is not None else Status(200, application.behaviour(projection, name))

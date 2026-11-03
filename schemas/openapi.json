@@ -1,6 +1,86 @@
 {
   "components": {
     "schemas": {
+      "BehaviourReport": {
+        "additionalProperties": false,
+        "properties": {
+          "instances": {
+            "items": {
+              "$ref": "#/components/schemas/InstanceTurns"
+            },
+            "title": "Instances",
+            "type": "array"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleBehaviour"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "stop_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/StopCount"
+            },
+            "title": "Stop Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project",
+          "stop_reasons",
+          "roles",
+          "instances"
+        ],
+        "title": "BehaviourReport",
+        "type": "object"
+      },
+      "FlowReport": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/Outcome"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/PhaseFlow"
+            },
+            "title": "Phases",
+            "type": "array"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "setbacks": {
+            "items": {
+              "$ref": "#/components/schemas/Setback"
+            },
+            "title": "Setbacks",
+            "type": "array"
+          },
+          "tickets": {
+            "items": {
+              "$ref": "#/components/schemas/TicketFlow"
+            },
+            "title": "Tickets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project",
+          "outcome",
+          "phases",
+          "setbacks",
+          "tickets"
+        ],
+        "title": "FlowReport",
+        "type": "object"
+      },
       "IdeaView": {
         "additionalProperties": false,
         "properties": {
@@ -33,6 +113,48 @@
           "concept"
         ],
         "title": "IdeaView",
+        "type": "object"
+      },
+      "InstanceTurns": {
+        "additionalProperties": false,
+        "properties": {
+          "cache_hit": {
+            "title": "Cache Hit",
+            "type": "number"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "peak_context": {
+            "title": "Peak Context",
+            "type": "integer"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/Turn"
+            },
+            "title": "Turns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instance",
+          "role",
+          "phase",
+          "peak_context",
+          "cache_hit",
+          "turns"
+        ],
+        "title": "InstanceTurns",
         "type": "object"
       },
       "InstanceView": {
@@ -161,6 +283,20 @@
         "title": "JudgmentView",
         "type": "object"
       },
+      "Lifecycle": {
+        "description": "Ciò che il registro scrive nella storia di un ticket, tranne le prove: l'apertura e le transizioni di\n`Action`. Un test le tiene allineate.",
+        "enum": [
+          "open",
+          "deliver",
+          "accept",
+          "rework",
+          "block",
+          "resume",
+          "cancel"
+        ],
+        "title": "Lifecycle",
+        "type": "string"
+      },
       "Milestone": {
         "additionalProperties": false,
         "description": "Fino al gate `concept` approvato: quanto è costato e quanto è durato arrivarci.",
@@ -184,6 +320,162 @@
           "minutes"
         ],
         "title": "Milestone",
+        "type": "object"
+      },
+      "Outcome": {
+        "additionalProperties": false,
+        "description": "Dove si è fermato il progetto: la consegna al cliente, ciò che resta da finire, l'ultimo passo.",
+        "properties": {
+          "delivery_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Id"
+          },
+          "delivery_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Status"
+          },
+          "last_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Lifecycle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last At"
+          },
+          "last_ticket_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ticket Id"
+          },
+          "unfinished": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unfinished",
+            "type": "array"
+          }
+        },
+        "required": [
+          "delivery_id",
+          "delivery_status",
+          "unfinished",
+          "last_at",
+          "last_action",
+          "last_ticket_id"
+        ],
+        "title": "Outcome",
+        "type": "object"
+      },
+      "PhaseFlow": {
+        "additionalProperties": false,
+        "description": "Una fase: quanto è costata e quanto lavoro è tornato indietro. `started_at` è la prima chiamata.",
+        "properties": {
+          "blocked": {
+            "title": "Blocked",
+            "type": "integer"
+          },
+          "blocked_usd": {
+            "title": "Blocked Usd",
+            "type": "number"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "deliveries": {
+            "title": "Deliveries",
+            "type": "integer"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "redone_usd": {
+            "title": "Redone Usd",
+            "type": "number"
+          },
+          "reworks": {
+            "title": "Reworks",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "tickets": {
+            "title": "Tickets",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "phase",
+          "started_at",
+          "ended_at",
+          "calls",
+          "cost_usd",
+          "tickets",
+          "deliveries",
+          "reworks",
+          "blocked",
+          "redone_usd",
+          "blocked_usd"
+        ],
+        "title": "PhaseFlow",
         "type": "object"
       },
       "PhaseView": {
@@ -556,6 +848,106 @@
         "title": "Provenance",
         "type": "object"
       },
+      "RoleBehaviour": {
+        "additionalProperties": false,
+        "description": "Un ruolo: quanto contesto ha letto, quanto ne veniva dalla cache, quanto ha pensato e aspettato.",
+        "properties": {
+          "cache_hit": {
+            "title": "Cache Hit",
+            "type": "number"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "efforts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Efforts",
+            "type": "array"
+          },
+          "instances": {
+            "title": "Instances",
+            "type": "integer"
+          },
+          "max_context": {
+            "title": "Max Context",
+            "type": "integer"
+          },
+          "mean_context": {
+            "title": "Mean Context",
+            "type": "number"
+          },
+          "mean_duration_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Duration Ms"
+          },
+          "measured": {
+            "title": "Measured",
+            "type": "integer"
+          },
+          "median_ttft_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Ttft Ms"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "reasoning_tokens": {
+            "title": "Reasoning Tokens",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "stop_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/StopCount"
+            },
+            "title": "Stop Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "calls",
+          "instances",
+          "cost_usd",
+          "mean_context",
+          "max_context",
+          "cache_hit",
+          "output_tokens",
+          "measured",
+          "reasoning_tokens",
+          "mean_duration_ms",
+          "median_ttft_ms",
+          "efforts",
+          "stop_reasons"
+        ],
+        "title": "RoleBehaviour",
+        "type": "object"
+      },
       "RoleView": {
         "additionalProperties": false,
         "properties": {
@@ -588,6 +980,50 @@
           "output_tokens"
         ],
         "title": "RoleView",
+        "type": "object"
+      },
+      "Setback": {
+        "additionalProperties": false,
+        "description": "Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne.",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/Lifecycle"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "after_deliveries": {
+            "title": "After Deliveries",
+            "type": "integer"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "ticket_id": {
+            "title": "Ticket Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "action",
+          "actor",
+          "ticket_id",
+          "title",
+          "phase",
+          "after_deliveries"
+        ],
+        "title": "Setback",
         "type": "object"
       },
       "SourceStamp": {
@@ -627,6 +1063,145 @@
           "modified_ns"
         ],
         "title": "SourceStamp",
+        "type": "object"
+      },
+      "Step": {
+        "additionalProperties": false,
+        "description": "Un passo nella storia di un ticket. `setback`: un rimando, un blocco o un annullamento.",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/Lifecycle"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "setback": {
+            "title": "Setback",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "at",
+          "action",
+          "actor",
+          "setback"
+        ],
+        "title": "Step",
+        "type": "object"
+      },
+      "StopCount": {
+        "additionalProperties": false,
+        "description": "Perché il modello ha smesso di scrivere, e quante volte. `complete`: la risposta è arrivata intera.",
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "calls",
+          "complete"
+        ],
+        "title": "StopCount",
+        "type": "object"
+      },
+      "TicketFlow": {
+        "additionalProperties": false,
+        "description": "Un ticket dall'apertura all'ultimo passo. `redone_usd`: ciò che è costato dopo il primo rimando.",
+        "properties": {
+          "assignee": {
+            "title": "Assignee",
+            "type": "string"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "deliveries": {
+            "title": "Deliveries",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "redone_usd": {
+            "title": "Redone Usd",
+            "type": "number"
+          },
+          "reworks": {
+            "title": "Reworks",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/Step"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "type",
+          "assignee",
+          "phase",
+          "status",
+          "verdict",
+          "calls",
+          "cost_usd",
+          "redone_usd",
+          "deliveries",
+          "reworks",
+          "steps"
+        ],
+        "title": "TicketFlow",
         "type": "object"
       },
       "TicketView": {
@@ -673,6 +1248,82 @@
           "cost_usd"
         ],
         "title": "TicketView",
+        "type": "object"
+      },
+      "Turn": {
+        "additionalProperties": false,
+        "description": "Una chiamata di un'istanza. Durata, TTFT e ragionamento sono vuoti se non è misurata.",
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "cache_read_tokens": {
+            "title": "Cache Read Tokens",
+            "type": "integer"
+          },
+          "context": {
+            "title": "Context",
+            "type": "integer"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "reasoning_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Tokens"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "stop_reason": {
+            "title": "Stop Reason",
+            "type": "string"
+          },
+          "ttft_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttft Ms"
+          }
+        },
+        "required": [
+          "seq",
+          "at",
+          "context",
+          "cache_read_tokens",
+          "output_tokens",
+          "reasoning_tokens",
+          "duration_ms",
+          "ttft_ms",
+          "stop_reason"
+        ],
+        "title": "Turn",
         "type": "object"
       },
       "TypeCost": {
@@ -764,6 +1415,104 @@
           }
         },
         "summary": "Projects"
+      }
+    },
+    "/api/projects/{name}/behaviour": {
+      "get": {
+        "operationId": "projectBehaviour",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BehaviourReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Behaviour"
+      }
+    },
+    "/api/projects/{name}/flow": {
+      "get": {
+        "operationId": "projectFlow",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlowReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Flow"
       }
     },
     "/api/projects/{name}/report": {

@@ -131,6 +131,32 @@ class JudgmentRecord(BaseModel):
     compared: int
 
 
+class Lifecycle(StrEnum):
+    """Ciò che il registro scrive nella storia di un ticket, tranne le prove: l'apertura e le transizioni di
+    `Action`. Un test le tiene allineate."""
+
+    OPEN = "open"
+    DELIVER = "deliver"
+    ACCEPT = "accept"
+    REWORK = "rework"
+    BLOCK = "block"
+    RESUME = "resume"
+    CANCEL = "cancel"
+
+
+class EventRecord(BaseModel):
+    """Un passo nella storia di un ticket: chi, cosa e quando. La nota resta nel registro."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    seq: int
+    at: str
+    project: str
+    ticket_id: str
+    actor: str
+    action: Lifecycle
+
+
 class TraceMeasure(BaseModel):
     """Le misure che l'SDK scrive nella traccia di una richiesta."""
 
@@ -246,6 +272,7 @@ class Projected(BaseModel):
     gates: list[GateRecord]
     concepts: list[ConceptRecord]
     judgments: list[JudgmentRecord]
+    events: list[EventRecord]
 
 
 class SourceStamp(BaseModel):

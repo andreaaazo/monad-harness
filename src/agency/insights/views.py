@@ -6,13 +6,12 @@ la proiezione può cambiare senza cambiare loro. Il calcolo è puro: dagli stess
 
 from __future__ import annotations
 
-import statistics
-from collections.abc import Callable, Iterable
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from agency.insights.domain import Call, Measures, ProjectRecord, Provenance
+from agency.insights import sums
+from agency.insights.domain import Call, ProjectRecord, Provenance
 from agency.insights.ports import ProjectData
 
 
@@ -144,27 +143,9 @@ class ProjectReport(_View):
     provenance: Provenance
 
 
-def _context(call: Call) -> int:
-    return (
-        call.input_tokens + call.cache_read_tokens + call.cache_write_5m_tokens + call.cache_write_1h_tokens
-    )
-
-
-def _groups(calls: Iterable[Call], key: Callable[[Call], str]) -> dict[str, list[Call]]:
-    """Le chiamate per chiave, nell'ordine in cui la chiave compare la prima volta."""
-    groups: dict[str, list[Call]] = {}
-    for call in calls:
-        groups.setdefault(key(call), []).append(call)
-    return groups
-
-
-def _cost(calls: Iterable[Call]) -> float:
-    return sum(call.cost_usd for call in calls)
-
-
 def _peak(calls: list[Call]) -> int:
     """Quante istanze hanno lavorato insieme nel momento di massimo: a pari istante, prima chi entra."""
-    groups = _groups(calls, lambda call: call.instance).values()
+    groups = sums.groups(calls, lambda call: call.instance).values()
     spans = [(min(call.at for call in group), max(call.at for call in group)) for group in groups]
     moments = sorted((at, step) for start, end in spans for at, step in ((start, 0), (end, 1)))
     active = peak = 0
@@ -175,24 +156,19 @@ def _peak(calls: list[Call]) -> int:
 
 
 def _phase(name: str, calls: list[Call]) -> PhaseView:
-    measured = [call for call in calls if call.measures is not Measures.MISSING]
-    durations = [call.duration_ms for call in measured if call.duration_ms is not None]
-    ttft = [call.ttft_ms for call in measured if call.ttft_ms is not None]
     return PhaseView(
         phase=name,
         calls=len(calls),
-        cost_usd=_cost(calls),
-        measured=len(measured),
-        mean_duration_ms=statistics.fmean(durations) if durations else None,
-        median_ttft_ms=statistics.median_low(ttft) if ttft else None,
-        reasoning_tokens=sum(call.reasoning_tokens or 0 for call in measured),
+        cost_usd=sums.cost(calls),
+        measured=len(sums.measured(calls)),
+        mean_duration_ms=sums.mean_duration_ms(calls),
+        median_ttft_ms=sums.median_ttft_ms(calls),
+        reasoning_tokens=sums.reasoning_tokens(calls),
     )
 
 
 def _instance(name: str, calls: list[Call]) -> InstanceView:
     first = calls[0]
-    measured = [call for call in calls if call.measures is not Measures.MISSING]
-    durations = [call.duration_ms for call in measured if call.duration_ms is not None]
     return InstanceView(
         instance=name,
         ticket_id=first.ticket_id,
@@ -201,13 +177,9 @@ def _instance(name: str, calls: list[Call]) -> InstanceView:
         started_at=min(call.at for call in calls),
         ended_at=max(call.at for call in calls),
         calls=len(calls),
-        cost_usd=_cost(calls),
-        model_ms=sum(durations) if durations else None,
+        cost_usd=sums.cost(calls),
+        model_ms=sums.model_ms(calls),
     )
-
-
-def _minutes(start: str, end: str) -> float:
-    return (datetime.fromisoformat(end) - datetime.fromisoformat(start)).total_seconds() / 60
 
 
 def _milestone(data: ProjectData) -> Milestone | None:
@@ -216,7 +188,7 @@ def _milestone(data: ProjectData) -> Milestone | None:
     if not before:
         return None
     return Milestone(
-        cost_usd=_cost(before), calls=len(before), minutes=_minutes(data.calls[0].at, before[-1].at)
+        cost_usd=sums.cost(before), calls=len(before), minutes=sums.minutes(data.calls[0].at, before[-1].at)
     )
 
 
@@ -244,27 +216,27 @@ def project_report(name: str, data: ProjectData, provenance: Provenance) -> Proj
     calls = data.calls
     started_at = min((call.at for call in calls), default=None)
     ended_at = max((call.at for call in calls), default=None)
-    elapsed = _minutes(started_at, ended_at) if started_at is not None and ended_at is not None else 0.0
+    elapsed = sums.minutes(started_at, ended_at) if started_at is not None and ended_at is not None else 0.0
     waits = _waits(data)
-    context = sum(_context(call) for call in calls)
+    context = sum(sums.context(call) for call in calls)
     roles = [
         RoleView(
             role=role,
             calls=len(group),
-            cost_usd=_cost(group),
-            mean_context=sum(_context(call) for call in group) / len(group),
+            cost_usd=sums.cost(group),
+            mean_context=sum(sums.context(call) for call in group) / len(group),
             output_tokens=sum(call.output_tokens for call in group),
         )
-        for role, group in _groups(calls, lambda call: call.role).items()
+        for role, group in sums.groups(calls, lambda call: call.role).items()
     ]
-    phases = [_phase(phase, group) for phase, group in _groups(calls, lambda call: call.phase).items()]
-    by_ticket = _groups(calls, lambda call: call.ticket_id)
+    phases = [_phase(phase, group) for phase, group in sums.groups(calls, lambda call: call.phase).items()]
+    by_ticket = sums.groups(calls, lambda call: call.ticket_id)
     return ProjectReport(
         project=name,
         budget_usd=data.project.budget_usd if data.project else None,
         model=data.project.model if data.project else "",
         effort=data.project.effort if data.project else "",
-        cost_usd=_cost(calls),
+        cost_usd=sums.cost(calls),
         calls=len(calls),
         started_at=started_at,
         ended_at=ended_at,
@@ -275,14 +247,17 @@ def project_report(name: str, data: ProjectData, provenance: Provenance) -> Proj
         mean_context=context / len(calls) if calls else 0.0,
         parallel=_peak(calls),
         instances=sorted(
-            (_instance(name, group) for name, group in _groups(calls, lambda call: call.instance).items()),
+            (
+                _instance(name, group)
+                for name, group in sums.groups(calls, lambda call: call.instance).items()
+            ),
             key=lambda item: (item.started_at, item.instance),
         ),
         roles=sorted(roles, key=lambda role: (-role.cost_usd, role.role)),
         phases=sorted(phases, key=lambda phase: (-phase.cost_usd, phase.phase)),
         ticket_types=[
-            TypeCost(ticket_type=kind, cost_usd=_cost(group))
-            for kind, group in _groups(calls, lambda call: call.ticket_type).items()
+            TypeCost(ticket_type=kind, cost_usd=sums.cost(group))
+            for kind, group in sums.groups(calls, lambda call: call.ticket_type).items()
         ],
         to_presentation=_milestone(data),
         ideas=[
@@ -314,7 +289,7 @@ def project_report(name: str, data: ProjectData, provenance: Provenance) -> Proj
                 verdict=ticket.verdict,
                 assignee=ticket.assignee,
                 title=ticket.title,
-                cost_usd=_cost(by_ticket.get(ticket.id, [])),
+                cost_usd=sums.cost(by_ticket.get(ticket.id, [])),
             )
             for ticket in data.tickets
         ],
@@ -325,13 +300,13 @@ def project_report(name: str, data: ProjectData, provenance: Provenance) -> Proj
 def project_summaries(projects: list[ProjectRecord], calls: list[Call]) -> list[ProjectSummary]:
     """Ogni progetto che il registro conosce, per nome: anche senza chiamate o senza scelte del cliente."""
     budgets = {project.name: project.budget_usd for project in projects}
-    by_project = _groups(calls, lambda call: call.project)
+    by_project = sums.groups(calls, lambda call: call.project)
     names = sorted(budgets.keys() | by_project.keys())
     return [
         ProjectSummary(
             name=name,
             budget_usd=budgets.get(name),
-            cost_usd=_cost(by_project.get(name, [])),
+            cost_usd=sums.cost(by_project.get(name, [])),
             calls=len(by_project.get(name, [])),
             first_at=min((call.at for call in by_project.get(name, [])), default=None),
             last_at=max((call.at for call in by_project.get(name, [])), default=None),

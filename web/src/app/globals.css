@@ -6,7 +6,9 @@
   --paper: #ffffff;
   --panel: #f6f7f9;
   --accent: #2f5fd0;
-  --bar: #6c8fe0;
+  /* Il colore dei dati: series-1 della palette di riferimento, almeno 3:1 su carta e pannello (validato). */
+  --series: #2a78d6;
+  --back: #b3261e;
   color-scheme: light dark;
 }
 
@@ -18,7 +20,8 @@
     --paper: #141518;
     --panel: #1c1e22;
     --accent: #8fb0ff;
-    --bar: #5577cc;
+    --series: #3987e5;
+    --back: #ff8a80;
   }
 }
 
@@ -96,6 +99,7 @@ thead th {
 .number {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .aside,
@@ -163,7 +167,7 @@ thead th {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: var(--bar);
+  background: var(--series);
   border-radius: 4px;
 }
 
@@ -207,10 +211,231 @@ thead th {
     grid-column: 1;
   }
 
+  .setbacks li {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
   th,
   td {
     padding: 6px 4px;
   }
+}
+
+/* L'intestazione di un progetto: il nome e le sue viste. */
+.project h1 {
+  margin-bottom: 8px;
+}
+
+.project ul {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.project a {
+  display: block;
+  padding: 6px 12px;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.project a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+/* Una tabella larga scorre dentro il suo riquadro, mai la pagina. */
+.scroll {
+  overflow-x: auto;
+}
+
+.scroll:focus-visible,
+.chart svg:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Un passo indietro si legge anche senza colore: è scritto, e il colore lo sottolinea. */
+.back {
+  color: var(--back);
+  font-weight: 600;
+}
+
+.outcome dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.outcome dl > div {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.outcome dt {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.outcome dd {
+  margin: 4px 0 0;
+}
+
+.outcome dd ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.setbacks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.setbacks li {
+  display: grid;
+  grid-template-columns: 170px 1fr auto;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.setbacks .when {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.path li + li::before {
+  content: "→ ";
+  color: var(--muted);
+}
+
+.stops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.stops .cut strong,
+.stops .cut code {
+  color: var(--back);
+}
+
+/* Piccoli multipli: un'istanza per riquadro, la stessa scala per tutti. */
+.multiples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.multiples > li {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.multiples h3 {
+  font-size: 14px;
+  font-weight: 400;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.multiples p {
+  font-size: 13px;
+  margin: 2px 0 8px;
+}
+
+.multiples details {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.chart {
+  position: relative;
+}
+
+.chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+}
+
+.chart .baseline,
+.chart .crosshair {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.chart .trace {
+  fill: none;
+  stroke: var(--series);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart .wash {
+  fill: var(--series);
+  fill-opacity: 0.1;
+}
+
+/* Il punto ha un anello del colore del riquadro, così resta leggibile dove incrocia la linea. */
+.chart .dot {
+  fill: var(--series);
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+
+.chart .tip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%);
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.chart .tip.left {
+  transform: translateX(-100%);
+}
+
+.chart .tip strong {
+  color: var(--ink);
+  font-size: 14px;
 }
 
 .notice {

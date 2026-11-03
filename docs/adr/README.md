@@ -39,3 +39,4 @@ vecchio. Date: 2026-10-31.
 | [0032](0032-schemi-e-tipi-generati.md) | Schemi e tipi generati | Accettata, `npx` sostituito da mise in 0034 |
 | [0033](0033-il-cruscotto-next-js.md) | Il cruscotto Next.js | Accettata, aggiunge due difese a 0024 |
 | [0034](0034-mise-per-gli-strumenti-locali.md) | mise per gli strumenti locali | Accettata, rovescia `npx` di 0032 |
+| [0035](0035-le-viste-fasi-e-modello.md) | Le viste Fasi e Modello | Accettata |

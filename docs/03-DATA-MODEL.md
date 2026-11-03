@@ -58,8 +58,9 @@ una migrazione Alembic, provata su una copia del registro vero: dopo deve passar
 aggiorna mai aprendolo: si esegue `agency migrate`, che fa una copia e lavora in una sola transazione (ADR-0025). Le righe storiche
 non si riscrivono, e le colonne nuove restano vuote su quelle vecchie. I dati delle chiamate vecchie arrivano nella proiezione di
 `insights`, collegando `usage` alle tracce con `request_id`: `agency insights` la rigenera, e ogni chiamata dice da dove vengono le
-sue misure e se la sua fase è registrata o ricavata (ADR-0029). La proiezione contiene anche progetti, ticket, gate, idee e
-giudizi: è tutto ciò che legge `agency report`, che passa da lì come il cruscotto (ADR-0030).
+sue misure e se la sua fase è registrata o ricavata (ADR-0029). La proiezione contiene anche progetti, ticket, gate, idee,
+giudizi e la storia dei ticket, senza le note (ADR-0035): è tutto ciò che legge `agency report`, che passa da lì come il
+cruscotto (ADR-0030).
 
 Django non possiede il registro (ADR-0020). Quando nasceranno utenti e organizzazioni avrà un database proprio, con le sue
 migrazioni. `checkpoints.sqlite` lo gestisce LangGraph.

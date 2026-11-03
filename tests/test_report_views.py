@@ -95,6 +95,7 @@ def data(calls: list[Call], **extra: object) -> ProjectData:
         "gates": [],
         "concepts": [],
         "judgments": [],
+        "events": [],
     }
     return ProjectData.model_validate(base | extra)
 
@@ -318,7 +319,7 @@ def test_a_run_without_decisions_is_all_work() -> None:
 
 
 def test_a_project_without_calls_has_a_report_of_zeros() -> None:
-    empty = ProjectData(project=None, calls=[], tickets=[], gates=[], concepts=[], judgments=[])
+    empty = ProjectData(project=None, calls=[], tickets=[], gates=[], concepts=[], judgments=[], events=[])
     report = views.project_report("fantasma", empty, PROVENANCE)
     assert (report.cost_usd, report.calls, report.cache_hit, report.mean_context, report.parallel) == (
         0.0,

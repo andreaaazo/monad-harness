@@ -21,6 +21,40 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/projects/{name}/behaviour": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Behaviour */
+        readonly get: operations["projectBehaviour"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/projects/{name}/flow": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Flow */
+        readonly get: operations["projectFlow"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/projects/{name}/report": {
         readonly parameters: {
             readonly query?: never;
@@ -59,6 +93,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** BehaviourReport */
+        readonly BehaviourReport: {
+            /** Instances */
+            readonly instances: readonly components["schemas"]["InstanceTurns"][];
+            /** Project */
+            readonly project: string;
+            /** Roles */
+            readonly roles: readonly components["schemas"]["RoleBehaviour"][];
+            /** Stop Reasons */
+            readonly stop_reasons: readonly components["schemas"]["StopCount"][];
+        };
+        /** FlowReport */
+        readonly FlowReport: {
+            readonly outcome: components["schemas"]["Outcome"];
+            /** Phases */
+            readonly phases: readonly components["schemas"]["PhaseFlow"][];
+            /** Project */
+            readonly project: string;
+            /** Setbacks */
+            readonly setbacks: readonly components["schemas"]["Setback"][];
+            /** Tickets */
+            readonly tickets: readonly components["schemas"]["TicketFlow"][];
+        };
         /** IdeaView */
         readonly IdeaView: {
             /** Anon */
@@ -71,6 +128,21 @@ export interface components {
             readonly round: number;
             /** Status */
             readonly status: string;
+        };
+        /** InstanceTurns */
+        readonly InstanceTurns: {
+            /** Cache Hit */
+            readonly cache_hit: number;
+            /** Instance */
+            readonly instance: string;
+            /** Peak Context */
+            readonly peak_context: number;
+            /** Phase */
+            readonly phase: string;
+            /** Role */
+            readonly role: string;
+            /** Turns */
+            readonly turns: readonly components["schemas"]["Turn"][];
         };
         /**
          * InstanceView
@@ -122,6 +194,13 @@ export interface components {
             readonly why: string;
         };
         /**
+         * Lifecycle
+         * @description Ciò che il registro scrive nella storia di un ticket, tranne le prove: l'apertura e le transizioni di
+         *     `Action`. Un test le tiene allineate.
+         * @enum {string}
+         */
+        readonly Lifecycle: "open" | "deliver" | "accept" | "rework" | "block" | "resume" | "cancel";
+        /**
          * Milestone
          * @description Fino al gate `concept` approvato: quanto è costato e quanto è durato arrivarci.
          */
@@ -132,6 +211,51 @@ export interface components {
             readonly cost_usd: number;
             /** Minutes */
             readonly minutes: number;
+        };
+        /**
+         * Outcome
+         * @description Dove si è fermato il progetto: la consegna al cliente, ciò che resta da finire, l'ultimo passo.
+         */
+        readonly Outcome: {
+            /** Delivery Id */
+            readonly delivery_id: string | null;
+            /** Delivery Status */
+            readonly delivery_status: string | null;
+            readonly last_action: components["schemas"]["Lifecycle"] | null;
+            /** Last At */
+            readonly last_at: string | null;
+            /** Last Ticket Id */
+            readonly last_ticket_id: string | null;
+            /** Unfinished */
+            readonly unfinished: readonly string[];
+        };
+        /**
+         * PhaseFlow
+         * @description Una fase: quanto è costata e quanto lavoro è tornato indietro. `started_at` è la prima chiamata.
+         */
+        readonly PhaseFlow: {
+            /** Blocked */
+            readonly blocked: number;
+            /** Blocked Usd */
+            readonly blocked_usd: number;
+            /** Calls */
+            readonly calls: number;
+            /** Cost Usd */
+            readonly cost_usd: number;
+            /** Deliveries */
+            readonly deliveries: number;
+            /** Ended At */
+            readonly ended_at: string | null;
+            /** Phase */
+            readonly phase: string;
+            /** Redone Usd */
+            readonly redone_usd: number;
+            /** Reworks */
+            readonly reworks: number;
+            /** Started At */
+            readonly started_at: string | null;
+            /** Tickets */
+            readonly tickets: number;
         };
         /**
          * PhaseView
@@ -249,6 +373,40 @@ export interface components {
             /** Unreadable Trace Lines */
             readonly unreadable_trace_lines: number;
         };
+        /**
+         * RoleBehaviour
+         * @description Un ruolo: quanto contesto ha letto, quanto ne veniva dalla cache, quanto ha pensato e aspettato.
+         */
+        readonly RoleBehaviour: {
+            /** Cache Hit */
+            readonly cache_hit: number;
+            /** Calls */
+            readonly calls: number;
+            /** Cost Usd */
+            readonly cost_usd: number;
+            /** Efforts */
+            readonly efforts: readonly string[];
+            /** Instances */
+            readonly instances: number;
+            /** Max Context */
+            readonly max_context: number;
+            /** Mean Context */
+            readonly mean_context: number;
+            /** Mean Duration Ms */
+            readonly mean_duration_ms: number | null;
+            /** Measured */
+            readonly measured: number;
+            /** Median Ttft Ms */
+            readonly median_ttft_ms: number | null;
+            /** Output Tokens */
+            readonly output_tokens: number;
+            /** Reasoning Tokens */
+            readonly reasoning_tokens: number;
+            /** Role */
+            readonly role: string;
+            /** Stop Reasons */
+            readonly stop_reasons: readonly components["schemas"]["StopCount"][];
+        };
         /** RoleView */
         readonly RoleView: {
             /** Calls */
@@ -263,6 +421,25 @@ export interface components {
             readonly role: string;
         };
         /**
+         * Setback
+         * @description Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne.
+         */
+        readonly Setback: {
+            readonly action: components["schemas"]["Lifecycle"];
+            /** Actor */
+            readonly actor: string;
+            /** After Deliveries */
+            readonly after_deliveries: number;
+            /** At */
+            readonly at: string;
+            /** Phase */
+            readonly phase: string;
+            /** Ticket Id */
+            readonly ticket_id: string;
+            /** Title */
+            readonly title: string;
+        };
+        /**
          * SourceStamp
          * @description Un file da cui nasce la proiezione, com'era quando è stato letto. Se manca, la dimensione è vuota.
          */
@@ -273,6 +450,63 @@ export interface components {
             readonly name: string;
             /** Size */
             readonly size: number | null;
+        };
+        /**
+         * Step
+         * @description Un passo nella storia di un ticket. `setback`: un rimando, un blocco o un annullamento.
+         */
+        readonly Step: {
+            readonly action: components["schemas"]["Lifecycle"];
+            /** Actor */
+            readonly actor: string;
+            /** At */
+            readonly at: string;
+            /** Setback */
+            readonly setback: boolean;
+        };
+        /**
+         * StopCount
+         * @description Perché il modello ha smesso di scrivere, e quante volte. `complete`: la risposta è arrivata intera.
+         */
+        readonly StopCount: {
+            /** Calls */
+            readonly calls: number;
+            /** Complete */
+            readonly complete: boolean;
+            /** Reason */
+            readonly reason: string;
+        };
+        /**
+         * TicketFlow
+         * @description Un ticket dall'apertura all'ultimo passo. `redone_usd`: ciò che è costato dopo il primo rimando.
+         */
+        readonly TicketFlow: {
+            /** Assignee */
+            readonly assignee: string;
+            /** Calls */
+            readonly calls: number;
+            /** Cost Usd */
+            readonly cost_usd: number;
+            /** Deliveries */
+            readonly deliveries: number;
+            /** Id */
+            readonly id: string;
+            /** Phase */
+            readonly phase: string;
+            /** Redone Usd */
+            readonly redone_usd: number;
+            /** Reworks */
+            readonly reworks: number;
+            /** Status */
+            readonly status: string;
+            /** Steps */
+            readonly steps: readonly components["schemas"]["Step"][];
+            /** Title */
+            readonly title: string;
+            /** Type */
+            readonly type: string;
+            /** Verdict */
+            readonly verdict: string | null;
         };
         /** TicketView */
         readonly TicketView: {
@@ -288,6 +522,30 @@ export interface components {
             readonly title: string;
             /** Verdict */
             readonly verdict: string | null;
+        };
+        /**
+         * Turn
+         * @description Una chiamata di un'istanza. Durata, TTFT e ragionamento sono vuoti se non è misurata.
+         */
+        readonly Turn: {
+            /** At */
+            readonly at: string;
+            /** Cache Read Tokens */
+            readonly cache_read_tokens: number;
+            /** Context */
+            readonly context: number;
+            /** Duration Ms */
+            readonly duration_ms: number | null;
+            /** Output Tokens */
+            readonly output_tokens: number;
+            /** Reasoning Tokens */
+            readonly reasoning_tokens: number | null;
+            /** Seq */
+            readonly seq: number;
+            /** Stop Reason */
+            readonly stop_reason: string;
+            /** Ttft Ms */
+            readonly ttft_ms: number | null;
         };
         /** TypeCost */
         readonly TypeCost: {
@@ -317,18 +575,30 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type BehaviourReport = components['schemas']['BehaviourReport'];
+export type FlowReport = components['schemas']['FlowReport'];
 export type IdeaView = components['schemas']['IdeaView'];
+export type InstanceTurns = components['schemas']['InstanceTurns'];
 export type InstanceView = components['schemas']['InstanceView'];
 export type JudgmentView = components['schemas']['JudgmentView'];
+export type Lifecycle = components['schemas']['Lifecycle'];
 export type Milestone = components['schemas']['Milestone'];
+export type Outcome = components['schemas']['Outcome'];
+export type PhaseFlow = components['schemas']['PhaseFlow'];
 export type PhaseView = components['schemas']['PhaseView'];
 export type Problem = components['schemas']['Problem'];
 export type ProjectReport = components['schemas']['ProjectReport'];
 export type ProjectSummary = components['schemas']['ProjectSummary'];
 export type Provenance = components['schemas']['Provenance'];
+export type RoleBehaviour = components['schemas']['RoleBehaviour'];
 export type RoleView = components['schemas']['RoleView'];
+export type Setback = components['schemas']['Setback'];
 export type SourceStamp = components['schemas']['SourceStamp'];
+export type Step = components['schemas']['Step'];
+export type StopCount = components['schemas']['StopCount'];
+export type TicketFlow = components['schemas']['TicketFlow'];
 export type TicketView = components['schemas']['TicketView'];
+export type Turn = components['schemas']['Turn'];
 export type TypeCost = components['schemas']['TypeCost'];
 export type WaitView = components['schemas']['WaitView'];
 export type $defs = Record<string, never>;
@@ -349,6 +619,86 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": readonly components["schemas"]["ProjectSummary"][];
+                };
+            };
+            /** @description Service Unavailable */
+            readonly 503: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    readonly projectBehaviour: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly name: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description OK */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["BehaviourReport"];
+                };
+            };
+            /** @description Not Found */
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            readonly 503: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    readonly projectFlow: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly name: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description OK */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["FlowReport"];
+                };
+            };
+            /** @description Not Found */
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Problem"];
                 };
             };
             /** @description Service Unavailable */

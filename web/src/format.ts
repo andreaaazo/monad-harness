@@ -8,6 +8,9 @@ const moment = new Intl.DateTimeFormat("it-IT", { dateStyle: "short", timeStyle:
 
 export const usd = (value: number): string => `${money.format(value)} $`;
 export const count = (value: number): string => whole.format(value);
+/** Un numero con il suo nome, al singolare o al plurale: "1 turno", "2 turni". */
+export const counted = (value: number, one: string, many: string): string =>
+  `${count(value)} ${Math.round(value) === 1 ? one : many}`;
 export const share = (value: number): string => percent.format(value);
 /** Una durata in minuti: in decimi sotto l'ora, in ore e minuti da un'ora in su. */
 export function minutes(value: number): string {

@@ -59,5 +59,7 @@ async function read<T>(path: string): Promise<T> {
 export const api = {
   projects: () => read<Ok<"listProjects">>("/api/projects"),
   report: (name: string) => read<Ok<"projectReport">>(`/api/projects/${encodeURIComponent(name)}/report`),
+  flow: (name: string) => read<Ok<"projectFlow">>(`/api/projects/${encodeURIComponent(name)}/flow`),
+  behaviour: (name: string) => read<Ok<"projectBehaviour">>(`/api/projects/${encodeURIComponent(name)}/behaviour`),
   provenance: () => read<Ok<"provenance">>("/api/provenance"),
 };

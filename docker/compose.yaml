@@ -1,0 +1,59 @@
+# Il cruscotto in Docker (ADR-0040): l'API Django e l'interfaccia Next.js, nello stesso spazio di rete. Il motore resta
+# sull'host. Si avvia con `task docker:up`, che dà AGENCY_DATA, AGENCY_UID e AGENCY_GID.
+#
+# Questo file sta in docker/ e non nella radice: Compose legge da solo il .env della cartella del progetto per le sue
+# variabili, e quello della radice contiene la chiave API. Qui non ci sono .env, env_file né chiavi.
+name: design-agency-dashboard
+
+# Ogni container senza privilegi, con il disco di sola lettura e un init che inoltra i segnali.
+x-hardened: &hardened
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  init: true
+
+services:
+  api:
+    <<: *hardened
+    build:
+      context: ..
+      dockerfile: docker/server.Dockerfile
+    image: design-agency/dashboard-api:local
+    # L'utente dell'host: i file che SQLite crea leggendo il registro restano suoi, e il motore li riscrive.
+    user: "${AGENCY_UID:?AGENCY_UID manca. Si avvia con task docker:up}:${AGENCY_GID:?AGENCY_GID manca. Si avvia con task docker:up}"
+    environment:
+      AGENCY_DATA_DIR: /data
+      AGENCY_PROJECTION_DIR: /projection
+    volumes:
+      # Il registro, le tracce e le trascrizioni. Non in sola lettura: per leggere un registro WAL chiuso dal motore,
+      # SQLite deve crearne il -shm, e su un mount di sola lettura non lo apre (ADR-0040). Il server non scrive
+      # altro: connessione mode=ro, query_only, API solo GET, come quando gira sull'host.
+      - type: bind
+        source: "${AGENCY_DATA:?AGENCY_DATA, la cartella del registro, manca. Si avvia con task docker:up}"
+        target: /data
+    # La proiezione di insights sta in memoria: si rifà a ogni avvio, e il container non aggiunge file al registro.
+    tmpfs:
+      - /projection
+      - /tmp
+    # La porta dell'interfaccia, solo su 127.0.0.1 della macchina: web condivide la rete di questo servizio, e
+    # Django resta su 127.0.0.1 del container, senza porta pubblicata.
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 2).close()"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  web:
+    <<: *hardened
+    build:
+      context: ..
+      dockerfile: docker/web.Dockerfile
+    image: design-agency/dashboard-web:local
+    network_mode: service:api
+    depends_on:
+      api:
+        condition: service_healthy
+    tmpfs:
+      - /tmp

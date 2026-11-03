@@ -1,6 +1,6 @@
 version: "3"
 
-# L'ingresso unico dei comandi (ADR-0020, ADR-0039): `task` elenca tutto, `make` ne è l'alias.
+# L'ingresso unico dei comandi (ADR-0020, ADR-0039): `task` elenca tutto, `make` ne è l'alias. Docker: ADR-0040.
 # Gli strumenti hanno le versioni di mise.toml: con mise attivo nella shell sono nel PATH, altrimenti
 # `mise exec -- task …`. Niente dotenv: la chiave API sta in .env e la legge solo il gateway; qui arriverebbe a
 # ogni comando, Next.js compreso.
@@ -117,6 +117,23 @@ tasks:
     deps: [dashboard:build]
     cmds:
       - pnpm --dir web run start
+
+  docker:up:
+    desc: "Il cruscotto in Docker su http://127.0.0.1:3000; il registro è .data, o AGENCY_DATA se lo dai"
+    env: &compose
+      AGENCY_DATA: '{{.AGENCY_DATA | default (printf "%s/.data" .ROOT_DIR)}}'
+      AGENCY_UID:
+        sh: id -u
+      AGENCY_GID:
+        sh: id -g
+    cmds:
+      - docker compose -f docker/compose.yaml up --build
+
+  docker:down:
+    desc: Ferma il cruscotto in Docker e toglie i suoi container
+    env: *compose
+    cmds:
+      - docker compose -f docker/compose.yaml down
 
   dashboard:watch:
     internal: true

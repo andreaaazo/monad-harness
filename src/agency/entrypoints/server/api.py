@@ -37,13 +37,17 @@ class Problem(Schema):
     detail: str
 
 
+def _layout() -> DataLayout:
+    return DataLayout(settings.AGENCY_DATA_DIR, settings.AGENCY_PROJECTION_DIR)
+
+
 def _transcripts() -> JsonlTranscripts:
-    return JsonlTranscripts(DataLayout(settings.AGENCY_DATA_DIR))
+    return JsonlTranscripts(_layout())
 
 
 def _projection() -> SqliteProjection:
     """La proiezione aggiornata: si rifà solo se registro, tracce o trascrizioni sono cambiati."""
-    layout = DataLayout(settings.AGENCY_DATA_DIR)
+    layout = _layout()
     projection = SqliteProjection(layout.insights)
     registry, traces = ReadOnlyRegistry(layout.ledger), JsonlTraces(layout.traces)
     transcripts = JsonlTranscripts(layout)

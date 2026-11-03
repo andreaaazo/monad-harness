@@ -588,6 +588,24 @@ def test_a_missing_registry_is_explained(tmp_path: Path) -> None:
         ReadOnlyRegistry(tmp_path / "ledger.sqlite").revision()
 
 
+def test_a_registry_that_cannot_be_opened_is_explained_not_crashed(tmp_path: Path) -> None:
+    """Un registro WAL chiuso dal motore non ha -shm: chi legge lo deve creare. In una cartella dove non si
+    può scrivere SQLite non lo apre, e il cruscotto lo dice come un registro illeggibile, non come un 500."""
+    folder = tmp_path / "dati"
+    folder.mkdir()
+    filled_registry(folder / "ledger.sqlite").engine.dispose()
+    assert not (folder / "ledger.sqlite-shm").exists()
+    folder.chmod(0o555)
+    try:
+        registry = ReadOnlyRegistry(folder / "ledger.sqlite")
+        with pytest.raises(application.RegistryNotReadable, match="non si apre"):
+            registry.revision()
+        with pytest.raises(application.RegistryNotReadable, match="non si apre"):
+            registry.read()
+    finally:
+        folder.chmod(0o755)
+
+
 # Il caso d'uso
 
 

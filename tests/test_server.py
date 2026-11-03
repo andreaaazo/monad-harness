@@ -427,6 +427,22 @@ def test_every_engine_package_is_forbidden_to_import_django() -> None:
     assert {module.removeprefix("agency.") for module in engine["source_modules"]} == present
 
 
+def test_the_projection_can_live_away_from_the_registry(client: Client, tmp_path: Path) -> None:
+    """In Docker la proiezione sta in memoria: il server la scrive lì, e accanto al registro niente."""
+    elsewhere = tmp_path / "in-memoria"
+    elsewhere.mkdir()
+    with override_settings(AGENCY_PROJECTION_DIR=elsewhere):
+        assert client.get("/api/projects").status_code == 200
+    assert (elsewhere / "insights.sqlite").is_file()
+    assert not (tmp_path / "insights.sqlite").exists()
+
+
+def test_by_default_the_projection_sits_next_to_the_registry(client: Client, tmp_path: Path) -> None:
+    assert client.get("/api/projects").status_code == 200
+    assert (tmp_path / "insights.sqlite").is_file()
+    assert DataLayout(Path("/dati"), Path("/memoria")).insights == Path("/memoria/insights.sqlite")
+
+
 def test_the_data_layout_has_one_owner() -> None:
     layout = DataLayout(Path("/dati"))
     assert (layout.ledger, layout.traces, layout.insights, layout.transcript("merlo", "T-0002-a1")) == (

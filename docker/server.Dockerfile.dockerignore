@@ -1,0 +1,8 @@
+# Il contesto è la radice del repo, che contiene .env, il registro in .data e i progetti del cliente. Entra solo
+# ciò che serve a installare il pacchetto: tutto il resto è escluso dalla prima riga (ADR-0040).
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!src/
+src/**/__pycache__

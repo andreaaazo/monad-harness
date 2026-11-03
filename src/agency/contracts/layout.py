@@ -11,7 +11,11 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class DataLayout:
+    """`projection` è dove sta la proiezione di insights, se non accanto al registro. In Docker sta in
+    memoria, e il container non aggiunge file al registro (ADR-0040)."""
+
     root: Path
+    projection: Path | None = None
 
     @property
     def ledger(self) -> Path:
@@ -31,7 +35,7 @@ class DataLayout:
 
     @property
     def insights(self) -> Path:
-        return self.root / "insights.sqlite"
+        return (self.projection or self.root) / "insights.sqlite"
 
     @property
     def transcripts(self) -> Path:

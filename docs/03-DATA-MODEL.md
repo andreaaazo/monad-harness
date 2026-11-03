@@ -14,7 +14,7 @@ Ogni dato ha un solo proprietario.
 | Trascrizioni delle istanze | `.data/runs/<slug>/` | `agency.agents` | Perdita grave: servono a ripresa e replay |
 | Indice dei comandi Craft | `.data/craft-index/` | `agency.tools.craft` | Rigenerabile |
 | Indice visivo | `.data/lancedb/` | `agency.context` | Rigenerabile |
-| Proiezioni del cruscotto | `.data/insights.sqlite` | `agency.insights` | Rigenerabile |
+| Proiezioni del cruscotto | `.data/insights.sqlite`; in Docker in memoria (ADR-0040) | `agency.insights` | Rigenerabile |
 | Tracce | `.data/traces.jsonl`, Langfuse da M4 | telemetria | Accettabile |
 | Utenti e organizzazioni, da M6 | database di Django | `agency.entrypoints.server` | Perdita grave |
 

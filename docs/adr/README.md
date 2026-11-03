@@ -44,3 +44,4 @@ vecchio. Date: 2026-10-31.
 | [0037](0037-la-vista-confronto.md) | La vista Confronto | Accettata |
 | [0038](0038-la-vista-replay.md) | La vista Replay | Accettata, rovescia le trascrizioni nella proiezione di 0029 |
 | [0039](0039-taskfile-come-ingresso-unico.md) | Taskfile come ingresso unico | Accettata |
+| [0040](0040-il-cruscotto-in-docker.md) | Il cruscotto in Docker | Accettata |

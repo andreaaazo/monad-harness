@@ -65,6 +65,10 @@ esterno ammesso è l'API Anthropic**, e il cliente deve saperlo.
 - Django e Next.js non ricevono la chiave né `.env`, e non eseguono il grafo (ADR-0019, ADR-0024). Il server di Django non importa
   `agency.config`, che legge `.env`, e all'avvio toglie la chiave dal proprio ambiente (ADR-0031).
 - Docker pubblica solo la porta di Next.js, su `127.0.0.1`: una porta pubblicata senza indirizzo ascolta su tutte le interfacce.
+  Django resta su `127.0.0.1` anche nel container, e Next.js lo raggiunge perché ne condivide lo spazio di rete (ADR-0040).
+- In Docker nessun `.env` e nessuna chiave: il file Compose sta in `docker/`, perché Compose legge da solo il `.env` della sua
+  cartella. I contesti di build escludono tutto e riammettono solo ciò che serve, così `.env`, `.data/` e i progetti non entrano
+  in un'immagine. I container hanno il disco in sola lettura e nessun privilegio, e sono verificati da un test.
 - Fuori da Docker, `next dev` parte con `-H 127.0.0.1` e il server standalone con `HOSTNAME=127.0.0.1`: di suo ascolta su
   `0.0.0.0`. I processi di Next.js e Django non ricevono la chiave: un test la mette nell'ambiente di chi li avvia e la cerca in
   `/proc`.

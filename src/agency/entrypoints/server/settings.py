@@ -1,6 +1,7 @@
 """Le impostazioni di Django per il cruscotto: solo lettura, solo loopback, nessun database, nessuna chiave.
 
-Si leggono una volta, all'avvio. `AGENCY_DATA_DIR` è l'unica variabile d'ambiente: il server non legge `.env`.
+Si leggono una volta, all'avvio, da due sole variabili d'ambiente: `AGENCY_DATA_DIR`, dove sta il registro, e
+`AGENCY_PROJECTION_DIR`, dove sta la proiezione se non accanto al registro. Il server non legge `.env`.
 """
 
 from __future__ import annotations
@@ -28,3 +29,7 @@ USE_TZ = True
 TIME_ZONE = "UTC"
 
 AGENCY_DATA_DIR = Path(os.environ.get("AGENCY_DATA_DIR", ".data")).resolve()
+# Senza la variabile la proiezione sta accanto al registro, qualunque esso sia quando la si usa: None, non una
+# cartella fissata all'avvio.
+_PROJECTION = os.environ.get("AGENCY_PROJECTION_DIR")
+AGENCY_PROJECTION_DIR = Path(_PROJECTION).resolve() if _PROJECTION else None

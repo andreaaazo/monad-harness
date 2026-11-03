@@ -51,7 +51,16 @@ def commands(name: str, *options: str) -> list[str]:
 
 def test_every_command_the_studio_uses_has_its_task() -> None:
     listed = {item["name"] for item in json.loads(task("--list-all", "--json"))["tasks"]}
-    expected = {"setup", "dashboard:api", "dashboard:ui", "dashboard:build", "dashboard:dev", *ALIASES}
+    expected = {
+        "setup",
+        "dashboard:api",
+        "dashboard:ui",
+        "dashboard:build",
+        "dashboard:dev",
+        "docker:up",
+        "docker:down",
+        *ALIASES,
+    }
     assert expected <= listed, sorted(expected - listed)
 
 

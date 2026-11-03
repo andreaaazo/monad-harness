@@ -1,0 +1,12 @@
+# Il contesto è la radice del repo, che contiene .env, il registro in .data e i progetti del cliente. Entra solo
+# web/, senza ciò che si rigenera dentro l'immagine né i dati delle prove (ADR-0040).
+*
+!web/
+web/node_modules
+web/.next
+web/.next-*
+web/e2e/.data
+web/e2e/.results
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo
+web/**/.env*

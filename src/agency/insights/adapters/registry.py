@@ -84,12 +84,20 @@ class ReadOnlyRegistry:
         self.path = path
 
     def connect(self) -> sqlite3.Connection:
+        """Una connessione di sola lettura. Un registro WAL chiuso dal motore non ha -shm, e chi legge lo
+        crea: se la cartella non si scrive SQLite non lo apre, e lo si dice come un registro illeggibile."""
         if not self.path.is_file():
             raise RegistryNotReadable(f"il registro {self.path} non esiste")
         connection = sqlite3.connect(
             f"{self.path.resolve().as_uri()}?mode=ro", uri=True, timeout=BUSY_SECONDS
         )
-        connection.execute("PRAGMA query_only = ON")
+        try:
+            connection.execute("PRAGMA query_only = ON")
+            # È alla prima lettura che SQLite apre davvero il file, e il suo -shm.
+            connection.execute("SELECT count(*) FROM sqlite_master").fetchone()
+        except sqlite3.OperationalError as exc:
+            connection.close()
+            raise RegistryNotReadable(f"il registro {self.path} non si apre: {exc}") from exc
         return connection
 
     def stamp(self) -> list[SourceStamp]:

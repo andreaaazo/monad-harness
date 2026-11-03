@@ -91,7 +91,7 @@ Scelte in ADR-0020. Le versioni indicate sono verificate su questa macchina il 2
 | Playwright | Prove di fumo del cruscotto, `make e2e` | 1.64.1, con Chromium `chromium-1248` già in cache. Se manca, Andrea lo installa: `mise exec -- pnpm --dir web exec playwright install chromium` |
 | `node --test` | Prove unitarie dell'interfaccia, senza dipendenze | Quello di Node, che esegue TypeScript da sé |
 | Task | Ingresso unico dei comandi, `Taskfile.yml` (ADR-0039); `make` è l'alias | 3.54.0, da mise |
-| Docker Compose | Server e servizi | 5.4.0 |
+| Docker, Docker Compose | Il cruscotto in container, `task docker:up` (ADR-0040) | Docker 29.9.0, Compose 5.4.0, installati da Andrea |
 
 ## Generazione (M4)
 

@@ -41,6 +41,7 @@ uv run agency restore 2947a64f x.svg    # riporta una versione in un file nuovo,
 uv run agency insights                  # proiezione per report e cruscotto, senza scrivere il registro
 task dashboard                          # cruscotto su http://127.0.0.1:3000, con l'API su :8000; sola lettura
 task dashboard:dev                      # lo stesso, con l'interfaccia ricaricata a ogni modifica
+task docker:up                          # il cruscotto in Docker, sempre su http://127.0.0.1:3000; task docker:down lo toglie
 task schemas                            # rigenera schemas/openapi.json e i tipi TypeScript
 uv run agency migrate                   # aggiorna il registro, dopo averne fatto una copia
 ```

@@ -14,3 +14,9 @@ models/
 
 # Interfaccia: le dipendenze si rimettono con make setup, dal lock versionato.
 /web/node_modules/
+/web/.next/
+/web/.next-e2e/
+/web/e2e/.data/
+/web/e2e/.results/
+/web/next-env.d.ts
+/web/tsconfig.tsbuildinfo

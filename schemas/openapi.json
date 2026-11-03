@@ -35,6 +35,68 @@
         "title": "IdeaView",
         "type": "object"
       },
+      "InstanceView": {
+        "additionalProperties": false,
+        "description": "Un'istanza nella timeline, dalla prima all'ultima chiamata. `model_ms`: il tempo col modello.",
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "ended_at": {
+            "title": "Ended At",
+            "type": "string"
+          },
+          "instance": {
+            "title": "Instance",
+            "type": "string"
+          },
+          "model_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Ms"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "ticket_id": {
+            "title": "Ticket Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "ticket_id",
+          "role",
+          "phase",
+          "started_at",
+          "ended_at",
+          "calls",
+          "cost_usd",
+          "model_ms"
+        ],
+        "title": "InstanceView",
+        "type": "object"
+      },
       "JudgmentView": {
         "additionalProperties": false,
         "properties": {
@@ -226,11 +288,33 @@
             "title": "Effort",
             "type": "string"
           },
+          "elapsed_minutes": {
+            "title": "Elapsed Minutes",
+            "type": "number"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
           "ideas": {
             "items": {
               "$ref": "#/components/schemas/IdeaView"
             },
             "title": "Ideas",
+            "type": "array"
+          },
+          "instances": {
+            "items": {
+              "$ref": "#/components/schemas/InstanceView"
+            },
+            "title": "Instances",
             "type": "array"
           },
           "judgments": {
@@ -273,6 +357,17 @@
             "title": "Roles",
             "type": "array"
           },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
           "ticket_types": {
             "items": {
               "$ref": "#/components/schemas/TypeCost"
@@ -296,6 +391,17 @@
                 "type": "null"
               }
             ]
+          },
+          "waits": {
+            "items": {
+              "$ref": "#/components/schemas/WaitView"
+            },
+            "title": "Waits",
+            "type": "array"
+          },
+          "working_minutes": {
+            "title": "Working Minutes",
+            "type": "number"
           }
         },
         "required": [
@@ -305,9 +411,15 @@
           "effort",
           "cost_usd",
           "calls",
+          "started_at",
+          "ended_at",
+          "elapsed_minutes",
+          "working_minutes",
+          "waits",
           "cache_hit",
           "mean_context",
           "parallel",
+          "instances",
           "roles",
           "phases",
           "ticket_types",
@@ -580,6 +692,36 @@
           "cost_usd"
         ],
         "title": "TypeCost",
+        "type": "object"
+      },
+      "WaitView": {
+        "additionalProperties": false,
+        "description": "Il run fermo per una decisione del cliente: dall'ultima chiamata prima del gate alla decisione.",
+        "properties": {
+          "ended_at": {
+            "title": "Ended At",
+            "type": "string"
+          },
+          "gate": {
+            "title": "Gate",
+            "type": "string"
+          },
+          "minutes": {
+            "title": "Minutes",
+            "type": "number"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gate",
+          "started_at",
+          "ended_at",
+          "minutes"
+        ],
+        "title": "WaitView",
         "type": "object"
       }
     }

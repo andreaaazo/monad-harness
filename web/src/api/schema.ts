@@ -72,6 +72,30 @@ export interface components {
             /** Status */
             readonly status: string;
         };
+        /**
+         * InstanceView
+         * @description Un'istanza nella timeline, dalla prima all'ultima chiamata. `model_ms`: il tempo col modello.
+         */
+        readonly InstanceView: {
+            /** Calls */
+            readonly calls: number;
+            /** Cost Usd */
+            readonly cost_usd: number;
+            /** Ended At */
+            readonly ended_at: string;
+            /** Instance */
+            readonly instance: string;
+            /** Model Ms */
+            readonly model_ms: number | null;
+            /** Phase */
+            readonly phase: string;
+            /** Role */
+            readonly role: string;
+            /** Started At */
+            readonly started_at: string;
+            /** Ticket Id */
+            readonly ticket_id: string;
+        };
         /** JudgmentView */
         readonly JudgmentView: {
             /** At */
@@ -146,8 +170,14 @@ export interface components {
             readonly cost_usd: number;
             /** Effort */
             readonly effort: string;
+            /** Elapsed Minutes */
+            readonly elapsed_minutes: number;
+            /** Ended At */
+            readonly ended_at: string | null;
             /** Ideas */
             readonly ideas: readonly components["schemas"]["IdeaView"][];
+            /** Instances */
+            readonly instances: readonly components["schemas"]["InstanceView"][];
             /** Judgments */
             readonly judgments: readonly components["schemas"]["JudgmentView"][];
             /** Mean Context */
@@ -163,11 +193,17 @@ export interface components {
             readonly provenance: components["schemas"]["Provenance"];
             /** Roles */
             readonly roles: readonly components["schemas"]["RoleView"][];
+            /** Started At */
+            readonly started_at: string | null;
             /** Ticket Types */
             readonly ticket_types: readonly components["schemas"]["TypeCost"][];
             /** Tickets */
             readonly tickets: readonly components["schemas"]["TicketView"][];
             readonly to_presentation: components["schemas"]["Milestone"] | null;
+            /** Waits */
+            readonly waits: readonly components["schemas"]["WaitView"][];
+            /** Working Minutes */
+            readonly working_minutes: number;
         };
         /**
          * ProjectSummary
@@ -260,6 +296,20 @@ export interface components {
             /** Ticket Type */
             readonly ticket_type: string;
         };
+        /**
+         * WaitView
+         * @description Il run fermo per una decisione del cliente: dall'ultima chiamata prima del gate alla decisione.
+         */
+        readonly WaitView: {
+            /** Ended At */
+            readonly ended_at: string;
+            /** Gate */
+            readonly gate: string;
+            /** Minutes */
+            readonly minutes: number;
+            /** Started At */
+            readonly started_at: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -268,6 +318,7 @@ export interface components {
     pathItems: never;
 }
 export type IdeaView = components['schemas']['IdeaView'];
+export type InstanceView = components['schemas']['InstanceView'];
 export type JudgmentView = components['schemas']['JudgmentView'];
 export type Milestone = components['schemas']['Milestone'];
 export type PhaseView = components['schemas']['PhaseView'];
@@ -279,6 +330,7 @@ export type RoleView = components['schemas']['RoleView'];
 export type SourceStamp = components['schemas']['SourceStamp'];
 export type TicketView = components['schemas']['TicketView'];
 export type TypeCost = components['schemas']['TypeCost'];
+export type WaitView = components['schemas']['WaitView'];
 export type $defs = Record<string, never>;
 export interface operations {
     readonly listProjects: {

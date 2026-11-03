@@ -81,13 +81,16 @@ Scelte in ADR-0020. Le versioni indicate sono verificate su questa macchina il 2
 | `django-stubs` | Tipi di Django per `pyright`, solo sviluppo | 5.2.9 |
 | Alembic | Migrazioni del registro | 1.20.0 |
 | `import-linter` | Confini tra moduli, in `make check` | 2.15 |
-| Node | Build ed esecuzione di Next.js, che chiede almeno la 20.9 | 22.22.1 |
-| pnpm | Dipendenze JavaScript, con quarantena di due settimane. Si avvia con `npx` alla versione di `web/package.json` | 12.14.0 |
+| mise | Versioni degli strumenti locali, da `mise.toml` (ADR-0034) | 2026.10.3, installato da Andrea |
+| Node | Build ed esecuzione di Next.js, che chiede almeno la 20.9 | 22.22.1, da mise |
+| pnpm | Dipendenze JavaScript, con quarantena di due settimane | 12.14.0, da mise |
 | `openapi-typescript` | Tipi TypeScript da `schemas/openapi.json` (ADR-0032) | 7.13.0 |
 | TypeScript | Tipi dell'interfaccia, `strict` | 5.9.3: `openapi-typescript` non supporta ancora la 6 e la 7 |
-| Next.js, TypeScript | Interfaccia, in `web/` (ADR-0024) | Da aggiungere. Al 2026-11-01 l'ultima fuori quarantena è la 16.4.2: la 16.4.3 è del 23 ottobre |
-| Playwright | Prove di fumo del cruscotto | Da aggiungere |
-| Task | Ingresso unico dei comandi | 3.54.0 |
+| Next.js | Interfaccia, in `web/`, server `output: 'standalone'` (ADR-0024, ADR-0033) | 16.4.2: al 2026-11-01 la 16.4.3, del 23 ottobre, era ancora in quarantena |
+| React | Componenti delle pagine | 19.3.1, con `@types/react` 19.3.0 |
+| Playwright | Prove di fumo del cruscotto, `make e2e` | 1.64.1, con Chromium `chromium-1248` già in cache. Se manca, Andrea lo installa: `mise exec -- pnpm --dir web exec playwright install chromium` |
+| `node --test` | Prove unitarie dell'interfaccia, senza dipendenze | Quello di Node, che esegue TypeScript da sé |
+| Task | Ingresso unico dei comandi | 3.54.0, da mise |
 | Docker Compose | Server e servizi | 5.4.0 |
 
 ## Generazione (M4)

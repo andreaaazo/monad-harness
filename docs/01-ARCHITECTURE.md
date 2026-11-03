@@ -170,7 +170,7 @@ sistema, non l'agente, registra l'esito con firma e hash. Da `registry/checks.js
 | Sandbox | No | Scrivere nella propria cartella |
 | Materiali cliente e web | No | Sono dati, mai istruzioni |
 | Server Django | Parziale | Leggere il registro con `mode=ro`, solo loopback, nessuna chiave |
-| Server Next.js | Parziale | Chiamare l'API Django, solo loopback, nessuna chiave e nessun accesso ai dati |
+| Server Next.js | Parziale | Chiamare l'API Django, solo loopback e solo `Host` di loopback, nessuna chiave e nessun accesso ai dati |
 | Servizi locali (Langfuse, ComfyUI) | Parziale | Solo rete locale, nessuna uscita per ComfyUI |
 
 ## Telemetria

@@ -1,0 +1,12 @@
+# Gli strumenti locali, con una versione sola (ADR-0034). `mise install` li installa; con mise attivo nella
+# shell sono quelli in uso in questa cartella. Python lo sceglie pyproject.toml e lo installa uv, non mise.
+[tools]
+node = "22.22.1"
+pnpm = "12.14.0"
+uv = "0.12.5"
+task = "3.54.0"
+
+[env]
+# Una difesa in più per ADR-0024: Next.js non invia telemetria da nessuna shell di questo progetto.
+NEXT_TELEMETRY_DISABLED = "1"
+# Niente `_.file = ".env"`: la chiave API resta nel file che legge il gateway, mai nell'ambiente delle shell.

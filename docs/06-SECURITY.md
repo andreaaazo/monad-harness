@@ -17,8 +17,8 @@ fino a M7 (ADR-0023).
 | Dipendenza compromessa | Il caso LiteLLM di marzo 2026 | Quarantena di due settimane, lock con hash, poche dipendenze, anche per JavaScript |
 | Scrittura dal cruscotto | Una richiesta altera il registro | API solo `GET` in M1.6, connessione `mode=ro`, nessun modello Django sul registro |
 | Cruscotto esposto in rete | Materiali del cliente leggibili da fuori | Django e Next.js solo su loopback, porta pubblicata su `127.0.0.1`, verificato da un test |
-| DNS rebinding | Una pagina web fa puntare un suo nome a `127.0.0.1` e legge il cruscotto dal browser | `ALLOWED_HOSTS` solo loopback, controllato su ogni richiesta (ADR-0031, test) |
-| Copie dei materiali fuori dal progetto | Next.js salva immagini o risposte in `.next/cache` | `images.unoptimized`, `cache: 'no-store'` su ogni lettura, verificato da un test |
+| DNS rebinding | Una pagina web fa puntare un suo nome a `127.0.0.1` e legge il cruscotto dal browser | Django: `ALLOWED_HOSTS` solo loopback, controllato su ogni richiesta (ADR-0031). Next.js: `src/proxy.ts` rifiuta ogni `Host` non loopback prima di pagine, `/api` e file statici, perché il suo proxy riscrive l'`Host` verso Django (ADR-0033). Test per entrambi |
+| Copie dei materiali fuori dal progetto | Next.js salva immagini o risposte in `.next/cache`, o un browser tiene in cache le pagine | `images.unoptimized`, `cache: 'no-store'` su ogni lettura, pagine sempre dinamiche, `Cache-Control: no-store` anche sulle pagine statiche. Verificato da un test |
 | Custom node maligno | Codice in ComfyUI | Container senza uscita, niente Manager, nodi bloccati per hash |
 | Costo fuori controllo | Un loop che non finisce, o una scelta sbagliata al gate | Budget preventivo, tetto nella Console, `agency decide` che rifiuta una scelta inesistente |
 | Comando distruttivo | Sovrascrive un master | Artefatti per hash: ogni versione consegnata resta, e `agency restore` la riporta |
@@ -63,7 +63,9 @@ esterno ammesso è l'API Anthropic**, e il cliente deve saperlo.
 - Django e Next.js non ricevono la chiave né `.env`, e non eseguono il grafo (ADR-0019, ADR-0024). Il server di Django non importa
   `agency.config`, che legge `.env`, e all'avvio toglie la chiave dal proprio ambiente (ADR-0031).
 - Docker pubblica solo la porta di Next.js, su `127.0.0.1`: una porta pubblicata senza indirizzo ascolta su tutte le interfacce.
-- Fuori da Docker, Next.js parte con `-H 127.0.0.1`: di suo ascolta su `0.0.0.0`.
+- Fuori da Docker, `next dev` parte con `-H 127.0.0.1` e il server standalone con `HOSTNAME=127.0.0.1`: di suo ascolta su
+  `0.0.0.0`. I processi di Next.js e Django non ricevono la chiave: un test la mette nell'ambiente di chi li avvia e la cerca in
+  `/proc`.
 - `.data` e `projects/` entrano solo nel container di Django, senza mount `:ro`, fragile con WAL: la sola lettura sta nella
   connessione.
 - La telemetria di Next.js resta spenta con `NEXT_TELEMETRY_DISABLED=1`, build compresa.

@@ -53,6 +53,15 @@ class Milestone(_View):
     minutes: float
 
 
+class WaitView(_View):
+    """Il run fermo per una decisione del cliente: dall'ultima chiamata prima del gate alla decisione."""
+
+    gate: str
+    started_at: str
+    ended_at: str
+    minutes: float
+
+
 class IdeaView(_View):
     round: int
     anon: str
@@ -73,6 +82,20 @@ class JudgmentView(_View):
     best: bool
     compared: int
     why: str
+
+
+class InstanceView(_View):
+    """Un'istanza nella timeline, dalla prima all'ultima chiamata. `model_ms`: il tempo col modello."""
+
+    instance: str
+    ticket_id: str
+    role: str
+    phase: str
+    started_at: str
+    ended_at: str
+    calls: int
+    cost_usd: float
+    model_ms: int | None
 
 
 class TicketView(_View):
@@ -102,9 +125,15 @@ class ProjectReport(_View):
     effort: str
     cost_usd: float
     calls: int
+    started_at: str | None
+    ended_at: str | None
+    elapsed_minutes: float
+    working_minutes: float
+    waits: list[WaitView]
     cache_hit: float
     mean_context: float
     parallel: int
+    instances: list[InstanceView]
     roles: list[RoleView]
     phases: list[PhaseView]
     ticket_types: list[TypeCost]
@@ -160,17 +189,63 @@ def _phase(name: str, calls: list[Call]) -> PhaseView:
     )
 
 
+def _instance(name: str, calls: list[Call]) -> InstanceView:
+    first = calls[0]
+    measured = [call for call in calls if call.measures is not Measures.MISSING]
+    durations = [call.duration_ms for call in measured if call.duration_ms is not None]
+    return InstanceView(
+        instance=name,
+        ticket_id=first.ticket_id,
+        role=first.role,
+        phase=first.phase,
+        started_at=min(call.at for call in calls),
+        ended_at=max(call.at for call in calls),
+        calls=len(calls),
+        cost_usd=_cost(calls),
+        model_ms=sum(durations) if durations else None,
+    )
+
+
+def _minutes(start: str, end: str) -> float:
+    return (datetime.fromisoformat(end) - datetime.fromisoformat(start)).total_seconds() / 60
+
+
 def _milestone(data: ProjectData) -> Milestone | None:
     gate = next((gate for gate in data.gates if gate.gate == "concept" and gate.approved), None)
     before = [call for call in data.calls if gate is not None and call.at <= gate.at]
     if not before:
         return None
-    elapsed = datetime.fromisoformat(before[-1].at) - datetime.fromisoformat(data.calls[0].at)
-    return Milestone(cost_usd=_cost(before), calls=len(before), minutes=elapsed.total_seconds() / 60)
+    return Milestone(
+        cost_usd=_cost(before), calls=len(before), minutes=_minutes(data.calls[0].at, before[-1].at)
+    )
+
+
+def _waits(data: ProjectData) -> list[WaitView]:
+    """Ogni decisione ferma il run dall'ultima chiamata, o dalla decisione prima, finché arriva. Conta solo se
+    il lavoro è ripartito: una decisione dopo l'ultima chiamata non ha fermato niente. Gli istanti restano
+    quelli scritti nel registro."""
+    moments = sorted((datetime.fromisoformat(call.at), call.at) for call in data.calls)
+    waits: list[WaitView] = []
+    previous: tuple[datetime, str] | None = None
+    for gate in sorted(data.gates, key=lambda gate: datetime.fromisoformat(gate.at)):
+        decided = datetime.fromisoformat(gate.at)
+        last_call = next((moment for moment in reversed(moments) if moment[0] <= decided), None)
+        start = max((moment for moment in (last_call, previous) if moment is not None), default=None)
+        previous = (decided, gate.at)
+        resumed = bool(moments) and moments[-1][0] > decided
+        if start is None or not resumed or start[0] >= decided:
+            continue
+        minutes = (decided - start[0]).total_seconds() / 60
+        waits.append(WaitView(gate=gate.gate, started_at=start[1], ended_at=gate.at, minutes=minutes))
+    return waits
 
 
 def project_report(name: str, data: ProjectData, provenance: Provenance) -> ProjectReport:
     calls = data.calls
+    started_at = min((call.at for call in calls), default=None)
+    ended_at = max((call.at for call in calls), default=None)
+    elapsed = _minutes(started_at, ended_at) if started_at is not None and ended_at is not None else 0.0
+    waits = _waits(data)
     context = sum(_context(call) for call in calls)
     roles = [
         RoleView(
@@ -191,9 +266,18 @@ def project_report(name: str, data: ProjectData, provenance: Provenance) -> Proj
         effort=data.project.effort if data.project else "",
         cost_usd=_cost(calls),
         calls=len(calls),
+        started_at=started_at,
+        ended_at=ended_at,
+        elapsed_minutes=elapsed,
+        working_minutes=elapsed - sum(wait.minutes for wait in waits),
+        waits=waits,
         cache_hit=sum(call.cache_read_tokens for call in calls) / context if context else 0.0,
         mean_context=context / len(calls) if calls else 0.0,
         parallel=_peak(calls),
+        instances=sorted(
+            (_instance(name, group) for name, group in _groups(calls, lambda call: call.instance).items()),
+            key=lambda item: (item.started_at, item.instance),
+        ),
         roles=sorted(roles, key=lambda role: (-role.cost_usd, role.role)),
         phases=sorted(phases, key=lambda phase: (-phase.cost_usd, phase.phase)),
         ticket_types=[

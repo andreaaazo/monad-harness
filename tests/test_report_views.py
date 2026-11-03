@@ -243,6 +243,80 @@ def test_ideas_judgments_and_tickets_are_part_of_the_report() -> None:
     assert [(judged.letter, judged.best, judged.compared) for judged in report.judgments] == [("A", True, 2)]
 
 
+def test_the_run_has_its_start_its_end_and_a_timeline_of_instances() -> None:
+    """In ordine di inizio, non di nome: T-0001-a1-present precede T-0002-a1 solo in ordine alfabetico."""
+    director = {"instance": "T-0001-a1-plan", "phase": "director-plan", "cost_usd": 0.5}
+    explorer = {"instance": "T-0002-a1", "ticket_id": "T-0002", "role": "direction-a", "phase": "explorer"}
+    present = {"instance": "T-0001-a1-present", "phase": "director-present", "cost_usd": 0.25}
+    calls = [
+        call(1, T0, **director, duration_ms=3000),
+        call(2, T1, **explorer, cost_usd=1.0),
+        call(3, T1, **director, duration_ms=1000),
+        call(4, T2, **explorer, cost_usd=2.0, duration_ms=5000, measures=Measures.REGISTRY),
+        call(5, T3, **present),
+    ]
+    report = views.project_report("merlo3", data(calls), PROVENANCE)
+    assert (report.started_at, report.ended_at) == (T0, T3)
+    timeline = [
+        (item.instance, item.started_at, item.ended_at, item.calls, item.cost_usd)
+        for item in report.instances
+    ]
+    assert timeline == [
+        ("T-0001-a1-plan", T0, T1, 2, 1.0),
+        ("T-0002-a1", T1, T2, 2, 3.0),
+        ("T-0001-a1-present", T3, T3, 1, 0.25),
+    ]
+    second = report.instances[1]
+    assert (second.ticket_id, second.role, second.phase, second.model_ms) == (
+        "T-0002",
+        "direction-a",
+        "explorer",
+        5000,
+    )
+
+
+def test_an_instance_without_measures_says_so() -> None:
+    (instance,) = views.project_report("merlo3", data([call(1, T0)]), PROVENANCE).instances
+    assert instance.model_ms is None
+
+
+def gate(seq: int, at: str, *, approved: bool = True) -> GateRecord:
+    return GateRecord(seq=seq, at=at, project="merlo3", gate="concept", approved=approved, choice="X")
+
+
+def test_waiting_for_the_client_is_not_work() -> None:
+    """Il run si ferma dopo la presentazione e riparte alla decisione: l'attesa si conta a parte."""
+    decided = "2026-11-02T10:40:00+00:00"
+    calls = [call(1, T0), call(2, T1), call(3, T3)]
+    report = views.project_report("merlo3", data(calls, gates=[gate(1, decided)]), PROVENANCE)
+    assert [(wait.gate, wait.started_at, wait.ended_at, wait.minutes) for wait in report.waits] == [
+        ("concept", T1, decided, 30.0)
+    ]
+    assert (report.elapsed_minutes, report.working_minutes) == (45.0, 15.0)
+
+
+def test_waits_never_overlap_and_a_decision_without_a_restart_is_not_a_wait() -> None:
+    """Respinto alle 10:20, approvato alle 10:25 senza lavoro in mezzo: la seconda attesa parte dalla prima
+    decisione. Una decisione dopo l'ultima chiamata non ferma niente: il run non è ripartito."""
+    calls = [call(1, T0), call(2, T1), call(3, T2)]
+    gates = [
+        gate(1, "2026-11-02T10:20:00+00:00", approved=False),
+        gate(2, "2026-11-02T10:25:00+00:00"),
+        gate(3, "2026-11-02T10:50:00+00:00"),
+    ]
+    report = views.project_report("merlo3", data(calls, gates=gates), PROVENANCE)
+    assert [(wait.started_at, wait.minutes) for wait in report.waits] == [
+        (T1, 10.0),
+        ("2026-11-02T10:20:00+00:00", 5.0),
+    ]
+    assert (report.elapsed_minutes, report.working_minutes) == (30.0, 15.0)
+
+
+def test_a_run_without_decisions_is_all_work() -> None:
+    report = views.project_report("merlo3", data([call(1, T0), call(2, T2)]), PROVENANCE)
+    assert (report.waits, report.elapsed_minutes, report.working_minutes) == ([], 30.0, 30.0)
+
+
 def test_a_project_without_calls_has_a_report_of_zeros() -> None:
     empty = ProjectData(project=None, calls=[], tickets=[], gates=[], concepts=[], judgments=[])
     report = views.project_report("fantasma", empty, PROVENANCE)
@@ -254,6 +328,8 @@ def test_a_project_without_calls_has_a_report_of_zeros() -> None:
         0,
     )
     assert report.budget_usd is None and report.to_presentation is None
+    assert (report.started_at, report.ended_at, report.instances) == (None, None, [])
+    assert (report.elapsed_minutes, report.working_minutes, report.waits) == (0.0, 0.0, [])
 
 
 # Il comando, dal registro al testo e al JSON

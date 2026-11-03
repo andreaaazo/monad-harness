@@ -289,7 +289,13 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
 12. [x] **Schemi**: `schemas/openapi.json` versionato, tipi TypeScript generati con `openapi-typescript`, controlli contro le
     divergenze in `make check` ([ADR-0032](adr/0032-schemi-e-tipi-generati.md)).
 13. [ ] **Cruscotto Next.js** in TypeScript, con le sei viste qui sotto. È solo interfaccia: legge tutto dall'API Django, con le
-    difese di ADR-0024.
+    difese di ADR-0024 e le due aggiunte da [ADR-0033](adr/0033-il-cruscotto-next-js.md). In cinque parti:
+    - [x] **Run**, con le fondamenta: client unico, server standalone, controllo dell'`Host`, prove Playwright e unitarie. Il
+      tempo di lavoro è separato dalle attese del cliente, calcolate da `insights`
+    - [ ] **Fasi** e **Modello**
+    - [ ] **Strumenti e QA**
+    - [ ] **Confronto**
+    - [ ] **Replay**
 14. [ ] **Taskfile**: ingresso unico per Python, frontend e Docker. `make check` resta come alias.
 15. [ ] **Docker** per Django e Next.js, per ultimo. Il motore resta sull'host.
 
@@ -329,14 +335,21 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
   `tests/test_explicit_types.py` e `make check`, che con `pyright` rifiuta l'uso dei vecchi `dict`
 - [x] `agency report --json` riproduce i numeri di questa roadmap: 15,91 $ su `merlo`, 13,29 $ fino al gate `concept` di `merlo3`.
   Dopo `agency migrate`: `uv run agency report merlo --json` e `uv run agency report merlo3 --json`, campo `to_presentation`
-- [ ] `merlo3` si legge nel cruscotto dal brief alla consegna
+- [ ] `merlo3` si legge nel cruscotto dal brief alla consegna. La vista Run c'è: provata il 2026-11-03 su una copia migrata del
+  registro, con istanze e ticket uguali all'API per `merlo`, `merlo2` e `merlo3`, 2 h 1 min di lavoro e 16 h 20 min di attesa
+  del gate `concept`
 - [x] L'API non può scrivere, e il registro resta intatto dopo l'uso del cruscotto: `tests/test_server.py`
 - [x] OpenAPI e tipi TypeScript non divergono: `tests/test_schemas.py` per modelli e schema, `make web` per schema e tipi
 - [x] `import-linter` in `make check`: `insights` non importa il motore, e il motore non importa Django. `make imports`
-- [ ] Django e Next.js ascoltano solo su loopback e non vedono né chiave né `.env` (test). Django è verificato da
-  `tests/test_server.py`, Next.js arriva con il punto 13
-- [ ] Next.js non invia telemetria e non lascia copie di immagini o dati in `.next/cache` (test)
-- [ ] Almeno un test Playwright per vista
+- [x] Django e Next.js ascoltano solo su loopback e non vedono né chiave né `.env` (test): `tests/test_server.py` per Django,
+  `make e2e` per entrambi, con le connessioni dagli indirizzi di rete della macchina e una chiave finta cercata in `/proc` nei
+  processi dei server. `make web` rifiuta un `.env` in `web/` e uno script che avvia Next.js senza togliere la chiave
+- [x] Una pagina ostile che fa puntare il suo nome a `127.0.0.1` non legge il cruscotto: `make e2e`, che chiede pagine, `/api` e
+  file statici con `Host: evil.example` e si aspetta 400
+- [x] Next.js non invia telemetria e non lascia copie di immagini o dati in `.next/cache` (test): `make web` verifica che
+  `next telemetry status` dica `Disabled` e che ogni script la spenga; `make e2e` verifica che il browser parli solo con Next.js
+  e che nella build, server standalone compreso, non restino immagini, risposte in cache o dati del registro
+- [ ] Almeno un test Playwright per vista. Run: `web/e2e/run.spec.ts`
 - [ ] `task check` esegue i controlli di Python e Next.js, e Docker Compose avvia Django e Next.js
 - [ ] `merlo4` è arrivato al gate `final` ed è stato letto per intero nel cruscotto
 

@@ -1,0 +1,220 @@
+/* Nessun font esterno, nessuna libreria: tutto ciò che il browser carica viene da questo server. */
+:root {
+  --ink: #1d1d1f;
+  --muted: #5f6368;
+  --line: #d9dbe0;
+  --paper: #ffffff;
+  --panel: #f6f7f9;
+  --accent: #2f5fd0;
+  --bar: #6c8fe0;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #ececef;
+    --muted: #a0a4ab;
+    --line: #34373d;
+    --paper: #141518;
+    --panel: #1c1e22;
+    --accent: #8fb0ff;
+    --bar: #5577cc;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+a {
+  color: var(--accent);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+h1 {
+  font-size: 24px;
+  margin: 0 0 16px;
+}
+
+h2 {
+  font-size: 17px;
+  margin: 32px 0 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+thead th {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.aside,
+.provenance {
+  color: var(--muted);
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.summary > div {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.summary dt {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.summary dd {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary .aside {
+  display: block;
+  font-size: 13px;
+}
+
+.summary meter {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 2px 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.timeline .track {
+  position: relative;
+  height: 14px;
+  align-self: center;
+  background: var(--panel);
+  border-radius: 4px;
+}
+
+.timeline .bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--bar);
+  border-radius: 4px;
+}
+
+.timeline .facts {
+  grid-column: 2;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* L'attesa del cliente non occupa spazio sulla scala: è un segno tratteggiato nel punto in cui il run si ferma. */
+.timeline .wait {
+  background: var(--panel);
+}
+
+.timeline .wait .label {
+  color: var(--muted);
+}
+
+.timeline .pause {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  border-left: 2px dashed var(--muted);
+}
+
+/* Sul telefono la riga va in colonna: etichetta, barra, fatti. */
+@media (max-width: 640px) {
+  .top {
+    padding: 12px 16px;
+  }
+
+  main {
+    padding: 16px;
+  }
+
+  .timeline li {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline .facts {
+    grid-column: 1;
+  }
+
+  th,
+  td {
+    padding: 6px 4px;
+  }
+}
+
+.notice {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 16px 20px;
+}

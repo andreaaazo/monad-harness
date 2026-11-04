@@ -5,8 +5,8 @@ none of them, then tried to disprove every Critical, High and Medium finding: it
 guards and tests, reproduced each finding with new scripts, and ran 38 one-line mutants on a throwaway copy. This file
 is the result. It is the input for planning the sanity refactor.
 
-- **Code audited:** identical to `8d99a5c`. The audit branch adds only `docs/audit/`. The baseline commit, cited as
-  `86f51a1` in the reports, is now `e44f09a` after a reword, and the reports are `b1b48b7`.
+- **Code audited:** identical to `8d99a5c`. The audit branch adds only `docs/audit/` on top of it. The reports cite
+  `86f51a1`, the first ID of the baseline commit, which differs from `8d99a5c` only by `docs/audit/00-baseline.md`.
 - **Reviewed:** 30 findings (Critical, High and Medium). **21 Confirmed, 9 Downgraded, 0 Rejected.** No finding was
   rated too low.
 - **Not reviewed:** the 79 Low and Nit findings. They are carried over as their auditors reported them.

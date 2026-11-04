@@ -1,0 +1,1260 @@
+# Sanity refactor: implementation plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or
+> superpowers:executing-plans to implement this plan task by task. Each task has one checkbox. Tick it in the same unit
+> that completes the task.
+
+**Goal:** close the findings that are in scope in `docs/audit/SUMMARY.md`, in the order the plan's phases set:
+1. a safety net of characterization tests;
+2. bug fixes, by severity;
+3. comments and language;
+4. file structure;
+5. developer experience;
+6. simplification.
+
+Every task is a small unit that is reversible and ends in a commit handoff.
+
+**Architecture:** the engine stays a modular monolith (ADR-0021). The plan changes three trust boundaries, each under
+a new ADR:
+- the sandbox: harness files leave `/job`, and memory and task caps are added;
+- configuration: one data-root resolver, and `.env` holds secrets only;
+- the ledger: the hash chain covers verdicts and delivered hashes.
+
+It also adds a request-keyed recorder for live runs. Everything else is a fix, a translation, a move or a
+simplification that keeps behaviour and every pinned artifact byte-identical.
+
+**Tech stack:** Python 3.13 (uv, pytest, ruff, pyright, import-linter, Pydantic, SQLModel, Alembic, LangGraph, Django +
+Ninja), TypeScript (Next.js 16, `node --test`, Playwright), bubblewrap, Task, mise.
+
+**Spec:** `docs/audit/SUMMARY.md`: the surviving findings and Andrea's answers to Q1–Q22. The detail of every finding
+is in `docs/audit/10-…70-*.md`, and the measured starting point is `docs/audit/00-baseline.md`. Executors read the
+SUMMARY answer named in a task before starting it.
+
+## Global constraints
+
+- **Git.** Never run a git command that writes history, the index or a remote. Every task ends with this block, then
+  waits for Andrea's "committed":
+
+  ```text
+  READY FOR COMMIT
+  Message: <the task's commit message>
+  Files: <every file changed in the task, including docs/audit/PLAN.md>
+  Verification: <the task's commands and their results>
+  ```
+
+- **One kind of change per task.** The kinds are: test, fix, comment/docs, move/rename, refactor, build/DX, dependency.
+  A task that changes behaviour never also moves, renames or restyles code.
+- **Where to work.** The worktree `/home/andreaaazo/Dev/design-agency-harness/.worktrees/audit/deep-review`, on branch
+  `audit/deep-review`, unless Andrea names another branch before Task 1.1.
+- **Standard gate,** at the end of every task. Both checks must hold unless the task says otherwise:
+  - `make check` exits 0 (ruff, import-linter, pyright, pytest, web unit tests, defenses and Playwright).
+  - `git diff --exit-code -- tests/snapshots/requests schemas/openapi.json web/src/api/schema.ts` prints nothing.
+- **Never edit:**
+  - `legacy/`;
+  - the applied migrations `0001`–`0005`;
+  - lockfiles, except in dependency tasks;
+  - model-facing text: prompts, tool and field descriptions, and `contracts/concept.py:11-15`;
+  - user-facing strings, except where a task marked [APPROVAL] says so.
+- **Never call the Anthropic API.** Tests use scripted or recorded responses. Before changing any code that builds or
+  reads API requests (`gateway/`, `agents/loop.py`), load the `claude-api` skill.
+- **Language.**
+  - English: identifiers, comments, docstrings and developer-facing messages, in new code too.
+  - Italian: new user-facing and model-facing strings, in the existing style.
+  - Italian: documents, ADRs, the README and `docs/*.md`.
+- **ADRs.** A new decision gets a new ADR, written in the unit that implements it. Take the next free number (the plan
+  lists the expected one) and add it to `docs/adr/README.md`. ADR files themselves are never edited.
+- **Bookkeeping.** Each task ticks its own checkbox below, in the same unit. `docs/audit/` is the handoff between
+  sessions (CLAUDE.md).
+- **Scratch work** (probes, mutation copies) goes outside the repository: the session scratchpad, or `/tmp`.
+- **Before `merlo4` starts,** Tasks 2.3 (Q1) and 2.33 (Q8) must have landed.
+
+**MUTATE recipe.** It proves that a new test really guards a line of code. Use a scratch directory `M` outside the repo.
+
+```sh
+rm -rf "$M" && mkdir -p "$M" && git archive HEAD | tar -x -C "$M"
+python3 -I -c "import pathlib,sys; p=pathlib.Path(sys.argv[1]); s=p.read_text(); assert s.count(sys.argv[2])==1; p.write_text(s.replace(sys.argv[2], sys.argv[3]))" "$M/<file>" '<old>' '<new>'
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$M/src" .venv/bin/python -m pytest -p no:cacheprovider -q <the task's tests>
+```
+
+Run the last line from the worktree root. A mutant is **killed** when that run fails. Before applying any mutant,
+check that the unmutated copy passes the same tests. `agency.config.REPO_ROOT` then resolves to `$M`.
+
+**LANG-CHECK.** This is the language check of Phase 3. Both commands must print nothing for the task's files:
+
+```sh
+rg -n '#.*\b(che|non|della|delle|nella|perché|sono|questo|questa|degli|alla|senza|quando|viene)\b' <files>
+python3 -I -c "import ast,re,sys;W=re.compile(r'\b(che|non|della|delle|nella|perché|sono|questo|questa|degli|alla|senza|quando|viene)\b');[print(f'{f}:{getattr(n,\"lineno\",1)}') for f in sys.argv[1:] for n in ast.walk(ast.parse(open(f).read())) if isinstance(n,(ast.Module,ast.ClassDef,ast.FunctionDef,ast.AsyncFunctionDef)) and (d:=ast.get_docstring(n)) and W.search(d)]" <python files>
+```
+
+## Review focus
+
+Five failure modes that no finding names but that are likely to hit Andrea. Each line has its test in the task that
+owns the code.
+
+1. A `.env` copied from the old `.env.example` (with `AGENCY_DATA_DIR=.data` and the effort knobs). It must stop the
+   engine with one line that names the first offending variable, and never start a fresh, empty registry. The test is
+   in Task 2.16.
+2. A relative `AGENCY_DATA_DIR` in the shell, for example `AGENCY_DATA_DIR=.data task dashboard`. The engine and the
+   server must refuse it the same way, with the same message. The test is in Task 2.15.
+3. A project paused in the middle of a `craft_run` across the layout change. On resume, the steps run once more; a
+   leftover in `/job` is never read as a record. The test is in Task 2.3.
+4. A project name already stored that the new rule rejects. `agency report <name>` must refuse it with a message,
+   `/api/projects/<name>` must answer 404, and `/api/projects` must still answer 200. The test is in Task 2.24.
+5. Five explorers recording in parallel. The lines never interleave, and replay matches by request whatever the order.
+   The test is in Task 2.33.
+
+---
+
+## Phase 1: characterization tests
+
+These tasks add tests only, plus one lint-configuration completion (1.19). Each test is proven by the mutants it
+kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.md` and the reviewer's lines in
+`SUMMARY.md`.
+
+- [ ] **Task 1.1: a QA failure stops a delivery, and proofs must be fresh.** Closes TST-001 and TST-003.
+  - Files: create `tests/test_qa_gates.py`.
+  - Tests:
+    - `test_a_failed_svg_audit_refuses_delivery`: through `Toolbox` and the real `Sandbox`, `run_check svg_audit` on
+      an SVG containing `<svg` returns `"FAIL"`, and `deliver` then returns `is_error` containing
+      `"'svg_audit' è FAIL"`.
+    - `test_evidence_problems_reports_a_fail_row`: `evidence_problems` on a FAIL row returns `[f"{file}: 'svg_audit' è FAIL"]`.
+    - `test_a_proof_of_an_older_version_is_stale`: expect `"è STALE"`.
+    - `test_a_changed_comparison_file_makes_a_judge_proof_stale`.
+    - `test_a_changed_input_is_superseded`: expect `"input superato"`.
+    - `test_a_vector_production_ticket_without_master_is_refused`: expect `"manca il master"`.
+    - `test_an_svg_not_exported_from_the_master_is_refused`: expect `"non risulta esportato da un master del ticket"`.
+    - `test_a_master_changed_after_export_asks_to_reexport`: expect `"riesporta"`.
+  - Verify:
+    - `mise exec -- uv run pytest tests/test_qa_gates.py -q` → all pass.
+    - MUTATE: these mutants are killed:
+      - E12: `qa/checks.py`, `"FAIL" if code else "PASS"` → `"PASS"`;
+      - E13: `qa/delivery.py:167`, the FAIL branch → `elif False:`;
+      - E5: `qa/evidence.py:128`, the hash comparison → `if False:`;
+      - E4: `evidence.py:132` → `if False:`;
+      - E8: `delivery.py:218` → `if False:`;
+      - E18: `delivery.py:183` → `if False:`;
+      - E9: `delivery.py:199` → `why = None`.
+    - Standard gate.
+  - Commit: `test(qa): pin that failed checks and stale proofs stop a delivery`.
+- [ ] **Task 1.2: the contract and verdict rules that keep tickets deliverable.** Closes TST-011.
+  - Files: `tests/test_qa_gates.py`.
+  - Tests:
+    - `test_an_unknown_check_name_is_refused_at_opening`: expect `"controllo sconosciuto"`.
+    - `test_an_output_without_a_check_is_refused_at_opening`.
+    - `test_every_file_under_a_glob_output_needs_its_checks`.
+    - `test_a_review_delivered_not_verified_needs_no_proofs`.
+    - `test_a_review_may_deliver_revise_on_a_fail`.
+  - Verify:
+    - `mise exec -- uv run pytest tests/test_qa_gates.py -q` → all pass.
+    - MUTATE kills:
+      - D4: `delivery.py:63` → `why = None`;
+      - E10: `delivery.py:81` → `if False:`;
+      - E16: `delivery.py:226` → `pass`;
+      - D3: `delivery.py:155` → `if False:`;
+      - D6: the REVISE exemption at `delivery.py:167`, removed.
+    - Standard gate.
+  - Commit: `test(qa): pin the contract and verdict rules of delivery`.
+- [ ] **Task 1.3: acceptance refuses at the client gate and in `accept_ticket`.** Closes TST-002.
+  - Files: `tests/test_qa_gates.py`, `tests/test_sketch_flow.py`.
+  - Tests:
+    - `test_acceptance_requires_the_independent_check`: expect `"manca la prova 'critique'"`.
+    - `test_acceptance_refuses_an_independent_check_signed_by_the_assignee`: expect
+      `"firmata dall'autore, serve un revisore"`.
+    - `test_acceptance_refuses_a_file_changed_after_delivery`: expect `"modificato dopo la consegna"`.
+    - `test_client_approval_of_a_root_without_critique_goes_back_to_rework`: a flow test where the root ends in
+      `Status.REWORK` and its note contains `"Accettazione rifiutata dal sistema"`.
+  - Verify:
+    - MUTATE kills:
+      - W2: `workflow.py:398` → `problems = []`;
+      - T9: `surface.py:523` → `if False:`;
+      - D1: `delivery.py:241`, `True` → `False`;
+      - E6: `delivery.py:163` → `elif False:`;
+      - E7: `delivery.py:239` → `if False:`;
+      - E14: `delivery.py:158` ignores `include_independent`.
+    - Standard gate.
+  - Commit: `test(qa): pin that acceptance refuses missing, self-signed and changed work`.
+- [ ] **Task 1.4: who may sign, and a FAIL persists (ADR-0018).** Closes TST-004 and TST-008.
+  - Files: `tests/test_qa_gates.py`.
+  - Tests:
+    - `test_a_reviewer_cannot_deliver_on_the_authors_proofs`: expect `"manca la prova"`.
+    - `test_a_fail_stays_until_its_signer_changes_it`: after a critic FAIL and then a director PASS on the same hash,
+      the result is still `"è FAIL"`. A critic PASS clears it, and so does a changed file.
+    - `test_an_author_cannot_sign_an_independent_check`: expect `"è indipendente"`.
+    - `test_a_role_outside_the_check_roles_cannot_sign_it`: `qa-inspector` signing `critique` gets `"lo firma"`.
+    - `test_the_critic_signs_critique`.
+  - Verify:
+    - MUTATE kills:
+      - D2: `evidence.py:108` → `if False:`;
+      - E3: `evidence.py:120` → `table[key] = ordered[-1]`;
+      - E1: `evidence.py:62` → `if False:`;
+      - E2: `evidence.py:64` → `if False:`.
+    - Standard gate.
+  - Commit: `test(qa): pin the signer rules of independent checks`.
+- [ ] **Task 1.5: rework clears a verdict, and `verify` exits 1 on a broken chain.** Closes TST-013 and TST-014.
+  - Files: `tests/test_ledger.py`.
+  - Tests:
+    - `test_rework_clears_a_review_verdict`: expect `status() == (Status.REWORK, None)`.
+    - `test_verify_exits_1_on_a_broken_chain`: drop `events_no_update`, update one event, then
+      `cli.main(["verify"]) == 1`, with output containing `"REGISTRO ALTERATO"`.
+  - Verify:
+    - MUTATE kills:
+      - L2: `store.py:238`, `elif action is Action.REWORK:` → `elif False:`;
+      - L5: `cli.py:58` → `return 0 if not broken else 1`.
+    - Standard gate.
+  - Commit: `test(ledger): pin rework verdicts and the verify exit code`.
+- [ ] **Task 1.6: the budget and the model reach the ledger from the CLI.** Closes TST-005.
+  - Files: `tests/test_hardening.py`.
+  - Tests:
+    - `test_run_hands_budget_and_model_to_the_ledger`: patch `agency.runtime.open_session` so it builds the real
+      session over a `ScriptedTransport`, scripted so that the director blocks at once. Run
+      `cli.main(["run","p",brief,"--budget","12","--model","claude-sonnet-5-5"])`, then expect
+      `ledger.project("p").budget_usd == 12.0` and `.model == "claude-sonnet-5-5"`.
+    - `test_budget_command_changes_the_cap`: `cli.main(["budget","p","40"]) == 0`, and the stored cap is `40.0`.
+  - Verify:
+    - MUTATE kills:
+      - B2: `cli.py:148` → `budget=1000.0,`;
+      - B3: `cli.py:149` → `model="",`;
+      - B1: `cli.py:189` → `pass`.
+    - Standard gate.
+  - Commit: `test(cli): pin that run and budget hand their values to the ledger`.
+- [ ] **Task 1.7: resume repeats no effect and records a gate only once.** Closes TST-007 and TST-015.
+  - Files: `tests/test_agent_flow.py`, `tests/test_sketch_flow.py`.
+  - Tests:
+    - `test_an_effect_tool_records_its_result_for_resume`: one turn holding `run_check` and `deliver`. Make
+      `Transcript.append` raise once, on the tool-result append, then resume. Expect one evidence row,
+      `ledger.operation(id) is not None`, and an instance that closes `DELIVERED`.
+    - `test_resuming_the_same_concept_decision_records_one_gate`: exactly one `gates` row.
+  - Verify:
+    - MUTATE kills:
+      - H1: `surface.py:945`, `record_operation(...)` → `pass`;
+      - W3: `workflow.py:306` → `if True:`.
+    - Standard gate.
+  - Commit: `test(engine): pin that resume repeats no effect and records the gate once`.
+- [ ] **Task 1.8: the live request shape and the estimate after the first call.** Closes TST-009 (its remainder) and
+  TST-010.
+  - Files: `tests/test_gateway.py`. Load the `claude-api` skill first.
+  - Tests:
+    - `test_live_transport_sends_the_gateway_params_through_the_sdk`: run `AnthropicTransport` over
+      `httpx2.MockTransport`, as `tests/test_gateway.py:157` does. Expect:
+      - the `count_tokens` body has exactly `{"model","system","messages"}`, plus `tools` when present;
+      - the `messages` body carries `thinking={"type":"adaptive"}`, `output_config.effort`, `cache_control`, and
+        `fallbacks="default"`;
+      - the beta header contains `server-side-fallback-2026-07-01`.
+    - `test_estimate_after_the_first_call_prices_context_and_new_tokens`. With a previous context of 100,000 tokens
+      and a last message of 3,000 characters plus one image, expect
+      `(100_000*cache_read + (1_000+2_500)*cache_write_5m + 4_000*output)/1e6` at the `claude-opus-5-5` prices in
+      `pricing.PRICES`.
+    - `test_a_cap_crossed_only_by_the_input_part_stops_the_call`.
+  - Verify:
+    - MUTATE kills:
+      - P1: `transport.py:37` → `fields = params`;
+      - P2: `fallbacks="default"` removed;
+      - G2: `client.py:76` → `total += 0`;
+      - G4: `client.py:122` → `input_cost = 0.0`;
+      - G6: `client.py:121` → `fresh = 0`.
+    - Standard gate.
+  - Commit: `test(gateway): pin the live request shape and the follow-up estimate`.
+- [ ] **Task 1.9: each role sends its registry model and effort.** Closes TST-012.
+  - Files: `tests/test_agent_flow.py`.
+  - Tests:
+    - `test_each_role_sends_its_registry_model_and_effort`: for `critic`, `design-director`, `identity-designer` and
+      `qa-inspector`, with no client choice, the first request's `model` and `output_config.effort` equal
+      `registry/roles.json`. For example, `qa-inspector` sends `claude-sonnet-5-5` / `medium`.
+  - Verify:
+    - MUTATE kills:
+      - A1: `loop.py:135` → `"claude-opus-5-5"`;
+      - A2: `loop.py:136` → `"high"`;
+      - A3: `loop.py:135` → `"claude-sonnet-5-5"`.
+    - Standard gate.
+  - Commit: `test(agents): pin the per-role model and effort`.
+- [ ] **Task 1.10: three tool refusals.** Closes TST-016.
+  - Files: `tests/test_sketch_flow.py`.
+  - Tests: one `Toolbox.call` test per refusal. Each asserts `is_error` and the message currently in
+    `surface.py:669`, `:444-445` and `:399`.
+    - `test_select_concepts_refuses_more_than_three`;
+    - `test_judge_refuses_a_file_against_itself`;
+    - `test_export_master_refuses_unknown_options`.
+  - Verify:
+    - MUTATE kills:
+      - T13: `len(a.chosen) > 3` → `False`;
+      - T15: the self-comparison refusal → `pass`;
+      - T18: `flags - EXPORT_OPTIONS` → `False`.
+    - Standard gate.
+  - Commit: `test(tools): pin three tool refusals`.
+- [ ] **Task 1.11: isolation probes that cannot pass by accident.** Closes TST-006.
+  - Files: `tests/test_agent_flow.py:441-456`, `web/e2e/run.spec.ts:173-184`.
+  - Change the probes:
+    - Inside the sandbox, print `socket.if_nameindex()` names and `os.statvfs("/usr").f_flag & os.ST_RDONLY`. Assert
+      the names are `["lo"]` and the flag is set.
+    - In e2e, read the listening sockets of ports 13765, 13766 and 18765 from `/proc/net/tcp` and `/proc/net/tcp6`.
+      Assert each is bound to `127.0.0.1` or `::1`, and remove `test.skip`.
+  - Verify:
+    - MUTATE kills these even with networking disabled:
+      - X2: `--unshare-net` removed;
+      - X3: `--ro-bind /usr` → `--bind /usr`.
+    - `make e2e` → 22 passed, 0 skipped.
+    - Standard gate.
+  - Commit: `test(sandbox): prove isolation by what the sandbox sees, not by a failed probe`.
+- [ ] **Task 1.12: the reader test checks that the writer started.** Closes TST-017 (the `wait` half).
+  - Files: `tests/test_insights.py:578`.
+  - Change: `assert writing.wait(timeout=10)`.
+  - Verify: `mise exec -- uv run pytest tests/test_insights.py -q`; standard gate.
+  - Commit: `test(insights): fail when the concurrent writer never started`.
+- [ ] **Task 1.13: what `compute` and `craft_run` do, as a safety net for 2.1–2.3.**
+  - Files: `tests/test_agent_flow.py`.
+  - Tests:
+    - `test_compute_runs_the_script_and_returns_exit_and_output`: expect `{"exit": 0, "output": "42\n"}`.
+    - `test_craft_run_replays_its_stored_result_on_resume`: with a fake `Sandbox` that counts `run()` calls, a second
+      call with the same operation id makes no new `run()`, returns the same `results`, and the document is copied
+      again.
+
+    Assert behaviour only, no paths: Task 2.3 moves the files.
+  - Verify: `mise exec -- uv run pytest tests/test_agent_flow.py -k "compute or replays" -q`; standard gate.
+  - Commit: `test(tools): pin compute output and craft_run replay`.
+- [ ] **Task 1.14: the reminder texts and the closing tools, as a safety net for 6.8.**
+  - Files: `tests/test_agent_flow.py`.
+  - Tests:
+    - `test_the_reminder_names_each_phase_closing_tools`: for each tool set, assert the exact current
+      `AgentRunner._reminder` string. The sets are `role_tools("identity-designer")`, `role_tools("design-director")`,
+      and the `EXPLORE`, `PROPOSAL`, `PLAN`, `SELECT`, `PRESENT` and `BOARD` sets.
+    - `test_restore_closes_each_closing_tool_with_its_state`: covers every `CLOSE_ALWAYS` name, plus
+      `select_concepts`, `draft_presentation` and `present_concepts`, each with a sample stored value.
+  - Verify: `mise exec -- uv run pytest tests/test_agent_flow.py -k "reminder or restore" -q`; standard gate.
+  - Commit: `test(agents): pin the reminder text and the closing outcomes`.
+- [ ] **Task 1.15: the data paths, as a safety net for 2.15, 6.11 and 6.12.**
+  - Files: create `tests/test_layout.py`.
+  - Tests:
+    - `test_data_paths_under_a_root`. `DataLayout(Path("/r"))` gives `/r/ledger.sqlite`,
+      `/r/checkpoints.sqlite`, `/r/artifacts`, `/r/traces.jsonl`, `/r/insights.sqlite`, `/r/runs`, and
+      `transcript("p","i") == Path("/r/runs/p/i.jsonl")`.
+      `Settings(data_dir=Path("/r"), projects_dir=Path("/q"), _env_file=None)` gives the same paths, and
+      `project_dir("p") == Path("/q/p")`.
+  - Verify: `mise exec -- uv run pytest tests/test_layout.py -q`; standard gate.
+  - Commit: `test(config): pin where the data lives`.
+- [ ] **Task 1.16: the CLI help, byte for byte, as a safety net for 3.1, 3.7 and 3.16.**
+  - Files: create `tests/test_cli_help.py` and `tests/snapshots/cli/*.txt`. The snapshots are one for `agency`, one
+    per subcommand (14), `agency-server` and `agency-schemas`.
+  - Tests:
+    - `test_cli_help_is_unchanged`: set `COLUMNS=100` with `monkeypatch`, then capture `--help` from `cli.main`,
+      `serve.main` and `schema.main` under `pytest.raises(SystemExit)` and `capsys`.
+    - `UPDATE_SNAPSHOTS=1` rewrites the files, as in `tests/test_request_snapshots.py:27`.
+  - Verify:
+    - The tests pass.
+    - Mutant: changing one word of `cli.py`'s module docstring is killed.
+    - Standard gate.
+  - Commit: `test(cli): pin the help text of every command`.
+- [ ] **Task 1.17: the stored and wire values, as a safety net for Phase 3 and for 6.7.** Closes CMT-008 (its "pin it
+  in code" part, Q16).
+  - Files: create `tests/test_vocabulary.py`.
+  - Tests:
+    - `test_stored_and_wire_values_are_fixed`: the exact value sets of `TicketType`, `Medium`, `Verdict`, `Status`,
+      `Action`, `Level`, `RunCommand`, `OutcomeState`, and the OpenAPI enums `Compared` and `Alignment`.
+    - The failure message reads: "a stored or wire value changes only through a migration, never a rename".
+  - Verify:
+    - Mutant: renaming one `TicketType` value is killed.
+    - Standard gate.
+  - Commit: `test(contracts): pin every stored and wire value`.
+- [ ] **Task 1.18: the vendored QA scripts are pinned.** Closes STR-014 (Q4).
+  - Files:
+    - create `src/agency/qa/scripts/MANIFEST.json`, holding per script its `legacy` path, its `legacy_sha256` and
+      its current `sha256` (equal today);
+    - `tests/test_registry.py`.
+  - Tests:
+    - `test_vendored_qa_scripts_match_their_manifest`. Each copy and each legacy original match the manifest. Where
+      `sha256 != legacy_sha256`, `src/agency/qa/scripts/PATCHES.md` must name the file.
+  - Verify:
+    - Mutant: one byte appended to a script in the copy is killed.
+    - Standard gate.
+  - Commit: `test(qa): pin the vendored QA scripts against a manifest`.
+- [ ] **Task 1.19: the import-linter contract lists stay complete.** Closes STR-002.
+  - Files: `tests/test_server.py:417`, and `pyproject.toml`: the forbidden lists of the insights, server and evaluation
+    contracts gain the packages that are missing today.
+  - Tests:
+    - `test_every_slice_contract_forbids_every_engine_package`: each contract forbids all the packages on disk,
+      except an allow-list. The allow-lists are insights `{agency.contracts}`, server
+      `{agency.contracts, agency.insights}` and evaluation `{agency.contracts}`.
+  - Verify:
+    - `mise exec -- uv run lint-imports` → "4 kept, 0 broken".
+    - The STR-002 mutation (a new package that insights, the server and evaluation all import) makes the test fail.
+    - Standard gate.
+  - Commit: `test(structure): keep every slice contract complete`.
+
+## Phase 2: bug fixes
+
+The order is Critical, then High, then Medium, then Low. Low comes last but still precedes Phases 3–6, because those
+must not change behaviour. Every task starts with its failing test.
+
+### Critical
+
+- [ ] **Task 2.1: a no-follow helper for the files the harness writes.** Closes SEC-001, part 1 of 3 (Q1).
+  - Files:
+    - `src/agency/tools/files.py`;
+    - `src/agency/tools/surface.py` (`compute`, :388-394);
+    - `src/agency/tools/craft.py` (`run_steps`, :95-134);
+    - create `tests/test_safe_files.py`;
+    - `tests/test_hardening.py`.
+  - Interfaces produced, in `agency.tools.files`. Each one walks the path with directory descriptors, opening every
+    component with `O_DIRECTORY | O_NOFOLLOW` from the trusted root. A symlinked component, `..` or an absolute path
+    raises `OutsidePerimeter`.
+    - `open_under(root: Path, relative: str, flags: int, mode: int = 0o600) -> int`;
+    - `ensure_dir_under(root: Path, relative: str) -> None`;
+    - `read_under(root: Path, relative: str) -> bytes`;
+    - `write_new_under(root: Path, relative: str, data: bytes) -> None`, using `O_CREAT | O_EXCL | O_NOFOLLOW`;
+    - `replace_under(root: Path, relative: str, data: bytes) -> None`, which writes a temporary file and calls
+      `os.replace` with `src_dir_fd`/`dst_dir_fd`;
+    - `sha256_under(root: Path, relative: str) -> str`.
+  - Tests:
+    - `test_a_symlinked_directory_component_is_refused`;
+    - `test_dotdot_and_absolute_paths_are_refused`;
+    - `test_write_new_under_refuses_an_existing_file`;
+    - `test_compute_never_writes_through_a_planted_ops_symlink`. This is the auditor's `ops_symlink_probe` as a
+      regression test: plant `.ops -> <tmp target>`, then `compute` returns `is_error`, and the target folder stays
+      empty.
+  - Verify: `mise exec -- uv run pytest tests/test_safe_files.py tests/test_hardening.py -q`; standard gate.
+  - Commit: `fix(tools): write harness files under /job without following symlinks`.
+- [ ] **Task 2.2: every harness read and write under `/job` goes through the helper.** Closes SEC-001 part 2 of 3, and
+  SEC-003's symlink half.
+  - Files:
+    - `src/agency/tools/surface.py` (`read_file`, `write_file`, `view_image`);
+    - `src/agency/tools/render.py`, `src/agency/tools/presentation.py` (`_fit`, `build`), `src/agency/tools/board.py`,
+      `src/agency/tools/master.py`;
+    - `src/agency/qa/evidence.py` and `src/agency/qa/delivery.py` (hashing of work files);
+    - `src/agency/artifacts/keeping.py`;
+    - `tests/test_safe_files.py`.
+  - Tests:
+    - `test_harness_readers_refuse_a_planted_symlink`, parametrized over `render_one`, `view_image`, the presentation
+      image reader, delivery hashing, `keeping` and `board.build`. Each one refuses, and the sentinel file outside the
+      work folder is never read.
+  - Verify: the tests pass; `rg -n 'inside\(ctx\.work|inside\(sandbox\.work|inside\(work' src/agency` shows only path
+    computations, with no direct `open`, `read_*` or `write_*` on their result; standard gate.
+  - Commit: `fix(tools): read and write the work folder only through the no-follow helper`.
+- [ ] **Task 2.3 [APPROVAL]: harness inputs and resume records leave `/job`.** Closes SEC-001 (Q1). New ADR, expected
+  ADR-0044 ("I file dell'harness fuori dalla sandbox").
+  - Files:
+    - `src/agency/contracts/layout.py`;
+    - `src/agency/tools/sandbox.py` (the new `ops: Path | None` argument, bound read-only at `OPS = "/ops"`);
+    - `src/agency/tools/surface.py` (`compute`), `src/agency/tools/craft.py` (`run_steps`);
+    - the `Sandbox(...)` construction sites (find them with `rg -n "Sandbox\(" src/agency`);
+    - `docs/adr/0044-*.md`, `docs/adr/README.md`, `docs/06-SECURITY.md`, `docs/03-DATA-MODEL.md`;
+    - `tests/test_agent_flow.py`.
+  - Interfaces: `DataLayout.ops_inputs(project: str, instance: str) -> Path` resolves to
+    `<root>/ops/<project>/<instance>/in`, and `DataLayout.ops_records(project: str, instance: str) -> Path` to
+    `<root>/ops/<project>/<instance>`.
+  - Where things go:
+    - `compute` writes its script into `ops_inputs` and runs `/ops/compute_<id>.py`.
+    - `craft_run` writes its plan into `ops_inputs` and exports to `/job/.partial/<op>.vectorcraft`. The harness then
+      copies the result JSON and the built document into `ops_records`, through the helper. Resume reads only
+      `ops_records`.
+    - `list_files` keeps hiding the dot-folders.
+  - Tests:
+    - `test_compute_script_lives_outside_the_work_folder`: `/job` has no `.ops`, and sandbox code that opens
+      `/ops/x` for writing fails.
+    - `test_craft_run_resume_reads_only_the_harness_record`: anything written into `/job` is ignored on resume.
+    - `test_resume_with_a_record_only_in_the_old_place_reruns_once` (Review focus 3).
+    - Task 1.13's tests still pass. Only their call to `run_steps` may change, to pass the new directories; their
+      assertions stay as they are. The request snapshots are byte-identical.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(sandbox): keep harness inputs and resume records outside the writable work folder`.
+
+### High
+
+- [ ] **Task 2.4: a render proof counts only for the version that was viewed.** Closes COR-001.
+  - Files: `src/agency/tools/surface.py` (`_seen_proof`, :410-419), `tests/test_agent_flow.py`.
+  - Tests:
+    - `test_observe_refuses_a_render_viewed_for_an_older_version`. Render a red `a.png` and view the proof. Turn the
+      file black and render it again, without viewing. `observe` must then be refused with
+      `"non hai guardato un render della versione attuale"`.
+  - Implementation: accept a proof only if `f"{proof}:{sha256_under(ctx.work, proof)}"` is in `_viewed(ctx)`.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(tools): accept a render proof only for the version that was viewed`.
+
+### Medium
+
+- [ ] **Task 2.5: open sandbox-written images only in safe formats.** Closes SEC-002 and COR-015.
+  - Files:
+    - create `src/agency/contracts/media.py`;
+    - `src/agency/tools/render.py`, `src/agency/tools/surface.py` (`view_image`), `src/agency/tools/board.py`,
+      `src/agency/tools/presentation.py`, `src/agency/evaluation/board.py`;
+    - create `tests/test_media.py`.
+  - Interfaces:
+    - `IMAGE_MEDIA_TYPES: dict[str, str]` = `{"PNG": "image/png", "JPEG": "image/jpeg", "WEBP": "image/webp", "GIF": "image/gif"}`;
+    - `open_image(data: bytes) -> Image.Image`, which calls `Image.open(BytesIO(data), formats=list(IMAGE_MEDIA_TYPES))`;
+    - `media_type(image: Image.Image) -> str`.
+
+    These live in `contracts`, because `evaluation` may not import `tools`.
+  - Tests:
+    - `test_an_eps_file_named_png_is_refused`: raises `UnidentifiedImageError`.
+    - `test_view_image_takes_the_media_type_from_the_content`: JPEG bytes in `x.png` are sent as `image/jpeg`.
+  - Verify: the tests pass; `rg -n "Image\.open\(" src/agency --glob '!**/qa/scripts/**'` finds only
+    `contracts/media.py`; standard gate.
+  - Commit: `fix(tools): open sandbox-written images only as PNG, JPEG, WebP or GIF`.
+- [ ] **Task 2.6: the presentation shows only delivered images.** Closes SEC-003.
+  - Files: `src/agency/tools/presentation.py` (`proposal_files`), `src/agency/graph/workflow.py` (`present`, :255-263),
+    `src/agency/tools/surface.py` (`draft_presentation`), `tests/test_sketch_flow.py`.
+  - Interface: `proposal_files(work: Path, turn: int, anon: str, delivered: Iterable[str]) -> tuple[Path, tuple[Path, ...]]`.
+  - Tests:
+    - `test_a_hidden_image_never_reaches_the_presentation`: a real `applicazioni-v/.zz.png` that was not delivered
+      appears in no page.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(presentation): show only the images the proposal delivered`.
+- [ ] **Task 2.7: the reviewer write rule checks the resolved path.** Closes SEC-004.
+  - Files: `src/agency/tools/surface.py` (`write_file`, :298-305), `tests/test_hardening.py`.
+  - Tests:
+    - `test_a_reviewer_cannot_leave_reviews_with_dotdot`: `reviews/../brief.md` is refused with
+      `"un revisore scrive solo in reviews/"`, and `brief.md` stays unchanged.
+  - Implementation: compare `inside(ctx.work, a.path)` with `inside(ctx.work, "reviews")` using `is_relative_to`.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(tools): check the reviewer write rule on the resolved path`.
+- [ ] **Task 2.8: each proof is named after its source file and its zoom box.** Closes COR-007 and COR-012, which share
+  one root cause. The real lines are `render.py:20-21`, `:36` and `:65`; the report cites :105 and :150.
+  - Files: `src/agency/tools/render.py`, plus any test that asserts a proof path.
+  - Implementation:
+    - `_stem` keeps the extension: `relative.replace("/", "_")`, so `exports_segno.svg.png`.
+    - The zoom name adds `w` and `h`: `_zoom_{x:.2f}_{y:.2f}_{w:.2f}_{h:.2f}`.
+  - Tests:
+    - `test_same_stem_sources_get_distinct_proofs`: renders of `x.png` and `x.jpg` give two paths.
+    - `test_two_zooms_with_one_corner_get_two_files`.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(render): name each proof after its source file and zoom box`.
+- [ ] **Task 2.9: transcripts are decoded line by line.** Closes COR-006.
+  - Files: `src/agency/insights/adapters/transcripts.py` (`_entries`, :88-100), `tests/test_insights.py`.
+  - Tests:
+    - `test_a_line_torn_inside_a_utf8_character_counts_as_unreadable`: a file holding one whole line plus `b'{"a":"\xc3'`
+      reads as 1 entry and 1 unreadable line.
+  - Implementation: read the file as bytes, and decode each line inside the per-line `try`.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(insights): skip a torn transcript line instead of failing the whole read`.
+- [ ] **Task 2.10: the brief is validated before the project exists, and resume says when there is nothing to
+  resume.** Closes COR-004.
+  - Files: `src/agency/runtime.py` (`Session.start` :67-104, `resume`), `src/agency/cli.py` (`_run`, `_resume`),
+    `tests/test_hardening.py`.
+  - Tests:
+    - `test_a_brief_that_is_not_utf8_leaves_no_project`: exit 1, a message saying the brief is not UTF-8, and
+      `ledger.project("p") is None`.
+    - `test_resume_without_saved_work_says_so`: exit 1 with one line, and no `runs` row.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(runtime): validate the brief before the project exists, and say when there is nothing to resume`.
+- [ ] **Task 2.11: parallel calls cannot overspend the cap.** Closes COR-002.
+  - Files: `src/agency/gateway/client.py` (`authorize`, `call`), `tests/test_gateway.py`.
+  - Implementation: a `threading.Lock` plus `_reserved: dict[str, float]`. Authorize against
+    `spent + reserved + estimate`, and release the reservation in `finally`, after `_record` or on error.
+  - Tests:
+    - `test_parallel_calls_cannot_overspend_the_cap`. Five threads wait at a barrier, against a 0.20 $ cap and a cost
+      equal to the 0.085 $ estimate. Expect 2 calls streamed, 3 refused, and spend ≤ 0.20.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(gateway): reserve each call's estimate until its usage is recorded`.
+- [ ] **Task 2.12 [APPROVAL]: one process at a time works on a project.** Closes COR-005.
+  - Files: `src/agency/contracts/layout.py`, `src/agency/runtime.py`, `src/agency/cli.py` (`_run`, `_resume`,
+    `_decide`), `tests/test_hardening.py`.
+  - Interfaces:
+    - `DataLayout.lock(project: str) -> Path` resolves to `<root>/locks/<project>.lock`.
+    - `ProjectLock(path)` is a context manager using `fcntl.flock(LOCK_EX | LOCK_NB)`, and raises `ProjectBusy`.
+  - The CLI then prints one Italian line saying that another process is already working on the project, and exits 1.
+  - Tests:
+    - `test_a_second_process_cannot_work_on_the_same_project`: the second process is refused before any model call,
+      and the transport sees the calls of one worker only.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(runtime): let only one process work on a project at a time`.
+- [ ] **Task 2.13: a call that fell back to another model is charged for every attempt.** Closes COR-008 (Q9). Load
+  the `claude-api` skill first.
+  - Files: `src/agency/gateway/pricing.py`, `src/agency/gateway/client.py` (`_record`), `tests/test_gateway.py`.
+  - Implementation: when `usage.iterations` is present, price each attempt at its own model's rates and store the sum
+    in the call's single `usage` row. An unknown model keeps `UNKNOWN_MODEL`'s highest rate.
+  - Tests:
+    - `test_a_fallback_call_is_charged_for_both_attempts`. Use a response shaped like the docs: a declined attempt on
+      `claude-opus-5-5` with 50k in and 6k out, and a fallback on `claude-opus-5` with 50k in and 3k out. Expect a
+      recorded cost of `0.645` at the current table.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(gateway): charge every attempt of a call that fell back to another model`.
+- [ ] **Task 2.14 [APPROVAL]: read-only commands never create a registry.** Closes DX-003 (its own half; Q3).
+  - Files: `src/agency/ledger/store.py`, `src/agency/cli.py`, `tests/test_hardening.py`.
+  - Interfaces: `Ledger.existing(path: Path) -> Ledger` raises `LedgerMissing(path)`, which `cli.main` prints as
+    `REGISTRO: nessun registro in <absolute path>`.
+  - Only `run` creates a registry. `verify`, `runs`, `artifacts`, `compare`, `report`, `insights`, `budget`, `resume`
+    and `decide` use `Ledger.existing`.
+  - Tests:
+    - `test_read_only_commands_never_create_a_registry`: run each command on an empty data directory. Each exits 1
+      with the absolute path, and no `ledger.sqlite` appears.
+    - Task 1.5's `verify` test adapts its setup if it needs to.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(cli): refuse a missing registry instead of creating an empty one`.
+- [ ] **Task 2.15 [APPROVAL]: one resolver for the data root, anchored at the checkout.** Closes STR-001 part 1 of 3,
+  STR-008, and DX-003 (the alias part) (Q2, Q3). New ADR, expected ADR-0045 ("Una radice dei dati, e `.env` solo per i
+  segreti"). It describes Tasks 2.15–2.17.
+  - Files:
+    - `src/agency/contracts/layout.py`, `src/agency/config.py`, `src/agency/entrypoints/server/settings.py`;
+    - `docs/adr/0045-*.md`, `docs/adr/README.md`, `docs/03-DATA-MODEL.md`;
+    - `tests/test_layout.py`, `tests/test_server.py`.
+  - Interfaces:
+    - `CHECKOUT: Path` is the repository root. `agency.config.REPO_ROOT = CHECKOUT`.
+    - `data_root(environ: Mapping[str, str] = os.environ) -> Path` returns `CHECKOUT / ".data"`, or the value of
+      `AGENCY_DATA_DIR`, which must be absolute. Otherwise it raises `RelativeDataRoot`.
+    - `projects_dir` follows the same rule, through `AGENCY_PROJECTS_DIR`.
+    - `env_file` becomes `CHECKOUT / ".env"`.
+  - Tests:
+    - `test_the_default_data_root_is_the_checkout_from_any_directory`;
+    - `test_a_relative_data_root_is_refused_by_engine_and_server` (Review focus 2);
+    - `test_engine_and_server_resolve_the_same_root`.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(config): resolve the data root from the checkout, the same way in the engine and the server`.
+- [ ] **Task 2.16 [APPROVAL]: `.env` holds the API key only.** Closes STR-001, part 2 of 3 (Q2).
+  - Files: `src/agency/config.py`, `src/agency/cli.py` (`main` catches the new error), `.env.example`,
+    `tests/test_layout.py`.
+  - Behaviour:
+    - Settings read only `ANTHROPIC_API_KEY` / `AGENCY_ANTHROPIC_API_KEY` from `.env`.
+    - Any other `AGENCY_*` line makes the engine stop with one Italian line. The line names the variable and says it
+      belongs in the process environment.
+    - `.env.example` keeps only the key.
+  - Tests:
+    - `test_dotenv_provides_only_the_key`;
+    - `test_an_old_env_example_copy_stops_with_one_line` (Review focus 1).
+  - Note for Andrea: before using this build, remove the non-secret lines from the main checkout's `.env`. The error
+    message says which ones.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(config): read only the API key from .env`.
+- [ ] **Task 2.17 [APPROVAL]: `task docker:up` uses `AGENCY_DATA_DIR`.** Closes STR-001 (Q2).
+  - Files: `Taskfile.yml` (`docker:up`, `docker:down`), `docker/compose.yaml` (the host side; the container keeps
+    `/data`), `tests/test_docker.py`, `README.md` (the `docker:up` line), `docs/adr/README.md` (mark ADR-0040 as
+    partly superseded by ADR-0045).
+  - Tests:
+    - `test_compose_mounts_agency_data_dir`;
+    - `test_compose_names_agency_data_dir_when_missing`.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(docker): name the host data root AGENCY_DATA_DIR, like every other process`.
+- [ ] **Task 2.18: sandbox limits that need no measurement.** Closes SEC-005, part 1 of 2 (Q20).
+  - Files: `src/agency/tools/sandbox.py`, `src/agency/tools/master.py` (`problem`), `src/agency/tools/surface.py`
+    (`view_image`), `tests/test_agent_flow.py`.
+  - Values:
+    - `--size` of 2 GiB on `/tmp` and 256 MiB on `/home`;
+    - each command runs as `prlimit --fsize=2147483648 -- <command>` inside bwrap. `prlimit` comes from util-linux
+      under `/usr`, and avoids `preexec_fn`, which is unsafe with threads;
+    - `master.problem` reads 8 bytes;
+    - `view_image` refuses files over `MAX_IMAGE_FILE_BYTES = 64 * 2**20` before decoding.
+  - Tests:
+    - `test_sandbox_tmp_is_size_limited`: `fallocate -l 3G /tmp/x` fails.
+    - `test_sandbox_file_size_is_limited`: `truncate -s 3G /job/x` fails.
+    - `test_master_problem_reads_only_the_header`.
+    - `test_view_image_refuses_a_huge_file`.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(sandbox): bound tmpfs, file sizes and harness-side reads`.
+- [ ] **Task 2.19 [APPROVAL]: memory and task caps in a cgroup scope.** Closes SEC-005 (Q20). New ADR, expected
+  ADR-0046 ("I limiti della sandbox").
+  - Files: `src/agency/tools/sandbox.py`, `src/agency/doctor.py`, `docs/adr/0046-*.md`, `docs/adr/README.md`,
+    `docs/06-SECURITY.md`, `docs/04-TOOLS.md`, `tests/test_agent_flow.py`, `tests/test_doctor.py`.
+  - Steps:
+    1. Measure, at 0 $:
+       - Run each Craft CLI and Blender inside
+         `systemd-run --user --scope -p MemoryAccounting=yes` on the `merlo3` masters (copied read-only into scratch)
+         and on an E6-sized scene.
+       - Read `memory.peak` for each run.
+       - Record the numbers in the ADR.
+    2. Wrap bwrap in `systemd-run --user --scope --quiet -p MemoryMax=<about 2× the peak> -p MemorySwapMax=0 -p TasksMax=512 --`.
+    3. If the scope cannot be created, raise `SandboxUnavailable` with the reason.
+    4. Doctor gets the same check, as an Italian line.
+  - Tests:
+    - `test_sandbox_runs_in_its_own_capped_scope`: inside, `/proc/self/cgroup` differs from the caller's, and
+      `memory.max` holds the value.
+    - `test_sandbox_refuses_to_run_without_a_scope`.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(sandbox): cap memory and tasks of every sandboxed run`.
+
+### Low (behaviour changes; they precede Phases 3–6)
+
+- [ ] **Task 2.20: an effect and its resume record are committed together.** Closes COR-003.
+  - Files: `src/agency/ledger/store.py` (`open`), `src/agency/tools/surface.py` (`plan_exploration` :587-624, and the
+    closing handlers), `tests/test_agent_flow.py`.
+  - Interface: `Ledger.open(..., concept: ConceptRow | None = None)` writes the concept row in the same transaction as
+    the ticket.
+  - Behaviour: `deliver`, `block` and `submit_concept` replayed on a ticket already in their target state, by the same
+    actor, return their result instead of raising `IllegalTransition`.
+  - Tests:
+    - `test_an_interrupted_plan_never_loses_a_direction`;
+    - `test_a_replayed_deliver_closes_as_delivered`.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(tools): commit an effect together with its resume record`.
+- [ ] **Task 2.21: a declined attempt's tool calls are dropped after a fallback.** Closes COR-009 (Q9). Load the
+  `claude-api` skill first.
+  - Files: `src/agency/agents/loop.py`, `src/agency/agents/transcript.py` (a `raw` field kept for audit),
+    `tests/test_agent_flow.py`.
+  - Interface: `_after_fallback(content: list[dict]) -> list[dict]` drops the `thinking`, `redacted_thinking`,
+    `tool_use` and unpaired `server_tool_use` blocks that come before the last `fallback` block, as the skill's
+    refusal section specifies.
+  - The filtered turn enters the history. The raw content is kept in the transcript line as `raw`.
+  - Tests:
+    - `test_tool_calls_before_a_fallback_are_not_executed`: with content `[tool_use A, fallback, text, tool_use B]`,
+      only B runs, A is missing from the history, and `raw` holds A.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(agents): drop a declined attempt's tool calls after a server-side fallback`.
+- [ ] **Task 2.22: every attempt of a retried call is authorized and recorded.** Closes COR-010.
+  - Files: `src/agency/gateway/client.py` (`_stream`, `call`), `tests/test_gateway.py`.
+  - Behaviour: authorize before each attempt. A failed attempt writes a usage row with `stop_reason="malformed_stream"`,
+    its estimate as the cost, and zero tokens.
+  - Tests:
+    - `test_a_malformed_stream_retry_is_authorized_and_recorded`: with two `ValueError`s before success, expect 3
+      usage rows and 3 authorizations. Under a cap that allows one call, the retry raises `BudgetExceeded`.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(gateway): authorize and record every attempt of a retried call`.
+- [ ] **Task 2.23: a turn cut off by the context window blocks.** Closes COR-011. Load the `claude-api` skill first.
+  - Files: `src/agency/agents/loop.py` (:144-169), `tests/test_agent_flow.py`.
+  - Behaviour: on `model_context_window_exceeded`, block with an Italian reason, as for a second `max_tokens`, without
+    appending the turn. A content holding a `tool_use` with no result is never appended.
+  - Tests:
+    - `test_a_context_window_cut_blocks_without_appending`.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(agents): block instead of appending a turn cut off by the context window`.
+- [ ] **Task 2.24 [APPROVAL]: project names follow the DNS-label rule.** Closes COR-013 (Q21).
+  - Files:
+    - create `src/agency/contracts/project.py`;
+    - `src/agency/config.py` (`project_dir`), `src/agency/contracts/layout.py` (`transcript`);
+    - `src/agency/cli.py` (argparse `type=`), `src/agency/runtime.py`, `src/agency/entrypoints/server/api.py`;
+    - `tests/test_hardening.py`, `tests/test_server.py`.
+  - Interfaces:
+    - `PROJECT_NAME = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")`, always used with `fullmatch`;
+    - `ProjectName = NewType("ProjectName", str)`;
+    - `parse_project_name(text: str) -> ProjectName`, which raises `ValueError` with an Italian message.
+
+    `project_dir` and `transcript` accept only `ProjectName`.
+  - Tests:
+    - `test_project_names`:
+      - valid: `merlo`, `merlo4`, `officina-e2e`, `p`, and 63 characters;
+      - invalid: `../x`, `a/b`, `""`, `Merlo`, `-a`, `a-`, `"merlo\n"`, and 64 characters.
+    - `test_an_invalid_stored_name_is_reported_not_crashed` (Review focus 4).
+  - Verify: the tests pass; pyright passes; standard gate.
+  - Commit: `fix(contracts): accept only DNS-label project names`.
+- [ ] **Task 2.25: tickets are listed in creation order.** Closes COR-014.
+  - Files:
+    - `src/agency/ledger/store.py` (:139-140, :177, :203);
+    - `src/agency/insights/adapters/registry.py:35`, `src/agency/insights/adapters/projection.py:90`;
+    - `tests/test_ledger.py`.
+  - Implementation: order by SQLite `rowid`, not by the text id.
+  - Tests:
+    - `test_ticket_10000_sorts_after_ticket_9999`.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(ledger): list tickets in creation order`.
+- [ ] **Task 2.26 [APPROVAL]: `svg_audit` flags strokes inherited from a group.** Closes COR-016 (Q4). This task
+  changes QA outcomes.
+  - Files: `src/agency/qa/scripts/svg_audit.py`, `src/agency/qa/scripts/MANIFEST.json` (the current hash),
+    create `src/agency/qa/scripts/PATCHES.md`, create `tests/test_qa_scripts.py`.
+  - Tests:
+    - `test_svg_audit_flags_a_stroke_inherited_from_a_group`: `<g stroke="#000" stroke-width="8">` around a path
+      exits 1 with a warning.
+    - `test_svg_audit_flags_a_style_element`.
+  - Verify: the tests pass, Task 1.18's manifest test passes, and the standard gate holds.
+  - Commit: `fix(qa): flag strokes inherited from a group in svg_audit`.
+- [ ] **Task 2.27: blind-judgment boards are rendered inside the sandbox.** Closes SEC-006.
+  - Files: `src/agency/evaluation/board.py`, `src/agency/cli.py` (`_judge`), `tests/test_board.py`.
+  - Interface: `board.build(..., render: Callable[[Path, Path], None])`. `cli.py` supplies a renderer backed by
+    `Sandbox`, because `evaluation` may not import `tools`.
+  - Tests:
+    - `test_judge_board_cannot_draw_host_files`: an SVG holding `<image href="/tmp/…/secret.png">` renders without
+      red.
+  - Verify: the test passes; lint-imports passes; standard gate.
+  - Commit: `fix(evaluation): render blind-judgment boards inside the sandbox`.
+- [ ] **Task 2.28: ticket paths cannot be absolute or contain `..`.** Closes SEC-007.
+  - Files: `src/agency/contracts/ticket.py` (a `TicketSpec` validator over outputs, inputs and the check patterns),
+    `tests/test_hardening.py`.
+  - First check whether stored specs are re-validated on load (`rg -n "TicketSpec.model_validate" src`). If they are,
+    confirm that no spec in a read-only copy of the real registry would fail.
+  - Tests:
+    - `test_ticket_paths_must_stay_inside_the_work_folder`.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(contracts): refuse absolute and parent paths in ticket specs`.
+- [ ] **Task 2.29: every sandbox starts in a new session.** Closes SEC-008, for the engine. The spike follows in 5.10.
+  - Files: `src/agency/tools/sandbox.py` (`--new-session`), `tests/test_agent_flow.py`.
+  - Tests:
+    - `test_sandbox_runs_in_a_new_session`: `os.getsid(0)` inside differs from the test process's.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(sandbox): start every sandbox in a new terminal session`.
+- [ ] **Task 2.30: model text is printed without control sequences.** Closes SEC-009.
+  - Files: `src/agency/cli.py`, `src/agency/telemetry/report.py` (every field that comes from the model),
+    `tests/test_hardening.py`.
+  - Interface: `plain(text: str) -> str` drops C0 and C1 control characters, except `\n` and `\t`.
+  - Tests:
+    - `test_cli_strips_control_sequences_from_model_text`: reasons containing `"\x1b]52;c;…\x07"` are printed without
+      ESC or BEL.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(cli): strip control sequences from model text before printing it`.
+- [ ] **Task 2.31 [APPROVAL]: the hash chain covers verdicts and delivered hashes.** Closes CMT-007's invariant (Q17;
+  the comment follows in 3.12). New ADR, expected ADR-0047 ("La catena copre verdetti e consegne").
+  - Files:
+    - `src/agency/ledger/models.py` (`EventRow.version: int = 1`, `payload_json: str = ""`);
+    - create `src/agency/ledger/migrations/versions/0006_event_payload.py`, which adds the columns and appends one
+      baseline event per ticket binding its current status, verdict and delivered hashes;
+    - `src/agency/ledger/chain.py`, `src/agency/ledger/store.py`, `src/agency/cli.py` (`_verify`);
+    - `docs/adr/0047-*.md`, `docs/adr/README.md`, `docs/03-DATA-MODEL.md`;
+    - `tests/test_ledger.py`, `tests/test_migrations.py`.
+  - Interfaces:
+    - `chain.digest_v2(prev, ticket_id, at, actor, action, note, payload_json) -> str`;
+    - `chain.intact` picks the formula by each row's `version`;
+    - `Ledger.replay_mismatches() -> list[str]`.
+  - Tests:
+    - `test_changing_a_verdict_in_tickets_breaks_verify`;
+    - `test_migration_binds_every_ticket_state_into_the_chain`;
+    - `test_v1_events_still_verify`.
+  - Verify: the tests pass; `agency migrate` on a copy of the real registry succeeds (read-only source); standard
+    gate.
+  - Commit: `fix(ledger): bind verdicts and delivered hashes into the hash chain`.
+- [ ] **Task 2.32: an unreadable fingerprint no longer crashes `agency runs`.** Closes SIM-001's behaviour half.
+  - Files: `src/agency/contracts/run.py`, `src/agency/telemetry/report.py` (:108-133), `tests/test_runs.py`.
+  - Interface: `read_fingerprint(text: str) -> Fingerprint | None`.
+  - Behaviour: an unreadable run is listed with an Italian label instead of raising.
+  - Tests:
+    - `test_runs_lists_an_unreadable_fingerprint`.
+  - Verify: the test passes; standard gate.
+  - Commit: `fix(cli): show an unreadable fingerprint instead of crashing agency runs`.
+- [ ] **Task 2.33 [APPROVAL]: live runs are recorded, keyed by request, and replayed in tests.** Closes SIM-006 and
+  TST-009's cassette part (Q8). New ADR, expected ADR-0048 ("Le esecuzioni si registrano e si ripetono"). Load the
+  `claude-api` skill first.
+  - Files:
+    - create `src/agency/gateway/recording.py`;
+    - `src/agency/gateway/transport.py` (delete the old `RecordingTransport` and `from_cassette`),
+      `src/agency/gateway/__init__.py`;
+    - `src/agency/runtime.py` (`open_session(..., record: bool = False)`; recording starts when the run id is known);
+    - `src/agency/cli.py` (`--record` on `run`, `resume` and `decide`), `src/agency/contracts/layout.py`
+      (`cassette(project: str, run: int) -> Path` → `<root>/cassettes/<project>/<run>.jsonl`);
+    - create `tests/support/__init__.py` and `tests/support/replay.py`, create `tests/test_recording.py`;
+    - `docs/adr/0048-*.md`, `docs/adr/README.md`, `docs/02-ROADMAP.md` (the `merlo4` command gets `--record`),
+      `docs/03-DATA-MODEL.md`.
+  - Interfaces:
+    - `request_key(params: dict) -> str`: the sha256 of the canonical JSON of model, system, tools, messages and
+      output_config, with sorted keys;
+    - `RecordingTransport(inner: Transport, path: Path)` records `count_tokens` and `stream` under one lock;
+    - `ReplayTransport(path: Path)` serves by key, with a list per key, and raises `MissingRecording(key, summary)`.
+  - Tests:
+    - `test_a_recorded_run_replays_to_the_same_ledger`;
+    - `test_parallel_recording_replays_in_any_order` (Review focus 5);
+    - `test_count_tokens_is_replayed`;
+    - `test_a_recording_never_contains_the_key`.
+  - Verify: the tests pass; standard gate.
+  - Commit: `feat(gateway): record live runs keyed by request and replay them in tests`.
+- [ ] **Task 2.34: each role declares its tool set and Craft apps in `roles.json`.** Closes SIM-008 and STR-005 (the
+  name-suffix part) (Q22). It changes no active tool set.
+  - Files: `registry/roles.json`, `src/agency/tools/surface.py` (`role_tools` :862-869, `craft_run`, `craft_search`),
+    `tests/test_registry.py`, `tests/test_sketch_flow.py`.
+  - Data changes:
+    - Every role gains `"tools": "director" | "author" | "reviewer" | "router"`, and `department` is removed.
+    - `art-director` becomes `author` with `craft: []`. The evidence: `legacy/…/ORG.md:23,72` makes it a level-2 role
+      that opens nothing, and its agent file bars the Craft tools.
+  - Behaviour:
+    - An empty `craft` list means no `craft_*` tools.
+    - `craft_run` and `craft_search` refuse an app the role does not list.
+  - Tests:
+    - `test_tool_declarations_match_the_org_chart`: a `director` has a `can_open` row, and only a director has one.
+      The `reviewer` roles equal `contracts.ticket.REVIEWERS`.
+    - `test_craft_tools_follow_the_role_craft_list`.
+    - The request snapshots of the 11 phases are byte-identical.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(registry): declare each role's tool set and Craft apps in roles.json`.
+- [ ] **Task 2.35: `registry/*.json` is validated against typed contracts at load.** Closes STR-005 (the schema part)
+  (Q18).
+  - Files: create `src/agency/contracts/registry.py`; `src/agency/agents/prompts.py` and `src/agency/qa/evidence.py`
+    (their loaders validate first, and callers are unchanged); `tests/test_registry.py`.
+  - Interfaces, all with `extra="forbid"`, and with `$comment` allowed:
+    - `CheckKind(StrEnum)` with `observation`, `judgement`, `measure`, `reading` and `requirement`;
+    - `RoleSpec`, `RolesFile`, `CheckSpec`, `ChecksFile` and `OrgFile`.
+  - Tests:
+    - `test_a_misspelt_registry_field_fails_at_load`: the error names the field.
+    - `test_an_unknown_check_kind_fails_at_load`.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(registry): validate the studio rules against typed contracts at load`.
+
+## Phase 3: comments and language (Q14–Q16)
+
+Every task edits comments and docstrings only, plus developer-facing messages where it says so.
+- **Never touched in these tasks:** model-facing text, user-facing strings, stored and wire values, migration files,
+  the vendored scripts, and the CMT-017 fixtures.
+- **Verify, besides the standard gate:**
+  - LANG-CHECK prints nothing for the task's files;
+  - the help snapshots of Task 1.16 are unchanged;
+  - `uv run agency-schemas && git diff --exit-code schemas/openapi.json` prints nothing (except in 3.2).
+- **Inventory:** the per-file lines are in `docs/audit/40-comments-language.md`, appendices A1–A11.
+- **Docstrings (CMT-014, by the Q14 rule):** the package tasks for `artifacts`, `contracts`, `gateway`, `ledger` and
+  `tools/sandbox` add docstrings to their A10 items, only where a docstring says something the name does not. They
+  never add one to [T], [O] or [M] items.
+
+- [ ] **Task 3.1: argparse descriptions become explicit strings.** Closes CMT-001 (the CLI-help part).
+  - Files: `src/agency/cli.py:297`, `src/agency/entrypoints/server/serve.py:58`,
+    `src/agency/entrypoints/server/schema.py:30`.
+  - Change: each `description=__doc__` becomes the exact current text, so the help is unchanged.
+  - Commit: `refactor(cli): give each argument parser its own description`.
+- [ ] **Task 3.2 [APPROVAL]: the OpenAPI descriptions are written in English.** Closes CMT-001 (the OpenAPI part).
+  - Files:
+    - the 27 [O] class docstrings: `insights/views.py`, `flow.py`, `behaviour.py`, `quality.py`, `compare.py`,
+      `replay.py` and `domain.py`;
+    - `entrypoints/server/api.py:28,30,134,164,179`;
+    - `schemas/openapi.json` and `web/src/api/schema.ts`, regenerated with `uv run agency-schemas` and
+      `pnpm --dir web run api:types`.
+  - Verify: the generated diffs change only `description` strings; `pnpm --dir web run api:check` passes; standard gate,
+    without the schema line.
+  - Commit: `docs(api): write the OpenAPI descriptions in English`.
+- [ ] **Task 3.3: the domain vocabulary is documented.** Closes CMT-008 (Q16).
+  - Files: `docs/03-DATA-MODEL.md`.
+  - Content, in Italian: a "Vocabolario" section giving the rule (identifiers in English; stored and wire values in
+    Italian; changing a value is a migration) and the current values, as pinned by Task 1.17.
+  - Commit: `docs(data-model): record the stored and wire vocabulary`.
+- [ ] **Task 3.4: `src/agency/agents/`.** Closes CMT-009 for this package.
+  - Keep the reminder, the block reasons and the packet text.
+  - Commit: `docs(agents): translate comments and docstrings to English`.
+- [ ] **Task 3.5: `src/agency/artifacts/`.** Closes CMT-009 for this package, and its CMT-014 items.
+  - Commit: `docs(artifacts): translate comments and docstrings to English`.
+- [ ] **Task 3.6: `src/agency/contracts/`.** Closes CMT-009 for this package, CMT-018, and its CMT-014 items.
+  - Keep the model-facing `Field` descriptions and every enum value.
+  - Commit: `docs(contracts): translate comments and docstrings to English`.
+- [ ] **Task 3.7: `src/agency/entrypoints/server/`.** Closes CMT-009 for this package.
+  - Keep `Problem.detail` and the server messages.
+  - Commit: `docs(server): translate comments and docstrings to English`.
+- [ ] **Task 3.8: `src/agency/evaluation/`.** Closes CMT-009 for this package.
+  - Keep the interview prompts and the `CannotCompare` texts.
+  - Commit: `docs(evaluation): translate comments and docstrings to English`.
+- [ ] **Task 3.9: `src/agency/gateway/`.** Closes CMT-009 and CMT-011 (`transport.py:70`, `client.py:167`) for this
+  package, and its CMT-014 items.
+  - Commit: `docs(gateway): translate comments, docstrings and internal messages to English`.
+- [ ] **Task 3.10: `src/agency/graph/`.** Closes CMT-009 and CMT-011 (`workflow.py:291`) for this package.
+  - Keep the ticket texts and outcomes.
+  - Commit: `docs(graph): translate comments, docstrings and internal messages to English`.
+- [ ] **Task 3.11: `src/agency/insights/`, apart from 3.2.** Closes CMT-009 for this package, CMT-005 and CMT-019.
+  - Commit: `docs(insights): translate comments and docstrings to English`.
+- [ ] **Task 3.12: `src/agency/ledger/`, apart from the migrations.** Closes CMT-009 and CMT-011 (`store.py:415`) for
+  this package, CMT-006, CMT-007 (describe the chain as Task 2.31 left it), and its CMT-014 items.
+  - Commit: `docs(ledger): translate comments, docstrings and internal messages to English`.
+- [ ] **Task 3.13: `src/agency/qa/`, apart from the scripts.** Closes CMT-009 for this package.
+  - Keep `qa/checks.py:58`: it can reach the model.
+  - Commit: `docs(qa): translate comments and docstrings to English`.
+- [ ] **Task 3.14: `src/agency/telemetry/`.** Closes CMT-009 for this package.
+  - Keep the report texts.
+  - Commit: `docs(telemetry): translate comments and docstrings to English`.
+- [ ] **Task 3.15: `src/agency/tools/`.** Closes CMT-009 for this package, CMT-004, and its CMT-014 items for
+  `sandbox.py`.
+  - No class docstring on any tool-input model: use `#` comments.
+  - Commit: `docs(tools): translate comments and docstrings to English`.
+- [ ] **Task 3.16: the top-level modules.** Closes CMT-009 for `cli.py`, `config.py`, `doctor.py`, `runtime.py`,
+  `__init__.py` and `context/__init__.py`.
+  - The CLI help is safe after 3.1; keep every printed string.
+  - Commit: `docs(engine): translate the top-level modules' comments and docstrings to English`.
+- [ ] **Task 3.17: tests, part 1 of 3.** Closes CMT-010 and CMT-011 (the test rows) for:
+  - `test_insights.py`, `test_server.py`, `test_schemas.py`, `test_report_views.py`;
+  - `test_compare_view.py`, `test_replay_view.py`, `test_quality_view.py`, `test_behaviour_view.py`, `test_flow_view.py`;
+  - `dashboard_fixture.py`.
+
+  Keep every assertion on a user-facing string.
+  - Commit: `docs(tests): translate the dashboard tests' comments and docstrings to English`.
+- [ ] **Task 3.18: tests, part 2 of 3.** Closes CMT-010 and CMT-011 for:
+  - `test_agent_flow.py`, `test_sketch_flow.py`, `test_hardening.py`, `test_gateway.py`;
+  - `test_request_snapshots.py`, `test_board.py`, `drawings.py`.
+  - Commit: `docs(tests): translate the engine tests' comments and docstrings to English`.
+- [ ] **Task 3.19: tests, part 3 of 3.** Closes CMT-010 and CMT-011 for the remaining test files and `conftest.py`.
+  - Includes the Python-owner sentence of `test_toolchain.py`, for STR-011.
+  - Commit: `docs(tests): translate the remaining tests' comments and docstrings to English`.
+- [ ] **Task 3.20: web comments and JSDoc.** Closes CMT-012, CMT-002, CMT-003 and CMT-015.
+  - Files: `web/src/**`, `web/e2e/**` (comments only), `web/scripts/**`, `web/next.config.mjs`,
+    `web/playwright.config.ts`, and the comments of `web/src/app/globals.css`.
+  - Keep `fetch(`, `use server` and `generateStaticParams` out of the comments in `web/src` (CMT-002).
+  - Verify: `pnpm --dir web run defenses`, `typecheck` and `test`, `make e2e`, then the standard gate.
+  - Commit: `docs(web): translate comments to English and document the exported helpers`.
+- [ ] **Task 3.21: web test titles and build-check messages.** Closes CMT-013.
+  - Files: `web/src/*.test.ts`, `web/e2e/*.spec.ts` (the titles), `web/scripts/check-defenses.mjs` and
+    `web/scripts/standalone.mjs` (their messages).
+  - Keep the UI-copy assertions, and the "Next.js" and "Django" label prefixes.
+  - Commit: `test(web): write test titles and build messages in English`.
+- [ ] **Task 3.22: config and infrastructure comments.** Closes CMT-016, and STR-011 (the comment part).
+  - Files:
+    - `pyproject.toml` (its comments and the four contract names);
+    - `Makefile`;
+    - `mise.toml`: line 2 now names `.python-version` as the Python owner;
+    - `Taskfile.yml`: comments only, not `desc:`;
+    - `.gitignore`, `.env.example`, `docker/*`, `spikes/sandbox_craft.sh` (comments and output);
+    - `web/tsconfig.json`, `web/pnpm-workspace.yaml`, and the description in `web/package.json`.
+  - Commit: `docs(config): translate configuration comments to English`.
+
+## Phase 4: file structure
+
+- [ ] **Task 4.1: the insights ledger reader gets the name ledger.** Closes STR-009 (Q18).
+  - Files:
+    - move `src/agency/insights/adapters/registry.py` to `adapters/ledger.py`, with plain `mv`;
+    - in `ports.py`, `application.py` and `domain.py`: `RegistryReader` → `LedgerReader`, `RegistrySnapshot` →
+      `LedgerSnapshot`, `ReadOnlyRegistry` → `ReadOnlyLedger`, `RegistryNotReadable` → `LedgerNotReadable`;
+    - the callers: `cli.py`, `entrypoints/server/api.py`, `tests/conftest.py`, and the tests.
+
+    Keep `Provenance.from_registry`, `registry_revision` and `Fingerprint.registry`.
+  - Verify: the standard gate, with `schemas/openapi.json` byte-identical.
+  - Commit: `refactor(insights): call the ledger reader a ledger`.
+- [ ] **Task 4.2: one module loads the studio rules.** Closes STR-005, SIM-005 (`evidence.ROLES`), and STR-004 (the
+  `tools → agents` edge) (Q18, Q19).
+  - Files:
+    - create `src/agency/registry.py`;
+    - `src/agency/agents/prompts.py`: its lookups at :10-27 and :75-77 move out;
+    - `src/agency/qa/evidence.py`: the dead `ROLES` loader is deleted;
+    - `src/agency/tools/surface.py` and the other importers;
+    - `pyproject.toml`: `agency.registry` joins the four contract lists, as Task 1.19 requires.
+  - Interfaces: `ROLES: dict[str, RoleSpec]`, `CHECKS: dict[str, CheckSpec]`, `ORG: OrgFile`, `PROMPTS: Path`,
+    `skill_names()`, `skills_index()`, `has_prompt(role)`, `can_open(sender, assignee)`.
+  - Verify:
+    - `mise exec -- uv run python -c "import grimp; g=grimp.build_graph('agency'); print(g.find_shortest_chain('agency.tools','agency.agents'))"`
+      prints `None`;
+    - the request snapshots are byte-identical;
+    - standard gate.
+  - Commit: `refactor(registry): load the studio rules in one module`.
+- [ ] **Task 4.3: test helpers and the scripted transport live in `tests/support/`.** Closes STR-016 and SIM-006 (its
+  move part).
+  - Files:
+    - move `tests/drawings.py` and `tests/dashboard_fixture.py` into `tests/support/`;
+    - move `ScriptedTransport` from `src/agency/gateway/transport.py` into `tests/support/scripted.py`;
+    - `pyproject.toml`: `pythonpath = ["tests"]`;
+    - update the imports;
+    - `web/playwright.config.ts:30`: the new fixture path.
+  - Verify: `mise exec -- uv run pytest --import-mode=importlib --collect-only -q` collects everything; `make e2e`
+    passes; standard gate.
+  - Commit: `refactor(tests): keep test helpers and the scripted transport in tests/support`.
+- [ ] **Task 4.4: only the gateway imports `anthropic`.** Closes STR-003, for this refactor. `langgraph` and the
+  ledger port stay in M1.7.
+  - Files: `src/agency/gateway/__init__.py` (it re-exports `APIError`), `src/agency/cli.py` (its import), and
+    `pyproject.toml`: a new forbidden contract on `anthropic` for every package except `agency.gateway`, with
+    `allow_indirect_imports = true`.
+  - Verify: `mise exec -- uv run lint-imports` reports 5 contracts kept; standard gate.
+  - Commit: `refactor(cli): catch API errors through the gateway, and let only the gateway import anthropic`.
+- [ ] **Task 4.5: each dashboard view is mapped to its names.** Closes STR-015.
+  - Files: `docs/01-ARCHITECTURE.md`, section "Cruscotto e server". The table, in Italian, maps each view label to its
+    page, e2e spec, API route, operationId, read model, module and pytest file.
+  - Commit: `docs(architecture): map each dashboard view to its route, API and read model`.
+
+## Phase 5: developer experience
+
+- [ ] **Task 5.1: the Taskfile ignore test needs a git checkout.** Closes DX-005.
+  - Files: `tests/test_taskfile.py:107-110`. It reuses the `skipif` of `tests/test_repository.py:33`, and asserts git's
+    return code with its stderr.
+  - Verify: in a `git archive` copy, `task test -- tests/test_taskfile.py` skips that test instead of failing; standard
+    gate.
+  - Commit: `test(taskfile): skip the ignore check outside a git checkout`.
+- [ ] **Task 5.2 [APPROVAL]: the Craft tests skip without the Craft CLIs, and the sandbox tests fail once without
+  bwrap.** Closes DX-001 and TST-017 (its key half) (Q10).
+  - Files: `tests/conftest.py`, `tests/test_agent_flow.py`, `tests/test_hardening.py:406`, and `pyproject.toml`
+    (the `sandbox` marker).
+  - Changes:
+    - `needs_craft` on the 8 `runner()` tests;
+    - a `sandbox` marker on the 3 bwrap tests;
+    - a session-start probe, `bwrap --unshare-net --ro-bind /usr /usr true`. When it fails and a selected test
+      carries `sandbox`, the session fails with one line naming bwrap;
+    - the fake key is set with `monkeypatch`.
+  - Verify: on a PATH without `vectorcraft-cli`, the Craft tests skip; on a PATH without bwrap, the session stops with
+    one line; `pytest -m "not sandbox"` runs; standard gate.
+  - Commit: `test(dx): skip Craft tests without the CLIs, and fail once without a working bwrap`.
+- [ ] **Task 5.3: the two slowest tests no longer wait on subprocesses.** Closes TST-018.
+  - Files: `tests/test_doctor.py:5` (it patches `doctor._gpu`), and `tests/test_agent_flow.py:655` (it calls
+    `cli.main(["--help"])` under `pytest.raises(SystemExit)`).
+  - Verify: `--durations=5` no longer lists them above 0.5 s; standard gate.
+  - Commit: `test(dx): keep the doctor and help tests off slow subprocesses`.
+- [ ] **Task 5.4 [APPROVAL]: a stale lock fails instead of being rewritten.** Closes DX-004 (Q12).
+  - Files:
+    - `Taskfile.yml`: `setup` runs `uv sync --locked`, `UV_LOCKED: "1"` goes in `env:`, and `uv lock --check` becomes
+      the first step of `check`;
+    - `docker/server.Dockerfile:16,18`: `--locked`;
+    - `tests/test_taskfile.py`: `CHECK` gains the first command;
+    - `tests/test_docker.py`.
+  - Verify: in a copy where `pyproject.toml` disagrees with the lock, `task setup` fails and `uv.lock` is unchanged;
+    standard gate.
+  - Commit: `build(task): fail on a stale uv.lock instead of rewriting it`.
+- [ ] **Task 5.5 [APPROVAL]: doctor tells the truth about Docker and Chromium.** Closes DX-006 (Q13).
+  - Files: `src/agency/doctor.py`, `tests/test_doctor.py`.
+  - Changes:
+    - Docker becomes optional, with the reason `task docker:up`.
+    - Chromium becomes required. Doctor reads the expected revision from
+      `web/node_modules/playwright-core/browsers.json` and checks that its folder exists in the browser cache. When it
+      is missing, doctor prints the install command from `docs/04-TOOLS.md:91`.
+    - The new strings are Italian.
+  - Verify: the tests pass; standard gate.
+  - Commit: `fix(doctor): make Docker optional and check Playwright's Chromium`.
+- [ ] **Task 5.6 [APPROVAL]: `task format` fixes and formats.** Closes DX-008.
+  - Files: `Taskfile.yml` (`format`: `uv run ruff check --fix .`, then `uv run ruff format .`), `Makefile` (`format`
+    joins `TASKS`), `tests/test_taskfile.py` (`ALIASES`).
+  - Verify: `mise exec -- task --list` shows `format`; `make -n format` prints `mise exec -- task format`; standard gate.
+  - Commit: `build(task): add a format task that fixes and formats`.
+- [ ] **Task 5.7 [APPROVAL]: a bare `make` lists the commands.** Closes DX-012.
+  - Files: `Makefile` (a first target, `help`, that runs `mise exec -- task`), `tests/test_taskfile.py`.
+  - Verify: `make -n` prints `mise exec -- task`; standard gate.
+  - Commit: `build(make): list the commands on a bare make`.
+- [ ] **Task 5.8 [APPROVAL]: `docker:up` checks that the registry folder exists.** Closes DX-010.
+  - Files: `Taskfile.yml` (`docker:up` gets a precondition on `AGENCY_DATA_DIR`, with one Italian line),
+    `tests/test_taskfile.py`.
+  - Verify: `task --dry docker:up` with a missing folder prints the line; standard gate.
+  - Commit: `build(docker): refuse docker:up when the registry folder is missing`.
+- [ ] **Task 5.9 [APPROVAL]: Python is pinned to its exact version.** Closes DX-011, and STR-011 (the Python part).
+  - Files: `.python-version` (`3.13.15`), `tests/test_docker.py:116-119` (compares the full version).
+  - Verify: `uv run python -V` prints `3.13.15`; standard gate.
+  - Commit: `build(python): pin Python to 3.13.15 everywhere`.
+- [ ] **Task 5.10 [APPROVAL]: the sandbox spike tests the real sandbox.** Closes DX-007, STR-012, and SEC-008 (the
+  spike part).
+  - Files: `spikes/sandbox_craft.sh`.
+  - Changes:
+    - check `command -v bwrap blender vectorcraft-cli …` first, and exit with a message if one is missing;
+    - take the bwrap prefix from `uv run python -c "from agency.tools.sandbox import Sandbox; …argv([])"`;
+    - count only each probe's own exit status.
+  - Verify: on a PATH without bwrap, the script exits 1 and prints no `ok`; with bwrap, it prints 8 `ok`.
+  - Commit: `fix(spikes): run the Craft spike in the engine's own sandbox`.
+- [ ] **Task 5.11 [APPROVAL]: a pre-commit hook and a clean-checkout gate.** Closes DX-009 (Q11). New ADR, expected
+  ADR-0049 ("Il controllo gira da solo").
+  - Files:
+    - create `.githooks/pre-commit`. It calls `mise exec -- uv lock --check`, then `ruff check`,
+      `ruff format --check`, `lint-imports`, `pyright`, `api:check`, the web typecheck and `defenses`;
+    - `Taskfile.yml`:
+      - add `check:clean`, which exports `HEAD` with `git archive`, or the index with
+        `git checkout-index -a --prefix=`, into a temporary folder, runs `setup` and `check` there, and deletes the
+        folder;
+      - `setup` prints `git config core.hooksPath .githooks` for Andrea to run;
+    - `tests/test_taskfile.py`, `docs/adr/0049-*.md`, `docs/adr/README.md`.
+  - Verify:
+    - `PATH=/usr/bin:/bin .githooks/pre-commit` exits 0 in about 10 s;
+    - `mise exec -- task check:clean` exits 0;
+    - standard gate.
+  - Commit: `build(gate): add a pre-commit hook and a clean-checkout check`.
+- [ ] **Task 5.12: the README gets a newcomer to a green run.** Closes DX-002, DX-013, and STR-017 (the README part).
+  - Files: `README.md`, in Italian.
+  - Content:
+    - prerequisites: mise activated, or the `make` aliases; the machine tools `task doctor` checks; and the Chromium
+      install command;
+    - the `agency verify` line, `--record`, `task format` and `task check:clean`;
+    - the full "Struttura" tree, including `web/`, `schemas/`, `prompts/`, `docker/` and `evals/`.
+  - Verify: a README walk-through in a `git archive` copy reaches a green `task check`; standard gate.
+  - Commit: `docs(readme): list the prerequisites and every command and folder`.
+
+## Phase 6: sanity refactor and simplification
+
+- [ ] **Task 6.1: remove the unused OTLP exporter.** Closes SIM-002 (Q5).
+  - Files: `pyproject.toml`, `uv.lock` (`uv remove opentelemetry-exporter-otlp-proto-http`).
+  - Verify: the lock diff removes 7 packages; standard gate.
+  - Commit: `build(deps): drop the unused OTLP exporter`.
+- [ ] **Task 6.2 [APPROVAL]: drop the unused extras.** Closes SIM-003 (Q6).
+  - Files: `pyproject.toml`, `uv.lock` (`context`, `qa` and `telemetry` removed), and `docs/04-TOOLS.md`, which notes
+    that each package is declared again by the milestone that first imports it. Langfuse returns with M4.
+  - Verify: `uv export --all-extras` lists 56 packages fewer; standard gate.
+  - Commit: `build(deps): drop extras that nothing imports yet`.
+- [ ] **Task 6.3: the code declares what it imports, and a test keeps it that way.** Closes SIM-004 (Q7). New ADR,
+  expected ADR-0050 ("Le dipendenze le dichiara il codice che le importa").
+  - Files:
+    - `pyproject.toml` and `uv.lock`:
+      - `uv add 'sqlalchemy>=<locked>' 'langchain-core>=<locked>'`;
+      - `uv add --dev 'httpx2>=<locked>'`;
+    - create `tests/test_dependencies.py`. It maps every top-level import in `src/` and `tests/` to its distribution
+      with `importlib.metadata.packages_distributions()`. It fails on an import that is not declared, and on a
+      runtime dependency that nothing imports. Its allow-list covers ruff, pyright, import-linter and django-stubs;
+    - `docs/adr/0050-*.md`, `docs/adr/README.md`.
+  - Verify: the test passes; mutant: deleting `sqlalchemy` from the declared dependencies is killed; standard gate.
+  - Commit: `build(deps): declare every imported package and test it`.
+- [ ] **Task 6.4: delete three dead definitions.** Closes SIM-005 (its remainder).
+  - Files:
+    - `src/agency/graph/workflow.py:38` (`SKETCH_CHECKS`);
+    - `src/agency/tools/render.py` (`contact_sheet`, its entry in `__all__`, and the `ImageDraw` and `Path` imports
+      that become unused);
+    - `src/agency/ledger/store.py:297` (`render_of`).
+  - Verify: `rg -n -w -e SKETCH_CHECKS -e contact_sheet -e render_of src tests` prints nothing; standard gate.
+  - Commit: `refactor: delete definitions with no caller`.
+- [ ] **Task 6.5: drop four parameters that no caller passes.** Closes SIM-007.
+  - Files: `src/agency/tools/sandbox.py` (`read_only`, `stdin`), `src/agency/qa/delivery.py` (`inputs_changed`),
+    `src/agency/ledger/store.py` (`spent(ticket_id)`). `CommandIndex.load(app)` stays.
+  - Commit: `refactor: drop parameters that no caller passes`.
+- [ ] **Task 6.6: one fingerprint reader.** Closes SIM-001.
+  - Files: `src/agency/insights/compare.py:132-136` (it uses `contracts.run.read_fingerprint` and deletes its own
+    copy).
+  - Commit: `refactor(insights): read fingerprints through the shared reader`.
+- [ ] **Task 6.7: the concept status is a type.** Closes SIM-009.
+  - Files:
+    - `src/agency/contracts/concept.py` (`ConceptStatus(StrEnum)`, with the members below);
+    - `src/agency/ledger/models.py:134`, `src/agency/tools/surface.py`, `src/agency/graph/workflow.py`;
+    - `tests/test_vocabulary.py`, which gains `ConceptStatus`.
+  - The members: `IDEA="idea"`, `SKETCH="schizzo"`, `SELECTED="selezionata"`, `IN_DEVELOPMENT="in-sviluppo"`,
+    `PROPOSAL="proposta"` and `CHOSEN="scelta"`.
+  - Commit: `refactor(contracts): type the concept status`.
+- [ ] **Task 6.8: closing behaviour is declared on each tool.** Closes SIM-010.
+  - Files: `src/agency/tools/surface.py` (`Tool`, `CLOSE_ALWAYS` and `_restore`), `src/agency/agents/loop.py:25`
+    (`CLOSING`), `src/agency/contracts/ticket.py` (one exported `RUNNABLE`), `src/agency/graph/workflow.py:37`.
+  - Changes:
+    - `Tool` gains `closes: OutcomeState | None` and `conditional: Callable[[str], Outcome | None] | None`.
+    - `CLOSE_ALWAYS` and `_restore` are derived from those fields.
+    - The reminder keeps its current order and still leaves out `reject_concept`, as Task 1.14 pins. Record why in a
+      comment.
+  - Commit: `refactor(tools): declare closing behaviour on each tool`.
+- [ ] **Task 6.9: check kinds use `CheckKind`.** Closes STR-005 (the literals part).
+  - Files: `src/agency/tools/surface.py:427,437,466`, `src/agency/qa/delivery.py:26`, `src/agency/qa/evidence.py:20,85`.
+  - Commit: `refactor(qa): compare check kinds through CheckKind`.
+- [ ] **Task 6.10: one copy of each small helper.** Closes SIM-011.
+  - Files:
+    - create `src/agency/contracts/files.py`, with `file_sha256(path: Path) -> str` (streamed in 1 MiB chunks),
+      `clip(text: str, limit: int) -> str` and `BUSY_SECONDS = 30`;
+    - the eight copies: `tools/files.py:21`, `artifacts/files.py:22`, `evaluation/blind.py:51`,
+      `telemetry/fingerprint.py:51`, `tools/files.py:29`, `insights/adapters/transcripts.py:53`, `ledger/schema.py:27`
+      and `insights/adapters/ledger.py:32`.
+  - Commit: `refactor: share one copy of the hash, clip and busy-timeout helpers`.
+- [ ] **Task 6.11: `DataLayout` owns every data path.** Closes STR-006 and SIM-013.
+  - Files:
+    - `src/agency/contracts/layout.py`: `blind(comparison)`, `craft_index`, and `WORK = "work"`;
+    - `src/agency/config.py`: `work_dir(project)`;
+    - the seven sites: `cli.py:227`, `runtime.py:129`, `runtime.py:76`, `cli.py:90`, `agents/loop.py:67`,
+      `graph/workflow.py:68` and `evaluation/blind.py:60`;
+    - `tests/test_layout.py`.
+  - Commit: `refactor(config): build every data path through DataLayout`.
+- [ ] **Task 6.12: one name for each data path.** Closes SIM-017.
+  - Files: `src/agency/config.py` (the five proxy properties are deleted, and callers use `settings.layout.<path>`),
+    and every caller in `src/` and `tests/`.
+  - Commit: `refactor(config): give each data path one name`.
+- [ ] **Task 6.13: the key names and e2e values have one owner.** Closes STR-011 (the code part).
+  - Files:
+    - create `src/agency/contracts/secrets.py` (`API_KEY_VARIABLES`);
+    - `src/agency/config.py:26`, `src/agency/entrypoints/server/serve.py:19`;
+    - create `tests/test_consistency.py`. It checks that `web/package.json`, `web/playwright.config.ts` and
+      `web/scripts/check-defenses.mjs` name the same variables, and that port 18765 and `.next-e2e` agree across
+      `package.json`, `playwright.config.ts`, `tsconfig.json` and `.gitignore`.
+  - Commit: `refactor(config): give the key names and e2e values one owner`.
+- [ ] **Task 6.14: one copy of the shared test helpers.** Closes SIM-015.
+  - Files: `tests/support/helpers.py` (`settings()`, `turn()`), `tests/test_hardening.py:35`,
+    `tests/test_agent_flow.py:34,43`, `tests/test_sketch_flow.py:65,122`.
+  - Commit: `refactor(tests): share the settings and turn helpers`.
+- [ ] **Task 6.15: one scroll region and one metric-row helper in the web app.** Closes SIM-016.
+  - Files: create `web/src/components/scroll-region.tsx`, and the seven files that write the wrapper out, including
+    `web/src/app/compare/page.tsx` (whose `rows()` uses a metric-row helper).
+  - Every label string stays unchanged.
+  - Verify: `make e2e` passes; standard gate.
+  - Commit: `refactor(web): share the scroll region and the metric rows`.
+- [ ] **Task 6.16: the before/after comparison.**
+  - Files: create `docs/audit/90-after.md`, in English.
+  - Content:
+    - rerun every command of `00-baseline.md` §5 from a clean worktree of the final HEAD;
+    - build the same table as §2, plus a delta column;
+    - list the findings closed per phase and the ones deferred, as in this plan.
+  - Commit: `docs(audit): compare the final state with the baseline`.
+
+## Not planned in this refactor
+
+| Finding | Why |
+|---|---|
+| STR-004 (beyond `tools → agents`), STR-007, STR-013, SIM-012 | Deferred to M1.7 (Q18, Q19): the `qa ↔ tools` cycle, the CLI renderer move, the large test files and the `surface.py`/`workflow.build` split. |
+| SIM-004 (the `langchain_core` import) | It moves to the process layer in M1.7 (Q7). It is declared in 6.3. |
+| CMT-014 (a docstring campaign), CMT-015 (outside 3.20) | Closed by decision (Q14): no campaign and no ruff `D1`. Ports, contracts and platform modules get docstrings in their Phase 3 tasks. |
+| CMT-017 | Closed by decision: the fixture names stay (Q14). |
+| STR-010 | Closed by decision: the route name stays and the guard holds (STR-010's fix). |
+| STR-017 (empty package, ADR file name, `prompts/roles/`) | Closed by decision: they change Fingerprint keys or frozen files. `context/` goes when M3 decides. |
+| SIM-014 | Its own fix: drop the column in the next migration that is needed for its own sake, after this plan. |
+| DX-009 (the CI stage) | Q11: CI waits until a Git remote exists, before M6 at the latest. Then `check:clean` from 5.11 becomes the `pre-push` hook, and CI runs `task check` on a clean checkout. |
+
+## Coverage check: finding → task
+
+- COR:
+  - 001→2.4, 002→2.11, 003→2.20, 004→2.10, 005→2.12, 006→2.9, 007→2.8, 008→2.13;
+  - 009→2.21, 010→2.22, 011→2.23, 012→2.8, 013→2.24, 014→2.25, 015→2.5, 016→2.26.
+- SEC: 001→2.1–2.3, 002→2.5, 003→2.2 and 2.6, 004→2.7, 005→2.18 and 2.19, 006→2.27, 007→2.28, 008→2.29 and 5.10,
+  009→2.30.
+- TST:
+  - 001→1.1, 002→1.3, 003→1.1, 004→1.4, 005→1.6, 006→1.11, 007→1.7, 008→1.4, 009→1.8 and 2.33;
+  - 010→1.8, 011→1.2, 012→1.9, 013→1.5, 014→1.5, 015→1.7, 016→1.10, 017→1.12 and 5.2, 018→5.3.
+- CMT:
+  - 001→3.1 and 3.2, 002→3.20, 003→3.20, 004→3.15, 005→3.11, 006→3.12, 007→2.31 and 3.12, 008→1.17 and 3.3;
+  - 009→3.4–3.16, 010→3.17–3.19, 011→3.9, 3.10, 3.12 and 3.17–3.19, 012→3.20, 013→3.21;
+  - 014→by decision and 3.5, 3.6, 3.9, 3.12, 3.15; 015→3.20, 016→3.22, 017→by decision, 018→3.6, 019→3.11.
+- STR:
+  - 001→2.15–2.17, 002→1.19, 003→4.4, 004→4.2 (the rest in M1.7), 005→2.34, 2.35, 4.2 and 6.9, 006→6.11,
+    007→M1.7, 008→2.15;
+  - 009→4.1, 010→by decision, 011→3.22, 5.9 and 6.13, 012→5.10, 013→M1.7, 014→1.18, 015→4.5, 016→4.3, 017→5.12 and
+    by decision.
+- DX: 001→5.2, 002→5.12, 003→2.14 and 2.15, 004→5.4, 005→5.1, 006→5.5, 007→5.10, 008→5.6, 009→5.11, 010→5.8,
+  011→5.9, 012→5.7, 013→5.12.
+- SIM:
+  - 001→2.32 and 6.6, 002→6.1, 003→6.2, 004→6.3, 005→4.2 and 6.4, 006→2.33 and 4.3, 007→6.5, 008→2.34;
+  - 009→6.7, 010→6.8, 011→6.10, 012→M1.7, 013→6.11, 014→by decision, 015→6.14, 016→6.15, 017→6.12.

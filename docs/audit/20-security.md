@@ -2,6 +2,7 @@ The bwrap profile is sound (clean environment, no network, one writable bind), a
 The weak point is the harness itself: it trusts paths and files that sandboxed code wrote. A symlinked `.ops` turns `compute` into code execution outside bwrap, and Pillow runs Ghostscript on sandbox-written files on the host.
 The other findings are a reviewer-rule bypass, missing resource limits, and smaller perimeter and terminal gaps. No real secret is in the code or the history.
 Critical 1 · High 1 · Medium 3 · Low 4 · Nit 0
+After review (SUMMARY.md): Critical 1 · High 0 · Medium 4 · Low 4 · Nit 0
 
 # 20 — Security (SEC)
 
@@ -43,6 +44,8 @@ and targets under `/tmp/audit-sec/`. `git status --porcelain` stayed empty after
   `.data/ops/<instance>/`) and bind it read-only into the sandbox, or at least resolve `.ops` with `inside()`, refuse
   `is_symlink()`, and open with `O_NOFOLLOW`. Apply the same rule to every harness-side `work / …` join (see SEC-003).
   Fix risk: Med (craft_run's resume reads its results back from `.ops`).
+- Review (SUMMARY.md): Confirmed, Critical. Reproduced end to end with the real Sandbox and `compute`: the payload landed in a host folder and ran when `schema.head()` loaded it; `rg` finds no symlink check in src/. Effort: M.
+- Related: SEC-003 (same root cause: the harness follows symlinks planted under `/job`).
 
 ### SEC-002 · High · Confirmed
 - Where: src/agency/tools/render.py:46,49; src/agency/tools/surface.py:336-341; src/agency/tools/board.py:108,129; src/agency/tools/presentation.py:60; src/agency/evaluation/board.py:121,135
@@ -77,6 +80,8 @@ and targets under `/tmp/audit-sec/`. `git status --porcelain` stayed empty after
 - Fix: add one helper that opens sandbox-written images with `Image.open(path, formats=["PNG", "JPEG", "WEBP"])` (plus GIF
   where it is needed), and use it at every call site. Take `view_image`'s media type from `image.format`. Checked: with that
   allowlist the same file raises `UnidentifiedImageError` and Ghostscript never runs. Fix risk: Low.
+- Review (SUMMARY.md): Downgraded to Medium. Reproduced, but gs 10.06 `-dSAFER` limits the PostScript to `/tmp` read and write plus terminal output (repo, home and `/etc` denied). Fix it together with SEC-001. Effort: S.
+- Duplicate: the media-type remark is tracked under COR-015; both use one image-opening helper.
 
 ### SEC-003 · Medium · Confirmed
 - Where: src/agency/tools/presentation.py:221-224,59-60; src/agency/tools/surface.py:710; src/agency/graph/workflow.py:261-263; src/agency/qa/delivery.py:121
@@ -100,6 +105,8 @@ and targets under `/tmp/audit-sec/`. `git status --porcelain` stayed empty after
 - Fix: build each proposal's image list from what was delivered (the proposal ticket's `ledger.delivered`, or
   `delivery.expected`), pass every path through `inside()` of the proposal folder, and never glob that folder again.
   Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, Medium. Reproduced: the hidden symlinked image enters the presentation but not delivery. Effort: S.
+- Related: SEC-001 (same root cause).
 
 ### SEC-004 · Medium · Confirmed
 - Where: src/agency/tools/surface.py:300-304
@@ -118,6 +125,7 @@ and targets under `/tmp/audit-sec/`. `git status --porcelain` stayed empty after
   ```
 - Fix: compare resolved paths. Require `inside(ctx.work, a.path).is_relative_to(inside(ctx.work, "reviews"))`.
   Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, Medium. Reproduced: `reviews/../brief.md` was written by a critic. Effort: S.
 
 ### SEC-005 · Medium · Confirmed
 - Where: src/agency/tools/sandbox.py:42-43,78-82; src/agency/tools/master.py:64
@@ -139,6 +147,7 @@ and targets under `/tmp/audit-sec/`. `git status --porcelain` stayed empty after
 - Fix: give each `--tmpfs` a `--size` (bwrap 0.11.1 has it), and set rlimits for the bwrap child (`RLIMIT_AS`,
   `RLIMIT_FSIZE`, `RLIMIT_NPROC`) or start it under `systemd-run --user --scope -p MemoryMax=…`. Read only 8 bytes in
   master.py. Fix risk: Med (measure Blender's and the Craft CLIs' memory first).
+- Review (SUMMARY.md): Confirmed, Medium. No rlimits inside the real Sandbox, and the tmpfs mounts have no `--size`. Effort: M (measure Blender and the Craft CLIs first).
 
 ### SEC-006 · Low · Confirmed
 - Where: src/agency/evaluation/board.py:50-73,103-116; src/agency/cli.py:230

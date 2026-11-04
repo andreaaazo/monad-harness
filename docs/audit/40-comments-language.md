@@ -2,6 +2,7 @@ CMT, comments and language: every comment and docstring in src/, tests/ and web/
 Six comments or docstrings are stale or wrong against the code or the ADRs (CMT-002 to CMT-007), and some docstrings are runtime data: 29 feed schemas/openapi.json, 3 are CLI help, and a class docstring on any of 34 tool-input models or enums would change the tool schemas sent to the model.
 Public API documentation is thin (228 of 378 public Python functions and classes, 20 exported TypeScript functions). No finding is above Low, but CMT-001, CMT-002 and CMT-008 are traps the translation unit must respect.
 Critical 0 · High 0 · Medium 0 · Low 14 · Nit 5
+After review (SUMMARY.md): Critical 0 · High 0 · Medium 0 · Low 14 · Nit 5 (not reviewed: no finding above Low)
 
 ## Findings
 

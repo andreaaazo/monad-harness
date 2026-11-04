@@ -2,6 +2,7 @@ Correctness (COR) at 86f51a1: the ledger core is sound. The hash chain, ticket i
 The real defects sit at the edges: an evidence guard that ignores which render version was viewed, a budget check that parallel calls race past, and resume steps that commit an effect and its record separately.
 Cost accounting ignores billed attempts the API reports outside top-level `usage`, and several crash and boundary paths (brief encoding, torn UTF-8, project names, concurrent runs) leave state stuck or views down.
 Critical 0 · High 1 · Medium 7 · Low 8 · Nit 0
+After review (SUMMARY.md): Critical 0 · High 1 · Medium 6 · Low 9 · Nit 0
 
 Every reproduction below ran from the worktree root with `mise exec -- uv run python /tmp/audit-cor/<script>.py`. Each one
 uses temporary directories, a scripted transport and no API key. The scripts are throwaway, so each finding also says
@@ -13,6 +14,8 @@ what the script does.
 - Evidence: `view_image` records the key `"<path>:<sha of the image viewed>"`, but `_seen_proof` throws the hash away (`key.rsplit(":", 1)[0]`) and only checks the proof *path*. Render proof paths are fixed per source (`proofs/render/<stem>.png`, render.py:121) and get overwritten on every render. So after render v1 → view → edit → render v2, `renders_of(project, file, sha_v2)` returns that same path, which counts as "viewed". `present_concepts` (surface.py:731) does compare the hash; `_seen_proof` does not.
 - Reproduce: `stale_render_seen.py`: a critic context with a red `a.png` runs render, then view_image on the proof. The file becomes black, gets rendered again, and the new render is never viewed. `observe` is then **ACCEPTED**, and the evidence row says "Quadrato rosso…" for the black version.
 - Fix: keep the viewed proof hash in the comparison: accept a proof only if `f"{proof}:{sha256(proof)}"` is in `_viewed(ctx)`. Better still, store the proof's sha in `renders` and require that one. Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, High. Reproduced with the real handlers. Delivery's freshness check compares the file hash, so it does not catch this. Effort: S.
+- Related: COR-007 and COR-012 (a render proof is identified only by its path).
 
 ### COR-002 · Medium · Confirmed
 - Where: src/agency/gateway/client.py:132-142, src/agency/runtime.py:53, src/agency/graph/workflow.py:84-88
@@ -20,6 +23,7 @@ what the script does.
 - Evidence: `authorize` compares `ledger.spent(project) + estimate` with the limit. `spent` only counts rows written by `_record` after a call has finished streaming, and nothing reserves the estimates of calls still in flight. Explorers run as LangGraph `Send` tasks with `max_concurrency = settings.max_parallel` (5) and share one gateway and one ledger.
 - Reproduce: `budget_race.py`: budget 0.20 $, and every call costs exactly its estimate (0.085 $). Sequentially, 2 calls go out, 3 are refused, and the spend is 0.170 $. With 5 threads at a barrier, all 5 go out, none is refused, and the spend is **0.425 $** (2.1× the cap).
 - Fix: reserve under a lock. Keep an in-memory map of in-flight estimates per project, and authorize against `spent + reserved + estimate`. Release the reservation in `_record` or on error. Fix risk: Med.
+- Review (SUMMARY.md): Confirmed, Medium. Reproduced: 5 parallel calls spent 2.0× the cap. The overshoot is bounded by `max_parallel - 1` in-flight calls. Effort: S.
 
 ### COR-003 · Medium · Confirmed
 - Where: src/agency/tools/surface.py:587-624 (`plan_exploration`: 589-592, 618, 619-623), src/agency/tools/surface.py:912-916 and 944-945 (`Toolbox.call`), src/agency/graph/workflow.py:83-88
@@ -27,6 +31,7 @@ what the script does.
 - Evidence: `ledger.open(..., operation=(f"{operation_id}:{letter}", …))` commits the ticket and its per-letter operation together, and `add_concept` runs after it in a separate transaction. On resume the same `tool_use` is re-run (loop.py:122-127). `stored` is found for that letter, so the code does `continue` and skips `add_concept`. `send_explorers` only reads `ledger.concepts(...)`, so the ticket without a concept row is never sent. In `Toolbox.call` the handler's ledger writes come first and `record_operation(operation_id, …)` second (line 945). The `_restore` replay therefore only works when both have landed.
 - Reproduce: `plan_interrupted.py`: `ledger.add_concept` is patched to raise `KeyboardInterrupt` on the 2nd letter, then `plan_exploration` is called again with the same tool_use id. Output: tickets `T-0002, T-0003, T-0004`, concept rows `T-0002, T-0004`, and **`T-0003` is never run**. The window is short (between two commits), but Ctrl-C is the normal way to stop a run.
 - Fix: write the concept row inside the same transaction as `open`, for example through an `open(..., concept=…)` variant. For the closing tools, record the operation in the same `_writing()` transaction as the transition, or make the handler idempotent: treat "already DELIVERED by this actor" as done. Fix risk: Med.
+- Review (SUMMARY.md): Downgraded to Low. Reproduced only by injection: the gap between the two commits has no I/O, and a Ctrl-C almost always lands in a model call or a sandbox run. Effort: M.
 
 ### COR-004 · Medium · Confirmed
 - Where: src/agency/runtime.py:78-92 (`set_project` line 79 before `brief.read_text` line 82), src/agency/cli.py:136-137, src/agency/runtime.py:107-109
@@ -34,6 +39,7 @@ what the script does.
 - Evidence: the order in `start` is copy brief, `set_project` (commit), `brief.read_text(encoding="utf-8")`, then `ledger.open`, `_record` and `graph.invoke`. `_run` refuses whenever `ledger.project(name)` exists. `resume` calls `graph.invoke(None, …)` on a thread with no checkpoint, and `_guarded` only catches `BudgetExceeded` and `anthropic.APIError`. Resume also writes a spurious `runs` row first.
 - Reproduce: `brief_encoding.py`: `Session.start` on a cp1252 brief raises `UnicodeDecodeError`. Afterwards the project row exists (budget 5.0), there are no tickets and the checkpoint state is `{}`. `session.resume` then raises `langgraph.errors.EmptyInputError: Received no input for __start__`, and `runs` contains `[(1, 'resume')]`.
 - Fix: read and validate the brief (and anything else that can fail) before `set_project`, or write the project row and the root ticket in one transaction after validation. Have `resume` say "nessun lavoro salvato" when the thread has no checkpoint. Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, Medium. Reproduced: after a cp1252 brief, `run` refuses and `resume` raises `EmptyInputError`. Effort: S.
 
 ### COR-005 · Medium · Confirmed
 - Where: src/agency/runtime.py:107-114 and 121-133, src/agency/cli.py:155-162, src/agency/agents/loop.py:63-66 and 112-116
@@ -41,6 +47,7 @@ what the script does.
 - Evidence: there is no lock per project or per thread id. `Ledger` serializes writes but not work, and the `SqliteSaver` connection takes no exclusive claim. `AgentRunner.run` decides what to do from the transcript alone (`outcome()`, `messages()`), so two processes that start together both see an empty or unfinished transcript.
 - Reproduce: `same_project_twice.py`: two threads, each with its own `Ledger` and gateway as two processes would have, run the same ticket. The transcript reads `user, user, assistant, user, assistant, user, assistant, assistant, user, outcome, …, outcome`, and **6 model calls are paid where one worker pays 2**.
 - Fix: take an exclusive per-project lock (`fcntl.flock` on `.data/runs/<project>.lock`, or a `BEGIN IMMEDIATE`-guarded claim row) in `open_session` for `run`, `resume` and `decide`, and refuse with a clear message while it is held. Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, Medium. Reproduced: 5 paid calls instead of 2, and an interleaved transcript. Effort: S.
 
 ### COR-006 · Medium · Confirmed
 - Where: src/agency/insights/adapters/transcripts.py:88-90 (`_entries`), src/agency/agents/transcript.py:44-47 (`ensure_ascii=False`)
@@ -48,6 +55,7 @@ what the script does.
 - Evidence: the engine writes Italian text unescaped (`json.dumps(..., ensure_ascii=False)`, which also covers the `×` in `view_image` notes). `_entries` decodes the whole file with `path.read_text(encoding="utf-8")` *before* its per-line `try`, so the decoding error escapes. `api._projection()` calls `application.current`, which rebuilds on any stamp change, and only `RegistryNotReadable` is mapped to 503. The engine's own `Transcript._repair` handles the same file because it works on bytes.
 - Reproduce: `torn_utf8_transcript.py`: a file with one whole line and a second line cut after the first byte of `è`. Both `read()` and `transcript()` raise `UnicodeDecodeError … unexpected end of data`, while `Transcript(path).messages()` returns 1 message.
 - Fix: read bytes and decode each line separately (`line.decode("utf-8")` inside the `try`), counting a failure as unreadable, or open with `errors="replace"` only for the last line. Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, Medium. Reproduced: `read()` and `transcript()` raise `UnicodeDecodeError`. Effort: S.
 
 ### COR-007 · Medium · Confirmed
 - Where: src/agency/tools/render.py:105-106 and 121, src/agency/tools/surface.py:417-420, src/agency/graph/workflow.py:217-222
@@ -55,6 +63,8 @@ what the script does.
 - Evidence: `_stem(relative)` is `relative.replace("/", "_").rsplit(".", 1)[0]`. `add_render` registers that shared path for each source's own sha, and `_seen_proof` accepts any registered proof whose path was viewed. Fixing COR-001 alone does not close this, because the viewed bytes *are* the current content of the shared file.
 - Reproduce: `proof_name_collision.py`: render a red `x.png`, then a blue `x.jpg`. Both return `['proofs/render/x.png']`, and the proof registered for `x.png` is now blue. After viewing it, `observe x.png` is **ACCEPTED**.
 - Fix: keep the extension in the proof name (for example `proposta-x.png.png`, or `<stem>_<ext>.png`), and store the proof's sha256 in `renders` so a proof can be matched to the render that produced it. Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, Medium. Reproduced: `x.png` and `x.jpg` share one proof, and `observe x.png` is accepted after viewing only `x.jpg`'s render. Effort: S.
+- Related: COR-001.
 
 ### COR-008 · Medium · Likely
 - Where: src/agency/gateway/client.py:172-175 and 186-192, src/agency/gateway/pricing.py:132-145, src/agency/gateway/transport.py:44
@@ -62,6 +72,7 @@ what the script does.
 - Evidence: `_record` reads `data["usage"]` and `data["model"]` only, and nothing in `src/` or `tests/` reads `iterations` (`rg iterations` finds only the vendored `svg_parity`). The SDK knows about fallbacks (`_beta_messages.py:517-520` relabels the model on a `fallback` block). The response shape comes from the docs: no recorded cassette has a fallback.
 - Reproduce: `fallback_usage.py`: a scripted response shaped per the docs (a declined `message` attempt of 50k in / 6k out on opus-5-5, plus a `fallback_message` of 50k in / 3k out on opus-5). Billed by both attempts: 0.645 $. Recorded in `usage`: **0.325 $**. Confirmation against a real fallback needs a live call, which this audit does not make.
 - Fix: when `usage.iterations` is present, price each iteration at its own model's rates and store the sum, or one `usage` row per attempt. Add a cassette with a fallback to the tests. Fix risk: Med.
+- Review (SUMMARY.md): Confirmed, Medium. Consistent with the claude-api reference (`usage.iterations` is the per-attempt source of truth); not checked against a live fallback, which needs the paid API. Effort: S.
 
 ### COR-009 · Low · Suspected
 - Where: src/agency/agents/loop.py:152-156 and 171-177
@@ -111,6 +122,7 @@ what the script does.
 - Evidence: `media = IMAGE_MEDIA.get(target.suffix.lower())`, while PIL has already opened the file and knows `image.format`. Suspected because the API's rejection of a mismatched `media_type` was not verified here, which would take a live call.
 - Reproduce: not run, since it needs the API.
 - Fix: derive the media type from `image.format`, and re-encode to PNG when the format is not one of the four the API accepts. Fix risk: Low.
+- Aliases: SEC-002 (part: its media-type remark).
 
 ### COR-016 · Low · Suspected
 - Where: src/agency/qa/scripts/svg_audit.py:144-146 (vendored)

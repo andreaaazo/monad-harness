@@ -2,6 +2,7 @@ Module boundaries are mostly sound: grimp finds no module-level import cycle, im
 The engine still carries what ADR-0021 defers to M1.7 (the `agents`↔`tools`↔`qa` package cycle, a 968-line `tools/surface.py`), and several documented boundaries are not enforced: three hand-kept contract lists, `anthropic` in `cli.py`, SQLModel rows outside the ledger.
 The defects to fix now are single-owner breaks: the data root has three sources and two env names (engine and dashboard can read different registries), `registry/` JSON is parsed twice with no schema, and paths, ports and key names are copied across files.
 Critical 0 · High 0 · Medium 1 · Low 13 · Nit 3
+After review (SUMMARY.md): Critical 0 · High 0 · Medium 1 · Low 13 · Nit 3
 
 Audit of HEAD `86f51a1` (branch `audit/deep-review`), read-only. Throwaway scripts lived in `/tmp/audit-str/`; the
 commands below recreate what they did. Sizes and the module map are in `00-baseline.md` §1 and are not repeated.
@@ -46,6 +47,8 @@ commands below recreate what they did. Sizes and the module map are in `00-basel
   `AGENCY_DATA_DIR` from it and `.env.example` drops the line), or the dashboard tasks receive the root the engine
   resolved. The choice belongs to the owner, and renaming `AGENCY_DATA` contradicts ADR-0040, so it needs a new ADR.
   Fix risk: Med.
+- Review (SUMMARY.md): Confirmed, Medium. Reproduced: the engine and the server resolve different data roots. Effort: L (owner decision; touches ADR-0031, ADR-0039 and ADR-0040).
+- Aliases: DX-003 (part: `.env` and `.data` resolved from the current directory).
 
 ### STR-002 · Low · Confirmed
 - Where: pyproject.toml:74-95, pyproject.toml:121-143, pyproject.toml:145-169, tests/test_server.py:417-427
@@ -102,6 +105,7 @@ commands below recreate what they did. Sizes and the module map are in `00-basel
 - Fix: Have `agency.gateway` export the error the CLI catches (a re-export or a wrapper of `APIError`), then add a
   forbidden contract on `anthropic` for every package except the gateway, with `allow_indirect_imports = true`.
   Leave `langgraph` and a port in front of the ledger to M1.7 item 5 (02-ROADMAP.md:411). Fix risk: Low.
+- Aliases: SIM-004 (part: `langchain_core` in runtime.py).
 
 ### STR-004 · Low · Confirmed
 - Where: src/agency/tools/surface.py:19, src/agency/tools/surface.py:28-29, src/agency/agents/loop.py:18-20, src/agency/qa/checks.py:10-12, src/agency/qa/delivery.py:20-22, src/agency/qa/evidence.py:14, src/agency/tools/sandbox.py:63
@@ -171,6 +175,7 @@ commands below recreate what they did. Sizes and the module map are in `00-basel
   (with a `CheckKind` enum) and owns the prompt-library lookups now at agents/prompts.py:10-27 and :75-77, then delete
   the dead copy. Moving the suffix rule into roles.json changes data and therefore behaviour, so that is the owner's
   decision. Fix risk: Med (the request snapshots must stay byte-identical, and they would catch a drift).
+- Aliases: SIM-005 (part: `qa.evidence.ROLES`), SIM-008 (part: the director split by name suffix).
 
 ### STR-006 · Low · Confirmed
 - Where: src/agency/cli.py:227, src/agency/runtime.py:129, src/agency/runtime.py:76, src/agency/cli.py:90, src/agency/agents/loop.py:67, src/agency/graph/workflow.py:68, src/agency/evaluation/blind.py:60, src/agency/contracts/layout.py:1
@@ -185,6 +190,7 @@ commands below recreate what they did. Sizes and the module map are in `00-basel
 - Fix: Add `blind` and `craft_index` to `DataLayout`, one `Settings.work_dir(project)`, and a `WORK` constant in
   `contracts/layout.py` for blind.py (evaluation may not import config); then use them at the seven sites. Fix risk:
   Low.
+- Aliases: SIM-013 (merged in full).
 
 ### STR-007 · Low · Confirmed
 - Where: src/agency/telemetry/__init__.py:1, src/agency/telemetry/report.py:1, src/agency/telemetry/report.py:8-11, src/agency/telemetry/fingerprint.py:1, src/agency/cli.py:34
@@ -279,6 +285,7 @@ commands below recreate what they did. Sizes and the module map are in `00-basel
 - Fix: Put the key names in `agency.contracts`, which the server may import, use them in config.py and serve.py, and
   add one check that the web copies and the e2e port and folder agree. Correct the Python-owner sentence in
   mise.toml:2 and the test docstring; the ADR stays as written. Fix risk: Low.
+- Duplicate: the Python pin is tracked under DX-011; the other copied values stay here.
 
 ### STR-012 · Low · Likely
 - Where: spikes/sandbox_craft.sh:9-11, src/agency/tools/sandbox.py:11, src/agency/tools/sandbox.py:32-69, docs/04-TOOLS.md:17, docs/adr/0005-sandbox-bwrap.md:9
@@ -293,6 +300,7 @@ commands below recreate what they did. Sizes and the module map are in `00-basel
   only the fingerprint test (tests/test_runs.py:208-211).
 - Fix: Build the spike's bwrap prefix from `Sandbox(work).argv([])` through `uv run python -c …`, or turn the spike
   into a pytest that skips when the CLIs are missing. Keep it out of `make check` either way. Fix risk: Low.
+- Related: DX-007 (the same spike script; a different defect).
 
 ### STR-013 · Low · Confirmed
 - Where: src/agency/tools/surface.py:1, tests/test_sketch_flow.py:1, tests/test_insights.py:1, tests/test_agent_flow.py:1, tests/test_hardening.py:1, web/src/app/globals.css:1
@@ -307,6 +315,7 @@ commands below recreate what they did. Sizes and the module map are in `00-basel
 - Reproduce: `git ls-files src tests web | grep -v pnpm-lock | xargs wc -l | sort -rn | head -12`.
 - Fix: Nothing in the sanity refactor. surface.py is M1.7 item 2 (02-ROADMAP.md:408) and must keep the request
   snapshots byte-identical; split the flow tests by slice along with it (item 6). Fix risk: Med.
+- Duplicate: `tools/surface.py` is tracked under SIM-012; the other files over 500 lines stay here.
 
 ### STR-014 · Low · Likely
 - Where: src/agency/qa/scripts/logo_proof.py:1, src/agency/qa/scripts/optical_check.py:1, src/agency/qa/scripts/svg_audit.py:1, src/agency/qa/scripts/svg_parity.py:1, pyproject.toml:55, pyproject.toml:63, src/agency/tools/sandbox.py:51
@@ -374,6 +383,7 @@ commands below recreate what they did. Sizes and the module map are in `00-basel
 - Fix: Update the README tree and leave the rest. ADR files are frozen. Renaming `prompts/roles/` would change every
   `Fingerprint.prompts` key, so every comparison with an earlier run would show all prompts as changed. `context/` can
   go when M3 decides where context packets live. Fix risk: Low.
+- Duplicate: the README tree is tracked under DX-013; the other leftovers stay here.
 
 ## Current tree
 

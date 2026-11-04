@@ -2,6 +2,7 @@ The 496 tests are well formed and stable: every one asserts something, reversed 
 Of 99 one-line mutants of `src/`, 50 were killed: ledger, chain, migrations, gateway ceiling, perimeter, gates and read-only server are well guarded. Of the 49 survivors, 42 show real gaps, mostly in QA evidence, delivery, acceptance and the CLI budget hand-off.
 None of the 23 commits is a fix commit. The one bug fix inside a feature commit (678f94c, read-only registry) shipped with its regression test. The ADR-0018 fix is only half covered (TST-004).
 Critical 0 · High 5 · Medium 7 · Low 6 · Nit 0
+After review (SUMMARY.md): Critical 0 · High 4 · Medium 5 · Low 9 · Nit 0
 
 Each mutant below is one edit to `src/` at `HEAD` (86f51a1), run against the whole suite in an export of the
 repository. "Survived" means the result was identical to the unmutated export: 492 passed, 2 skipped, 2 deselected.
@@ -24,6 +25,7 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
   from the worktree with `mise exec -- uv run python /tmp/audit-tst/scripts/svg_fail.py` (writes only under `/tmp`).
 - Fix: a tool-level test where `run_check svg_audit` on a broken SVG returns FAIL and `deliver` is then refused with
   "'svg_audit' è FAIL"; a unit test of `evidence_problems` on a FAIL row. Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, High. Mutants E12 and E13 survived; delivery and the client gate share `evidence_problems`, so no second check catches it. Effort: S.
 
 ### TST-002 · High · Confirmed
 - Where: src/agency/graph/workflow.py:398, src/agency/qa/delivery.py:232-242, src/agency/qa/delivery.py:158,
@@ -46,6 +48,7 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
 - Fix: a flow test where the director delivers the root without a critique, the client approves, and the root goes
   back to REWORK with "Accettazione rifiutata dal sistema". Unit tests of `accept_ticket` for a missing independent
   check, an independent check signed by the assignee, and a file changed after delivery. Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, High. Six acceptance mutants survived (W2, T9, D1, E6, E7, E14); the client gate is the last system check. Effort: S.
 
 ### TST-003 · High · Confirmed
 - Where: src/agency/qa/evidence.py:124-134, src/agency/qa/delivery.py:165-166, src/agency/qa/delivery.py:216-224,
@@ -69,6 +72,7 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
   `judge` proof stale; a changed input gives "input superato"; a vector production ticket without a `.vectorcraft`
   gives "manca il master"; an SVG with no derivation row gives "non risulta esportato da un master del ticket"; a
   master changed after export gives "riesporta". Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, High. Five mutants survived (E4, E5, E8, E9, E18); nothing else compares proofs with the current file. Effort: S.
 
 ### TST-004 · High · Confirmed
 - Where: src/agency/qa/evidence.py:104-121, src/agency/qa/delivery.py:151; closest test tests/test_hardening.py:636
@@ -86,6 +90,7 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
 - Fix: next to `tests/test_hardening.py:636`, test that (a) a reviewer with no proof of their own is refused "manca
   la prova" even when the author has a PASS, and (b) a critic's FAIL still blocks after another signer's PASS on the
   same version, and clears when the critic signs PASS or the file changes. Fix risk: Low.
+- Review (SUMMARY.md): Downgraded to Medium. D2 and E3 survived, but the client gate's assignee-signature check (src/agency/qa/delivery.py:163) still stops the director overriding the critic. Effort: S.
 
 ### TST-005 · High · Confirmed
 - Where: src/agency/cli.py:143-151, src/agency/cli.py:189, src/agency/runtime.py:79; closest tests
@@ -103,6 +108,7 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
 - Fix: run `cli.main(["run", "p", "brief.md", "--budget", "12", "--model", ...])` with `agency.runtime.open_session`
   monkeypatched to the real function plus a `ScriptedTransport`, and assert the `projects` row (12 $, the model);
   then `cli.main(["budget", "p", "40"])` and assert 40 $. Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, High. B2 survived: `--budget` could be ignored, and the report shows the cap only after the spend. Effort: S.
 
 ### TST-006 · Medium · Confirmed
 - Where: tests/test_agent_flow.py:441-456 (src/agency/tools/sandbox.py:35, src/agency/tools/sandbox.py:52),
@@ -123,6 +129,8 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
 - Fix: inside the sandbox, assert that `lo` is the only interface and that `/usr` is mounted read-only (the two probes
   above). In e2e, read the listening addresses of the three servers from `/proc/net/tcp` instead of probing external
   interfaces, so the test never needs to skip. Fix risk: Low.
+- Review (SUMMARY.md): Downgraded to Low. X2 (`--unshare-net` removed) is killed on an online host, the normal state; the `/usr` regression has no effect for a non-root operator. Effort: S.
+- Related: DX-007 (the same probe pattern in the spike).
 
 ### TST-007 · Medium · Confirmed
 - Where: src/agency/tools/surface.py:944-945; closest tests tests/test_agent_flow.py:208, tests/test_agent_flow.py:259
@@ -139,6 +147,7 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
 - Fix: a test like `test_interruption_resumes_without_repeating_effects`, with a `run_check` and a `deliver` in one
   turn and the process killed after the tools ran but before the transcript was written: after resume each tool's
   effect happened once, `ledger.operation(id)` holds its result, and the instance closes as delivered. Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, Medium. H1 survived. Effort: S.
 
 ### TST-008 · Medium · Confirmed
 - Where: src/agency/qa/evidence.py:61-65; closest test tests/test_agent_flow.py:472 (only allowed signers)
@@ -152,6 +161,7 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
 - Reproduce: apply E1 or E2 with the recipe at the end.
 - Fix: a parametrized test of `evidence.record`: an author signing `copy_review` is refused "è indipendente";
   `qa-inspector` signing `critique` is refused "lo firma"; `critic` signing `critique` is accepted. Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, Medium. E1 and E2 survived; the client-gate assignee check covers neither signer. Effort: S.
 
 ### TST-009 · Medium · Confirmed
 - Where: src/agency/gateway/transport.py:36-37, src/agency/gateway/transport.py:44, src/agency/gateway/transport.py:74,
@@ -171,6 +181,8 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
 - Fix: in `tests/test_gateway.py`, run `ModelGateway` over `AnthropicTransport` on `httpx2.MockTransport` and assert
   the bodies of the `count_tokens` and `messages` requests (thinking, `output_config`, `cache_control`, `fallbacks`,
   the beta header). Then either test the cassette round trip or remove it; that choice belongs to SIM. Fix risk: Low.
+- Review (SUMMARY.md): Downgraded to Low. P1 and P2 survived, but both regressions fail safe before any spend. Effort: S.
+- Duplicate: the unused cassette pair is tracked under SIM-006; the request-shape gap stays here.
 
 ### TST-010 · Medium · Confirmed
 - Where: src/agency/gateway/client.py:66-79, src/agency/gateway/client.py:121-122; closest test
@@ -187,6 +199,7 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
 - Reproduce: apply G4, G6 or G2 with the recipe at the end.
 - Fix: unit tests of `estimate_usd` with a known previous usage and a last message of text, a `tool_result` and an
   image, plus a ceiling test where only the input part crosses the limit. Fix risk: Low.
+- Review (SUMMARY.md): Downgraded to Low. G2, G4 and G6 survived, but the missed error is a few cents; the dominant output term is guarded (G0 killed). Effort: S.
 
 ### TST-011 · Medium · Confirmed
 - Where: src/agency/qa/delivery.py:63, src/agency/qa/delivery.py:81-84, src/agency/qa/delivery.py:226,
@@ -205,6 +218,7 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
 - Reproduce: apply D4, E10, E16, D3 or D6 with the recipe at the end.
 - Fix: unit tests of `delivery.validate` (unknown name, uncovered output) and of `delivery_problems` (an uncovered file
   under a glob output; a review delivered NOT_VERIFIED with no proofs; REVISE on a FAIL proof). Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, Medium. Five mutants survived (D3, D4, D6, E10, E16). Effort: S.
 
 ### TST-012 · Medium · Confirmed
 - Where: src/agency/agents/loop.py:135-136; closest tests tests/test_sketch_flow.py:589,
@@ -222,6 +236,7 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
 - Fix: add `model` and `output_config` to the request snapshots at `tests/test_request_snapshots.py:99`, then
   regenerate them with `UPDATE_SNAPSHOTS=1` and review the diff; or assert the first request of `qa-inspector`.
   Fix risk: Low.
+- Review (SUMMARY.md): Confirmed, Medium. A1 and A2 survived, and so did A3 (every role silently on Sonnet). Effort: S.
 
 ### TST-013 · Low · Confirmed
 - Where: src/agency/cli.py:54-58; closest tests tests/test_ledger.py:108, tests/test_artifacts.py:330,
@@ -275,6 +290,7 @@ ports); e2e facts come from `docs/audit/00-baseline.md`.
   warning.
 - Reproduce: not reproduced; it needs `bwrap` to be missing or `BEGIN IMMEDIATE` to fail in the thread.
 - Fix: `monkeypatch.setenv` for the key; `assert writing.wait(timeout=10)`. Fix risk: Low.
+- Duplicate: the fake key left set after a crash without bwrap is tracked under DX-001; the `Event.wait` half stays here.
 
 ### TST-018 · Low · Confirmed
 - Where: tests/test_doctor.py:5, src/agency/doctor.py:36-47, tests/test_agent_flow.py:655-658

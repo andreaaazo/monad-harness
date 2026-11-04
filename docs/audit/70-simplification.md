@@ -2,6 +2,7 @@ SIM at 86f51a1: the code is lean for its scope; complexity sits in graph/workflo
 Dead code is a handful of bootstrap leftovers and five never-supplied parameters; removing the leftovers and four of the parameters in a scratch copy kept ruff, pyright and pytest green. One runtime dependency, the three extras and three undeclared transitive imports need an owner decision.
 One duplication has already diverged into a crash path (SIM-001). The 23-commit, 53-hour history has no fix commits, so no complexity is shown to be producing bugs.
 Critical 0 · High 0 · Medium 1 · Low 12 · Nit 4
+After review (SUMMARY.md): Critical 0 · High 0 · Medium 0 · Low 12 · Nit 4 (SIM-013 merged into STR-006)
 
 # 70 — Simplification (SIM)
 
@@ -40,6 +41,7 @@ every script ran from `/tmp/audit-sim/`, and the only file written in the reposi
 
   Today every stored fingerprint has the same shape (contracts/run.py has a single commit, b0dad7f), so this fires the first time the contract changes.
 - Fix: Keep one tolerant reader next to `Fingerprint` in contracts/run.py (returns `None` on `ValidationError`) and use it from both places, with the CLI renderers labelling or skipping an unreadable run instead of raising; or route `agency runs`/`agency compare` through insights, as ADR-0030 did for `report`. Fix risk: Low.
+- Review (SUMMARY.md): Downgraded to Low. Latent: `contracts/run.py` has one commit, so every stored fingerprint has the current shape. Effort: S.
 
 ### SIM-002 · Low · Confirmed
 - Where: pyproject.toml:15, src/agency/telemetry/setup.py:41, docker/server.Dockerfile:16, docker/server.Dockerfile:18
@@ -61,6 +63,7 @@ every script ran from `/tmp/audit-sim/`, and the only file written in the reposi
 - Evidence: /tmp/audit-sim/thirdparty.py maps every top-level import in src/ and tests/ to its distribution through `importlib.metadata.packages_distributions()`; every other import maps to a declared dependency (the vendored qa/scripts run in the toolchain Python, not this venv). `uv tree --frozen --no-dev --invert --depth 1` shows sqlalchemy ← alembic, sqlmodel; langchain-core ← langgraph, langgraph-checkpoint, langgraph-prebuilt, langgraph-sdk; httpx2 ← anthropic. runtime.py uses `RunnableConfig` only as the return annotation of `Session._config` (runtime.py:49). The import-linter contracts already list `sqlalchemy` as a forbidden module, so the project treats it as a direct dependency.
 - Reproduce: `rg -n 'httpx2|langchain_core|^from sqlalchemy' src tests`, then compare with `[project].dependencies` and `[dependency-groups].dev` in pyproject.toml.
 - Fix: `uv add sqlalchemy langchain-core` and `uv add --dev httpx2`, with lower bounds at the locked versions. Fix risk: Low.
+- Duplicate: the `langchain_core` import is also tracked under STR-003; removing it closes both.
 
 ### SIM-005 · Low · Confirmed
 - Where: src/agency/graph/workflow.py:38, src/agency/tools/render.py:74, src/agency/tools/render.py:92, src/agency/ledger/store.py:297, src/agency/qa/evidence.py:19
@@ -75,6 +78,7 @@ every script ran from `/tmp/audit-sim/`, and the only file written in the reposi
   - After deleting every item of SIM-005, SIM-006 (`RecordingTransport`, `from_cassette`) and SIM-007 (`read_only`, `stdin`, `inputs_changed`, `ticket_id`): the same three results. `ruff format --check` only asked to re-join the shortened `subprocess.run(...)` call in sandbox.py.
 - Reproduce: `rg -n -w -e SKETCH_CHECKS -e contact_sheet -e render_of --glob '!legacy/**' .` and `rg -n 'evidence\.ROLES' src tests` (no hits). Mutation script: /tmp/audit-sim/mutate.py; copy script: /tmp/audit-sim/make_copy.py.
 - Fix: Delete the four definitions, `"contact_sheet"` in `__all__`, and the `ImageDraw` and `Path` imports in render.py that then become unused. Fix risk: Low.
+- Duplicate: the `qa.evidence.ROLES` item is tracked under STR-005; the other three definitions stay here.
 
 ### SIM-006 · Low · Confirmed
 - Where: src/agency/gateway/transport.py:56, src/agency/gateway/transport.py:74, src/agency/gateway/transport.py:79, src/agency/gateway/__init__.py:4
@@ -82,6 +86,7 @@ every script ran from `/tmp/audit-sim/`, and the only file written in the reposi
 - Evidence: `RecordingTransport` appears only at its definition and in the `agency.gateway` re-export (`__init__.py:4`, `:13`). `from_cassette` appears only at its definition. In src/, `ScriptedTransport` appears only in transport.py and the re-export. `open_session` (runtime.py:121-127) either builds `AnthropicTransport` or takes the caller's transport, with no recording option. The tests script responses by hand with `turn(...)` builders, not cassettes. All of this is unchanged since 51c511c. Deleting the pair kept the scratch copy green (SIM-005).
 - Reproduce: `rg -n -w 'RecordingTransport|from_cassette|ScriptedTransport' src tests`.
 - Fix: Owner decision. If live runs should leave replayable recordings, wire `RecordingTransport` behind an explicit `open_session` option. Otherwise delete it and `from_cassette`, and move `ScriptedTransport` into a tests helper. Fix risk: Low.
+- Aliases: TST-009 (part: the unused cassette pair).
 
 ### SIM-007 · Low · Confirmed
 - Where: src/agency/tools/sandbox.py:27, src/agency/tools/sandbox.py:67, src/agency/tools/sandbox.py:78, src/agency/qa/delivery.py:211, src/agency/qa/delivery.py:223, src/agency/ledger/store.py:263, src/agency/ledger/store.py:266, src/agency/tools/craft.py:54
@@ -106,6 +111,7 @@ every script ran from `/tmp/audit-sim/`, and the only file written in the reposi
 - Evidence: `rg -n '"craft"|"department"' src tests` finds no reader. The only roles.json values the code reads are `model` and `effort` (agents/loop.py:107, :135-136). Work reaches only two kinds of role. The first is a role with its own prompt in prompts/roles/: critic, design-director, identity-designer and qa-inspector (`open_ticket` checks `has_prompt`, surface.py:485). The second is the explorers direction-a to direction-e, which `plan_exploration` opens with the `explorer` prompt (surface.py:603, :615).
 - Reproduce: `jq -r '.roles | to_entries[] | "\(.key)\t\(.value.department)\t\(.value.craft)"' registry/roles.json`; `rg -n '"craft"|"department"' src tests`.
 - Fix: Owner decision. Either enforce `craft` in `role_tools`/`tools_for` and move the director/reviewer split into roles.json, or drop both fields and correct 04-TOOLS.md. Fix risk: Low; the request snapshots catch any change to a tool set.
+- Duplicate: the director/reviewer split by name suffix is tracked under STR-005; the unread fields stay here.
 
 ### SIM-009 · Low · Likely
 - Where: src/agency/ledger/models.py:134, src/agency/tools/surface.py:644, src/agency/tools/surface.py:685, src/agency/tools/surface.py:693, src/agency/graph/workflow.py:197, src/agency/graph/workflow.py:237, src/agency/graph/workflow.py:260, src/agency/graph/workflow.py:272, src/agency/graph/workflow.py:332
@@ -159,6 +165,7 @@ every script ran from `/tmp/audit-sim/`, and the only file written in the reposi
 - Evidence: the C901 output below. The 13 closures that score above 1 add up to 52, the 9 that score 1 add 9, and `build`'s own loop and base add 2, which gives 63. ADR-0021's "Contesto" names both files. Its "Conseguenze" schedule the split for M1.7, require request snapshots to stay byte-identical at every step, and warn that renaming nodes or tools breaks the resume of paused projects.
 - Reproduce: `mise exec -- uv run ruff check src/agency/graph/workflow.py --select C901 --config "lint.mccabe.max-complexity = 1" --output-format concise --exit-zero`.
 - Fix: Leave to M1.7, which owns the slice split under the snapshot rule; the sanity refactor should not pre-empt it. If something must happen earlier, the smallest step is turning the closures into methods of a small class that holds runner, ledger and settings, with no node or tool renamed. Fix risk: Med.
+- Aliases: STR-013 (part: `tools/surface.py`).
 
 ### SIM-013 · Low · Likely
 - Where: src/agency/graph/workflow.py:68, src/agency/agents/loop.py:67, src/agency/runtime.py:76, src/agency/cli.py:90, src/agency/evaluation/blind.py:60
@@ -166,6 +173,7 @@ every script ran from `/tmp/audit-sim/`, and the only file written in the reposi
 - Evidence: each of the first four lines appends `/ "work"` to `settings.project_dir(project)`; workflow.py wraps it in a local `work_dir` closure that the other modules cannot use. blind.py:60 strips a leading `"work"` part to recover the path inside the project.
 - Reproduce: `rg -n '"work"' src`.
 - Fix: A `work_dir(project)` on `Settings`, or a project-layout type in agency.contracts that evaluation may import, used by all five places. Fix risk: Low.
+- Duplicate: merged in full into STR-006; tracked there.
 
 ### SIM-014 · Nit · Confirmed
 - Where: src/agency/ledger/models.py:133

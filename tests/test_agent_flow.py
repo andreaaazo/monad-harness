@@ -559,6 +559,65 @@ def test_full_project_reaches_the_client_gate_and_is_approved(tmp_path: Path) ->
     assert session.ledger.spent("forno") > 0
 
 
+@needs_craft
+def test_client_approval_of_a_root_without_critique_goes_back_to_rework(tmp_path: Path) -> None:
+    """The client gate is the last system check: approving a root nobody critiqued sends it back (TST-002)."""
+    config = settings(tmp_path)
+    brief = tmp_path / "brief.txt"
+    brief.write_text("Un segno per un forno di quartiere")
+    master, svg = "source/segno.vectorcraft", "exports/segno.svg"
+    production = {
+        "title": "Segno",
+        "request": "Il segno del forno",
+        "type": "produzione",
+        "assignee": "identity-designer",
+        "outputs": [master, svg, "construction.md"],
+        "checks": {"*.vectorcraft": ["master_open"], "*.svg": ["svg_audit", "svg_parity"]},
+        "media": ["vettoriale"],
+        "exempt": {"construction.md": "documento di costruzione del segno"},
+    }
+    qa = {
+        "title": "QA",
+        "request": "Verifica",
+        "type": "qa",
+        "assignee": "qa-inspector",
+        "outputs": [svg],
+        "checks": {"*.svg": ["svg_audit"]},
+    }
+    script = [
+        turn(use("open_ticket", "d1", **production)),
+        turn(use("hand_off", "d2", note="attendo il segno")),
+        turn(use("craft_run", "p1", document=master, steps=steps())),
+        turn(use("export_master", "p2", master=master, output=svg)),
+        turn(use("write_file", "p3", path="construction.md", content="unità u")),
+        turn(
+            use("run_check", "p4", check="master_open", file=master),
+            use("run_check", "p5", check="svg_audit", file=svg),
+            use("run_check", "p6", check="svg_parity", file=svg),
+        ),
+        turn(use("deliver", "p7", note="segno pronto", verdict=None)),
+        turn(use("open_ticket", "d3", **qa)),
+        turn(use("hand_off", "d4", note="attendo il QA")),
+        turn(use("run_check", "q1", check="svg_audit", file=svg)),
+        turn(use("deliver", "q2", note="tutto regolare", verdict="READY")),
+        turn(use("accept_ticket", "d5", ticket="T-0002"), use("accept_ticket", "d6", ticket="T-0003")),
+        turn(use("deliver", "d7", note="consegnato senza critica", verdict=None)),
+        turn(use("block", "d8", reason="manca la critica del segno")),
+    ]
+    session = open_session(config, ScriptedTransport(script))
+    outputs = [master, svg, "construction.md"]
+    checks = {"*.vectorcraft": ["master_open"], "*.svg": ["svg_audit", "critique"]}
+    session.start("forno", brief, outputs, checks, budget=1000.0, explore=False)
+    assert session.pending("forno")[0].gate == "final"
+    session.decide("forno", True, "va bene così")
+    rework = [event for event in session.ledger.history("T-0001") if event.action == "rework"]
+    assert len(rework) == 1
+    assert rework[0].actor == "router"
+    assert rework[0].note.startswith("Accettazione rifiutata dal sistema:")
+    assert f"{svg}: manca la prova 'critique'" in rework[0].note
+    assert session.ledger.status("T-0001")[0] is not Status.ACCEPTED
+
+
 def test_reviewer_delivers_without_owning_a_master(tmp_path: Path) -> None:
     config = settings(tmp_path)
     work = config.projects_dir / "p/work"

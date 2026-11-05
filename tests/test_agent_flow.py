@@ -13,7 +13,7 @@ import pytest
 from agency.agents.loop import AgentRunner
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
-from agency.config import Settings
+from agency.config import REPO_ROOT, Settings
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType, Verdict
 from agency.gateway import BudgetExceeded, ModelGateway, ScriptedTransport
@@ -21,7 +21,7 @@ from agency.ledger import Ledger
 from agency.runtime import open_session
 from agency.tools.craft import CommandIndex
 from agency.tools.sandbox import JOB, Sandbox
-from agency.tools.surface import Toolbox, ToolContext
+from agency.tools.surface import TOOLS, Toolbox, ToolContext, tools_for
 
 SVG_PATH = "M10 90 L50 10 L90 90 Z"
 needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="serve VectorCraft")
@@ -348,6 +348,130 @@ def test_agent_ending_without_delivery_is_reminded_then_blocked(tmp_path: Path) 
     ticket = ledger.open(production_spec(), "p")
     assert run.run(ticket).state == "blocked"
     assert len(transport.requests) == 2
+
+
+def test_each_role_sends_its_registry_model_and_effort(tmp_path: Path) -> None:
+    """With no client choice, each role's first request carries its own row of registry/roles.json."""
+    registry = json.loads((REPO_ROOT / "registry/roles.json").read_text(encoding="utf-8"))["roles"]
+    roles = ["critic", "design-director", "identity-designer", "qa-inspector"]
+    config = settings(tmp_path)
+    blocks = [turn(use("block", f"t{n}", reason="basta la prima richiesta")) for n in range(len(roles))]
+    run, transport, ledger = runner(config, blocks)
+    choice = ledger.project("p")
+    assert choice is not None and (choice.model, choice.effort) == ("", "")  # the client chose nothing
+
+    sent = {}
+    for role in roles:
+        ticket = ledger.open(production_spec().model_copy(update={"assignee": role}), "p")
+        assert run.run(ticket).state == "blocked"
+        first = transport.requests[-1]
+        sent[role] = (first["model"], first["output_config"]["effort"])
+
+    assert sent == {role: (registry[role]["model"], registry[role]["effort"]) for role in roles}
+    # Without this the test could not tell the registry from one constant model and effort.
+    assert len({model for model, _ in sent.values()}) > 1
+    assert len({effort for _, effort in sent.values()}) > 1
+
+
+REMINDER = "Non hai concluso il ticket. Chiudi con uno di questi strumenti: "
+SKETCH = production_spec().model_copy(update={"type": TicketType.SKETCH})
+PROPOSAL = production_spec().model_copy(update={"type": TicketType.PROPOSAL})
+BOARD = production_spec().model_copy(update={"assignee": "critic", "prompt": "critic-board"})
+DIRECTOR = production_spec().model_copy(update={"assignee": "design-director"})
+
+
+def bare_context(tmp_path: Path, role: str) -> ToolContext:
+    ledger = Ledger(settings(tmp_path).ledger_path)
+    artifacts = FileStore(tmp_path / "artifacts")
+    return ToolContext(role, "p", "T-1", "i", ledger, Sandbox(tmp_path), CommandIndex([]), artifacts)
+
+
+@pytest.mark.parametrize(
+    ("role", "spec", "mode", "closers"),
+    [
+        ("identity-designer", production_spec(), "", "deliver, block"),
+        ("design-director", DIRECTOR, "", "deliver, hand_off, block"),
+        ("direction-a", SKETCH, "", "submit_concept, block"),
+        ("direction-a", PROPOSAL, "", "deliver, block"),
+        ("design-director", DIRECTOR, "plan", "plan_exploration, block"),
+        ("design-director", DIRECTOR, "select", "select_concepts, block"),
+        ("design-director", DIRECTOR, "present", "draft_presentation, present_concepts, block"),
+        ("critic", BOARD, "", "deliver, block"),
+    ],
+    ids=["author", "director", "explore", "proposal", "plan", "select", "present", "board"],
+)
+def test_the_reminder_names_each_phase_closing_tools(
+    tmp_path: Path, role: str, spec: TicketSpec, mode: str, closers: str
+) -> None:
+    """The nudge after a turn that closed nothing names only this phase's closing tools, in a fixed order."""
+    box = Toolbox(bare_context(tmp_path, role), tools_for(role, spec, mode))
+    if mode == "" and role == "design-director":
+        assert "reject_concept" in box.tools  # it closes, yet the reminder leaves it out
+    assert AgentRunner._reminder(box) == f"{REMINDER}{closers}."
+
+
+RESUMED = "ripreso dopo un'interruzione"
+CHOSEN = {"chosen": ["A"], "reasons": "r"}
+NONE_CHOSEN = {"chosen": [], "reasons": "r"}
+PAGES = {"pagine": ["presentazione/pagina-1.png"], "poi": "guarda"}
+PRESENTED = {
+    "proposals": [{"letter": "A", "title": "t", "idea": "i", "why": "w", "risk": "r"}],
+    "recommended": "A",
+    "reasons": "r",
+}
+NONE_PRESENTED = {"proposals": [], "recommended": None, "reasons": "r"}
+RESTORED = [
+    ("deliver", {"ok": True, "status": "delivered"}, OutcomeState.DELIVERED, RESUMED),
+    ("block", {"ok": True, "status": "blocked"}, OutcomeState.BLOCKED, RESUMED),
+    ("hand_off", {"ok": True, "waiting": ["T-0002"]}, OutcomeState.HANDED_OFF, RESUMED),
+    ("plan_exploration", {"ok": True, "tickets": ["T-0002"]}, OutcomeState.HANDED_OFF, RESUMED),
+    ("submit_concept", {"ok": True}, OutcomeState.DELIVERED, RESUMED),
+    ("reject_concept", {"ok": True}, OutcomeState.CONCEPT_REJECTED, RESUMED),
+    ("select_concepts", CHOSEN, OutcomeState.SELECTED, None),
+    ("select_concepts", NONE_CHOSEN, OutcomeState.NO_CONCEPT, None),
+    ("draft_presentation", PAGES, None, None),
+    ("draft_presentation", NONE_PRESENTED, OutcomeState.NO_CONCEPT, None),
+    ("present_concepts", PRESENTED, OutcomeState.PRESENTED, None),
+    ("present_concepts", NONE_PRESENTED, OutcomeState.NO_CONCEPT, None),
+    ("write_file", {"ok": True}, None, None),
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "stored", "state", "note"),
+    RESTORED,
+    ids=[
+        "deliver",
+        "block",
+        "hand_off",
+        "plan_exploration",
+        "submit_concept",
+        "reject_concept",
+        "select_concepts-chosen",
+        "select_concepts-none",
+        "draft_presentation-pages",
+        "draft_presentation-none",
+        "present_concepts-chosen",
+        "present_concepts-none",
+        "write_file-not-closing",
+    ],
+)
+def test_restore_closes_each_closing_tool_with_its_state(
+    tmp_path: Path, name: str, stored: dict, state: OutcomeState | None, note: str | None
+) -> None:
+    """On resume a recorded effect is not run again: its stored result comes back and closes as before.
+
+    `state` None: the instance stays open. `note` None: the stored result itself is the note.
+    """
+    context = bare_context(tmp_path, "design-director")
+    text = json.dumps(stored, ensure_ascii=False)
+    context.ledger.record_operation("i:t1", "i", name, text)
+
+    result = Toolbox(context, [TOOLS[name]]).call("t1", name, {})
+
+    assert result == {"type": "tool_result", "tool_use_id": "t1", "content": text}
+    expected = None if state is None else Outcome(state=state, note=text if note is None else note)
+    assert context.finished == expected
 
 
 def test_history_is_append_only_between_calls(tmp_path: Path) -> None:

@@ -283,6 +283,23 @@ def test_a_half_written_line_is_counted_and_skipped_and_the_stamp_names_each_tra
     assert [item.name for item in transcripts.stamp()] == ["runs/merlo4/T-0002-a1.jsonl"]
 
 
+def test_a_line_torn_inside_a_utf8_character_breaks_the_whole_read(tmp_path: Path) -> None:
+    """The engine writes Italian unescaped, so a line can stop after the first byte of `è`."""
+    layout = DataLayout(tmp_path)
+    path = layout.transcript("merlo4", "T-0002-a1")
+    Transcript(path).append(turn(use("u1", "render")))
+    with path.open("ab") as handle:
+        handle.write(b'{"a":"\xc3')  # the engine was writing "è"
+    transcripts = JsonlTranscripts(layout)
+
+    # Pins current behavior of COR-006; phase 2 (Task 2.9) flips these assertions: 1 entry, 1 unreadable line.
+    with pytest.raises(UnicodeDecodeError):
+        transcripts.read()
+    with pytest.raises(UnicodeDecodeError):
+        transcripts.transcript("merlo4", "T-0002-a1")
+    assert len(Transcript(path).messages()) == 1  # the engine reads bytes, and repairs this same file
+
+
 def test_a_long_refusal_keeps_its_head_and_its_tail_and_says_where_it_was_cut(tmp_path: Path) -> None:
     """craft_run risponde con il registro dei passi: l'errore può stare in fondo."""
     layout = DataLayout(tmp_path)
@@ -575,7 +592,7 @@ def test_the_registry_reader_works_while_the_engine_is_writing(tmp_path: Path) -
 
     thread = threading.Thread(target=engine)
     thread.start()
-    writing.wait(timeout=10)
+    assert writing.wait(timeout=10), "the engine never took the write lock: nothing was read while it wrote"
     try:
         assert len(ReadOnlyRegistry(path).read().usage) == 1
     finally:

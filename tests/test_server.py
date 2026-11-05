@@ -427,6 +427,36 @@ def test_every_engine_package_is_forbidden_to_import_django() -> None:
     assert {module.removeprefix("agency.") for module in engine["source_modules"]} == present
 
 
+# What each read-only slice may import from the engine. Every other package on disk must be forbidden.
+SLICE_ALLOWED = {
+    "agency.insights": {"contracts"},
+    "agency.entrypoints.server": {"contracts", "insights"},
+    "agency.evaluation": {"contracts"},
+}
+# Pins current behavior of STR-002: these packages are missing from the contracts today. Adding them to
+# pyproject.toml, the rest of Task 1.19, empties these sets.
+SLICE_GAPS = {
+    "agency.insights": {"config", "context", "doctor"},
+    "agency.entrypoints.server": {"context", "doctor"},
+    "agency.evaluation": set(),
+}
+
+
+def test_every_slice_contract_forbids_every_engine_package() -> None:
+    """A new engine package must reach every slice's forbidden list, not only the Django contract's."""
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    contracts = config["tool"]["importlinter"]["contracts"]
+    source = REPO_ROOT / "src" / "agency"
+    present = {
+        path.stem for path in source.iterdir() if path.suffix == ".py" or (path / "__init__.py").exists()
+    } - {"__init__", "entrypoints"}
+    for slice_, allowed in SLICE_ALLOWED.items():
+        (contract,) = [contract for contract in contracts if contract["source_modules"] == [slice_]]
+        forbidden = {module.removeprefix("agency.") for module in contract["forbidden_modules"]}
+        unforbidden = present - forbidden - allowed - {slice_.removeprefix("agency.")}
+        assert unforbidden == SLICE_GAPS[slice_], f"{slice_} does not forbid {sorted(unforbidden)}"
+
+
 def test_the_projection_can_live_away_from_the_registry(client: Client, tmp_path: Path) -> None:
     """In Docker la proiezione sta in memoria: il server la scrive lì, e accanto al registro niente."""
     elsewhere = tmp_path / "in-memoria"

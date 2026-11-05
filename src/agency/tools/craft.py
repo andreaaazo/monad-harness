@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import shutil
 import subprocess
@@ -11,7 +12,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-from agency.tools.files import inside
+from agency.tools.files import ensure_dir_under, inside, open_under, replace_under
 from agency.tools.sandbox import JOB, Sandbox
 
 TOKEN = re.compile(r"[a-zA-Z0-9]+")
@@ -103,14 +104,14 @@ def run_steps(
     unknown = sorted({step.get("command", "") for step in steps} - set(index.commands))
     if unknown:
         return {"ok": False, "error": f"comandi inesistenti: {', '.join(unknown)}. Usa craft_search."}
+    ensure_dir_under(sandbox.work, ".ops")
     ops = sandbox.work / ".ops"
-    ops.mkdir(exist_ok=True)
     result_file = ops / f"{operation_id}.result.json"
     built = ops / f"{operation_id}.vectorcraft"
     target = inside(sandbox.work, document)
     if not (result_file.exists() and built.exists()):
         plan = ops / f"{operation_id}.steps.json"
-        plan.write_text(json.dumps(steps), encoding="utf-8")
+        replace_under(sandbox.work, f".ops/{plan.name}", json.dumps(steps).encode("utf-8"))
         partial = f".ops/{operation_id}.partial.vectorcraft"
         command = ["vectorcraft-cli", "run"]
         if target.exists():
@@ -127,8 +128,12 @@ def run_steps(
                 continue
             if entry.get("step") == "cmd":
                 results.append(entry.get("result"))
-        (sandbox.work / partial).replace(built)
-        result_file.write_text(json.dumps(results), encoding="utf-8")
+        folder = open_under(sandbox.work, ".ops", os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.replace(Path(partial).name, built.name, src_dir_fd=folder, dst_dir_fd=folder)
+        finally:
+            os.close(folder)
+        replace_under(sandbox.work, f".ops/{result_file.name}", json.dumps(results).encode("utf-8"))
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(built, target)
     return {"ok": True, "document": document, "results": json.loads(result_file.read_text(encoding="utf-8"))}

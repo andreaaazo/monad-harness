@@ -446,7 +446,7 @@ must not change behaviour. Every task starts with its failing test.
 
 ### Critical
 
-- [ ] **Task 2.1: a no-follow helper for the files the harness writes.** Closes SEC-001, part 1 of 3 (Q1).
+- [x] **Task 2.1: a no-follow helper for the files the harness writes.** Closes SEC-001, part 1 of 3 (Q1).
   - Files:
     - `src/agency/tools/files.py`;
     - `src/agency/tools/surface.py` (`compute`, :388-394);
@@ -917,6 +917,81 @@ must not change behaviour. Every task starts with its failing test.
     - `test_an_unknown_check_kind_fails_at_load`.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(registry): validate the studio rules against typed contracts at load`.
+
+### Found during Phase 2
+
+Task 2.1 searched `src/agency` for the same bug as SEC-001: the harness writes, creates, replaces, copies or reads a
+file under a project's `work/` folder without the no-follow helpers of `agency.tools.files`. Any sandbox with
+`compute` can plant a symlink there. An author ticket opened with `open_ticket` has `workspace=""`, so its `/job` is
+the whole `work/`. Line numbers are as of Task 2.1. "Task 2.2's rule" means its title: every harness read and write
+under `/job` goes through the helper. Its file list is narrower, and each entry says whether the file is on it.
+
+- [ ] **Task 2.F1: the workspace folder is created and bound through a planted link.** agents/loop.py:67-68 and
+  tools/sandbox.py:27. `work.mkdir(parents=True, exist_ok=True)` runs on the raw `project_dir / "work" / workspace`,
+  then `Sandbox(work)` calls `work.resolve()`. A link at any component, for example `work/proposals -> <host folder>`
+  left by a whole-work sandbox, makes the harness create the folders on the host and bind the link's target
+  read-write at `/job`. The next sandbox then writes a host folder. Reproduced on the bwrap argv alone (Task 2.1
+  report). No planned task closes it: loop.py and sandbox.py are not on Task 2.2's list, and Task 2.3 only adds
+  `/ops` to sandbox.py.
+- [ ] **Task 2.F2: `start` copies the brief through a planted `brief.md`.** runtime.py:77-78, and the hash at :92.
+  `shutil.copyfile(brief, work / "brief.md")` follows a link left in an existing project's `work/`. Task 2.2's rule;
+  runtime.py is not on its list.
+- [ ] **Task 2.F3: the board node writes with raw `work / …` joins.** graph/workflow.py:113-114. `board.build` writes
+  `board/r<n>/tavola.png`, and `shutil.copyfile` reads `brief.md` and writes `board/r<n>/brief.md`, all following
+  links. Task 2.2's rule; workflow.py is not on its list (board.py is).
+- [ ] **Task 2.F4: the select node copies the explorers' sheets through links.** graph/workflow.py:157-162. It writes
+  `schede.md`, creates `fogli/`, and copies each `explorations/r<n>/<x>/foglio-<x>.png`, a file an explorer sandbox
+  wrote and can make a link to a host image. Task 2.2's rule; workflow.py is not on its list.
+- [ ] **Task 2.F5: the proposals node reads and copies explorer files through links.** graph/workflow.py:195,
+  :203-209 and :235. It reads `applicazioni.json`, creates the proposal folder with `mkdir(parents=True)`, copies
+  `brief.md`, `scheda.json` and the sketch, then hashes the inputs, all on raw joins. Task 2.2's rule; workflow.py is
+  not on its list.
+- [ ] **Task 2.F6: the present node builds each proposal sheet from raw paths.** graph/workflow.py:261-263 and
+  tools/presentation.py:152-159 (`sheet`). The glob in `proposal_files` is SEC-003, closed by Task 2.6. `sheet` reads
+  the images and writes `proposals/r<n>/insieme-<x>.png` with `mkdir` and `save`. Task 2.2's rule; its list names
+  `_fit` and `build` in presentation.py, not `sheet`.
+- [ ] **Task 2.F7: the production node copies the chosen proposal through links.** graph/workflow.py:340-341 and
+  :360. It copies `proposals/r<n>/<x>/proposta-<x>.vectorcraft`, written by a proposer sandbox, into the root ticket's
+  target, then hashes the inputs. Task 2.2's rule; workflow.py is not on its list.
+- [ ] **Task 2.F8: `write_file` writes after `inside()`.** tools/surface.py:302-304. A check, then a use: a link
+  swapped in between, or one that points elsewhere inside the work folder, is followed. Closed by Task 2.2 (named).
+- [ ] **Task 2.F9: `plan_exploration` writes the plan and the explorer folders after `inside()`.**
+  tools/surface.py:582-584 and :593-595. Task 2.2's rule; only `read_file`, `write_file` and `view_image` of
+  surface.py are on its list.
+- [ ] **Task 2.F10: the closing tools write their records after `inside()`.** tools/surface.py:630-631
+  (`submit_concept`, `scheda.json`), :655-657 (`rate_board`, `reviews/valutazione.json`) and :715
+  (`draft_presentation`, `testi.json`). Their readers follow links too: :636, :670 and :724-730. Task 2.2's rule;
+  these surface.py functions are not on its list.
+- [ ] **Task 2.F11: the hash and existence checks in the tools follow links.** tools/surface.py:413 (`_seen_proof`),
+  :440-443 (`judge`), :486 and :509 (`open_ticket`), :560 (`deliver`), and :78 (`ToolContext.keep`), whose open is
+  artifacts/files.py:55 (`FileStore.put`, `source.open("rb")`). Task 2.2's rule; keeping.py is on its list, but these
+  surface.py functions and artifacts/files.py are not.
+- [ ] **Task 2.F12: `run_steps` copies the built document through links and trusts `.ops` on resume.**
+  tools/craft.py:137-138: `target.parent.mkdir(parents=True)` and `shutil.copy2(built, target)` follow a link at the
+  target or at `built`. tools/craft.py:112, :117 and :139: the resume checks and the result read. Task 2.3 closes the
+  resume reads (resume reads only `ops_records`). The copy into the document is Task 2.2's rule; craft.py is on Task
+  2.3's list, not Task 2.2's.
+- [ ] **Task 2.F13: render proofs are written after `inside()`.** tools/render.py:31-37, :46, :66, :69, :79 and
+  :86-88. Closed by Task 2.2 (named).
+- [ ] **Task 2.F14: master export and hashing follow links.** tools/master.py:36, :79-80, :89, :101 and :110. Closed
+  by Task 2.2 (named).
+- [ ] **Task 2.F15: the board image is written through links.** tools/board.py:145-146. Closed by Task 2.2 (named).
+- [ ] **Task 2.F16: the presentation pages are written, and old ones deleted, through links.**
+  tools/presentation.py:229-238 (`build`: `mkdir`, `glob` and `unlink` of old pages, `save` of the pages and the PDF).
+  Closed by Task 2.2 (named).
+- [ ] **Task 2.F17: the QA proof folders are created after `inside()`.** qa/checks.py:40 and :48; the proof glob at :53
+  and the hash at :66-70 follow links too. Task 2.2's rule; qa/checks.py is not on its list.
+- [ ] **Task 2.F18: evidence and delivery hash work files through links.** qa/evidence.py:82, :98, :125 and :131;
+  qa/delivery.py:103, :121, :198, :219-225 and :239. Closed by Task 2.2 (named).
+- [ ] **Task 2.F19: `restore` creates the destination's folders through links.** artifacts/keeping.py:96-99.
+  `open("xb")` refuses a link as the last component, but `destination.parent.mkdir(parents=True)` follows one higher
+  up when the operator restores into a work folder. Closed by Task 2.2 (named).
+- [ ] **Task 2.F20: `agency judge` copies work files through links.** evaluation/blind.py:84. `shutil.copyfile` of each
+  candidate reads through a link a sandbox left. Task 2.2's rule; evaluation/ is not on its list.
+- [ ] **Task 2.F21: a FIFO planted where the harness reads blocks the harness.** tools/files.py (`read_under`,
+  `sha256_under`) and every plain read above. `os.open(..., O_RDONLY)` on a FIFO waits for a writer that never comes:
+  a probe on `read_under` was still blocked when `timeout 3` killed it (exit 124). Not the same bug, but the readers
+  Task 2.2 routes through the helper should refuse anything that is not a regular file (`O_NONBLOCK`, then `fstat`).
 
 ## Phase 3: comments and language (Q14–Q16)
 

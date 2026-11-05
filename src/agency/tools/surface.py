@@ -28,7 +28,7 @@ from agency.ledger.models import ConceptRow
 from agency.qa import checks as qa
 from agency.qa import delivery, evidence
 from agency.tools import board, craft, master, presentation, render
-from agency.tools.files import OutsidePerimeter, clip, inside, sha256
+from agency.tools.files import OutsidePerimeter, clip, ensure_dir_under, inside, replace_under, sha256
 from agency.tools.sandbox import JOB, Sandbox
 
 tracer = trace.get_tracer("agency.tools")
@@ -386,10 +386,9 @@ def craft_run(ctx: ToolContext, a: CraftRun, operation_id: str) -> dict:
 
 
 def compute(ctx: ToolContext, a: Compute, operation_id: str) -> dict:
-    ops = ctx.work / ".ops"
-    ops.mkdir(exist_ok=True)
+    ensure_dir_under(ctx.work, ".ops")
     name = "compute_" + "".join(c if c.isalnum() else "_" for c in operation_id) + ".py"
-    (ops / name).write_text(a.code, encoding="utf-8")
+    replace_under(ctx.work, f".ops/{name}", a.code.encode("utf-8"))
     done = ctx.sandbox.run([ctx.sandbox.python(), "-I", f"{JOB}/.ops/{name}"], timeout=60)
     return {"exit": done.code, "output": clip(done.output, 3000)}
 

@@ -27,8 +27,10 @@ from agency.ledger.models import EvidenceRow, UsageRow
 from agency.qa import checks as qa
 from agency.qa import delivery, evidence
 from agency.telemetry import report
-from agency.tools.craft import CommandIndex
-from agency.tools.sandbox import Sandbox
+from agency.tools import craft
+from agency.tools.craft import Command, CommandIndex
+from agency.tools.files import OutsidePerimeter
+from agency.tools.sandbox import Completed, Sandbox
 from agency.tools.surface import Toolbox, ToolContext, role_tools
 
 
@@ -109,8 +111,8 @@ def test_list_files_ignores_links_that_leave_the_work(tmp_path: Path) -> None:
     assert "link.txt" not in result
 
 
-def test_compute_writes_through_a_planted_ops_symlink(tmp_path: Path) -> None:
-    """Sandboxed code swaps `.ops` for a link to a host folder. The next compute writes the code there.
+def test_compute_never_writes_through_a_planted_ops_symlink(tmp_path: Path) -> None:
+    """Sandboxed code swaps `.ops` for a link to a host folder. The next compute refuses, and writes nothing.
 
     The host folder here is a scratch one. In the audit's reproduction it was Alembic's migrations folder.
     """
@@ -121,10 +123,32 @@ def test_compute_writes_through_a_planted_ops_symlink(tmp_path: Path) -> None:
     assert json.loads(call(ctx, "compute", code=plant)["content"])["exit"] == 0
     payload = "print('scritto dal modello')\n"
 
-    call(ctx, "compute", code=payload)
+    result = call(ctx, "compute", code=payload)
 
-    # Pins current behavior of SEC-001; phase 2 (Task 2.1) flips this assertion: refused, the folder empty.
-    assert [path.read_text(encoding="utf-8") for path in host.iterdir()] == [payload]
+    assert result.get("is_error")
+    assert "fuori dalla cartella del lavoro" in str(result["content"])
+    assert list(host.iterdir()) == []
+
+
+class IdleSandbox(Sandbox):
+    """Runs nothing: what matters is what the harness writes before the sandbox starts."""
+
+    def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+        return Completed(1, "", "")
+
+
+def test_craft_run_never_writes_through_a_planted_ops_symlink(tmp_path: Path) -> None:
+    """The same link, left by an earlier compute: craft_run must not write its plan into the host folder."""
+    work, host = tmp_path / "work", tmp_path / "host-folder"
+    work.mkdir()
+    host.mkdir()
+    (work / ".ops").symlink_to(host, target_is_directory=True)
+    index = CommandIndex([Command("path.create", "Crea un tracciato", "Tracciato", "d")])
+
+    with pytest.raises(OutsidePerimeter):
+        craft.run_steps(IdleSandbox(work), index, "segno.vectorcraft", [{"command": "path.create"}], "op1")
+
+    assert list(host.iterdir()) == []
 
 
 def test_a_reviewer_leaves_reviews_with_dotdot(tmp_path: Path) -> None:

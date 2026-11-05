@@ -675,15 +675,17 @@ def test_sandbox_has_no_network_key_or_outside_files(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
     box = Sandbox(work)
+    # What the sandbox sees, not a failed probe: an offline host also fails to connect, and a non-root user
+    # cannot write to /usr anyway. Only `lo` exists without the host's network, and /usr is mounted read-only.
     probe = (
         "import os,socket;print(os.environ.get('ANTHROPIC_API_KEY'));"
         f"print(os.path.exists({str(outside)!r}));"
-        "\ntry:\n socket.create_connection(('1.1.1.1',53),2);print('rete')\nexcept OSError:print('no-rete')"
+        "print(','.join(name for _, name in socket.if_nameindex()));"
+        "print(bool(os.statvfs('/usr').f_flag & os.ST_RDONLY))"
     )
     done = box.run(["python3", "-c", probe])
     del os.environ["ANTHROPIC_API_KEY"]
-    assert done.stdout.split() == ["None", "False", "no-rete"]
-    assert box.run(["sh", "-c", "touch /usr/x"]).code != 0
+    assert done.stdout.split() == ["None", "False", "lo", "True"]
 
 
 def test_sandbox_writes_only_in_its_folder(tmp_path: Path) -> None:

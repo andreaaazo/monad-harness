@@ -1,7 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { get } from "node:http";
-import { connect } from "node:net";
-import { networkInterfaces } from "node:os";
 import { basename, join, sep } from "node:path";
 
 import { expect, test } from "@playwright/test";
@@ -117,21 +115,6 @@ test("le pagine non restano in cache, non si incorniciano e non dicono chi le se
   }
 });
 
-function refused(host: string, port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = connect({ host, port, timeout: 2000 });
-    socket.once("connect", () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.once("timeout", () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.once("error", () => resolve(true));
-  });
-}
-
 /** Lo stato e il corpo di una richiesta a Next.js con l'Host scelto: il browser non lascia cambiarlo. */
 function ask(path: string, host: string, headers: Record<string, string> = {}): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
@@ -171,17 +154,43 @@ test("su un telefono nessuna vista scorre in orizzontale, neanche con i dettagli
 });
 
 test("Next.js e Django ascoltano solo su loopback", async () => {
-  const addresses = Object.values(networkInterfaces())
-    .flat()
-    .filter((item) => item !== undefined && item.family === "IPv4" && !item.internal)
-    .map((item) => item!.address);
-  test.skip(addresses.length === 0, "la macchina non ha indirizzi di rete oltre al loopback");
-  for (const address of addresses) {
-    expect(await refused(address, NEXT_PORT), `Next.js risponde su ${address}`).toBe(true);
-    expect(await refused(address, OFFLINE_PORT), `Next.js risponde su ${address}`).toBe(true);
-    expect(await refused(address, DJANGO_PORT), `Django risponde su ${address}`).toBe(true);
+  // The kernel's own socket tables, not a connection attempt from outside: they need no second interface,
+  // so the test never has to skip.
+  const servers = [
+    ["Next.js", NEXT_PORT],
+    ["Next.js without Django", OFFLINE_PORT],
+    ["Django", DJANGO_PORT],
+  ] as const;
+  for (const [name, port] of servers) {
+    const addresses = listening(port);
+    expect(addresses.length, `${name} is not listening on port ${port}`).toBeGreaterThan(0);
+    for (const address of addresses) expect(LOOPBACK, `${name} listens on ${address}:${port}`).toContain(address);
   }
 });
+
+const LOOPBACK = ["127.0.0.1", "::1"];
+
+/** The local addresses of the sockets listening on `port`, from /proc/net/tcp and /proc/net/tcp6. */
+function listening(port: number): string[] {
+  const wanted = port.toString(16).toUpperCase().padStart(4, "0");
+  return ["/proc/net/tcp", "/proc/net/tcp6"]
+    .filter((table) => existsSync(table))
+    .flatMap((table) => readFileSync(table, "utf8").trim().split("\n").slice(1))
+    .flatMap((line) => {
+      const [, local = "", , state] = line.trim().split(/\s+/);
+      const [hexAddress = "", hexPort] = local.split(":");
+      return state === "0A" && hexPort === wanted ? [address(hexAddress)] : []; // 0A is TCP_LISTEN
+    });
+}
+
+/** The kernel prints each 32-bit word of the address in host byte order: little-endian on x86 and ARM. */
+function address(hex: string): string {
+  const bytes = (hex.match(/.{8}/g) ?? []).flatMap((word) => (word.match(/../g) ?? []).reverse());
+  if (bytes.length === 4) return bytes.map((byte) => parseInt(byte, 16)).join(".");
+  const groups = (bytes.join("").match(/.{4}/g) ?? []).map((group) => parseInt(group, 16).toString(16));
+  const full = groups.join(":");
+  return full === "0:0:0:0:0:0:0:1" ? "::1" : full;
+}
 
 /** I processi dei server di prova, con ciò che serve sapere del loro ambiente. Su Linux si leggono da /proc. */
 function servers(): { program: string; port: string; keys: string[]; canary: boolean }[] {

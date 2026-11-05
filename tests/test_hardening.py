@@ -109,6 +109,37 @@ def test_list_files_ignores_links_that_leave_the_work(tmp_path: Path) -> None:
     assert "link.txt" not in result
 
 
+def test_compute_writes_through_a_planted_ops_symlink(tmp_path: Path) -> None:
+    """Sandboxed code swaps `.ops` for a link to a host folder. The next compute writes the code there.
+
+    The host folder here is a scratch one. In the audit's reproduction it was Alembic's migrations folder.
+    """
+    ctx = context(tmp_path)
+    host = tmp_path / "host-folder"
+    host.mkdir()
+    plant = f"import os\nos.rename('/job/.ops', '/job/.ops-old')\nos.symlink({str(host)!r}, '/job/.ops')\n"
+    assert json.loads(call(ctx, "compute", code=plant)["content"])["exit"] == 0
+    payload = "print('scritto dal modello')\n"
+
+    call(ctx, "compute", code=payload)
+
+    # Pins current behavior of SEC-001; phase 2 (Task 2.1) flips this assertion: refused, the folder empty.
+    assert [path.read_text(encoding="utf-8") for path in host.iterdir()] == [payload]
+
+
+def test_a_reviewer_leaves_reviews_with_dotdot(tmp_path: Path) -> None:
+    ctx = context(tmp_path, actor="critic")
+    brief = ctx.work / "brief.md"
+    brief.write_text("il brief del cliente", encoding="utf-8")
+    assert call(ctx, "write_file", path="brief.md", content="riscritto")["is_error"]
+
+    result = call(ctx, "write_file", path="reviews/../brief.md", content="riscritto da un revisore")
+
+    # Pins current behavior of SEC-004; phase 2 (Task 2.7) flips this assertion: refused, brief.md unchanged.
+    assert not result.get("is_error")
+    assert brief.read_text(encoding="utf-8") == "riscritto da un revisore"
+
+
 # Deleghe
 
 

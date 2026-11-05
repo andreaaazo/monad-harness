@@ -19,8 +19,9 @@ from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType, Verd
 from agency.gateway import BudgetExceeded, ModelGateway, ScriptedTransport
 from agency.ledger import Ledger
 from agency.runtime import open_session
-from agency.tools.craft import CommandIndex
-from agency.tools.sandbox import JOB, Sandbox
+from agency.tools import craft
+from agency.tools.craft import Command, CommandIndex
+from agency.tools.sandbox import JOB, Completed, Sandbox
 from agency.tools.surface import TOOLS, Toolbox, ToolContext, tools_for
 
 SVG_PATH = "M10 90 L50 10 L90 90 Z"
@@ -510,6 +511,111 @@ def test_observe_needs_a_render_really_viewed(tmp_path: Path) -> None:
     assert box.call("c", "observe", arguments)["is_error"]
     box.call("d", "view_image", {"path": proof})
     assert not box.call("e", "observe", arguments).get("is_error")
+
+
+def critic_box(tmp_path: Path) -> tuple[Toolbox, Path]:
+    """A critic on a real ticket, with its own work folder."""
+    work = tmp_path / "work"
+    work.mkdir()
+    ledger = Ledger(settings(tmp_path).ledger_path)
+    ticket = ledger.open(production_spec(), "p")
+    artifacts = FileStore(tmp_path / "artifacts")
+    context = ToolContext("critic", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), artifacts)
+    return Toolbox(context), work
+
+
+def rendered(box: Toolbox, tool_id: str, path: str, zooms: list[list[float]] | None = None) -> list[str]:
+    result = box.call(tool_id, "render", {"path": path, "zooms": zooms or []})
+    proofs: list[str] = json.loads(result["content"])["proofs"]
+    return proofs
+
+
+SEEN_RED = "Quadrato rosso pieno, bordi netti, nessun difetto visibile nel render."
+
+
+def test_observe_accepts_a_render_viewed_for_an_older_version(tmp_path: Path) -> None:
+    """The critic viewed the red version's render. The black version was rendered and never viewed."""
+    from PIL import Image
+
+    box, work = critic_box(tmp_path)
+    Image.new("RGB", (100, 100), (200, 30, 30)).save(work / "a.png")
+    (proof,) = rendered(box, "r1", "a.png")
+    box.call("v1", "view_image", {"path": proof})
+    Image.new("RGB", (100, 100), (0, 0, 0)).save(work / "a.png")
+    rendered(box, "r2", "a.png")
+
+    result = box.call("o1", "observe", {"file": "a.png", "seen": SEEN_RED})
+
+    # Pins current behavior of COR-001; phase 2 (Task 2.4) flips this assertion: the stale view is refused.
+    assert not result.get("is_error")
+
+
+def test_sources_with_one_stem_share_one_proof(tmp_path: Path) -> None:
+    """Rendering x.jpg overwrites the proof registered for x.png, so viewing it backs evidence for x.png."""
+    from PIL import Image
+
+    box, work = critic_box(tmp_path)
+    Image.new("RGB", (100, 100), (200, 30, 30)).save(work / "x.png")
+    Image.new("RGB", (100, 100), (30, 30, 200)).save(work / "x.jpg")
+    png = rendered(box, "r1", "x.png")
+    jpg = rendered(box, "r2", "x.jpg")
+    box.call("v1", "view_image", {"path": jpg[0]})
+
+    # Pins current behavior of COR-007; phase 2 (Task 2.8) flips these assertions: two proofs, a refusal.
+    assert png == jpg
+    assert not box.call("o1", "observe", {"file": "x.png", "seen": SEEN_RED}).get("is_error")
+
+
+def test_two_zooms_with_one_corner_share_one_file(tmp_path: Path) -> None:
+    from PIL import Image
+
+    box, work = critic_box(tmp_path)
+    Image.new("RGB", (400, 400), (200, 30, 30)).save(work / "a.png")
+
+    proofs = rendered(box, "r1", "a.png", zooms=[[0.1, 0.1, 0.1, 0.1], [0.1, 0.1, 0.8, 0.8]])
+
+    # Pins current behavior of COR-012; phase 2 (Task 2.8) flips this assertion: one file per zoom.
+    assert len(proofs) == 3 and proofs[1] == proofs[2]
+    with Image.open(work / proofs[1]) as zoom:
+        assert zoom.size == (320, 320)  # the second crop replaced the 40 px first one
+
+
+def test_compute_runs_the_script_and_returns_exit_and_output(tmp_path: Path) -> None:
+    box = Toolbox(bare_context(tmp_path, "identity-designer"))
+    result = box.call("c1", "compute", {"code": "print(6 * 7)"})
+    assert json.loads(result["content"]) == {"exit": 0, "output": "42\n"}
+
+
+class CountingSandbox(Sandbox):
+    """Plays `vectorcraft-cli run`: writes the exported document and prints one result per command."""
+
+    def __init__(self, work: Path) -> None:
+        super().__init__(work)
+        self.calls: list[list[str]] = []
+
+    def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+        self.calls.append(command)
+        export = Path(command[command.index("--export") + 1]).relative_to(JOB)
+        (self.work / export).write_text("documento costruito", encoding="utf-8")
+        lines = [json.dumps({"step": "cmd", "result": {"id": 2}}), json.dumps({"step": "open"}), "non json"]
+        return Completed(0, "\n".join(lines), "")
+
+
+def test_craft_run_replays_its_stored_result_on_resume(tmp_path: Path) -> None:
+    """The steps run once. A second call with the same operation id copies the built document again."""
+    work = tmp_path / "work"
+    work.mkdir()
+    sandbox = CountingSandbox(work)
+    index = CommandIndex([Command("path.create", "Crea un tracciato", "Tracciato", "d")])
+    master = "source/segno.vectorcraft"
+    first = craft.run_steps(sandbox, index, master, steps()[:1], "op1")
+    (work / master).unlink()  # the copy the crash, or a later edit, took away
+
+    second = craft.run_steps(sandbox, index, master, steps()[:1], "op1")
+
+    assert len(sandbox.calls) == 1
+    assert first == second == {"ok": True, "document": master, "results": [{"id": 2}]}
+    assert (work / master).read_text(encoding="utf-8") == "documento costruito"
 
 
 def test_big_images_are_reduced_and_rereads_are_allowed(tmp_path: Path) -> None:

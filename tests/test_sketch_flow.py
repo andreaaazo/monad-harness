@@ -23,6 +23,7 @@ from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.domain import derive_phase
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
+from agency.qa import delivery
 from agency.runtime import Session, open_session
 from agency.tools import board, presentation
 from agency.tools.craft import CommandIndex
@@ -882,6 +883,77 @@ def test_select_refuses_unknown_letters(tmp_path: Path) -> None:
     )
     box = Toolbox(ctx, [TOOLS["select_concepts"]])
     assert box.call("a", "select_concepts", {"chosen": ["Q"], "reasons": "perché sì"})["is_error"]
+
+
+def test_select_concepts_refuses_more_than_three(tmp_path: Path) -> None:
+    """Every letter passed the first look, so only the limit of three stops this choice."""
+    ctx = context(tmp_path, "design-director")
+    anons = {"a": "W", "b": "X", "c": "Y", "d": "Z"}
+    for letter, anon in anons.items():
+        ctx.ledger.add_concept(
+            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket=f"T-{letter}", anon=anon)
+        )
+    verdicts = tmp_path / "board/r1/reviews/valutazione.json"
+    verdicts.parent.mkdir(parents=True)
+    passed = [{"letter": anon, "first_look": "Un segno", "passes": True} for anon in anons.values()]
+    verdicts.write_text(json.dumps(passed))
+    box = Toolbox(ctx, [TOOLS["select_concepts"]])
+
+    result = box.call("a", "select_concepts", {"chosen": list(anons.values()), "reasons": "tutte reggono"})
+
+    assert result["is_error"]
+    assert result["content"] == "si sviluppano al massimo 3 idee: sceglierne di più significa non aver scelto"
+
+
+def test_judge_refuses_a_file_against_itself(tmp_path: Path) -> None:
+    """The same file under another spelling is still itself. The file was viewed, so nothing else refuses."""
+    ctx = context(tmp_path)
+    Image.new("RGB", (60, 60), (20, 20, 20)).save(tmp_path / "segno.png")
+    box = Toolbox(ctx, [TOOLS["view_image"], TOOLS["judge"]])
+    box.call("a", "view_image", {"path": "segno.png"})
+
+    arguments = {"file": "segno.png", "compare": ["./segno.png"], "why": WHY, "result": "PASS"}
+    result = box.call("b", "judge", arguments)
+
+    assert result["is_error"]
+    assert result["content"] == "un file non si confronta con se stesso"
+
+
+def test_export_master_refuses_unknown_options(tmp_path: Path) -> None:
+    ctx = context(tmp_path, "identity-designer")
+    box = Toolbox(ctx, [TOOLS["export_master"]])
+    options = ["--scale", "2", "--plugin", "x.js"]
+
+    result = box.call("a", "export_master", {"master": MASTER, "output": SVG, "options": options})
+
+    assert result["is_error"]
+    assert result["content"] == "opzioni non ammesse: ['--plugin']"
+
+
+def test_a_hidden_image_reaches_the_presentation_but_not_delivery(tmp_path: Path) -> None:
+    """A dot-file left in a proposal's applications is never delivered, yet the presentation picks it up."""
+    proposal = tmp_path / "proposals/r1/v"
+    applications = proposal / "applicazioni-v"
+    applications.mkdir(parents=True)
+    Image.new("RGB", (40, 40), (240, 240, 240)).save(applications / "insegna.png")
+    Image.new("RGB", (40, 40), (200, 0, 0)).save(applications / ".zz.png")
+    spec = TicketSpec(
+        title="Proposta V",
+        request="Sviluppa la proposta",
+        type=TicketType.PROPOSAL,
+        sender="design-director",
+        assignee="direction-a",
+        outputs=["applicazioni-v/*.png"],
+        checks={"*.png": ["visual_review"]},
+        media=[Medium.IMAGE],
+    )
+
+    delivered, _ = delivery.expected(spec, proposal)
+    _, shown = presentation.proposal_files(tmp_path, 1, "V")
+
+    assert delivered == ["applicazioni-v/insegna.png"]
+    # Pins current behavior of SEC-003; phase 2 (Task 2.6) flips this assertion: only delivered images.
+    assert [image.name for image in shown] == [".zz.png", "insegna.png"]
 
 
 def test_finisher_cannot_explore(tmp_path: Path) -> None:

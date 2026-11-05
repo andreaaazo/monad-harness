@@ -618,6 +618,59 @@ def test_client_approval_of_a_root_without_critique_goes_back_to_rework(tmp_path
     assert session.ledger.status("T-0001")[0] is not Status.ACCEPTED
 
 
+class Killed(Exception):
+    """The process dies here: nothing after this point reaches the disk."""
+
+
+def test_an_effect_tool_records_its_result_for_resume(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Killed after its tools ran but before their results reached the transcript, an instance resumes without
+    repeating any effect and closes as it did (TST-007, ADR-0002)."""
+    config = settings(tmp_path)
+    svg = "exports/segno.svg"
+    spec = TicketSpec(
+        title="Segno",
+        request="Disegna il segno",
+        type=TicketType.PRODUCTION,
+        sender="design-director",
+        assignee="identity-designer",
+        outputs=[svg],
+        checks={"*.svg": ["svg_audit"]},
+        media=[Medium.NONE],
+        medium_why="verifica del solo file, senza master",
+    )
+    batch = turn(
+        use("run_check", "t1", check="svg_audit", file=svg),
+        use("deliver", "t2", note="segno pronto", verdict=None),
+    )
+    run, transport, ledger = runner(config, [batch])
+    ticket = ledger.open(spec, "p")
+    work = config.project_dir("p") / "work"
+    (work / "exports").mkdir(parents=True)
+    drawing = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="{SVG_PATH}"/></svg>'
+    (work / svg).write_text(drawing)
+    append = Transcript.append
+
+    def die_before_the_results(self: Transcript, message: dict, request_id: str | None = None) -> None:
+        if message["role"] == "user" and isinstance(message["content"], list):
+            raise Killed
+        append(self, message, request_id)
+
+    monkeypatch.setattr(Transcript, "append", die_before_the_results)
+    with pytest.raises(Killed):
+        run.run(ticket)
+    assert ledger.status(ticket)[0] is Status.DELIVERED  # the effects happened before the kill
+    monkeypatch.setattr(Transcript, "append", append)
+    outcome = run.run(ticket)
+    assert outcome.state == "delivered"
+    assert [row.check_name for row in ledger.evidence("p")] == ["svg_audit"]  # the check did not run twice
+    instance = f"{ticket}-a1"
+    assert ledger.operation(f"{instance}:t1") is not None
+    assert ledger.operation(f"{instance}:t2") is not None
+    assert len(transport.requests) == 1  # resume replayed the stored results without calling the model
+
+
 def test_reviewer_delivers_without_owning_a_master(tmp_path: Path) -> None:
     config = settings(tmp_path)
     work = config.projects_dir / "p/work"

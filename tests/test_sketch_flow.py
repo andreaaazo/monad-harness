@@ -339,6 +339,28 @@ def test_client_only_sees_developed_proposals_then_production_starts(tmp_path: P
     assert transport.requests["T-0006"][0]["output_config"] == {"effort": "high"}
 
 
+def test_a_crash_after_the_concept_decision_records_one_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On resume the gate node runs again from the start: the client's decision is recorded once (TST-015)."""
+    session = open_session(settings(tmp_path), Router(full_script()))
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
+    record = session.ledger.add_gate
+
+    def die_after_recording(row: object) -> None:
+        record(row)  # type: ignore[arg-type]
+        raise RuntimeError("the process died after recording the gate")
+
+    monkeypatch.setattr(session.ledger, "add_gate", die_after_recording)
+    with pytest.raises(RuntimeError, match="died after recording the gate"):
+        session.decide("officina", True, "Mi piace la X", "X")
+    monkeypatch.setattr(session.ledger, "add_gate", record)
+    session.decide("officina", True, "Mi piace la X", "X")
+    assert session.pending("officina")[0].gate == "final"
+    concept = [row for row in session.ledger.gates("officina") if row.gate == "concept"]
+    assert [(row.approved, row.choice) for row in concept] == [(True, "X")]
+
+
 def test_explorers_think_and_draw_in_one_instance(tmp_path: Path) -> None:
     transport = Router(to_the_gate())
     session = open_session(settings(tmp_path), transport)

@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy import text
 
+from agency import cli
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.ledger import ForbiddenAction, IllegalTransition, Ledger
 
@@ -91,6 +92,17 @@ def test_review_needs_a_verdict_and_keeps_it_apart_from_status(ledger: Ledger) -
     assert ledger.status(ticket) == (Status.DELIVERED, Verdict.REVISE)
 
 
+def test_rework_clears_a_review_verdict(ledger: Ledger) -> None:
+    """A review sent back loses its verdict: the dashboard must not keep showing READY (TST-014)."""
+    ticket = ledger.open(
+        production(type=TicketType.QA, assignee="qa-inspector", media=[], checks={"*.svg": ["svg_audit"]})
+    )
+    ledger.apply(ticket, Action.DELIVER, "qa-inspector", verdict=Verdict.READY)
+    assert ledger.status(ticket) == (Status.DELIVERED, Verdict.READY)
+    ledger.apply(ticket, Action.REWORK, "design-director", "rifai la verifica")
+    assert ledger.status(ticket) == (Status.REWORK, None)
+
+
 def test_production_cannot_carry_a_verdict(ledger: Ledger) -> None:
     ticket = ledger.open(production())
     with pytest.raises(IllegalTransition):
@@ -112,6 +124,39 @@ def test_chain_detects_tampering_that_bypasses_the_triggers(ledger: Ledger) -> N
         conn.execute(text("DROP TRIGGER events_no_update"))
         conn.execute(text("UPDATE events SET actor = 'critic'"))
     assert not ledger.verify_chain()
+
+
+def use_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The CLI reads its settings from the environment: point it at a folder of the test's own."""
+    monkeypatch.chdir(tmp_path)  # no .env here
+    monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
+    return tmp_path / "data" / "ledger.sqlite"
+
+
+def test_verify_exits_1_on_a_broken_chain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The exit code, not only the message, reports tampering (TST-013)."""
+    ledger = Ledger(use_data_dir(tmp_path, monkeypatch))
+    ledger.open(production())
+    assert cli.main(["verify"]) == 0
+    with ledger.engine.begin() as conn:
+        conn.execute(text("DROP TRIGGER events_no_update"))
+        conn.execute(text("UPDATE events SET actor = 'critic'"))
+    capsys.readouterr()
+    assert cli.main(["verify"]) == 1
+    assert capsys.readouterr().out.splitlines()[0] == "REGISTRO ALTERATO"
+
+
+def test_verify_on_a_missing_registry_creates_one_and_calls_it_intact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Pins current behavior of DX-003; phase 2 (Task 2.14) flips these assertions.
+    path = use_data_dir(tmp_path, monkeypatch)
+    assert not path.exists()
+    assert cli.main(["verify"]) == 0
+    assert capsys.readouterr().out.splitlines() == ["registro integro", "artefatti integri: 0"]
+    assert path.is_file()
 
 
 def test_past_projects_stay_readable() -> None:

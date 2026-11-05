@@ -1,0 +1,17 @@
+usage: agency run [-h] --budget BUDGET
+                  [--model {claude-opus-4-8,claude-opus-5,claude-opus-5-5,claude-sonnet-5,claude-sonnet-5-5}]
+                  [--effort {low,medium,high}]
+                  project brief
+
+positional arguments:
+  project
+  brief
+
+options:
+  -h, --help            show this help message and exit
+  --budget BUDGET       tetto di spesa del progetto, in dollari: lo dichiara chi avvia, non ha un
+                        default
+  --model {claude-opus-4-8,claude-opus-5,claude-opus-5-5,claude-sonnet-5,claude-sonnet-5-5}
+                        modello per tutti i ruoli
+  --effort {low,medium,high}
+                        effort per tutti i ruoli

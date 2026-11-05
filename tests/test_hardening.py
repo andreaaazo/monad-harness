@@ -509,6 +509,72 @@ def test_budget_of_an_unknown_project_is_explained(
     assert "fantasma" in capsys.readouterr().out
 
 
+def cli_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Data and project folders of the test's own, and no .env: the CLI builds its settings from here."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "projects"))
+    return tmp_path / "data" / "ledger.sqlite"
+
+
+def scripted_run(monkeypatch: pytest.MonkeyPatch, responses: list[dict]) -> ScriptedTransport:
+    """`agency run` with the real session, over scripted responses: no call leaves the machine."""
+    from agency.runtime import open_session
+
+    transport = ScriptedTransport(responses)
+    monkeypatch.setattr("agency.runtime.open_session", lambda settings: open_session(settings, transport))
+    return transport
+
+
+BLOCK_AT_ONCE = {
+    "content": [{"type": "tool_use", "id": "t1", "name": "block", "input": {"reason": "prova del tetto"}}],
+    "stop_reason": "tool_use",
+    "model": "claude-sonnet-5-5",
+    "usage": {"input_tokens": 100, "output_tokens": 20},
+}
+
+
+def test_run_hands_budget_and_model_to_the_ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The declared cap and the chosen model are what the run starts under (TST-005, ADR-0043)."""
+    path = cli_data(tmp_path, monkeypatch)
+    brief = tmp_path / "brief.md"
+    brief.write_text("Un segno per un forno di quartiere", encoding="utf-8")
+    transport = scripted_run(monkeypatch, [BLOCK_AT_ONCE])
+    command = ["run", "forno", str(brief), "--budget", "12", "--model", "claude-sonnet-5-5"]
+    assert cli.main(command) == 0
+    row = Ledger(path).project("forno")
+    assert row is not None
+    assert (row.budget_usd, row.model) == (12.0, "claude-sonnet-5-5")
+    assert transport.requests[0]["model"] == "claude-sonnet-5-5"
+
+
+def test_budget_command_changes_the_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    assert cli.main(["budget", "forno", "40"]) == 0
+    row = Ledger(path).project("forno")
+    assert row is not None and row.budget_usd == 40.0
+    assert capsys.readouterr().out.startswith("forno: budget portato a 40.00 $")
+
+
+def test_a_brief_that_is_not_utf8_leaves_the_project_name_stuck(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Pins current behavior of COR-004; phase 2 (Task 2.10) flips these assertions.
+    path = cli_data(tmp_path, monkeypatch)
+    brief = tmp_path / "brief.md"
+    brief.write_bytes("Un segno per il caffè".encode("cp1252"))
+    scripted_run(monkeypatch, [])
+    with pytest.raises(UnicodeDecodeError):
+        cli.main(["run", "forno", str(brief), "--budget", "5"])
+    assert Ledger(path).project("forno") is not None  # saved before the brief was read
+    capsys.readouterr()
+    assert cli.main(["run", "forno", str(brief), "--budget", "5"]) == 1
+    assert "esiste già" in capsys.readouterr().out
+
+
 def test_network_failure_keeps_the_work_and_says_how_to_resume(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

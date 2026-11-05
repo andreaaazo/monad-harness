@@ -1,0 +1,8 @@
+usage: agency compare [-h] first second
+
+positional arguments:
+  first       numero dell'esecuzione, da agency runs
+  second
+
+options:
+  -h, --help  show this help message and exit

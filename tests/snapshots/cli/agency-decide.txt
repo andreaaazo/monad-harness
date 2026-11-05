@@ -1,0 +1,11 @@
+usage: agency decide [-h] (--approve | --reject) --text TEXT [--choice CHOICE] project
+
+positional arguments:
+  project
+
+options:
+  -h, --help       show this help message and exit
+  --approve
+  --reject
+  --text TEXT
+  --choice CHOICE  la lettera dell'idea, al gate concept

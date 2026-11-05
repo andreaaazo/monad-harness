@@ -1,0 +1,8 @@
+usage: agency report [-h] [--json] project
+
+positional arguments:
+  project
+
+options:
+  -h, --help  show this help message and exit
+  --json      il modello del rapporto, lo stesso del cruscotto

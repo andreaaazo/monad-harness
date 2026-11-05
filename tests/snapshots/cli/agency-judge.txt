@@ -1,0 +1,8 @@
+usage: agency judge [-h] [--judge JUDGE] files [files ...]
+
+positional arguments:
+  files          i file da confrontare, dello stesso tipo
+
+options:
+  -h, --help     show this help message and exit
+  --judge JUDGE  chi giudica; di solito l'utente del sistema

@@ -111,7 +111,7 @@ These tasks add tests only, plus one lint-configuration completion (1.19). Each 
 kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.md` and the reviewer's lines in
 `SUMMARY.md`.
 
-- [ ] **Task 1.1: a QA failure stops a delivery, and proofs must be fresh.** Closes TST-001 and TST-003.
+- [x] **Task 1.1: a QA failure stops a delivery, and proofs must be fresh.** Closes TST-001 and TST-003.
   - Files: create `tests/test_qa_gates.py`.
   - Tests:
     - `test_a_failed_svg_audit_refuses_delivery`: through `Toolbox` and the real `Sandbox`, `run_check svg_audit` on
@@ -136,7 +136,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       - E9: `delivery.py:199` → `why = None`.
     - Standard gate.
   - Commit: `test(qa): pin that failed checks and stale proofs stop a delivery`.
-- [ ] **Task 1.2: the contract and verdict rules that keep tickets deliverable.** Closes TST-011.
+- [x] **Task 1.2: the contract and verdict rules that keep tickets deliverable.** Closes TST-011.
   - Files: `tests/test_qa_gates.py`.
   - Tests:
     - `test_an_unknown_check_name_is_refused_at_opening`: expect `"controllo sconosciuto"`.
@@ -154,7 +154,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       - D6: the REVISE exemption at `delivery.py:167`, removed.
     - Standard gate.
   - Commit: `test(qa): pin the contract and verdict rules of delivery`.
-- [ ] **Task 1.3: acceptance refuses at the client gate and in `accept_ticket`.** Closes TST-002.
+- [x] **Task 1.3: acceptance refuses at the client gate and in `accept_ticket`.** Closes TST-002.
   - Files: `tests/test_qa_gates.py`, `tests/test_sketch_flow.py`.
   - Tests:
     - `test_acceptance_requires_the_independent_check`: expect `"manca la prova 'critique'"`.
@@ -173,7 +173,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       - E14: `delivery.py:158` ignores `include_independent`.
     - Standard gate.
   - Commit: `test(qa): pin that acceptance refuses missing, self-signed and changed work`.
-- [ ] **Task 1.4: who may sign, and a FAIL persists (ADR-0018).** Closes TST-004 and TST-008.
+- [x] **Task 1.4: who may sign, and a FAIL persists (ADR-0018).** Closes TST-004 and TST-008.
   - Files: `tests/test_qa_gates.py`.
   - Tests:
     - `test_a_reviewer_cannot_deliver_on_the_authors_proofs`: expect `"manca la prova"`.
@@ -190,7 +190,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       - E2: `evidence.py:64` → `if False:`.
     - Standard gate.
   - Commit: `test(qa): pin the signer rules of independent checks`.
-- [ ] **Task 1.5: rework clears a verdict, and `verify` exits 1 on a broken chain.** Closes TST-013 and TST-014.
+- [x] **Task 1.5: rework clears a verdict, and `verify` exits 1 on a broken chain.** Closes TST-013 and TST-014.
   - Files: `tests/test_ledger.py`.
   - Tests:
     - `test_rework_clears_a_review_verdict`: expect `status() == (Status.REWORK, None)`.
@@ -202,7 +202,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       - L5: `cli.py:58` → `return 0 if not broken else 1`.
     - Standard gate.
   - Commit: `test(ledger): pin rework verdicts and the verify exit code`.
-- [ ] **Task 1.6: the budget and the model reach the ledger from the CLI.** Closes TST-005.
+- [x] **Task 1.6: the budget and the model reach the ledger from the CLI.** Closes TST-005.
   - Files: `tests/test_hardening.py`.
   - Tests:
     - `test_run_hands_budget_and_model_to_the_ledger`: patch `agency.runtime.open_session` so it builds the real
@@ -217,7 +217,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       - B1: `cli.py:189` → `pass`.
     - Standard gate.
   - Commit: `test(cli): pin that run and budget hand their values to the ledger`.
-- [ ] **Task 1.7: resume repeats no effect and records a gate only once.** Closes TST-007 and TST-015.
+- [x] **Task 1.7: resume repeats no effect and records a gate only once.** Closes TST-007 and TST-015.
   - Files: `tests/test_agent_flow.py`, `tests/test_sketch_flow.py`.
   - Tests:
     - `test_an_effect_tool_records_its_result_for_resume`: one turn holding `run_check` and `deliver`. Make
@@ -230,7 +230,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       - W3: `workflow.py:306` → `if True:`.
     - Standard gate.
   - Commit: `test(engine): pin that resume repeats no effect and records the gate once`.
-- [ ] **Task 1.8: the live request shape and the estimate after the first call.** Closes TST-009 (its remainder) and
+- [x] **Task 1.8: the live request shape and the estimate after the first call.** Closes TST-009 (its remainder) and
   TST-010.
   - Files: `tests/test_gateway.py`. Load the `claude-api` skill first.
   - Tests:
@@ -254,7 +254,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       - G6: `client.py:121` → `fresh = 0`.
     - Standard gate.
   - Commit: `test(gateway): pin the live request shape and the follow-up estimate`.
-- [ ] **Task 1.9: each role sends its registry model and effort.** Closes TST-012.
+- [x] **Task 1.9: each role sends its registry model and effort.** Closes TST-012.
   - Files: `tests/test_agent_flow.py`.
   - Tests:
     - `test_each_role_sends_its_registry_model_and_effort`: for `critic`, `design-director`, `identity-designer` and
@@ -267,7 +267,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       - A3: `loop.py:135` → `"claude-sonnet-5-5"`.
     - Standard gate.
   - Commit: `test(agents): pin the per-role model and effort`.
-- [ ] **Task 1.10: three tool refusals.** Closes TST-016.
+- [x] **Task 1.10: three tool refusals.** Closes TST-016.
   - Files: `tests/test_sketch_flow.py`.
   - Tests: one `Toolbox.call` test per refusal. Each asserts `is_error` and the message currently in
     `surface.py:669`, `:444-445` and `:399`.
@@ -281,7 +281,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       - T18: `flags - EXPORT_OPTIONS` → `False`.
     - Standard gate.
   - Commit: `test(tools): pin three tool refusals`.
-- [ ] **Task 1.11: isolation probes that cannot pass by accident.** Closes TST-006.
+- [x] **Task 1.11: isolation probes that cannot pass by accident.** Closes TST-006.
   - Files: `tests/test_agent_flow.py:441-456`, `web/e2e/run.spec.ts:173-184`.
   - Change the probes:
     - Inside the sandbox, print `socket.if_nameindex()` names and `os.statvfs("/usr").f_flag & os.ST_RDONLY`. Assert
@@ -295,12 +295,12 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
     - `make e2e` → 22 passed, 0 skipped.
     - Standard gate.
   - Commit: `test(sandbox): prove isolation by what the sandbox sees, not by a failed probe`.
-- [ ] **Task 1.12: the reader test checks that the writer started.** Closes TST-017 (the `wait` half).
+- [x] **Task 1.12: the reader test checks that the writer started.** Closes TST-017 (the `wait` half).
   - Files: `tests/test_insights.py:578`.
   - Change: `assert writing.wait(timeout=10)`.
   - Verify: `mise exec -- uv run pytest tests/test_insights.py -q`; standard gate.
   - Commit: `test(insights): fail when the concurrent writer never started`.
-- [ ] **Task 1.13: what `compute` and `craft_run` do, as a safety net for 2.1–2.3.**
+- [x] **Task 1.13: what `compute` and `craft_run` do, as a safety net for 2.1–2.3.**
   - Files: `tests/test_agent_flow.py`.
   - Tests:
     - `test_compute_runs_the_script_and_returns_exit_and_output`: expect `{"exit": 0, "output": "42\n"}`.
@@ -311,7 +311,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
     Assert behaviour only, no paths: Task 2.3 moves the files.
   - Verify: `mise exec -- uv run pytest tests/test_agent_flow.py -k "compute or replays" -q`; standard gate.
   - Commit: `test(tools): pin compute output and craft_run replay`.
-- [ ] **Task 1.14: the reminder texts and the closing tools, as a safety net for 6.8.**
+- [x] **Task 1.14: the reminder texts and the closing tools, as a safety net for 6.8.**
   - Files: `tests/test_agent_flow.py`.
   - Tests:
     - `test_the_reminder_names_each_phase_closing_tools`: for each tool set, assert the exact current
@@ -321,7 +321,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       `select_concepts`, `draft_presentation` and `present_concepts`, each with a sample stored value.
   - Verify: `mise exec -- uv run pytest tests/test_agent_flow.py -k "reminder or restore" -q`; standard gate.
   - Commit: `test(agents): pin the reminder text and the closing outcomes`.
-- [ ] **Task 1.15: the data paths, as a safety net for 2.15, 6.11 and 6.12.**
+- [x] **Task 1.15: the data paths, as a safety net for 2.15, 6.11 and 6.12.**
   - Files: create `tests/test_layout.py`.
   - Tests:
     - `test_data_paths_under_a_root`. `DataLayout(Path("/r"))` gives `/r/ledger.sqlite`,
@@ -331,7 +331,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
       `project_dir("p") == Path("/q/p")`.
   - Verify: `mise exec -- uv run pytest tests/test_layout.py -q`; standard gate.
   - Commit: `test(config): pin where the data lives`.
-- [ ] **Task 1.16: the CLI help, byte for byte, as a safety net for 3.1, 3.7 and 3.16.**
+- [x] **Task 1.16: the CLI help, byte for byte, as a safety net for 3.1, 3.7 and 3.16.**
   - Files: create `tests/test_cli_help.py` and `tests/snapshots/cli/*.txt`. The snapshots are one for `agency`, one
     per subcommand (14), `agency-server` and `agency-schemas`.
   - Tests:
@@ -343,7 +343,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
     - Mutant: changing one word of `cli.py`'s module docstring is killed.
     - Standard gate.
   - Commit: `test(cli): pin the help text of every command`.
-- [ ] **Task 1.17: the stored and wire values, as a safety net for Phase 3 and for 6.7.** Closes CMT-008 (its "pin it
+- [x] **Task 1.17: the stored and wire values, as a safety net for Phase 3 and for 6.7.** Closes CMT-008 (its "pin it
   in code" part, Q16).
   - Files: create `tests/test_vocabulary.py`.
   - Tests:
@@ -354,7 +354,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
     - Mutant: renaming one `TicketType` value is killed.
     - Standard gate.
   - Commit: `test(contracts): pin every stored and wire value`.
-- [ ] **Task 1.18: the vendored QA scripts are pinned.** Closes STR-014 (Q4).
+- [x] **Task 1.18: the vendored QA scripts are pinned.** Closes STR-014 (Q4).
   - Files:
     - create `src/agency/qa/scripts/MANIFEST.json`, holding per script its `legacy` path, its `legacy_sha256` and
       its current `sha256` (equal today);
@@ -378,6 +378,66 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
     - The STR-002 mutation (a new package that insights, the server and evaluation all import) makes the test fail.
     - Standard gate.
   - Commit: `test(structure): keep every slice contract complete`.
+
+### Phase 1 status (2026-11-05)
+
+Done in twelve commits, `d76b4f5` to `53eadda`. No file under `src/`, `legacy/` or `pyproject.toml` changed:
+`git diff --stat f7a3221 HEAD -- src pyproject.toml legacy` is empty. The Python suite went from 496 tests to 597, and
+`make check` is green, with 22 Playwright tests and none skipped. Mutants were run per module on a scratch copy of the
+repository, and the new tests killed every one. Each commit handoff lists them. For comparison, Task 1.11's mutant X3
+was also run against the old probe, and it survived there, as TST-006 says.
+
+Deviations from the tasks above:
+- Task 1.11: the e2e test keeps its title, and its new assertion messages are in English.
+- Task 1.14 calls `AgentRunner._reminder` directly, as the task says. It takes each tool set from `tools_for`, and it
+  restores through `Toolbox.call`.
+- Task 1.17 also pins `Lifecycle`, the third enum in `schemas/openapi.json`.
+- Task 1.18: the manifest is `tests/fixtures/qa_scripts.json`, not `src/agency/qa/scripts/MANIFEST.json`, because
+  Phase 1 changes no production file. `PATCHES.md` keeps its planned path: the unit that first patches a script
+  creates it.
+- Task 1.19 is half done, so its box stays empty. Its test exists and pins today's gaps as STR-002: `SLICE_GAPS` in
+  `tests/test_server.py` lists `config`, `context` and `doctor` for insights, and `context` and `doctor` for the
+  server. The `pyproject.toml` half is not done, and no other task closes STR-002. Andrea decides where it goes. When
+  it lands, `SLICE_GAPS` empties.
+
+Known bugs pinned as they behave today. Each pin has a comment that names the task that flips it:
+
+| Finding | Test | Flipped by |
+|---|---|---|
+| SEC-001 | `tests/test_hardening.py::test_compute_writes_through_a_planted_ops_symlink` | 2.1 |
+| COR-001 | `tests/test_agent_flow.py::test_observe_accepts_a_render_viewed_for_an_older_version` | 2.4 |
+| SEC-003 | `tests/test_sketch_flow.py::test_a_hidden_image_reaches_the_presentation_but_not_delivery` | 2.6 |
+| SEC-004 | `tests/test_hardening.py::test_a_reviewer_leaves_reviews_with_dotdot` | 2.7 |
+| COR-007 | `tests/test_agent_flow.py::test_sources_with_one_stem_share_one_proof` | 2.8 |
+| COR-012 | `tests/test_agent_flow.py::test_two_zooms_with_one_corner_share_one_file` | 2.8 |
+| COR-006 | `tests/test_insights.py::test_a_line_torn_inside_a_utf8_character_breaks_the_whole_read` | 2.9 |
+| COR-004 | `tests/test_hardening.py::test_a_brief_that_is_not_utf8_leaves_the_project_name_stuck` | 2.10 |
+| COR-002 | `tests/test_gateway.py::test_parallel_calls_overspend_the_cap` | 2.11 |
+| COR-008 | `tests/test_gateway.py::test_a_fallback_call_is_charged_only_for_the_serving_attempt` | 2.13 |
+| DX-003 | `tests/test_ledger.py::test_verify_on_a_missing_registry_creates_one_and_calls_it_intact` | 2.14 |
+| STR-001 | `tests/test_layout.py::test_engine_and_server_take_the_data_root_from_different_places` | 2.15–2.16 |
+| COR-013 | `tests/test_layout.py::test_project_names_become_folders_unchecked` | 2.24 |
+| STR-002 | `tests/test_server.py::test_every_slice_contract_forbids_every_engine_package` | open, see Task 1.19 |
+
+Coverage, measured as in `00-baseline.md` §3: the static scan of `tests/*.py`, the `sys.modules` recorder of §5,
+and the same nine other-path modules. The scan gives the baseline's by-name count for all 90 modules when it runs on
+the tests of `8d99a5c`.
+
+| Status | Baseline | Now |
+|---|---:|---:|
+| direct | 60 | 61 |
+| indirect | 18 | 17 |
+| other path | 9 | 9 |
+| none | 3 | 3 |
+| `agency.*` modules loaded in a full session | 78 | 78 |
+
+Only `agency.ledger.store` changed status: it went from indirect to direct, because `tests/test_qa_gates.py` imports
+it. The three modules with no tests stay that way:
+- `agency.context` is a placeholder.
+- `logo_proof` and `optical_check` are pinned by their bytes (Task 1.18), but no test runs them.
+
+Phase 1 added assertions on modules the suite already loaded, and a module count cannot show that. The repository
+still has no line-coverage tool.
 
 ## Phase 2: bug fixes
 

@@ -1,0 +1,25 @@
+{
+  "$comment": "The QA scripts vendored in src/agency/qa/scripts, each with its legacy original (STR-014). A copy that differs from its original is named in src/agency/qa/scripts/PATCHES.md, with the reason.",
+  "scripts": {
+    "logo_proof.py": {
+      "legacy": "legacy/claude-code-v1/src/.claude/skills/logo-design/scripts/logo_proof.py",
+      "legacy_sha256": "0d7fe4e5b9f4062e96c4ad99f6c1b23e410bff64b23c68ceae62a786c3b786df",
+      "sha256": "0d7fe4e5b9f4062e96c4ad99f6c1b23e410bff64b23c68ceae62a786c3b786df"
+    },
+    "optical_check.py": {
+      "legacy": "legacy/claude-code-v1/src/.claude/skills/visual-qa/scripts/optical_check.py",
+      "legacy_sha256": "6340cbab07600d7d8ec9c5f21572da41e67ac4aa586b961328a80331c1730f73",
+      "sha256": "6340cbab07600d7d8ec9c5f21572da41e67ac4aa586b961328a80331c1730f73"
+    },
+    "svg_audit.py": {
+      "legacy": "legacy/claude-code-v1/src/.claude/skills/logo-design/scripts/svg_audit.py",
+      "legacy_sha256": "2fdbffa59a8a996b5c86ba5c744861cf10a57016cab379b6fb2e24783b2b330e",
+      "sha256": "2fdbffa59a8a996b5c86ba5c744861cf10a57016cab379b6fb2e24783b2b330e"
+    },
+    "svg_parity.py": {
+      "legacy": "legacy/claude-code-v1/src/.claude/skills/visual-qa/scripts/svg_parity.py",
+      "legacy_sha256": "457a586cd8d166cf590128305f73ebb6d05f9e38b29596670aa221dc92131146",
+      "sha256": "457a586cd8d166cf590128305f73ebb6d05f9e38b29596670aa221dc92131146"
+    }
+  }
+}

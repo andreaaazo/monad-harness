@@ -15,6 +15,24 @@ def test_legacy_backup_is_frozen() -> None:
         assert hashlib.sha256((LEGACY / name).read_bytes()).hexdigest() == digest, name
 
 
+def digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_vendored_qa_scripts_match_their_manifest() -> None:
+    """The sandbox runs these copies, not the originals: an edit must show up here (STR-014)."""
+    scripts = ROOT / "src/agency/qa/scripts"
+    manifest = json.loads((ROOT / "tests/fixtures/qa_scripts.json").read_text(encoding="utf-8"))["scripts"]
+    assert sorted(path.name for path in scripts.glob("*.py")) == sorted(manifest), "a script without an entry"
+    patches = scripts / "PATCHES.md"
+    for name, entry in manifest.items():
+        assert digest(scripts / name) == entry["sha256"], name
+        assert digest(ROOT / entry["legacy"]) == entry["legacy_sha256"], name
+        if entry["sha256"] != entry["legacy_sha256"]:
+            noted = patches.is_file() and name in patches.read_text(encoding="utf-8")
+            assert noted, f"{name} differs from its original and PATCHES.md does not say why"
+
+
 def test_every_legacy_role_has_a_contract() -> None:
     roles = json.loads((ROOT / "registry/roles.json").read_text())["roles"]
     legacy = {p.stem for p in (CLAUDE / "agents").glob("*.md")} | {"router"}

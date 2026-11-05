@@ -1,6 +1,8 @@
 import json
+import threading
 import time
 from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import anthropic
@@ -15,9 +17,11 @@ from agency.gateway import (
     CallContext,
     ModelGateway,
     ModelRequest,
+    ModelResponse,
     ScriptedTransport,
+    Transport,
 )
-from agency.gateway.pricing import cost_usd
+from agency.gateway.pricing import PRICES, cost_usd
 from agency.ledger import Ledger
 from agency.telemetry import fingerprint
 
@@ -49,7 +53,7 @@ def request() -> ModelRequest:
 
 def gateway(
     tmp_path: Path,
-    transport: ScriptedTransport,
+    transport: Transport,
     clock: Callable[[], float] = time.monotonic,
     budget: float | None = 25.0,
 ) -> ModelGateway:
@@ -87,6 +91,46 @@ def test_call_records_usage_and_request_shape(tmp_path: Path) -> None:
     assert sent["cache_control"] == {"type": "ephemeral"}
     for forbidden in ("temperature", "top_p", "tool_choice", "budget_tokens"):
         assert forbidden not in sent
+
+
+def test_a_fallback_call_is_charged_only_for_the_serving_attempt(tmp_path: Path) -> None:
+    """Shaped like the claude-api reference: opus-5-5 declines mid-stream and opus-5 serves the answer.
+
+    `usage.iterations` holds both attempts; the top-level `usage` covers only the one that served.
+    """
+    declined = {
+        "type": "message",
+        "model": "claude-opus-5-5",
+        "input_tokens": 50_000,
+        "output_tokens": 6_000,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+    }
+    served = declined | {"type": "fallback_message", "model": "claude-opus-5", "output_tokens": 3_000}
+    answer = {
+        "content": [
+            {"type": "fallback", "from": {"model": "claude-opus-5-5"}, "to": {"model": "claude-opus-5"}},
+            {"type": "text", "text": "ok"},
+        ],
+        "stop_reason": "end_turn",
+        "model": "claude-opus-5",
+        "usage": {
+            "input_tokens": 50_000,
+            "output_tokens": 3_000,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "iterations": [declined, served],
+        },
+    }
+    gw = gateway(tmp_path, ScriptedTransport([answer]))
+
+    response = gw.call(CONTEXT, request())
+
+    serving_attempt = cost_usd("claude-opus-5", {"input_tokens": 50_000, "output_tokens": 3_000})
+    assert serving_attempt == pytest.approx(0.325)
+    # Pins current behavior of COR-008; phase 2 (Task 2.13) flips this assertion to both attempts, 0.645 $.
+    assert response.cost_usd == pytest.approx(serving_attempt)
+    assert gw.ledger.spent("p") == pytest.approx(serving_attempt)
 
 
 class Slow(ScriptedTransport):
@@ -179,6 +223,122 @@ def test_anthropic_transport_measures_the_first_chunk_without_calling_the_api() 
     assert data["_request_id"] == "req_prova"
     assert data["content"][0]["text"] == "Ciao a tutti"
     assert data["usage"]["output_tokens_details"] == {"thinking_tokens": 25}
+
+
+def test_live_transport_sends_the_gateway_params_through_the_sdk(tmp_path: Path) -> None:
+    """The real SDK builds both requests and httpx2.MockTransport answers them: nothing leaves the machine."""
+    seen: list[httpx2.Request] = []
+
+    def answer(sent: httpx2.Request) -> httpx2.Response:
+        seen.append(sent)
+        if sent.url.path == "/v1/messages/count_tokens":
+            return httpx2.Response(200, json={"input_tokens": 1000})
+        stream = b"".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n".encode() for e in SSE)
+        return httpx2.Response(200, headers={"content-type": "text/event-stream"}, content=stream)
+
+    http = anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(answer))
+    client = anthropic.Anthropic(api_key="chiave-finta", http_client=http, max_retries=0)
+    gw = gateway(tmp_path, AnthropicTransport(client=client))
+    with_tools = request()
+    with_tools.tools = [{"name": "consegna", "description": "d", "input_schema": {"type": "object"}}]
+
+    gw.call(CONTEXT, request())
+    gw.call(CONTEXT, with_tools)
+
+    assert [sent.url.path for sent in seen] == ["/v1/messages/count_tokens", "/v1/messages"] * 2
+    counted = [json.loads(sent.content) for sent in seen[0::2]]
+    assert [set(body) for body in counted] == [
+        {"model", "system", "messages"},
+        {"model", "system", "tools", "messages"},
+    ]
+    streamed = seen[3]
+    body = json.loads(streamed.content)
+    assert set(body) == {
+        "model",
+        "max_tokens",
+        "system",
+        "messages",
+        "tools",
+        "thinking",
+        "output_config",
+        "cache_control",
+        "fallbacks",
+        "stream",
+    }
+    assert body["thinking"] == {"type": "adaptive"}
+    assert body["output_config"] == {"effort": "high"}
+    assert body["cache_control"] == {"type": "ephemeral"}
+    assert body["fallbacks"] == "default"
+    assert "server-side-fallback-2026-07-01" in streamed.headers["anthropic-beta"].split(",")
+
+
+def test_estimate_after_the_first_call_prices_context_and_new_tokens(tmp_path: Path) -> None:
+    """The context is re-read from the cache; only the last message is new. An image counts 2,500 tokens."""
+    context = {"input_tokens": 1_000, "cache_read_input_tokens": 90_000, "cache_creation_input_tokens": 9_000}
+    previous = ModelResponse(
+        content=[],
+        stop_reason="tool_use",
+        stop_details=None,
+        usage=context,
+        model="claude-opus-5-5",
+        cost_usd=0.0,
+        request_id="",
+    )
+    image = {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "A" * 30_000}}
+    text = {"type": "text", "text": "x" * 3_000}
+    result = {"type": "tool_result", "tool_use_id": "t1", "content": [text, image]}
+    follow_up = request()
+    follow_up.messages = [{"role": "user", "content": [result]}]
+    gw = gateway(tmp_path, ScriptedTransport([]))
+
+    estimate = gw.estimate_usd(follow_up, previous)
+
+    price = PRICES["claude-opus-5-5"]
+    fresh = 1_000 + 2_500
+    expected = (100_000 * price.cache_read + fresh * price.cache_write_5m + 4_000 * price.output) / 1e6
+    assert estimate == pytest.approx(expected)
+
+
+def test_a_cap_crossed_only_by_the_input_part_stops_the_call(tmp_path: Path) -> None:
+    """The follow-up's expected output alone fits the cap; its 100,000 context tokens push it over."""
+    first = reply(input_tokens=1_000, output=100, read=90_000, write=9_000)
+    transport = ScriptedTransport([first, reply()])
+    gw = gateway(tmp_path, transport, budget=0.16)
+    previous = gw.call(CONTEXT, request())
+    assert previous.context_tokens == 100_000
+    output_part = 4_000 * PRICES["claude-opus-5-5"].output / 1e6
+    assert gw.ledger.spent("p") + output_part <= 0.16  # without the input part the call would go out
+
+    with pytest.raises(BudgetExceeded, match="spesi"):
+        gw.call(CONTEXT, request(), previous)
+    assert len(transport.requests) == 1
+
+
+def test_parallel_calls_overspend_the_cap(tmp_path: Path) -> None:
+    """Five calls at once against a 0.20 $ cap, each costing exactly its 0.085 $ estimate.
+
+    One after the other, two go out and three are refused. The barrier holds every call inside `stream`
+    until all five are there, so each one passed `authorize` before any usage was recorded.
+    """
+    calls = 5
+    barrier = threading.Barrier(calls, timeout=10)  # the timeout only guards against a hang
+
+    class AllAtOnce(ScriptedTransport):
+        def stream(self, params: dict) -> dict:
+            barrier.wait()
+            return super().stream(params)
+
+    transport = AllAtOnce([reply(input_tokens=0, output=4_000, write=1_000) for _ in range(calls)])
+    gw = gateway(tmp_path, transport, budget=0.20)
+    assert gw.estimate_usd(request(), None) == pytest.approx(0.085)
+
+    with ThreadPoolExecutor(calls) as pool:
+        responses = list(pool.map(lambda _: gw.call(CONTEXT, request()), range(calls)))
+
+    assert [response.cost_usd for response in responses] == pytest.approx([0.085] * calls)
+    # Pins current behavior of COR-002; phase 2 (Task 2.11) flips this assertion: 2 out, spend <= 0.20 $.
+    assert len(transport.requests) == calls
+    assert gw.ledger.spent("p") == pytest.approx(0.425)
 
 
 def test_project_ceiling_stops_before_the_call(tmp_path: Path) -> None:

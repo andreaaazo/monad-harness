@@ -37,6 +37,7 @@ from agency.tools.files import (
     read_under,
     replace_under,
     sha256,
+    sha256_under,
 )
 from agency.tools.sandbox import OPS, Sandbox
 
@@ -431,9 +432,9 @@ def _seen_proof(ctx: ToolContext, file: str) -> str:
     digest = sha256(inside(ctx.work, file))
     if f"{file}:{digest}" in _viewed(ctx):  # l'immagine stessa, già aperta in questa versione
         return file
-    viewed = {key.rsplit(":", 1)[0] for key in _viewed(ctx)}
+    viewed = _viewed(ctx)
     for proof in ctx.ledger.renders_of(ctx.project, file, digest):
-        if proof in viewed:
+        if f"{proof}:{sha256_under(ctx.work, proof)}" in viewed:  # the proof as it is now, not an older one
             return proof
     raise Refused(f"{file}: non hai guardato un render della versione attuale. render, poi view_image.")
 

@@ -538,7 +538,7 @@ must not change behaviour. Every task starts with its failing test.
 
 ### High
 
-- [ ] **Task 2.4: a render proof counts only for the version that was viewed.** Closes COR-001.
+- [x] **Task 2.4: a render proof counts only for the version that was viewed.** Closes COR-001.
   - Files: `src/agency/tools/surface.py` (`_seen_proof`, :410-419), `tests/test_agent_flow.py`.
   - Tests:
     - `test_observe_refuses_a_render_viewed_for_an_older_version`. Render a red `a.png` and view the proof. Turn the

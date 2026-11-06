@@ -538,7 +538,7 @@ def rendered(box: Toolbox, tool_id: str, path: str, zooms: list[list[float]] | N
 SEEN_RED = "Quadrato rosso pieno, bordi netti, nessun difetto visibile nel render."
 
 
-def test_observe_accepts_a_render_viewed_for_an_older_version(tmp_path: Path) -> None:
+def test_observe_refuses_a_render_viewed_for_an_older_version(tmp_path: Path) -> None:
     """The critic viewed the red version's render. The black version was rendered and never viewed."""
     from PIL import Image
 
@@ -551,8 +551,8 @@ def test_observe_accepts_a_render_viewed_for_an_older_version(tmp_path: Path) ->
 
     result = box.call("o1", "observe", {"file": "a.png", "seen": SEEN_RED})
 
-    # Pins current behavior of COR-001; phase 2 (Task 2.4) flips this assertion: the stale view is refused.
-    assert not result.get("is_error")
+    assert result.get("is_error")
+    assert "non hai guardato un render della versione attuale" in str(result["content"])
 
 
 def test_sources_with_one_stem_share_one_proof(tmp_path: Path) -> None:

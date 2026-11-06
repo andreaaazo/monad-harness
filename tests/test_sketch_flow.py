@@ -279,7 +279,7 @@ def full_script() -> dict[str, list[dict]]:
     ]
     script["T-0010"] = [
         turn(use("render", path=SVG)),
-        turn(use("view_image", path="proofs/render/exports_segno.png")),
+        turn(use("view_image", path="proofs/render/exports_segno.svg.png")),
         turn(use("judge", file=SVG, compare=["construction.md"], why=WHY, result="PASS")),
         turn(use("deliver", note="regge", verdict="READY")),
     ]

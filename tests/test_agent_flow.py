@@ -555,8 +555,8 @@ def test_observe_refuses_a_render_viewed_for_an_older_version(tmp_path: Path) ->
     assert "non hai guardato un render della versione attuale" in str(result["content"])
 
 
-def test_sources_with_one_stem_share_one_proof(tmp_path: Path) -> None:
-    """Rendering x.jpg overwrites the proof registered for x.png, so viewing it backs evidence for x.png."""
+def test_same_stem_sources_get_distinct_proofs(tmp_path: Path) -> None:
+    """Each source has its own proof, so viewing x.jpg's render cannot back evidence for x.png."""
     from PIL import Image
 
     box, work = critic_box(tmp_path)
@@ -566,12 +566,11 @@ def test_sources_with_one_stem_share_one_proof(tmp_path: Path) -> None:
     jpg = rendered(box, "r2", "x.jpg")
     box.call("v1", "view_image", {"path": jpg[0]})
 
-    # Pins current behavior of COR-007; phase 2 (Task 2.8) flips these assertions: two proofs, a refusal.
-    assert png == jpg
-    assert not box.call("o1", "observe", {"file": "x.png", "seen": SEEN_RED}).get("is_error")
+    assert png != jpg
+    assert box.call("o1", "observe", {"file": "x.png", "seen": SEEN_RED}).get("is_error")
 
 
-def test_two_zooms_with_one_corner_share_one_file(tmp_path: Path) -> None:
+def test_two_zooms_with_one_corner_get_two_files(tmp_path: Path) -> None:
     from PIL import Image
 
     box, work = critic_box(tmp_path)
@@ -579,10 +578,10 @@ def test_two_zooms_with_one_corner_share_one_file(tmp_path: Path) -> None:
 
     proofs = rendered(box, "r1", "a.png", zooms=[[0.1, 0.1, 0.1, 0.1], [0.1, 0.1, 0.8, 0.8]])
 
-    # Pins current behavior of COR-012; phase 2 (Task 2.8) flips this assertion: one file per zoom.
-    assert len(proofs) == 3 and proofs[1] == proofs[2]
-    with Image.open(work / proofs[1]) as zoom:
-        assert zoom.size == (320, 320)  # the second crop replaced the 40 px first one
+    assert len(proofs) == 3 and len(set(proofs)) == 3
+    with Image.open(work / proofs[1]) as small, Image.open(work / proofs[2]) as large:
+        assert small.size == (40, 40)
+        assert large.size == (320, 320)
 
 
 def test_compute_runs_the_script_and_returns_exit_and_output(tmp_path: Path) -> None:
@@ -840,7 +839,7 @@ def test_full_project_reaches_the_client_gate_and_is_approved(tmp_path: Path) ->
         "outputs": [svg],
         "checks": {"*.svg": ["critique"]},
     }
-    proof = "proofs/render/exports_segno.png"
+    proof = "proofs/render/exports_segno.svg.png"
     why = (
         "Rispetto alla versione precedente il segno ha un'apertura più netta e regge meglio a piccola scala."
     )

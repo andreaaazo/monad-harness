@@ -20,7 +20,7 @@ RENDERABLE = (*VECTORS, *IMAGES)
 
 
 def _stem(relative: str) -> str:
-    return relative.replace("/", "_").rsplit(".", 1)[0]
+    return relative.replace("/", "_")
 
 
 def _open(work: Path, relative: str) -> Image.Image:
@@ -74,7 +74,7 @@ def render_one(
         )
         crop = flat.crop(box)
         crop.thumbnail((DEFAULT_SIZE, DEFAULT_SIZE))
-        zoom_path = f"{PROOFS}/{_stem(relative)}_zoom_{x:.2f}_{y:.2f}.png"
+        zoom_path = f"{PROOFS}/{_stem(relative)}_zoom_{x:.2f}_{y:.2f}_{w:.2f}_{h:.2f}.png"
         _save(crop, sandbox.work, zoom_path)
         proofs.append(zoom_path)
     flat.thumbnail((DEFAULT_SIZE, DEFAULT_SIZE))

@@ -600,7 +600,7 @@ must not change behaviour. Every task starts with its failing test.
     `replace_under` renames over the link itself (`files.py:95-107`), so `brief.md` stays unchanged. The regression test
     `tests/test_hardening.py::test_a_reviewer_cannot_leave_reviews_with_dotdot` already guards the `..` route.
     Probe: `/tmp/claude-1000/-home-andreaaazo-Dev-design-agency-harness/9e06fba2-14d0-4eec-bfc3-a96db23a2412/scratchpad/task-2.7/probe.py`.
-- [ ] **Task 2.8: each proof is named after its source file and its zoom box.** Closes COR-007 and COR-012, which share
+- [x] **Task 2.8: each proof is named after its source file and its zoom box.** Closes COR-007 and COR-012, which share
   one root cause. The real lines are `render.py:20-21`, `:36` and `:65`; the report cites :105 and :150.
   - Files: `src/agency/tools/render.py`, plus any test that asserts a proof path.
   - Implementation:
@@ -1076,6 +1076,11 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   it were part of the draft, and a page missing from the draft is not noticed. Only the PDF is sent, and `build`
   deletes old pages, so the exposure is small. Found by Task 2.6. Same shape as SEC-003; the fix is to read the page
   list from `testi.json` or from the draft result. Not covered by a planned task.
+
+- [ ] **Task 2.F27: the QA proof names drop the source extension.** qa/checks.py:38-39 (`proofs/optical/{stem}.png`)
+  and :47 (`proofs/logo/{stem}`), with `Path(file).stem`. Two files with one stem in one folder, or under two
+  folders, such as `a/mark.svg` and `b/mark.svg` or `mark.svg` and `mark.png`, share one proof file or folder, and
+  the second run replaces the first. Same shape as COR-007. Found by Task 2.8. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

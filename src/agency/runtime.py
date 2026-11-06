@@ -39,6 +39,14 @@ def _outcome(result: dict[str, Any] | None) -> str:
     return str((result or {}).get("outcome", ""))
 
 
+class BriefNotUtf8(Exception):
+    """The brief file cannot be decoded as UTF-8; raised before anything is written."""
+
+
+class NothingToResume(Exception):
+    """The project has no checkpoint: its first run never got as far as saving one."""
+
+
 @dataclass
 class Session:
     settings: Settings
@@ -73,13 +81,13 @@ class Session:
         effort: str = "",
     ) -> str:
         """`budget` è il tetto dichiarato da chi avvia, in dollari: non ha un valore di default (ADR-0043)."""
-        work = self.settings.project_dir(project) / "work"
-        work.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(brief, work / "brief.md")
-        self.ledger.set_project(project, budget, model, effort)
+        try:
+            request = brief.read_text(encoding="utf-8")
+        except UnicodeDecodeError as error:
+            raise BriefNotUtf8(brief) from error
         spec = TicketSpec(
             title=f"Consegna {project}",
-            request=brief.read_text(encoding="utf-8"),
+            request=request,
             type=TicketType.DELIVERY,
             sender="router",
             assignee="design-director",
@@ -89,6 +97,10 @@ class Session:
             exempt={"construction.md": "documento di costruzione, verificato dal critico con il segno"},
         )
         delivery.validate(spec)
+        work = self.settings.project_dir(project) / "work"
+        work.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(brief, work / "brief.md")
+        self.ledger.set_project(project, budget, model, effort)
         root = self.ledger.open(spec, project, {"brief.md": sha256(work / "brief.md")})
         state = ProjectState(
             project=project,
@@ -105,6 +117,8 @@ class Session:
         return _outcome(self.graph.invoke(state, self._config(project)))
 
     def resume(self, project: str) -> str:
+        if not self.graph.get_state(self._config(project)).values:
+            raise NothingToResume(project)
         self._record(project, RunCommand.RESUME)
         return _outcome(self.graph.invoke(None, self._config(project)))
 

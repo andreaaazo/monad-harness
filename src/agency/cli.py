@@ -130,7 +130,7 @@ def _dollars(text: str) -> float:
 
 
 def _run(args: argparse.Namespace) -> int:
-    from agency.runtime import open_session
+    from agency.runtime import BriefNotUtf8, open_session
 
     session = open_session(Settings())
     if session.ledger.project(args.project):
@@ -149,17 +149,25 @@ def _run(args: argparse.Namespace) -> int:
         model=args.model or "",
         effort=args.effort or "",
     )
-    return _guarded(args.project, session, action)
+    try:
+        return _guarded(args.project, session, action)
+    except BriefNotUtf8:
+        print(f"Il brief {brief} non è UTF-8: salvalo in UTF-8 e riprova")
+        return 1
 
 
 def _resume(args: argparse.Namespace) -> int:
-    from agency.runtime import open_session
+    from agency.runtime import NothingToResume, open_session
 
     if Ledger(Settings().ledger_path).project(args.project) is None:
         print(f"Progetto sconosciuto: {args.project}")
         return 1
     session = open_session(Settings())
-    return _guarded(args.project, session, lambda: session.resume(args.project))
+    try:
+        return _guarded(args.project, session, lambda: session.resume(args.project))
+    except NothingToResume:
+        print(f"{args.project}: nessun lavoro salvato da riprendere")
+        return 1
 
 
 def _decide(args: argparse.Namespace) -> int:

@@ -619,7 +619,7 @@ must not change behaviour. Every task starts with its failing test.
   - Implementation: read the file as bytes, and decode each line inside the per-line `try`.
   - Verify: the test passes; standard gate.
   - Commit: `fix(insights): skip a torn transcript line instead of failing the whole read`.
-- [ ] **Task 2.10: the brief is validated before the project exists, and resume says when there is nothing to
+- [x] **Task 2.10: the brief is validated before the project exists, and resume says when there is nothing to
   resume.** Closes COR-004.
   - Files: `src/agency/runtime.py` (`Session.start` :67-104, `resume`), `src/agency/cli.py` (`_run`, `_resume`),
     `tests/test_hardening.py`.

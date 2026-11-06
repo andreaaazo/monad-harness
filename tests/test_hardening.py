@@ -12,6 +12,7 @@ from typing import Any
 import anthropic
 import httpx2
 import pytest
+from pydantic import ValidationError
 
 from agency import cli
 from agency.agents.loop import AgentRunner
@@ -626,20 +627,58 @@ def test_budget_command_changes_the_cap(
     assert capsys.readouterr().out.startswith("forno: budget portato a 40.00 $")
 
 
-def test_a_brief_that_is_not_utf8_leaves_the_project_name_stuck(
+def test_a_brief_that_is_not_utf8_leaves_no_project(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # Pins current behavior of COR-004; phase 2 (Task 2.10) flips these assertions.
     path = cli_data(tmp_path, monkeypatch)
     brief = tmp_path / "brief.md"
     brief.write_bytes("Un segno per il caffè".encode("cp1252"))
     scripted_run(monkeypatch, [])
-    with pytest.raises(UnicodeDecodeError):
-        cli.main(["run", "forno", str(brief), "--budget", "5"])
-    assert Ledger(path).project("forno") is not None  # saved before the brief was read
-    capsys.readouterr()
     assert cli.main(["run", "forno", str(brief), "--budget", "5"]) == 1
-    assert "esiste già" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "non è UTF-8" in out
+    assert len(out.strip().splitlines()) == 1
+    assert Ledger(path).project("forno") is None
+    assert Ledger(path).runs("forno") == []
+
+
+def test_an_empty_brief_leaves_no_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from agency.runtime import open_session
+
+    path = cli_data(tmp_path, monkeypatch)
+    brief = tmp_path / "brief.md"
+    brief.write_text("", encoding="utf-8")
+    session = open_session(Settings(), ScriptedTransport([]))
+    with pytest.raises(ValidationError) as refused:
+        session.start("p", brief, cli.LOGO_OUTPUTS, cli.LOGO_CHECKS, budget=5.0)
+    assert "request" in str(refused.value)
+    assert Ledger(path).project("p") is None
+
+
+def test_a_refused_contract_leaves_no_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from agency.qa.delivery import ContractRefused
+    from agency.runtime import open_session
+
+    path = cli_data(tmp_path, monkeypatch)
+    brief = tmp_path / "brief.md"
+    brief.write_text("Un segno per un forno", encoding="utf-8")
+    session = open_session(Settings(), ScriptedTransport([]))
+    with pytest.raises(ContractRefused):
+        session.start("p", brief, ["logo.svg"], {"nulla.png": []}, budget=5.0)
+    assert Ledger(path).project("p") is None
+
+
+def test_resume_without_saved_work_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 5.0, "", "")
+    scripted_run(monkeypatch, [])
+    assert cli.main(["resume", "forno"]) == 1
+    out = capsys.readouterr().out
+    assert "nessun lavoro salvato" in out
+    assert len(out.strip().splitlines()) == 1
+    assert Ledger(path).runs("forno") == []
 
 
 def test_network_failure_keeps_the_work_and_says_how_to_resume(

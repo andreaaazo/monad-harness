@@ -11,7 +11,7 @@ from agency.contracts.ticket import AUTHOR_TYPES
 from agency.ledger import Ledger
 from agency.ledger.models import EvidenceRow
 from agency.ledger.store import now
-from agency.tools.files import inside, sha256
+from agency.tools.files import inside, sha256_under
 
 CHECKS: dict[str, dict] = json.loads((REPO_ROOT / "registry/checks.json").read_text(encoding="utf-8"))[
     "checks"
@@ -88,14 +88,14 @@ def record(
         at=now(),
         project=project,
         file=file,
-        sha256=sha256(target),
+        sha256=sha256_under(work, file),
         check_name=check,
         result=result,
         signer=actor,
         ticket_id=ticket_id,
         proof=proof,
         note=note,
-        inputs_json=json.dumps({path: sha256(inside(work, path)) for path in inputs or []}),
+        inputs_json=json.dumps({path: sha256_under(work, path) for path in inputs or []}),
     )
     ledger.add_evidence(row)
     return row
@@ -125,10 +125,10 @@ def freshness(row: EvidenceRow, work: Path) -> str:
     target = inside(work, row.file)
     if not target.exists():
         return "MISSING"
-    if sha256(target) != row.sha256:
+    if sha256_under(work, row.file) != row.sha256:
         return "STALE"
     for path, digest in json.loads(row.inputs_json).items():
         source = inside(work, path)
-        if not source.exists() or sha256(source) != digest:
+        if not source.exists() or sha256_under(work, path) != digest:
             return "STALE"
     return "fresh"

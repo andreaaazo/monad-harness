@@ -7,12 +7,21 @@ servono: nessuna riga può uscire dal foglio, e il direttore guarda le pagine pr
 
 from __future__ import annotations
 
+import fnmatch
+import io
+import os
 import subprocess
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
+
+from agency.tools.files import ensure_dir_under, open_under, read_under, replace_under
+
+# The callers pass absolute paths under a work folder they resolved, so no component may be a link: `_fit`
+# and `build` reach each file from the filesystem root through the no-follow helpers.
+ROOT = Path("/")
 
 WIDTH, HEIGHT = 1600, 1000
 MARGIN = 60
@@ -57,7 +66,7 @@ class Proposal:
 
 
 def _fit(path: Path, box: tuple[int, int]) -> Image.Image:
-    with Image.open(path) as image:
+    with Image.open(io.BytesIO(read_under(ROOT, str(path.relative_to(ROOT))))) as image:
         flat = Image.new("RGBA", image.size, (255, 255, 255, 255))
         flat.alpha_composite(image.convert("RGBA"))
     picture = flat.convert("RGB")
@@ -224,16 +233,30 @@ def proposal_files(work: Path, turn: int, anon: str) -> tuple[Path, tuple[Path, 
     return folder / f"proposta-{letter}.png", tuple(sorted((folder / f"applicazioni-{letter}").glob("*.png")))
 
 
+def _encoded(page: Image.Image, kind: str, **options: object) -> bytes:
+    buffer = io.BytesIO()
+    page.save(buffer, format=kind, **options)
+    return buffer.getvalue()
+
+
 def build(proposals: list[Proposal], recommended: str, reasons: str, folder: Path) -> list[Path]:
     """Scrive il PDF e un'immagine per ogni pagina: sono quelle che il direttore deve guardare."""
-    folder.mkdir(parents=True, exist_ok=True)
-    for old in folder.glob("pagina-*.png"):  # una bozza più corta non lascia pagine vecchie
-        old.unlink()
+    relative = str(folder.relative_to(ROOT))
+    ensure_dir_under(ROOT, relative)
+    directory = open_under(ROOT, relative, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        # una bozza più corta non lascia pagine vecchie
+        for old in fnmatch.filter(os.listdir(directory), "pagina-*.png"):
+            os.unlink(old, dir_fd=directory)
+    finally:
+        os.close(directory)
     pages = [page for item in proposals for page in _proposal_pages(item)]
     pages += _closing_pages(recommended, reasons)
     files = []
     for number, page in enumerate(pages, start=1):
         files.append(folder / f"pagina-{number}.png")
-        page.save(files[-1])
-    pages[0].save(folder / PDF, save_all=True, append_images=pages[1:])
+        replace_under(ROOT, f"{relative}/pagina-{number}.png", _encoded(page, "PNG"))
+    replace_under(
+        ROOT, f"{relative}/{PDF}", _encoded(pages[0], "PDF", save_all=True, append_images=pages[1:])
+    )
     return files

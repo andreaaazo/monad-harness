@@ -18,7 +18,7 @@ from agency.contracts.ticket import (
 from agency.ledger import Ledger
 from agency.qa import evidence
 from agency.tools import master, render
-from agency.tools.files import inside, sha256
+from agency.tools.files import inside, sha256_under
 from agency.tools.sandbox import Sandbox
 
 GLOB = "*?["
@@ -216,7 +216,7 @@ def delivery_problems(
     stale = [
         f"input superato: {path} è cambiato dopo l'apertura"
         for path, digest in (inputs or {}).items()
-        if not inside(work, path).exists() or sha256(inside(work, path)) != digest
+        if not inside(work, path).exists() or sha256_under(work, path) != digest
     ]
     problems = [f"{pattern}: nessun file corrisponde" for pattern in empty]
     problems += [f"{file}: output mancante" for file in files if not inside(work, file).exists()]
@@ -236,7 +236,7 @@ def acceptance_problems(ledger: Ledger, project: str, sandbox: Sandbox, ticket_i
     problems = [
         f"{file}: modificato dopo la consegna"
         for file, digest in delivered.items()
-        if not inside(sandbox.work, file).exists() or sha256(inside(sandbox.work, file)) != digest
+        if not inside(sandbox.work, file).exists() or sha256_under(sandbox.work, file) != digest
     ]
     problems += evidence_problems(ledger, project, sandbox.work, spec, list(delivered), True, verdict)
     return problems

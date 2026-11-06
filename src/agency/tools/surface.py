@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
 import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from opentelemetry import trace
@@ -28,7 +29,15 @@ from agency.ledger.models import ConceptRow
 from agency.qa import checks as qa
 from agency.qa import delivery, evidence
 from agency.tools import board, craft, master, presentation, render
-from agency.tools.files import OutsidePerimeter, clip, ensure_dir_under, inside, replace_under, sha256
+from agency.tools.files import (
+    OutsidePerimeter,
+    clip,
+    ensure_dir_under,
+    inside,
+    read_under,
+    replace_under,
+    sha256,
+)
 from agency.tools.sandbox import JOB, Sandbox
 
 tracer = trace.get_tracer("agency.tools")
@@ -279,7 +288,7 @@ def read_file(ctx: ToolContext, a: ReadFile, _: str) -> dict:
     target = inside(ctx.work, a.path)
     if not target.is_file():
         raise Refused(f"{a.path}: non esiste")
-    lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
+    lines = read_under(ctx.work, a.path).decode("utf-8", errors="replace").splitlines()
     return {"lines": len(lines), "text": clip("\n".join(lines[a.offset : a.offset + a.limit]), 12000)}
 
 
@@ -299,9 +308,10 @@ def write_file(ctx: ToolContext, a: WriteFile, _: str) -> dict:
     _text_only(a.path)
     if ctx.actor in REVIEWERS and not a.path.startswith("reviews/"):
         raise Refused("un revisore scrive solo in reviews/: non modifica il lavoro che giudica")
-    target = inside(ctx.work, a.path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(a.content, encoding="utf-8")
+    folder = PurePosixPath(a.path).parent
+    if folder.parts:
+        ensure_dir_under(ctx.work, str(folder))
+    replace_under(ctx.work, a.path, a.content.encode("utf-8"))
     return {"ok": True, "path": a.path}
 
 
@@ -330,11 +340,11 @@ def view_image(ctx: ToolContext, a: ViewImage, operation_id: str) -> list[dict]:
     media = IMAGE_MEDIA.get(target.suffix.lower())
     if media is None or not target.is_file():
         raise Refused(f"{a.path}: non è un'immagine leggibile. Usa render.")
-    key = f"{a.path}:{sha256(target)}"
+    raw = read_under(ctx.work, a.path)  # one read: the hash below is of the bytes that are shown
+    key = f"{a.path}:{hashlib.sha256(raw).hexdigest()}"
     seen = _viewed(ctx)
     ctx.ledger.record_operation(operation_id, ctx.instance, "view_image", json.dumps({"key": key}))
-    raw = target.read_bytes()
-    with Image.open(target) as image:
+    with Image.open(io.BytesIO(raw)) as image:
         size = image.size
         reduce = max(size) > IMAGE_SIDE or len(raw) > IMAGE_BYTES
         if reduce:  # le immagini grandi si riducono da sole: non si rifiutano

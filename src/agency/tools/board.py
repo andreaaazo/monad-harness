@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import random
 from pathlib import Path
 from typing import cast
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
+
+from agency.tools.files import ensure_dir_under, read_under, replace_under
+
+# The callers pass absolute paths under a work folder they resolved, so no component may be a link: each
+# file is reached from the filesystem root through the no-follow helpers.
+ROOT = Path("/")
 
 CELL = 480
 MARGIN = 30
@@ -29,6 +36,10 @@ def assign_letters(project: str, round_: int, letters: list[str]) -> dict[str, s
     shuffled = list(ANON[-len(letters) :])
     random.Random(seed).shuffle(shuffled)
     return dict(zip(letters, shuffled, strict=True))
+
+
+def _open(path: Path) -> Image.Image:
+    return Image.open(io.BytesIO(read_under(ROOT, str(path.relative_to(ROOT)))))
 
 
 def _flat(image: Image.Image) -> Image.Image:
@@ -105,7 +116,7 @@ def mark_problem(path: Path) -> str | None:
     È una stima: una parola a lettere staccate può sembrare più segni. Per questo chi riceve l'avviso può
     riconsegnare lo stesso file: sbagliare costa una chiamata, non blocca mai il lavoro.
     """
-    with Image.open(path) as image:
+    with _open(path) as image:
         sides = _groups(_mask(_flat(image)))
     if len(sides) < 2 or max(sides) / GRID >= MAIN_SHARE:
         return None
@@ -126,7 +137,7 @@ def build(items: list[tuple[str, Path]], output: Path) -> None:
     for position, (anon, path) in enumerate(sorted(items)):
         left = MARGIN + (position % COLUMNS) * (CELL + MARGIN)
         top = (position // COLUMNS) * ROW
-        with Image.open(path) as image:
+        with _open(path) as image:
             mark = _ink(image)
         big = mark.copy()
         big.thumbnail((CELL - 60, CELL - 60), Image.Resampling.LANCZOS)
@@ -142,5 +153,7 @@ def build(items: list[tuple[str, Path]], output: Path) -> None:
             tiny.thumbnail((side, side), Image.Resampling.LANCZOS)
             board.paste(tiny, (x, top + CELL + 60))
             x += side + 40
-    output.parent.mkdir(parents=True, exist_ok=True)
-    board.save(output)
+    ensure_dir_under(ROOT, str(output.parent.relative_to(ROOT)))
+    buffer = io.BytesIO()
+    board.save(buffer, format=Image.registered_extensions().get(output.suffix.lower()))
+    replace_under(ROOT, str(output.relative_to(ROOT)), buffer.getvalue())

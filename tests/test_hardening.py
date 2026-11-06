@@ -151,7 +151,7 @@ def test_craft_run_never_writes_through_a_planted_ops_symlink(tmp_path: Path) ->
     assert list(host.iterdir()) == []
 
 
-def test_a_reviewer_leaves_reviews_with_dotdot(tmp_path: Path) -> None:
+def test_a_reviewer_cannot_leave_reviews_with_dotdot(tmp_path: Path) -> None:
     ctx = context(tmp_path, actor="critic")
     brief = ctx.work / "brief.md"
     brief.write_text("il brief del cliente", encoding="utf-8")
@@ -159,9 +159,10 @@ def test_a_reviewer_leaves_reviews_with_dotdot(tmp_path: Path) -> None:
 
     result = call(ctx, "write_file", path="reviews/../brief.md", content="riscritto da un revisore")
 
-    # Pins current behavior of SEC-004; phase 2 (Task 2.7) flips this assertion: refused, brief.md unchanged.
-    assert not result.get("is_error")
-    assert brief.read_text(encoding="utf-8") == "riscritto da un revisore"
+    # Since Task 2.2 the no-follow helper refuses `..` first, with the perimeter's message.
+    assert result.get("is_error")
+    assert "fuori dalla cartella del lavoro" in str(result["content"])
+    assert brief.read_text(encoding="utf-8") == "il brief del cliente"
 
 
 # Deleghe

@@ -17,6 +17,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from agency.contracts.media import open_image
 from agency.tools.files import ensure_dir_under, open_under, read_under, replace_under
 
 # The callers pass absolute paths under a work folder they resolved, so no component may be a link: `_fit`
@@ -66,7 +67,7 @@ class Proposal:
 
 
 def _fit(path: Path, box: tuple[int, int]) -> Image.Image:
-    with Image.open(io.BytesIO(read_under(ROOT, str(path.relative_to(ROOT))))) as image:
+    with open_image(read_under(ROOT, str(path.relative_to(ROOT)))) as image:
         flat = Image.new("RGBA", image.size, (255, 255, 255, 255))
         flat.alpha_composite(image.convert("RGBA"))
     picture = flat.convert("RGB")

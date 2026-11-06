@@ -7,6 +7,7 @@ from pathlib import Path, PurePosixPath
 
 from PIL import Image, ImageDraw
 
+from agency.contracts.media import open_image
 from agency.ledger import Ledger
 from agency.tools.files import ensure_dir_under, inside, read_under, replace_under, sha256_under
 from agency.tools.sandbox import JOB, Sandbox
@@ -23,7 +24,7 @@ def _stem(relative: str) -> str:
 
 
 def _open(work: Path, relative: str) -> Image.Image:
-    return Image.open(io.BytesIO(read_under(work, relative)))
+    return open_image(read_under(work, relative))
 
 
 def _save(image: Image.Image, work: Path, relative: str) -> None:

@@ -10,6 +10,7 @@ from typing import cast
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
+from agency.contracts.media import open_image
 from agency.tools.files import ensure_dir_under, read_under, replace_under
 
 # The callers pass absolute paths under a work folder they resolved, so no component may be a link: each
@@ -39,7 +40,7 @@ def assign_letters(project: str, round_: int, letters: list[str]) -> dict[str, s
 
 
 def _open(path: Path) -> Image.Image:
-    return Image.open(io.BytesIO(read_under(ROOT, str(path.relative_to(ROOT)))))
+    return open_image(read_under(ROOT, str(path.relative_to(ROOT))))
 
 
 def _flat(image: Image.Image) -> Image.Image:

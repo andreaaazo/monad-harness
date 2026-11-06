@@ -19,6 +19,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from agency.contracts.media import open_image
 from agency.evaluation.blind import CannotCompare
 
 LARGE = 480  # il lato più lungo del disegno grande, in px
@@ -118,7 +119,7 @@ def _vector(copy: Path, render: Render, scratch: Path) -> dict[int, Image.Image]
 
 def _raster(copy: Path) -> dict[int, Image.Image]:
     try:
-        with Image.open(copy) as opened:
+        with open_image(copy.read_bytes()) as opened:
             image = opened.convert("RGBA")
     except (OSError, Image.DecompressionBombError) as exc:
         raise CannotCompare(f"{copy.name} non si apre come immagine: {exc}") from exc
@@ -132,7 +133,7 @@ def _rendered(render: Render, copy: Path, scale: float, scratch: Path) -> Image.
     target = scratch / f"{copy.stem}-{scale:.6f}.png"
     render(copy, scale, target)
     try:
-        with Image.open(target) as opened:
+        with open_image(target.read_bytes()) as opened:
             return opened.convert("RGBA")
     except (OSError, Image.DecompressionBombError) as exc:
         raise CannotCompare(f"il rendering di {copy.name} non si legge: {exc}") from exc

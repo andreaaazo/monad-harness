@@ -550,7 +550,7 @@ must not change behaviour. Every task starts with its failing test.
 
 ### Medium
 
-- [ ] **Task 2.5: open sandbox-written images only in safe formats.** Closes SEC-002 and COR-015.
+- [x] **Task 2.5: open sandbox-written images only in safe formats.** Closes SEC-002 and COR-015.
   - Files:
     - create `src/agency/contracts/media.py`;
     - `src/agency/tools/render.py`, `src/agency/tools/surface.py` (`view_image`), `src/agency/tools/board.py`,
@@ -1049,6 +1049,13 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   `reviews/../` route to it. Found by Task 2.3. No
   planned task closes it. The fix would record the ratings where only the harness writes, the ledger or
   `ops_records`, and have `select_concepts` read them from there.
+- [ ] **Task 2.F25: `agency judge` feeds a sandbox-written vector file to `vectorcraft-cli` on the host.**
+  evaluation/board.py:62-66 (`render` runs `vectorcraft-cli convert <copy> <target>` with `subprocess.run`, outside
+  bwrap) and :115-121 (`_raster`). Found by Task 2.5, which closed the Pillow side of SEC-002 only (every image is now
+  opened through `contracts/media.open_image`, restricted to PNG, JPEG, WebP and GIF). The converter still parses a
+  file the model wrote, in the harness's process tree and with the operator's `HOME`. `tools/craft.py` and
+  `tools/render.py` run it through `Sandbox`, so only this path is unconfined. Closed by Task 2.27 (SEC-006), which
+  adds a `render` callable backed by `Sandbox` that `cli.py` supplies.
 
 ## Phase 3: comments and language (Q14–Q16)
 

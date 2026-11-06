@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from opentelemetry import trace
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from agency.agents import prompts
@@ -22,6 +22,7 @@ from agency.artifacts import keeping
 from agency.config import Settings
 from agency.contracts.artifact import ArtifactStore, Origin
 from agency.contracts.concept import ConceptCard
+from agency.contracts.media import media_type, open_image
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import REVIEWERS, Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.ledger import ForbiddenAction, IllegalTransition, Ledger
@@ -342,14 +343,18 @@ def _viewed(ctx: ToolContext) -> dict[str, int]:
 
 def view_image(ctx: ToolContext, a: ViewImage, operation_id: str) -> list[dict]:
     target = inside(ctx.work, a.path)
-    media = IMAGE_MEDIA.get(target.suffix.lower())
-    if media is None or not target.is_file():
+    if target.suffix.lower() not in IMAGE_MEDIA or not target.is_file():
         raise Refused(f"{a.path}: non è un'immagine leggibile. Usa render.")
     raw = read_under(ctx.work, a.path)  # one read: the hash below is of the bytes that are shown
     key = f"{a.path}:{hashlib.sha256(raw).hexdigest()}"
     seen = _viewed(ctx)
+    try:
+        image = open_image(raw)
+    except UnidentifiedImageError as exc:
+        raise Refused(f"{a.path}: non è un'immagine leggibile. Usa render.") from exc
     ctx.ledger.record_operation(operation_id, ctx.instance, "view_image", json.dumps({"key": key}))
-    with Image.open(io.BytesIO(raw)) as image:
+    with image:
+        media = media_type(image)
         size = image.size
         reduce = max(size) > IMAGE_SIDE or len(raw) > IMAGE_BYTES
         if reduce:  # le immagini grandi si riducono da sole: non si rifiutano

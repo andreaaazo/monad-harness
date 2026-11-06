@@ -84,11 +84,11 @@ class ToolContext:
 
     def keep(self, paths: list[str], origin: Origin) -> dict[str, str]:
         """Conserva la versione attuale dei file prima dell'evento che la usa. Restituisce gli hash."""
-        files = {path: inside(self.work, path) for path in paths}
         return keeping.keep(
             self.artifacts,
             self.ledger,
-            files,
+            self.work,
+            {path: path for path in paths},
             project=self.project,
             origin=origin,
             ticket_id=self.ticket_id,

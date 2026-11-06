@@ -11,7 +11,7 @@ import pytest
 from agency import cli
 from agency.artifacts import FileStore, keeping
 from agency.config import Settings
-from agency.contracts.artifact import ArtifactMissing, Origin
+from agency.contracts.artifact import ArtifactMissing, Blob, Origin
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.tools.craft import CommandIndex
@@ -29,12 +29,17 @@ def write(path: Path, data: bytes) -> Path:
     return path
 
 
+def put(store: FileStore, source: Path) -> Blob:
+    with source.open("rb") as handle:
+        return store.put(handle)
+
+
 # Il deposito
 
 
 def test_a_kept_file_lives_under_its_hash_and_cannot_be_changed(tmp_path: Path) -> None:
     store = FileStore(tmp_path / "artifacts")
-    blob = store.put(write(tmp_path / "segno.svg", b"<svg>uno</svg>"))
+    blob = put(store, write(tmp_path / "segno.svg", b"<svg>uno</svg>"))
     assert (blob.sha256, blob.size) == (sha(b"<svg>uno</svg>"), 14)
     location = tmp_path / "artifacts" / blob.sha256[:2] / blob.sha256
     assert location.read_bytes() == b"<svg>uno</svg>"
@@ -45,8 +50,8 @@ def test_a_kept_file_lives_under_its_hash_and_cannot_be_changed(tmp_path: Path) 
 
 def test_the_same_content_is_kept_once(tmp_path: Path) -> None:
     store = FileStore(tmp_path / "artifacts")
-    first = store.put(write(tmp_path / "a/segno.svg", b"stesso"))
-    second = store.put(write(tmp_path / "b/altro.svg", b"stesso"))
+    first = put(store, write(tmp_path / "a/segno.svg", b"stesso"))
+    second = put(store, write(tmp_path / "b/altro.svg", b"stesso"))
     assert first == second
     assert [path.name for path in (tmp_path / "artifacts").rglob("*") if path.is_file()] == [first.sha256]
 
@@ -54,7 +59,7 @@ def test_the_same_content_is_kept_once(tmp_path: Path) -> None:
 def test_a_large_file_is_hashed_as_a_whole_and_leaves_nothing_half_written(tmp_path: Path) -> None:
     data = bytes(range(256)) * 20_000  # 5 MB: più blocchi di lettura
     store = FileStore(tmp_path / "artifacts")
-    blob = store.put(write(tmp_path / "scena.blend", data))
+    blob = put(store, write(tmp_path / "scena.blend", data))
     assert blob.sha256 == sha(data) and blob.size == len(data)
     assert list((tmp_path / "artifacts" / ".incoming").iterdir()) == []
 
@@ -71,7 +76,7 @@ def test_unknown_hash_is_missing_and_a_malformed_one_is_refused(tmp_path: Path) 
 
 def test_intact_notices_a_damaged_or_missing_blob(tmp_path: Path) -> None:
     store = FileStore(tmp_path / "artifacts")
-    blob = store.put(write(tmp_path / "segno.svg", b"originale"))
+    blob = put(store, write(tmp_path / "segno.svg", b"originale"))
     assert store.intact(blob.sha256)
     location = tmp_path / "artifacts" / blob.sha256[:2] / blob.sha256
     location.chmod(0o644)
@@ -84,11 +89,11 @@ def test_intact_notices_a_damaged_or_missing_blob(tmp_path: Path) -> None:
 def test_keeping_again_repairs_a_damaged_blob(tmp_path: Path) -> None:
     store = FileStore(tmp_path / "artifacts")
     source = write(tmp_path / "segno.svg", b"originale")
-    blob = store.put(source)
+    blob = put(store, source)
     location = tmp_path / "artifacts" / blob.sha256[:2] / blob.sha256
     location.chmod(0o644)
     location.write_bytes(b"rotto")
-    assert store.put(source) == blob
+    assert put(store, source) == blob
     assert store.intact(blob.sha256)
 
 
@@ -98,9 +103,16 @@ def test_keeping_again_repairs_a_damaged_blob(tmp_path: Path) -> None:
 def test_keep_stores_and_records_where_each_version_came_from(tmp_path: Path) -> None:
     store, ledger = FileStore(tmp_path / "artifacts"), Ledger(tmp_path / "l.sqlite")
     work = tmp_path / "work"
-    files = {"exports/segno.svg": write(work / "exports/segno.svg", b"<svg/>")}
+    write(work / "exports/segno.svg", b"<svg/>")
     hashes = keeping.keep(
-        store, ledger, files, project="merlo4", origin=Origin.DELIVERY, ticket_id="T-0008", run=None
+        store,
+        ledger,
+        work,
+        {"exports/segno.svg": "exports/segno.svg"},
+        project="merlo4",
+        origin=Origin.DELIVERY,
+        ticket_id="T-0008",
+        run=None,
     )
     assert hashes == {"exports/segno.svg": sha(b"<svg/>")}
     (row,) = ledger.artifacts("merlo4")
@@ -116,9 +128,12 @@ def test_keep_stores_and_records_where_each_version_came_from(tmp_path: Path) ->
 
 def test_keeping_the_same_version_twice_records_it_once(tmp_path: Path) -> None:
     store, ledger = FileStore(tmp_path / "artifacts"), Ledger(tmp_path / "l.sqlite")
-    files = {"segno.svg": write(tmp_path / "segno.svg", b"<svg/>")}
+    write(tmp_path / "segno.svg", b"<svg/>")
+    files = {"segno.svg": "segno.svg"}
     for _ in range(2):  # la ripresa ripete il passo
-        keeping.keep(store, ledger, files, project="p", origin=Origin.DELIVERY, ticket_id="T-1", run=None)
+        keeping.keep(
+            store, ledger, tmp_path, files, project="p", origin=Origin.DELIVERY, ticket_id="T-1", run=None
+        )
     assert len(ledger.artifacts("p")) == 1
 
 
@@ -139,8 +154,11 @@ def test_media_type_does_not_depend_on_the_machine(name: str, expected: str) -> 
 @pytest.mark.parametrize("statement", ["UPDATE artifacts SET path = 'altro'", "DELETE FROM artifacts"])
 def test_artifacts_are_append_only(tmp_path: Path, statement: str) -> None:
     store, ledger = FileStore(tmp_path / "artifacts"), Ledger(tmp_path / "l.sqlite")
-    files = {"segno.svg": write(tmp_path / "segno.svg", b"<svg/>")}
-    keeping.keep(store, ledger, files, project="p", origin=Origin.DELIVERY, ticket_id="T-1", run=None)
+    write(tmp_path / "segno.svg", b"<svg/>")
+    files = {"segno.svg": "segno.svg"}
+    keeping.keep(
+        store, ledger, tmp_path, files, project="p", origin=Origin.DELIVERY, ticket_id="T-1", run=None
+    )
     with ledger.engine.begin() as connection, pytest.raises(Exception, match="solo in aggiunta"):
         connection.exec_driver_sql(statement)
 
@@ -215,9 +233,17 @@ def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
 
 def kept(studio: Settings, tmp_path: Path, data: bytes, path: str = "source/segno.vectorcraft") -> str:
     store, ledger = FileStore(studio.artifacts_dir), Ledger(studio.ledger_path)
-    files = {path: write(tmp_path / "projects/merlo4/work" / path, data)}
+    work = tmp_path / "projects/merlo4/work"
+    write(work / path, data)
     return keeping.keep(
-        store, ledger, files, project="merlo4", origin=Origin.DELIVERY, ticket_id="T-0008", run=None
+        store,
+        ledger,
+        work,
+        {path: path},
+        project="merlo4",
+        origin=Origin.DELIVERY,
+        ticket_id="T-0008",
+        run=None,
     )[path]
 
 

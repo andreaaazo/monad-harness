@@ -490,7 +490,7 @@ must not change behaviour. Every task starts with its failing test.
   - Commit: `fix(tools): read and write the work folder only through the no-follow helper`.
   - As built: `artifacts/keeping.py` and the `keeping` case of the test moved to Task 2.2a, by the owner's decision.
     Found entry 2.F19 stays open.
-- [ ] **Task 2.2a [APPROVAL]: keep reads delivered files through the no-follow helper.** Closes SEC-001 part 2 for `keep` (the reader the owner's Q1 answer names). Approved by Andrea on 2026-11-06 as its own unit after Task 2.2. `ArtifactStore.put` takes an opened binary file instead of a path; `ToolContext.keep` and `keeping.keep` open each delivered file with `open_under`. Test: `keep` refuses a planted symlink and never reads the sentinel outside the work folder.
+- [x] **Task 2.2a [APPROVAL]: keep reads delivered files through the no-follow helper.** Closes SEC-001 part 2 for `keep` (the reader the owner's Q1 answer names). Approved by Andrea on 2026-11-06 as its own unit after Task 2.2. `ArtifactStore.put` takes an opened binary file instead of a path; `ToolContext.keep` and `keeping.keep` open each delivered file with `open_under`. Test: `keep` refuses a planted symlink and never reads the sentinel outside the work folder.
 - [ ] **Task 2.3 [APPROVAL]: harness inputs and resume records leave `/job`.** Closes SEC-001 (Q1). New ADR, expected
   ADR-0044 ("I file dell'harness fuori dalla sandbox").
   - Files:
@@ -1171,6 +1171,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
   - Files: `docs/01-ARCHITECTURE.md`, section "Cruscotto e server". The table, in Italian, maps each view label to its
     page, e2e spec, API route, operationId, read model, module and pytest file.
   - Commit: `docs(architecture): map each dashboard view to its route, API and read model`.
+- [ ] **Task 4.F1: the no-follow helpers move below `tools`.** Found in Task 2.2a: `artifacts/keeping.py` now imports `agency.tools.files`, while `agency.tools` imports `agency.artifacts`, so the two packages depend on each other; and `evaluation` may not import `tools` (ADR-0027, Task 2.F23). Move `open_under` and the other `*_under` helpers (and `OutsidePerimeter`) to a module both can import, for example `agency.contracts.files` (see Task 6.10), keeping `agency.tools.files` re-exporting them. Move only; no behaviour change.
 
 ## Phase 5: developer experience
 

@@ -246,7 +246,8 @@ def _judge(args: argparse.Namespace) -> int:
             keeping.keep(
                 store,
                 ledger,
-                {judged.file: copy},
+                copy.parent,
+                {judged.file: copy.name},
                 project=judged.project,
                 origin=Origin.JUDGMENT,
                 ticket_id="",

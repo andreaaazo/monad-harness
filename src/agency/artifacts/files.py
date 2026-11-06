@@ -45,15 +45,15 @@ class FileStore:
             raise ValueError(f"non è uno sha256: {sha256!r}")
         return self.root / sha256[:2] / sha256
 
-    def put(self, source: Path) -> Blob:
+    def put(self, source: BinaryIO) -> Blob:
         incoming = self.root / ".incoming"
         incoming.mkdir(parents=True, exist_ok=True)
         descriptor, name = tempfile.mkstemp(dir=incoming)
         temporary = Path(name)
         try:
             digest, size = hashlib.sha256(), 0
-            with os.fdopen(descriptor, "wb") as copy, source.open("rb") as original:
-                while chunk := original.read(CHUNK):
+            with os.fdopen(descriptor, "wb") as copy:
+                while chunk := source.read(CHUNK):
                     digest.update(chunk)
                     copy.write(chunk)
                     size += len(chunk)

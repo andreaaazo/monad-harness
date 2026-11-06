@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import mimetypes
+import os
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -17,6 +18,7 @@ from agency.contracts.artifact import ArtifactMissing, ArtifactStore, Origin
 from agency.ledger import Ledger
 from agency.ledger.models import ArtifactRow
 from agency.ledger.store import now
+from agency.tools.files import open_under
 
 # Solo la tabella interna di Python: quella del sistema cambia da macchina a macchina.
 TYPES = mimetypes.MimeTypes()
@@ -37,7 +39,8 @@ def media_type(path: str) -> str:
 def keep(
     store: ArtifactStore,
     ledger: Ledger,
-    files: Mapping[str, Path],
+    root: Path,
+    files: Mapping[str, str],
     *,
     project: str,
     origin: Origin,
@@ -46,8 +49,11 @@ def keep(
 ) -> dict[str, str]:
     """`files` va dal percorso da registrare al file da conservare. Restituisce gli hash conservati."""
     rows: list[ArtifactRow] = []
-    for path, source in files.items():
-        blob = store.put(source)
+    # Each source is a path relative to `root`. It is opened without following links, because the
+    # sandbox may have swapped the file for one.
+    for path, relative in files.items():
+        with os.fdopen(open_under(root, relative, os.O_RDONLY), "rb") as source:
+            blob = store.put(source)
         rows.append(
             ArtifactRow(
                 at=now(),

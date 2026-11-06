@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from enum import StrEnum
-from pathlib import Path
 from typing import BinaryIO, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -36,8 +35,8 @@ class ArtifactMissing(KeyError):
 
 
 class ArtifactStore(Protocol):
-    def put(self, source: Path) -> Blob:
-        """Conserva il contenuto attuale del file. Lo stesso contenuto si conserva una volta sola."""
+    def put(self, source: BinaryIO) -> Blob:
+        """Conserva il contenuto attuale del file aperto. Lo stesso contenuto si conserva una volta sola."""
         ...
 
     def open(self, sha256: str) -> BinaryIO:

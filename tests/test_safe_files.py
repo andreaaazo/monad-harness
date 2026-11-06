@@ -12,6 +12,7 @@ import pytest
 from PIL import Image
 
 from agency.artifacts import FileStore
+from agency.contracts.artifact import Origin
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.qa import delivery
@@ -215,12 +216,20 @@ def boarding(work: Path, host: Path) -> Read:
     return lambda: board.build([("V", sketch)], work / "board/r1/tavola.png")
 
 
+def keeping(work: Path, host: Path) -> Read:
+    """`ToolContext.keep` on a delivered file that the sandbox swapped for a link to the host's file."""
+    (work / "segno.svg").symlink_to(host / "segno.svg")
+    ctx = tool_context(work)
+    return lambda: ctx.keep(["segno.svg"], Origin.DELIVERY)
+
+
 READERS: dict[str, tuple[Callable[[Path, Path], Read], type[Exception]]] = {
     "render_one": (rendering, OutsidePerimeter),
     "view_image": (viewing, OutsidePerimeter),
     "presentation image reader": (presenting, OutsidePerimeter),
     "delivery hashing": (accepting, OutsidePerimeter),
     "board.build": (boarding, OutsidePerimeter),
+    "keeping": (keeping, OutsidePerimeter),
 }
 
 

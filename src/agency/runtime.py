@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import fcntl
+import os
 import shutil
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+from types import TracebackType
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
@@ -45,6 +48,38 @@ class BriefNotUtf8(Exception):
 
 class NothingToResume(Exception):
     """The project has no checkpoint: its first run never got as far as saving one."""
+
+
+class ProjectBusy(Exception):
+    """Another process already holds the project: two workers would pay for every call twice (COR-005)."""
+
+
+class ProjectLock:
+    """An exclusive, non-blocking claim on a project for as long as the `with` block runs.
+
+    `flock` is released by the kernel when the process ends, so a crash never leaves a stale lock.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self._fd = -1
+
+    def __enter__(self) -> ProjectLock:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            os.close(fd)
+            raise ProjectBusy(self.path.stem) from error
+        self._fd = fd
+        return self
+
+    def __exit__(
+        self, kind: type[BaseException] | None, error: BaseException | None, trace: TracebackType | None
+    ) -> None:
+        os.close(self._fd)
+        self._fd = -1
 
 
 @dataclass

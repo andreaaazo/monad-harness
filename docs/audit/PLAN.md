@@ -640,7 +640,7 @@ must not change behaviour. Every task starts with its failing test.
       two later calls still fit a 0.20 $ cap.
   - Verify: the test passes; standard gate.
   - Commit: `fix(gateway): reserve each call's estimate until its usage is recorded`.
-- [ ] **Task 2.12 [APPROVAL]: one process at a time works on a project.** Closes COR-005.
+- [x] **Task 2.12 [APPROVAL]: one process at a time works on a project.** Closes COR-005.
   - Files: `src/agency/contracts/layout.py`, `src/agency/runtime.py`, `src/agency/cli.py` (`_run`, `_resume`,
     `_decide`), `tests/test_hardening.py`.
   - Interfaces:
@@ -1093,6 +1093,15 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   agents/transcript.py:17). Same shape as COR-006. Found by Task 2.9. Not covered by a planned task. The engine's
   own reader (agents/transcript.py:35, `read_text` plus `json.loads` per line) is not listed: `Transcript.__init__`
   repairs a torn tail first, and a mid-file bad line is outside COR-006.
+- [ ] **Task 2.F29: `agency budget` changes a project's cap with no claim on the project.** cli.py:216-222
+  (`_budget`, `ledger.set_budget`). Task 2.12 locks `run`, `resume` and `decide` only, so a cap can change under a
+  worker that is running (the gateway reads it per call). Whether that is wanted is a decision: raising the cap of a
+  stopped project is the documented use, and refusing it while a worker runs may be right or may be too strict.
+  Found by Task 2.12. Not covered by a planned task.
+- [ ] **Task 2.F30: `agency migrate` rewrites the registry while a worker may be using it.** cli.py:61-70 and
+  ledger/schema.py `migrate`. It takes no claim on any project, and the per-project lock of Task 2.12 cannot cover it
+  (it is a whole-registry operation). It needs its own exclusive claim. Found by Task 2.12. Not covered by a planned
+  task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

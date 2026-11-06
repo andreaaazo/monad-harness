@@ -129,7 +129,23 @@ def _dollars(text: str) -> float:
     return amount
 
 
+def _locked(project: str, body: Callable[[], int]) -> int:
+    """Run a command that writes a project's state while this process alone works on it (COR-005)."""
+    from agency.runtime import ProjectBusy, ProjectLock
+
+    try:
+        with ProjectLock(Settings().layout.lock(project)):
+            return body()
+    except ProjectBusy:
+        print(f"Un altro processo sta già lavorando sul progetto {project}: attendi che finisca e riprova")
+        return 1
+
+
 def _run(args: argparse.Namespace) -> int:
+    return _locked(args.project, lambda: _run_locked(args))
+
+
+def _run_locked(args: argparse.Namespace) -> int:
     from agency.runtime import BriefNotUtf8, open_session
 
     session = open_session(Settings())
@@ -157,6 +173,10 @@ def _run(args: argparse.Namespace) -> int:
 
 
 def _resume(args: argparse.Namespace) -> int:
+    return _locked(args.project, lambda: _resume_locked(args))
+
+
+def _resume_locked(args: argparse.Namespace) -> int:
     from agency.runtime import NothingToResume, open_session
 
     if Ledger(Settings().ledger_path).project(args.project) is None:
@@ -171,6 +191,10 @@ def _resume(args: argparse.Namespace) -> int:
 
 
 def _decide(args: argparse.Namespace) -> int:
+    return _locked(args.project, lambda: _decide_locked(args))
+
+
+def _decide_locked(args: argparse.Namespace) -> int:
     from agency.runtime import open_session
 
     session = open_session(Settings())

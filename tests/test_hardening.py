@@ -38,6 +38,12 @@ def settings(tmp_path: Path) -> Settings:
     return Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "projects", _env_file=None)  # type: ignore[call-arg]
 
 
+@pytest.fixture(autouse=True)
+def own_data_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A CLI command locks its project under the data folder first: keep that out of `.data`."""
+    monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
+
+
 def context(tmp_path: Path, actor: str = "identity-designer", ticket: str = "T-1") -> ToolContext:
     work = tmp_path / "work"
     work.mkdir(exist_ok=True)
@@ -826,3 +832,69 @@ def test_a_reviewer_who_repeats_a_check_does_not_unsign_the_other(tmp_path: Path
     for ticket in tickets.values():
         accepted = call(director, "accept_ticket", ticket=ticket)
         assert not accepted.get("is_error"), accepted
+
+
+def hold_project_lock(path: Path) -> int:
+    """Hold a project lock as another engine process would: through its own open file (`flock` conflicts)."""
+    import fcntl
+    import os
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    return fd
+
+
+def test_the_project_lock_lives_under_the_data_folder(tmp_path: Path) -> None:
+    """COR-005: one lock file per project, beside the other engine data."""
+    assert settings(tmp_path).layout.lock("forno") == tmp_path / "data" / "locks" / "forno.lock"
+
+
+def test_a_second_process_cannot_work_on_the_same_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """COR-005: while one process holds the project, run, resume and decide are refused before any model
+    call, any run row or any ledger write; once it lets go the same command works."""
+    import os
+
+    path = cli_data(tmp_path, monkeypatch)
+    brief = tmp_path / "brief.md"
+    brief.write_text("Un segno per un forno di quartiere", encoding="utf-8")
+    transport = scripted_run(monkeypatch, [BLOCK_AT_ONCE])
+    # A not-yet-existing project: the existence check sits behind the lock, so the refusal comes first.
+    fd = hold_project_lock(tmp_path / "data" / "locks" / "forno.lock")
+    try:
+        capsys.readouterr()
+        assert cli.main(["run", "forno", str(brief), "--budget", "12"]) == 1
+        assert "già lavorando" in capsys.readouterr().out
+        for command in (["resume", "forno"], ["decide", "forno", "--approve", "--text", "ok"]):
+            assert cli.main(command) == 1
+            assert "già lavorando" in capsys.readouterr().out
+        assert transport.requests == []
+        assert not path.exists() or Ledger(path).project("forno") is None
+        assert not path.exists() or Ledger(path).runs("forno") == []
+    finally:
+        os.close(fd)
+    # Released: the one worker proceeds and the transport sees its call only.
+    assert cli.main(["run", "forno", str(brief), "--budget", "12"]) == 0
+    assert len(transport.requests) == 1
+
+
+def test_run_takes_the_lock_before_it_checks_that_the_project_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """COR-005: two `agency run` of one new name must not both pass the existence check, so a busy project is
+    reported as busy even when the other process has already created it."""
+    import os
+
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    fd = hold_project_lock(tmp_path / "data" / "locks" / "forno.lock")
+    try:
+        capsys.readouterr()
+        assert cli.main(["run", "forno", str(tmp_path / "brief.md"), "--budget", "5"]) == 1
+        out = capsys.readouterr().out
+    finally:
+        os.close(fd)
+    assert "già lavorando" in out
+    assert "esiste già" not in out

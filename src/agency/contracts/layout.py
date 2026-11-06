@@ -42,6 +42,10 @@ class DataLayout:
         """Le trascrizioni delle istanze, una cartella per progetto."""
         return self.root / "runs"
 
+    def lock(self, project: str) -> Path:
+        """The claim that lets one engine process at a time work on a project (COR-005)."""
+        return self.root / "locks" / f"{project}.lock"
+
     def transcript(self, project: str, instance: str) -> Path:
         return self.transcripts / project / f"{instance}.jsonl"
 

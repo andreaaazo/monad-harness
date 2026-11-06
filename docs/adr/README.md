@@ -9,7 +9,7 @@ vecchio. Date: 2026-10-31.
 | [0002](0002-langgraph-processo.md) | LangGraph solo per il processo | Accettata |
 | [0003](0003-loop-proprio.md) | Loop proprio sulla Messages API, niente smolagents | Accettata |
 | [0004](0004-indice-comandi.md) | Tre strumenti e un indice per i comandi Craft | Accettata |
-| [0005](0005-sandbox-bwrap.md) | Sandbox `bwrap` e istanze per lavoro | Accettata |
+| [0005](0005-sandbox-bwrap.md) | Sandbox `bwrap` e istanze per lavoro | Accettata; i file dell'harness stanno fuori da `/job` (0044) |
 | [0006](0006-niente-litellm.md) | Anthropic diretto, niente LiteLLM | Accettata |
 | [0007](0007-openusd-rimandato.md) | Master nativi, OpenUSD rimandato | Accettata |
 | [0008](0008-dspy-separato.md) | DSPy tardi e in ambiente separato | Accettata |
@@ -48,3 +48,4 @@ vecchio. Date: 2026-10-31.
 | [0041](0041-la-tavola-del-giudizio.md) | La tavola del giudizio e il migliore coerente | Accettata, aggiunge a 0027 |
 | [0042](0042-il-riferimento-di-qualita-e-merlo3.md) | Il riferimento di qualità di E1 è `merlo3` | Accettata, sostituisce `merlo` in `07-EVALS.md` |
 | [0043](0043-il-tetto-si-dichiara-all-avvio.md) | Il tetto di spesa si dichiara all'avvio | Accettata, toglie il budget di default a 0015 |
+| [0044](0044-i-file-dell-harness-fuori-dalla-sandbox.md) | I file dell'harness fuori dalla sandbox | Accettata, estende 0005 |

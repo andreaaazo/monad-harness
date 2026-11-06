@@ -4,18 +4,17 @@ from __future__ import annotations
 
 import json
 import math
-import os
 import re
-import shutil
 import subprocess
 from collections import Counter
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
-from agency.tools.files import ensure_dir_under, inside, open_under, replace_under
-from agency.tools.sandbox import JOB, Sandbox
+from agency.tools.files import ensure_dir_under, inside, read_under, replace_under
+from agency.tools.sandbox import JOB, OPS, Sandbox
 
 TOKEN = re.compile(r"[a-zA-Z0-9]+")
+PARTIAL = ".partial"  # in /job: where vectorcraft-cli exports, before the harness copies the result out
 K1, B = 1.5, 0.75
 
 
@@ -94,29 +93,37 @@ class CommandIndex:
 
 
 def run_steps(
-    sandbox: Sandbox, index: CommandIndex, document: str, steps: list[dict], operation_id: str
+    sandbox: Sandbox,
+    index: CommandIndex,
+    document: str,
+    steps: list[dict],
+    operation_id: str,
+    records: Path,
 ) -> dict:
-    """Esegue i passi su una copia e la sostituisce solo a fine lavoro.
+    """Runs the steps on a copy and replaces the document only when they are done.
 
-    Il risultato vive in `.ops/<operazione>`: se il processo muore, la ripresa ricopia lo stesso
-    file invece di ripetere i passi, quindi nessun effetto viene applicato due volte.
+    The plan goes to the sandbox's /ops, which it cannot write. The record of the run, its results and the
+    built document, is the harness's copy in `records`, which no sandbox sees. If the process dies, resume
+    copies the same document again instead of repeating the steps, so no effect is applied twice. Nothing
+    the sandbox can write, in /job or anywhere else, is ever read as a record (ADR-0044).
     """
     unknown = sorted({step.get("command", "") for step in steps} - set(index.commands))
     if unknown:
         return {"ok": False, "error": f"comandi inesistenti: {', '.join(unknown)}. Usa craft_search."}
-    ensure_dir_under(sandbox.work, ".ops")
-    ops = sandbox.work / ".ops"
-    result_file = ops / f"{operation_id}.result.json"
-    built = ops / f"{operation_id}.vectorcraft"
+    inputs = sandbox.ops
+    if inputs is None:
+        raise ValueError("run_steps needs a sandbox with its /ops folder: the plan never goes into /job")
+    result_name, built_name = f"{operation_id}.result.json", f"{operation_id}.vectorcraft"
     target = inside(sandbox.work, document)
-    if not (result_file.exists() and built.exists()):
-        plan = ops / f"{operation_id}.steps.json"
-        replace_under(sandbox.work, f".ops/{plan.name}", json.dumps(steps).encode("utf-8"))
-        partial = f".ops/{operation_id}.partial.vectorcraft"
+    if not ((records / result_name).is_file() and (records / built_name).is_file()):
+        plan = f"{operation_id}.steps.json"
+        replace_under(inputs, plan, json.dumps(steps).encode("utf-8"))
+        ensure_dir_under(sandbox.work, PARTIAL)
+        partial = f"{PARTIAL}/{built_name}"
         command = ["vectorcraft-cli", "run"]
         if target.exists():
             command += ["--in", f"{JOB}/{document}"]
-        command += ["--commands", f"{JOB}/.ops/{plan.name}", "--export", f"{JOB}/{partial}"]
+        command += ["--commands", f"{OPS}/{plan}", "--export", f"{JOB}/{partial}"]
         done = sandbox.run(command, timeout=120)
         if done.code:
             return {"ok": False, "error": done.output.strip()[-900:]}
@@ -128,12 +135,10 @@ def run_steps(
                 continue
             if entry.get("step") == "cmd":
                 results.append(entry.get("result"))
-        folder = open_under(sandbox.work, ".ops", os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.replace(Path(partial).name, built.name, src_dir_fd=folder, dst_dir_fd=folder)
-        finally:
-            os.close(folder)
-        replace_under(sandbox.work, f".ops/{result_file.name}", json.dumps(results).encode("utf-8"))
-    target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(built, target)
-    return {"ok": True, "document": document, "results": json.loads(result_file.read_text(encoding="utf-8"))}
+        replace_under(records, built_name, read_under(sandbox.work, partial))
+        replace_under(records, result_name, json.dumps(results).encode("utf-8"))
+    folder = PurePosixPath(document).parent
+    if folder.parts:
+        ensure_dir_under(sandbox.work, str(folder))
+    replace_under(sandbox.work, document, read_under(records, built_name))
+    return {"ok": True, "document": document, "results": json.loads(read_under(records, result_name))}

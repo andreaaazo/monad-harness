@@ -491,7 +491,7 @@ must not change behaviour. Every task starts with its failing test.
   - As built: `artifacts/keeping.py` and the `keeping` case of the test moved to Task 2.2a, by the owner's decision.
     Found entry 2.F19 stays open.
 - [x] **Task 2.2a [APPROVAL]: keep reads delivered files through the no-follow helper.** Closes SEC-001 part 2 for `keep` (the reader the owner's Q1 answer names). Approved by Andrea on 2026-11-06 as its own unit after Task 2.2. `ArtifactStore.put` takes an opened binary file instead of a path; `ToolContext.keep` and `keeping.keep` open each delivered file with `open_under`. Test: `keep` refuses a planted symlink and never reads the sentinel outside the work folder.
-- [ ] **Task 2.3 [APPROVAL]: harness inputs and resume records leave `/job`.** Closes SEC-001 (Q1). New ADR, expected
+- [x] **Task 2.3 [APPROVAL]: harness inputs and resume records leave `/job`.** Closes SEC-001 (Q1). New ADR, expected
   ADR-0044 ("I file dell'harness fuori dalla sandbox").
   - Files:
     - `src/agency/contracts/layout.py`;
@@ -518,6 +518,23 @@ must not change behaviour. Every task starts with its failing test.
       assertions stay as they are. The request snapshots are byte-identical.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(sandbox): keep harness inputs and resume records outside the writable work folder`.
+  - As built:
+    - ADR-0044 is `docs/adr/0044-i-file-dell-harness-fuori-dalla-sandbox.md`.
+    - `run_steps` gains `records: Path` and takes the plan folder from `sandbox.ops`. `craft_run` passes
+      `ctx.settings.layout.ops_records(project, instance)`. Without `sandbox.ops` (and, for `craft_run`, without
+      settings), both tools refuse with `"<tool> non è disponibile in questa sandbox: manca la cartella /ops"`. They
+      never fall back to `/job`.
+    - The copy of the built document into its target goes through `ensure_dir_under` and `replace_under`.
+    - `list_files` hides `.ops` (left in older work folders) and `.partial`. A fourth test pins it:
+      `test_list_files_hides_the_partial_exports`.
+    - Construction sites: `agents/loop.py` creates `ops_inputs` beside the work folder and passes it as `ops`.
+      `graph/workflow.py:397` (`client_gate`) keeps `ops=None`, because `acceptance_problems` only hashes delivered
+      files and checks evidence: it runs nothing in the sandbox.
+    - Tests changed only in construction: `bare_context` and `CountingSandbox` (test_agent_flow.py), `context`
+      (test_hardening.py) and `test_finisher_cannot_explore` (test_sketch_flow.py) pass the new folders. The two
+      Task 2.1 tests keep their names and their core assertion (the host folder stays empty), but compute and
+      `run_steps` no longer touch `/job/.ops`. So the planted-link compute now succeeds, and `run_steps` returns the
+      idle sandbox's failure instead of raising `OutsidePerimeter`.
 
 ### High
 
@@ -977,7 +994,10 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   tools/craft.py:137-138: `target.parent.mkdir(parents=True)` and `shutil.copy2(built, target)` follow a link at the
   target or at `built`. tools/craft.py:112, :117 and :139: the resume checks and the result read. Task 2.3 closes the
   resume reads (resume reads only `ops_records`). The copy into the document is Task 2.2's rule; craft.py is on Task
-  2.3's list, not Task 2.2's.
+  2.3's list, not Task 2.2's. Since Task 2.3, the resume checks and reads use `ops_records` only, and the copy goes
+  through `ensure_dir_under` and `replace_under`. Still open: `target.exists()` (craft.py:124 as of Task 2.3), which
+  decides whether the CLI gets `--in`. It runs after `inside()`, so a link that leaves the work folder is refused
+  first. It reads nothing, but it still stats through a link that stays inside.
 - [x] **Task 2.F13: render proofs are written after `inside()`.** tools/render.py:31-37, :46, :66, :69, :79 and
   :86-88. Closed by Task 2.2 (named).
 - [x] **Task 2.F14: master export and hashing follow links.** tools/master.py:36, :79-80, :89, :101 and :110. Closed
@@ -1012,6 +1032,23 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   comparison hashes, copies (Task 2.F20) and keeps the file the link points to. Found by Task 2.2. Task 2.2's rule;
   evaluation/ is not on its list, and it may not import `agency.tools` (ADR-0027), so the helper must be reachable
   from `contracts` first.
+- [ ] **Task 2.F24: the critic's first look is a file in the work folder, and `select_concepts` trusts it.**
+  tools/surface.py:673 (`rate_board` writes `reviews/valutazione.json`) and :688-694 (`select_concepts` reads
+  `board/r<n>/reviews/valutazione.json` and lets only the letters marked `passes` through). Line numbers are as of
+  Task 2.3. This is SEC-001's class, not its links: the harness keeps a record it later trusts in a folder the agent
+  can write. The ledger keeps no copy. The critic-board tool set has `write_file`, and a reviewer may write
+  `reviews/*.json`. So the critic can replace the file without `rate_board`'s checks (every board letter and only
+  those, and the `first_look` field). A probe on Task 2.3's code: `rate_board` refused a rating of a letter `Z` that
+  is not on the board, then `write_file` stored the same rating, and that file is what `select_concepts` would
+  read. The ticket lists `reviews/valutazione.json` as an output exempt from checks, so a planted file also satisfies
+  delivery when `rate_board` never ran. Two records have the same shape, but no writer runs between their write and
+  their read today. `presentation/r<n>/testi.json` is written by `draft_presentation` (:733) and sent to the client
+  by `present_concepts` (:743-753), and the present tool set has neither `write_file` nor `compute`.
+  `explorations/r<n>/applicazioni.json` is written by `plan_exploration` (:600-602) and read by the proposals node
+  (graph/workflow.py:195). Explorers cannot reach it, and since Task 2.2 the helper refuses SEC-004's
+  `reviews/../` route to it. Found by Task 2.3. No
+  planned task closes it. The fix would record the ratings where only the harness writes, the ledger or
+  `ops_records`, and have `select_concepts` read them from there.
 
 ## Phase 3: comments and language (Q14–Q16)
 

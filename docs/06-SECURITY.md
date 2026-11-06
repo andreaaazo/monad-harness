@@ -14,6 +14,7 @@ fino a M7 (ADR-0023).
 | Alterazione dei registri | Modifica di una prova | Trigger, catena di hash, nessuno strumento scrive i registri |
 | Fuga della chiave | La chiave finisce in un log o in una risposta | Solo nel gateway, `SecretStr`, assente dall'ambiente delle sandbox, `.env` fuori dalla portata di ogni strumento |
 | Fuga fuori dal perimetro | Path traversal | `bwrap` per ciò che gira in sandbox. Gli strumenti che girano nell'harness non hanno quella difesa: passano da `inside()` o da un elenco chiuso (`read_skill`, `list_files`) |
+| Stato dell'harness falsificato | Il codice di `compute` riscrive il risultato salvato di un `craft_run`, e la ripresa lo copia nel master | Gli ingressi dell'harness stanno in `/ops`, in sola lettura. Il registro della ripresa sta in `.data/ops/`, fuori da ogni sandbox, e la ripresa legge solo da lì (ADR-0044). Test |
 | Dipendenza compromessa | Il caso LiteLLM di marzo 2026 | Quarantena di due settimane, lock con hash, poche dipendenze, anche per JavaScript |
 | Scrittura dal cruscotto | Una richiesta altera il registro | API solo `GET` in M1.6, connessione `mode=ro`, nessun modello Django sul registro |
 | Cruscotto esposto in rete | Materiali del cliente leggibili da fuori | Django e Next.js solo su loopback, porta pubblicata su `127.0.0.1`, verificato da un test |
@@ -38,6 +39,17 @@ bwrap --ro-bind /usr /usr --ro-bind /etc /etc --symlink usr/bin /bin --symlink u
 
 Provato: i Craft e Blender funzionano; le altre cartelle non esistono; rete assente; `/usr` non scrivibile.
 `/etc` è montato per i font e la configurazione di sistema: in M1 va ridotto al necessario.
+
+`/job` è l'unica cartella scrivibile, e l'harness non vi tiene nulla che poi rilegga come suo (ADR-0044). Gli ingressi
+che scrive per la sandbox dell'agente, lo script di `compute` e il piano di `craft_run`, stanno in
+`.data/ops/<progetto>/<istanza>/in/`, montata in sola lettura:
+
+```sh
+--ro-bind .data/ops/<progetto>/<istanza>/in /ops
+```
+
+Il registro della ripresa di `craft_run` sta nella cartella sopra, `.data/ops/<progetto>/<istanza>/`, che nessuna
+sandbox vede. In `/job` restano solo le uscite degli strumenti, come l'esportazione in `/job/.partial/`.
 
 ## Dati del cliente
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 JOB = "/job"
+OPS = "/ops"
 QA_MOUNT = "/opt/agency-qa"
 ETC_ALLOWED = ("/etc/ld.so.cache", "/etc/fonts", "/etc/alternatives", "/etc/ssl", "/etc/mime.types")
 HOME = "/home/studio"
@@ -24,10 +25,19 @@ class Completed:
 
 
 class Sandbox:
-    def __init__(self, work: Path, toolchain: Path | None = None, read_only: tuple[Path, ...] = ()) -> None:
+    def __init__(
+        self,
+        work: Path,
+        toolchain: Path | None = None,
+        read_only: tuple[Path, ...] = (),
+        ops: Path | None = None,
+    ) -> None:
+        """`ops` holds the files the harness writes for the sandbox to run. It is bound read-only at /ops,
+        outside the writable /job, so sandboxed code cannot change what the harness trusts (ADR-0044)."""
         self.work = work.resolve()
         self.toolchain = toolchain
         self.read_only = read_only
+        self.ops = ops
 
     def argv(self, command: list[str]) -> list[str]:
         args = [
@@ -54,6 +64,8 @@ class Sandbox:
             "--unshare-ipc",
             "--die-with-parent",
         ]  # fmt: skip
+        if self.ops is not None:
+            args += ["--ro-bind", str(self.ops), OPS]
         for path in ETC_ALLOWED:
             if Path(path).exists():
                 args += ["--ro-bind", path, path]

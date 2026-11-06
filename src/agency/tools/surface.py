@@ -38,7 +38,7 @@ from agency.tools.files import (
     replace_under,
     sha256,
 )
-from agency.tools.sandbox import JOB, Sandbox
+from agency.tools.sandbox import OPS, Sandbox
 
 tracer = trace.get_tracer("agency.tools")
 TEXT_FILES = (".md", ".txt", ".json")
@@ -46,6 +46,10 @@ EXPORT_OPTIONS = {"--artboard", "--range", "--scale", "--outline-text", "--decim
 IMAGE_SIDE = 1600
 IMAGE_BYTES = 3_500_000
 IMAGE_MEDIA = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+# The harness's folders in /job, which list_files does not show. `.ops` held its files before ADR-0044 and can
+# still be in an older work folder.
+HIDDEN = frozenset({".ops", craft.PARTIAL})
+NO_OPS = "{tool} non è disponibile in questa sandbox: manca la cartella /ops"
 
 
 class Refused(Exception):
@@ -299,7 +303,7 @@ def list_files(ctx: ToolContext, a: ListFiles, _: str) -> dict:
     found = sorted(
         str(p.relative_to(ctx.work))
         for p in ctx.work.glob(a.pattern)
-        if p.is_file() and ".ops" not in p.parts and p.resolve().is_relative_to(root)
+        if p.is_file() and HIDDEN.isdisjoint(p.parts) and p.resolve().is_relative_to(root)
     )
     return {"files": found[:200], "total": len(found)}
 
@@ -389,17 +393,21 @@ def craft_run(ctx: ToolContext, a: CraftRun, operation_id: str) -> dict:
     if outputs and a.document not in outputs:
         raise Refused("il concetto è scelto: lavori solo sui master in OUTPUT, niente file di esplorazione")
     safe = "".join(c if c.isalnum() else "_" for c in operation_id)
-    result = craft.run_steps(ctx.sandbox, ctx.index, a.document, a.steps, safe)
+    if ctx.sandbox.ops is None or ctx.settings is None:
+        raise Refused(NO_OPS.format(tool="craft_run"))
+    records = ctx.settings.layout.ops_records(ctx.project, ctx.instance)
+    result = craft.run_steps(ctx.sandbox, ctx.index, a.document, a.steps, safe, records)
     if not result.get("ok"):
         raise Refused(result.get("error", "esecuzione fallita"))
     return result
 
 
 def compute(ctx: ToolContext, a: Compute, operation_id: str) -> dict:
-    ensure_dir_under(ctx.work, ".ops")
+    if ctx.sandbox.ops is None:
+        raise Refused(NO_OPS.format(tool="compute"))
     name = "compute_" + "".join(c if c.isalnum() else "_" for c in operation_id) + ".py"
-    replace_under(ctx.work, f".ops/{name}", a.code.encode("utf-8"))
-    done = ctx.sandbox.run([ctx.sandbox.python(), "-I", f"{JOB}/.ops/{name}"], timeout=60)
+    replace_under(ctx.sandbox.ops, name, a.code.encode("utf-8"))
+    done = ctx.sandbox.run([ctx.sandbox.python(), "-I", f"{OPS}/{name}"], timeout=60)
     return {"exit": done.code, "output": clip(done.output, 3000)}
 
 

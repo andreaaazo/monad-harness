@@ -44,3 +44,11 @@ class DataLayout:
 
     def transcript(self, project: str, instance: str) -> Path:
         return self.transcripts / project / f"{instance}.jsonl"
+
+    def ops_inputs(self, project: str, instance: str) -> Path:
+        """The files the harness writes for an instance's sandbox, bound read-only at /ops (ADR-0044)."""
+        return self.ops_records(project, instance) / "in"
+
+    def ops_records(self, project: str, instance: str) -> Path:
+        """The harness's record of an instance's tool runs, read on resume. No sandbox sees it (ADR-0044)."""
+        return self.root / "ops" / project / instance

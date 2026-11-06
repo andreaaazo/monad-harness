@@ -971,9 +971,11 @@ def test_finisher_cannot_explore(tmp_path: Path) -> None:
     )
     ticket = ledger.open(spec, "p")
     index = CommandIndex.load(tmp_path / "index")
-    ctx = ToolContext(
-        "identity-designer", "p", ticket, "i", ledger, Sandbox(tmp_path), index, FileStore(tmp_path / "a")
-    )
+    config = settings(tmp_path)
+    inputs = config.layout.ops_inputs("p", "i")
+    inputs.mkdir(parents=True)
+    sandbox, store = Sandbox(tmp_path, ops=inputs), FileStore(tmp_path / "a")
+    ctx = ToolContext("identity-designer", "p", ticket, "i", ledger, sandbox, index, store, settings=config)
     box = Toolbox(ctx)
     refused = box.call("a", "craft_run", {"document": "source/prova.vectorcraft", "steps": DRAW})
     assert refused["is_error"] and "niente file di esplorazione" in refused["content"]

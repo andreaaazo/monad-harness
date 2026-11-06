@@ -12,6 +12,7 @@ Ogni dato ha un solo proprietario.
 | Artefatti, da M1.6 | `.data/artifacts/<ab>/<sha256>` | `agency.artifacts` | Perdita grave |
 | Master di lavoro | `projects/<slug>/work/` | l'agente del ticket | Da M1.6 recuperabile dagli artefatti |
 | Trascrizioni delle istanze | `.data/runs/<slug>/` | `agency.agents` | Perdita grave: servono a ripresa e replay |
+| Ingressi delle sandbox e registro della ripresa | `.data/ops/<slug>/<istanza>/`; gli ingressi in `in/`, montata in sola lettura in `/ops` (ADR-0044) | `agency.tools` | Un `craft_run` interrotto rifà i passi, anche se il master li aveva già ricevuti |
 | Indice dei comandi Craft | `.data/craft-index/` | `agency.tools.craft` | Rigenerabile |
 | Indice visivo | `.data/lancedb/` | `agency.context` | Rigenerabile |
 | Proiezioni del cruscotto | `.data/insights.sqlite`; in Docker in memoria (ADR-0040) | `agency.insights` | Rigenerabile |

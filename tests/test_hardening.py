@@ -29,7 +29,6 @@ from agency.qa import delivery, evidence
 from agency.telemetry import report
 from agency.tools import craft
 from agency.tools.craft import Command, CommandIndex
-from agency.tools.files import OutsidePerimeter
 from agency.tools.sandbox import Completed, Sandbox
 from agency.tools.surface import Toolbox, ToolContext, role_tools
 
@@ -41,13 +40,15 @@ def settings(tmp_path: Path) -> Settings:
 def context(tmp_path: Path, actor: str = "identity-designer", ticket: str = "T-1") -> ToolContext:
     work = tmp_path / "work"
     work.mkdir(exist_ok=True)
+    inputs = settings(tmp_path).layout.ops_inputs("p", "i")
+    inputs.mkdir(parents=True, exist_ok=True)
     return ToolContext(
         actor,
         "p",
         ticket,
         "i",
         Ledger(tmp_path / "l.sqlite"),
-        Sandbox(work),
+        Sandbox(work, ops=inputs),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
     )
@@ -112,21 +113,22 @@ def test_list_files_ignores_links_that_leave_the_work(tmp_path: Path) -> None:
 
 
 def test_compute_never_writes_through_a_planted_ops_symlink(tmp_path: Path) -> None:
-    """Sandboxed code swaps `.ops` for a link to a host folder. The next compute refuses, and writes nothing.
+    """Sandboxed code plants `.ops` as a link to a host folder. The next compute writes nothing there.
 
+    Since ADR-0044 the script goes to /ops, outside the work folder: compute never opens `/job/.ops`.
     The host folder here is a scratch one. In the audit's reproduction it was Alembic's migrations folder.
     """
     ctx = context(tmp_path)
     host = tmp_path / "host-folder"
     host.mkdir()
-    plant = f"import os\nos.rename('/job/.ops', '/job/.ops-old')\nos.symlink({str(host)!r}, '/job/.ops')\n"
+    plant = f"import os\nos.symlink({str(host)!r}, '/job/.ops')\n"
     assert json.loads(call(ctx, "compute", code=plant)["content"])["exit"] == 0
+    assert (ctx.work / ".ops").is_symlink()
     payload = "print('scritto dal modello')\n"
 
     result = call(ctx, "compute", code=payload)
 
-    assert result.get("is_error")
-    assert "fuori dalla cartella del lavoro" in str(result["content"])
+    assert json.loads(result["content"]) == {"exit": 0, "output": "scritto dal modello\n"}
     assert list(host.iterdir()) == []
 
 
@@ -138,16 +140,25 @@ class IdleSandbox(Sandbox):
 
 
 def test_craft_run_never_writes_through_a_planted_ops_symlink(tmp_path: Path) -> None:
-    """The same link, left by an earlier compute: craft_run must not write its plan into the host folder."""
+    """The same link, left by an earlier compute: craft_run must not write its plan into the host folder.
+
+    Since ADR-0044 the plan goes to /ops and craft_run never opens `/job/.ops`: the run goes ahead, and fails
+    only because this sandbox runs nothing.
+    """
     work, host = tmp_path / "work", tmp_path / "host-folder"
     work.mkdir()
     host.mkdir()
     (work / ".ops").symlink_to(host, target_is_directory=True)
+    layout = settings(tmp_path).layout
+    inputs = layout.ops_inputs("p", "i")
+    inputs.mkdir(parents=True)
     index = CommandIndex([Command("path.create", "Crea un tracciato", "Tracciato", "d")])
+    sandbox, records = IdleSandbox(work, ops=inputs), layout.ops_records("p", "i")
+    steps = [{"command": "path.create"}]
 
-    with pytest.raises(OutsidePerimeter):
-        craft.run_steps(IdleSandbox(work), index, "segno.vectorcraft", [{"command": "path.create"}], "op1")
+    result = craft.run_steps(sandbox, index, "segno.vectorcraft", steps, "op1", records)
 
+    assert result == {"ok": False, "error": ""}
     assert list(host.iterdir()) == []
 
 

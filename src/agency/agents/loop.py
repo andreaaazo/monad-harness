@@ -66,6 +66,8 @@ class AgentRunner:
             return finished
         work = self.settings.project_dir(project) / "work" / spec.workspace
         work.mkdir(parents=True, exist_ok=True)
+        inputs = self.settings.layout.ops_inputs(project, instance)  # its parent holds the records (ADR-0044)
+        inputs.mkdir(parents=True, exist_ok=True)
         prompt = phase.of(role, spec.prompt, mode)
         toolbox = Toolbox(
             ToolContext(
@@ -74,7 +76,7 @@ class AgentRunner:
                 ticket_id=ticket_id,
                 instance=instance,
                 ledger=self.ledger,
-                sandbox=Sandbox(work, self.settings.toolchain_dir),
+                sandbox=Sandbox(work, self.settings.toolchain_dir, ops=inputs),
                 index=self.index,
                 artifacts=self.artifacts,
                 mode=mode,

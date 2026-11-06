@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from opentelemetry import trace
 
 from agency.config import Settings
-from agency.gateway.pricing import cost_usd, price_of
+from agency.gateway.pricing import call_cost_usd, price_of
 from agency.gateway.transport import Transport
 from agency.ledger import Ledger
 from agency.ledger.models import UsageRow
@@ -186,7 +186,7 @@ class ModelGateway:
         usage = data.get("usage") or {}
         details = usage.get("output_tokens_details") or {}
         model = data.get("model") or ""
-        cost = cost_usd(model, usage)
+        cost = call_cost_usd(model, usage, request.model)
         breakdown = usage.get("cache_creation") or {}
         self.ledger.record_usage(
             UsageRow(

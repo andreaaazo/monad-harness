@@ -48,3 +48,14 @@ def cost_usd(model: str, usage: dict) -> float:
         + write_5m * price.cache_write_5m
         + write_1h * price.cache_write_1h
     ) / 1_000_000
+
+
+def call_cost_usd(model: str, usage: dict, requested_model: str) -> float:
+    """Cost of one call; `usage.iterations`, when present, lists every attempt the call was billed for.
+
+    Each attempt is priced at its own model's rates; an entry without a model is priced at the requested one.
+    """
+    iterations = usage.get("iterations")
+    if not iterations:
+        return cost_usd(model, usage)
+    return sum(cost_usd(attempt.get("model") or requested_model, attempt) for attempt in iterations)

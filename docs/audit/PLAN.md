@@ -652,7 +652,7 @@ must not change behaviour. Every task starts with its failing test.
       and the transport sees the calls of one worker only.
   - Verify: the test passes; standard gate.
   - Commit: `fix(runtime): let only one process work on a project at a time`.
-- [ ] **Task 2.13: a call that fell back to another model is charged for every attempt.** Closes COR-008 (Q9). Load
+- [x] **Task 2.13: a call that fell back to another model is charged for every attempt.** Closes COR-008 (Q9). Load
   the `claude-api` skill first.
   - Files: `src/agency/gateway/pricing.py`, `src/agency/gateway/client.py` (`_record`), `tests/test_gateway.py`.
   - Implementation: when `usage.iterations` is present, price each attempt at its own model's rates and store the sum
@@ -1102,6 +1102,14 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   ledger/schema.py `migrate`. It takes no claim on any project, and the per-project lock of Task 2.12 cannot cover it
   (it is a whole-registry operation). It needs its own exclusive claim. Found by Task 2.12. Not covered by a planned
   task.
+- [ ] **Task 2.F31: the usage row's token columns still count only the serving attempt of a fallback call.**
+  gateway/client.py:199-205 (`_record`) and insights/sums.py:18 (`context`), insights/behaviour.py:110 and :126
+  (output tokens). After Task 2.13 the recorded `cost_usd` is the sum over `usage.iterations`, but `input_tokens`,
+  `output_tokens` and the cache columns stay the top-level `usage`, so for a fallback call the cost no longer matches
+  the tokens beside it, and insights' context and output-token figures leave out the declined attempt. Insights does
+  not recompute cost from tokens (`sums.cost` sums the stored column), so no cost figure is wrong. Changing the
+  columns needs a decision on one row versus a nullable per-attempt column (SUMMARY.md, COR-008). Found by Task 2.13.
+  Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

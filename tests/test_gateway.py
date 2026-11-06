@@ -93,10 +93,11 @@ def test_call_records_usage_and_request_shape(tmp_path: Path) -> None:
         assert forbidden not in sent
 
 
-def test_a_fallback_call_is_charged_only_for_the_serving_attempt(tmp_path: Path) -> None:
+def test_a_fallback_call_is_charged_for_both_attempts(tmp_path: Path) -> None:
     """Shaped like the claude-api reference: opus-5-5 declines mid-stream and opus-5 serves the answer.
 
-    `usage.iterations` holds both attempts; the top-level `usage` covers only the one that served.
+    `usage.iterations` holds both attempts; the top-level `usage` covers only the one that served, but the
+    declined attempt is billed too, so the recorded cost is the sum of both at their own models' rates.
     """
     declined = {
         "type": "message",
@@ -126,11 +127,50 @@ def test_a_fallback_call_is_charged_only_for_the_serving_attempt(tmp_path: Path)
 
     response = gw.call(CONTEXT, request())
 
+    declined_attempt = cost_usd("claude-opus-5-5", {"input_tokens": 50_000, "output_tokens": 6_000})
     serving_attempt = cost_usd("claude-opus-5", {"input_tokens": 50_000, "output_tokens": 3_000})
+    assert declined_attempt == pytest.approx(0.32)
     assert serving_attempt == pytest.approx(0.325)
-    # Pins current behavior of COR-008; phase 2 (Task 2.13) flips this assertion to both attempts, 0.645 $.
-    assert response.cost_usd == pytest.approx(serving_attempt)
-    assert gw.ledger.spent("p") == pytest.approx(serving_attempt)
+    assert response.cost_usd == pytest.approx(0.645)
+    assert gw.ledger.spent("p") == pytest.approx(0.645)
+    (row,) = gw.ledger.usage("p")
+    assert row.cost_usd == pytest.approx(0.645)
+    assert (row.input_tokens, row.output_tokens) == (50_000, 3_000)  # token columns stay the top-level usage
+
+
+def test_a_declined_attempt_on_an_unlisted_model_is_charged_at_the_unknown_rate(tmp_path: Path) -> None:
+    tokens = {"input_tokens": 1_000, "output_tokens": 1_000, "cache_read_input_tokens": 0}
+    declined = {"type": "message", "model": "claude-future-9"} | tokens
+    served = {"type": "fallback_message", "model": "claude-opus-5-5"} | tokens
+    answer = reply() | {"usage": tokens | {"iterations": [declined, served]}}
+    gw = gateway(tmp_path, ScriptedTransport([answer]))
+
+    response = gw.call(CONTEXT, request())
+
+    # 1k in and 1k out: 0.06 $ at the unknown model's 10 and 50 $/M, plus 0.024 $ at opus-5-5.
+    assert response.cost_usd == pytest.approx(0.084)
+
+
+def test_an_attempt_without_a_model_is_charged_at_the_requested_model(tmp_path: Path) -> None:
+    tokens = {"input_tokens": 1_000, "output_tokens": 1_000, "cache_read_input_tokens": 0}
+    answer = reply() | {"usage": tokens | {"iterations": [{"type": "message"} | tokens]}}
+    gw = gateway(tmp_path, ScriptedTransport([answer]))
+
+    response = gw.call(CONTEXT, request())
+
+    assert response.cost_usd == pytest.approx(cost_usd(request().model, tokens))
+
+
+def test_a_call_without_iterations_costs_what_its_top_level_usage_costs(tmp_path: Path) -> None:
+    for iterations in (None, []):
+        answer = reply(input_tokens=2_000, output=500, read=10_000)
+        if iterations is not None:
+            answer["usage"] = answer["usage"] | {"iterations": iterations}
+        gw = gateway(tmp_path / str(iterations), ScriptedTransport([answer]))
+
+        response = gw.call(CONTEXT, request())
+
+        assert response.cost_usd == pytest.approx(cost_usd("claude-opus-5-5", answer["usage"]))
 
 
 class Slow(ScriptedTransport):

@@ -611,7 +611,7 @@ must not change behaviour. Every task starts with its failing test.
     - `test_two_zooms_with_one_corner_get_two_files`.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(render): name each proof after its source file and zoom box`.
-- [ ] **Task 2.9: transcripts are decoded line by line.** Closes COR-006.
+- [x] **Task 2.9: transcripts are decoded line by line.** Closes COR-006.
   - Files: `src/agency/insights/adapters/transcripts.py` (`_entries`, :88-100), `tests/test_insights.py`.
   - Tests:
     - `test_a_line_torn_inside_a_utf8_character_counts_as_unreadable`: a file holding one whole line plus `b'{"a":"\xc3'`
@@ -1081,6 +1081,16 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   and :47 (`proofs/logo/{stem}`), with `Path(file).stem`. Two files with one stem in one folder, or under two
   folders, such as `a/mark.svg` and `b/mark.svg` or `mark.svg` and `mark.png`, share one proof file or folder, and
   the second run replaces the first. Same shape as COR-007. Found by Task 2.8. Not covered by a planned task.
+
+- [ ] **Task 2.F28: the trace reader decodes in text mode, so one undecodable byte fails the whole read.**
+  insights/adapters/traces.py:51. `self.path.open(encoding="utf-8")` is iterated line by line, but the decode error
+  is raised by the `for` and not inside the per-line `try` (:55-58, which catches `ValueError` and `TypeError` only
+  around `json.loads`). The exporter (telemetry/setup.py:25) writes `json.dumps(record, default=str)` with
+  `ensure_ascii` on, so a torn multibyte character cannot come from the exporter itself; a stray non-UTF-8 byte
+  (damaged file) still would. Nothing repairs a torn tail of `traces.jsonl` (no `_repair` as in
+  agents/transcript.py:17). Same shape as COR-006. Found by Task 2.9. Not covered by a planned task. The engine's
+  own reader (agents/transcript.py:35, `read_text` plus `json.loads` per line) is not listed: `Transcript.__init__`
+  repairs a torn tail first, and a mid-file bad line is outside COR-006.
 
 ## Phase 3: comments and language (Q14–Q16)
 

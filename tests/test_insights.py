@@ -283,7 +283,7 @@ def test_a_half_written_line_is_counted_and_skipped_and_the_stamp_names_each_tra
     assert [item.name for item in transcripts.stamp()] == ["runs/merlo4/T-0002-a1.jsonl"]
 
 
-def test_a_line_torn_inside_a_utf8_character_breaks_the_whole_read(tmp_path: Path) -> None:
+def test_a_line_torn_inside_a_utf8_character_counts_as_unreadable(tmp_path: Path) -> None:
     """The engine writes Italian unescaped, so a line can stop after the first byte of `è`."""
     layout = DataLayout(tmp_path)
     path = layout.transcript("merlo4", "T-0002-a1")
@@ -292,11 +292,13 @@ def test_a_line_torn_inside_a_utf8_character_breaks_the_whole_read(tmp_path: Pat
         handle.write(b'{"a":"\xc3')  # the engine was writing "è"
     transcripts = JsonlTranscripts(layout)
 
-    # Pins current behavior of COR-006; phase 2 (Task 2.9) flips these assertions: 1 entry, 1 unreadable line.
-    with pytest.raises(UnicodeDecodeError):
-        transcripts.read()
-    with pytest.raises(UnicodeDecodeError):
-        transcripts.transcript("merlo4", "T-0002-a1")
+    reading = transcripts.read()
+    assert reading.unreadable == 1
+    assert [call.tool for call in reading.calls] == ["render"]
+    record = transcripts.transcript("merlo4", "T-0002-a1")
+    assert record is not None
+    assert record.unreadable == 1
+    assert [tool.name for item in record.turns for tool in item.tools] == ["render"]
     assert len(Transcript(path).messages()) == 1  # the engine reads bytes, and repairs this same file
 
 

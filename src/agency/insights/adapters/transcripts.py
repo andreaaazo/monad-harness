@@ -87,12 +87,12 @@ class JsonlTranscripts:
     @staticmethod
     def _entries(path: Path) -> tuple[list[dict], int]:
         entries, unreadable = [], 0
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in path.read_bytes().splitlines():
             if not line.strip():
                 continue
             try:
-                entry = json.loads(line)
-            except ValueError:
+                entry = json.loads(line.decode("utf-8"))
+            except ValueError:  # UnicodeDecodeError is a ValueError: a torn line is counted, not fatal
                 unreadable += 1
                 continue
             if isinstance(entry, dict):

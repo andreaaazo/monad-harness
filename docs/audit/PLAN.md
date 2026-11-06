@@ -587,6 +587,19 @@ must not change behaviour. Every task starts with its failing test.
     then expects the reviewer message.
   - Verify: the test passes; standard gate.
   - Commit: `fix(tools): check the reviewer write rule on the resolved path`.
+  - **Not reproduced (2026-11-06).** Tried on a pristine `git archive HEAD` copy, as `critic` (and `qa-inspector`,
+    `legal-reviewer` for the first): `reviews/../brief.md`, `reviews/./../brief.md`, `reviews//../brief.md`,
+    trailing/doubled slash, absolute paths (also `/reviews/../brief.md`), `reviews` as a symlink to the work folder,
+    `reviews/x.md -> ../brief.md`, `reviews/d -> ../secret`, `reviews/up -> ..`, full-width slash, backslashes, NUL
+    byte, `Reviews/` case. No file outside `reviews/` changed in any attempt. Why each fails: the three `..` routes
+    (`PurePosixPath` drops `.` and `//` but keeps `..`) are refused by `_parts` (`files.py:25-29`); absolute, backslash,
+    full-width slash and case variants fail the prefix check at `surface.py:315`, and absolute paths also at
+    `files.py:28`; a trailing or doubled slash on a text name fails `_text_only` (`surface.py:288-290`); the symlinked
+    `reviews`, `reviews/d` and `reviews/up` are refused by `O_NOFOLLOW` in `_enter` (`files.py:41-47`,
+    `_refuse_a_link` `:33-38`); the NUL byte is rejected by `os.mkdir`; `reviews/x.md -> ../brief.md` is accepted but
+    `replace_under` renames over the link itself (`files.py:95-107`), so `brief.md` stays unchanged. The regression test
+    `tests/test_hardening.py::test_a_reviewer_cannot_leave_reviews_with_dotdot` already guards the `..` route.
+    Probe: `/tmp/claude-1000/-home-andreaaazo-Dev-design-agency-harness/9e06fba2-14d0-4eec-bfc3-a96db23a2412/scratchpad/task-2.7/probe.py`.
 - [ ] **Task 2.8: each proof is named after its source file and its zoom box.** Closes COR-007 and COR-012, which share
   one root cause. The real lines are `render.py:20-21`, `:36` and `:65`; the report cites :105 and :150.
   - Files: `src/agency/tools/render.py`, plus any test that asserts a proof path.

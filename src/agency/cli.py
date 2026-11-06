@@ -28,7 +28,7 @@ from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.views import ProjectReport
-from agency.ledger import Ledger, LedgerOutdated
+from agency.ledger import Ledger, LedgerMissing, LedgerOutdated, require_registry
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 from agency.ledger.store import now
 from agency.telemetry import report
@@ -50,7 +50,7 @@ def _doctor(_: argparse.Namespace) -> int:
 
 def _verify(_: argparse.Namespace) -> int:
     settings = Settings()
-    ledger = Ledger(settings.ledger_path)
+    ledger = Ledger.existing(settings.ledger_path)
     ok = ledger.verify_chain()
     print("registro integro" if ok else "REGISTRO ALTERATO")
     broken = keeping.damaged(FileStore(settings.artifacts_dir), ledger)
@@ -179,7 +179,7 @@ def _resume(args: argparse.Namespace) -> int:
 def _resume_locked(args: argparse.Namespace) -> int:
     from agency.runtime import NothingToResume, open_session
 
-    if Ledger(Settings().ledger_path).project(args.project) is None:
+    if Ledger.existing(Settings().ledger_path).project(args.project) is None:
         print(f"Progetto sconosciuto: {args.project}")
         return 1
     session = open_session(Settings())
@@ -197,6 +197,7 @@ def _decide(args: argparse.Namespace) -> int:
 def _decide_locked(args: argparse.Namespace) -> int:
     from agency.runtime import open_session
 
+    Ledger.existing(Settings().ledger_path)
     session = open_session(Settings())
     waiting = session.pending(args.project)
     if not waiting:
@@ -214,7 +215,7 @@ def _decide_locked(args: argparse.Namespace) -> int:
 
 
 def _budget(args: argparse.Namespace) -> int:
-    ledger = Ledger(Settings().ledger_path)
+    ledger = Ledger.existing(Settings().ledger_path)
     if ledger.project(args.project) is None:
         print(f"Progetto sconosciuto: {args.project}")
         return 1
@@ -224,18 +225,19 @@ def _budget(args: argparse.Namespace) -> int:
 
 
 def _report(args: argparse.Namespace) -> int:
+    require_registry(Settings().ledger_path)
     view = _report_of(Settings(), args.project)
     print(view.model_dump_json(indent=2) if args.json else report.render(view))
     return 0
 
 
 def _runs(args: argparse.Namespace) -> int:
-    print(report.render_runs(Ledger(Settings().ledger_path), args.project))
+    print(report.render_runs(Ledger.existing(Settings().ledger_path), args.project))
     return 0
 
 
 def _compare(args: argparse.Namespace) -> int:
-    ledger = Ledger(Settings().ledger_path)
+    ledger = Ledger.existing(Settings().ledger_path)
     first, second = ledger.run(args.first), ledger.run(args.second)
     if first is None or second is None:
         missing = [f"#{seq}" for seq, row in ((args.first, first), (args.second, second)) if row is None]
@@ -299,7 +301,8 @@ def _judge(args: argparse.Namespace) -> int:
 
 
 def _artifacts(args: argparse.Namespace) -> int:
-    print(report.render_artifacts(Ledger(Settings().ledger_path).artifacts(args.project), args.project))
+    ledger = Ledger.existing(Settings().ledger_path)
+    print(report.render_artifacts(ledger.artifacts(args.project), args.project))
     return 0
 
 
@@ -319,6 +322,7 @@ def _restore(args: argparse.Namespace) -> int:
 def _insights(_: argparse.Namespace) -> int:
     """Legge il registro in sola lettura: si può usare anche mentre il motore lavora."""
     settings = Settings()
+    require_registry(settings.ledger_path)
     registry, traces = ReadOnlyRegistry(settings.ledger_path), JsonlTraces(settings.traces_path)
     transcripts = JsonlTranscripts(settings.layout)
     built = insights.rebuild(registry, traces, transcripts, SqliteProjection(settings.insights_path), now())
@@ -391,7 +395,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.fn(args)
-    except (LedgerOutdated, LedgerMismatch, ChainBroken, insights.RegistryNotReadable) as exc:
+    except (LedgerMissing, LedgerOutdated, LedgerMismatch, ChainBroken, insights.RegistryNotReadable) as exc:
         print(f"REGISTRO: {exc}")
         return 1
 

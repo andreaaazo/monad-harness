@@ -507,6 +507,9 @@ CONCEPT = ConceptGate(ticket="T-0001", files=[], options=["V", "X"], recommended
 
 
 def decide(session: FakeSession, monkeypatch: pytest.MonkeyPatch, *arguments: str) -> int:
+    folder = Path(str(session.ledger.engine.url.database)).parent
+    monkeypatch.setenv("AGENCY_DATA_DIR", str(folder))
+    Ledger(folder / "ledger.sqlite")  # `decide` needs a registry to exist
     monkeypatch.setattr("agency.runtime.open_session", lambda _: session)
     monkeypatch.setattr(cli, "_show", lambda *_: 0)
     return cli.main(["decide", "officina", *arguments, "--text", "Scelgo"])
@@ -579,6 +582,7 @@ def test_budget_of_an_unknown_project_is_explained(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path))
+    Ledger(tmp_path / "ledger.sqlite")  # an existing registry that does not know the project
     assert cli.main(["budget", "fantasma", "40"]) == 1
     assert "fantasma" in capsys.readouterr().out
 
@@ -898,3 +902,28 @@ def test_run_takes_the_lock_before_it_checks_that_the_project_exists(
         os.close(fd)
     assert "già lavorando" in out
     assert "esiste già" not in out
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["verify"],
+        ["runs", "forno"],
+        ["artifacts", "forno"],
+        ["compare", "1", "2"],
+        ["report", "forno"],
+        ["insights"],
+        ["budget", "forno", "5"],
+        ["resume", "forno"],
+        ["decide", "forno", "--approve", "--text", "ok"],
+    ],
+    ids=lambda command: command[0],
+)
+def test_read_only_commands_never_create_a_registry(
+    command: list[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A wrong folder or data root is an error, not a fresh empty registry that reports on itself (DX-003)."""
+    path = cli_data(tmp_path, monkeypatch)
+    assert cli.main(command) == 1
+    assert capsys.readouterr().out.splitlines() == [f"REGISTRO: nessun registro in {path.absolute()}"]
+    assert not path.exists()

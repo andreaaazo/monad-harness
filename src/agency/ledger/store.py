@@ -54,6 +54,19 @@ class ForbiddenAction(Exception):
     """L'attore non ha il diritto di compiere l'azione."""
 
 
+class LedgerMissing(Exception):
+    """There is no registry at the path: a command that only reads or amends must not create one."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path.absolute()
+        super().__init__(f"nessun registro in {self.path}")
+
+
+def require_registry(path: Path) -> None:
+    if not path.is_file():
+        raise LedgerMissing(path)
+
+
 def now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
@@ -65,6 +78,12 @@ class Ledger:
         self._chain = threading.RLock()  # la catena di hash ha un solo scrittore per volta
         sa_event.listen(self.engine, "connect", self._configure)
         schema.ensure_current(self.engine)
+
+    @classmethod
+    def existing(cls, path: Path) -> Ledger:
+        """Open a registry that must already exist; only `agency run` may create one (DX-003)."""
+        require_registry(path)
+        return cls(path)
 
     @staticmethod
     def _configure(dbapi_connection: object, _record: object) -> None:

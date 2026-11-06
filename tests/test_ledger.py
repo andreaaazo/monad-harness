@@ -148,15 +148,14 @@ def test_verify_exits_1_on_a_broken_chain(
     assert capsys.readouterr().out.splitlines()[0] == "REGISTRO ALTERATO"
 
 
-def test_verify_on_a_missing_registry_creates_one_and_calls_it_intact(
+def test_verify_on_a_missing_registry_exits_1_with_its_path_and_creates_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # Pins current behavior of DX-003; phase 2 (Task 2.14) flips these assertions.
     path = use_data_dir(tmp_path, monkeypatch)
     assert not path.exists()
-    assert cli.main(["verify"]) == 0
-    assert capsys.readouterr().out.splitlines() == ["registro integro", "artefatti integri: 0"]
-    assert path.is_file()
+    assert cli.main(["verify"]) == 1
+    assert capsys.readouterr().out.splitlines() == [f"REGISTRO: nessun registro in {path.absolute()}"]
+    assert not path.exists()
 
 
 def test_past_projects_stay_readable() -> None:

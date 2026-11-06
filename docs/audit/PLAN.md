@@ -663,7 +663,7 @@ must not change behaviour. Every task starts with its failing test.
       recorded cost of `0.645` at the current table.
   - Verify: the test passes; standard gate.
   - Commit: `fix(gateway): charge every attempt of a call that fell back to another model`.
-- [ ] **Task 2.14 [APPROVAL]: read-only commands never create a registry.** Closes DX-003 (its own half; Q3).
+- [x] **Task 2.14 [APPROVAL]: read-only commands never create a registry.** Closes DX-003 (its own half; Q3).
   - Files: `src/agency/ledger/store.py`, `src/agency/cli.py`, `tests/test_hardening.py`.
   - Interfaces: `Ledger.existing(path: Path) -> Ledger` raises `LedgerMissing(path)`, which `cli.main` prints as
     `REGISTRO: nessun registro in <absolute path>`.
@@ -1110,6 +1110,15 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   not recompute cost from tokens (`sums.cost` sums the stored column), so no cost figure is wrong. Changing the
   columns needs a decision on one row versus a nullable per-attempt column (SUMMARY.md, COR-008). Found by Task 2.13.
   Not covered by a planned task.
+
+- [ ] **Task 2.F32: `agency restore` creates an empty registry when run from the wrong folder.** cli.py:310
+  (`_restore`: `Ledger(settings.ledger_path)`). It only reads a kept version out of the registry, yet on a missing
+  registry it creates an empty one and then says no version has that hash. Task 2.14 left it out because its list
+  (SUMMARY.md, Q3) does not name it. The fix is `Ledger.existing`, the same message. Found by Task 2.14.
+- [ ] **Task 2.F33: `agency judge` creates a registry on a missing data root.** cli.py:252 (`_judge`:
+  `Ledger(settings.ledger_path)`). It writes judgments, so creating the registry may be intended, but a wrong data
+  root makes a fresh one that holds only that judgment. Needs the owner to say whether `judge` may create it. Found
+  by Task 2.14.
 
 ## Phase 3: comments and language (Q14–Q16)
 

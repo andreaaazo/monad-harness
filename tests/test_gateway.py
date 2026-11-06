@@ -314,31 +314,81 @@ def test_a_cap_crossed_only_by_the_input_part_stops_the_call(tmp_path: Path) -> 
     assert len(transport.requests) == 1
 
 
-def test_parallel_calls_overspend_the_cap(tmp_path: Path) -> None:
+def test_parallel_calls_cannot_overspend_the_cap(tmp_path: Path) -> None:
     """Five calls at once against a 0.20 $ cap, each costing exactly its 0.085 $ estimate.
 
-    One after the other, two go out and three are refused. The barrier holds every call inside `stream`
-    until all five are there, so each one passed `authorize` before any usage was recorded.
+    The five threads leave a barrier together. A call that passes the check waits inside `stream` until all
+    five have been decided, so no usage is recorded while the others are checked: only the estimates of the
+    calls in flight can stop them. Two fit in the cap and three are refused, in whatever order the threads
+    run.
     """
     calls = 5
-    barrier = threading.Barrier(calls, timeout=10)  # the timeout only guards against a hang
+    start = threading.Barrier(calls, timeout=10)  # the timeouts here only guard against a hang
+    decided = threading.Semaphore(0)
+    release = threading.Event()
 
-    class AllAtOnce(ScriptedTransport):
+    class HeldInFlight(ScriptedTransport):
         def stream(self, params: dict) -> dict:
-            barrier.wait()
+            decided.release()
+            assert release.wait(timeout=10)
             return super().stream(params)
 
-    transport = AllAtOnce([reply(input_tokens=0, output=4_000, write=1_000) for _ in range(calls)])
+    transport = HeldInFlight([reply(input_tokens=0, output=4_000, write=1_000) for _ in range(calls)])
     gw = gateway(tmp_path, transport, budget=0.20)
     assert gw.estimate_usd(request(), None) == pytest.approx(0.085)
 
-    with ThreadPoolExecutor(calls) as pool:
-        responses = list(pool.map(lambda _: gw.call(CONTEXT, request()), range(calls)))
+    def one_call() -> ModelResponse | BudgetExceeded:
+        start.wait()
+        try:
+            return gw.call(CONTEXT, request())
+        except BudgetExceeded as refused:
+            decided.release()
+            return refused
 
-    assert [response.cost_usd for response in responses] == pytest.approx([0.085] * calls)
-    # Pins current behavior of COR-002; phase 2 (Task 2.11) flips this assertion: 2 out, spend <= 0.20 $.
-    assert len(transport.requests) == calls
-    assert gw.ledger.spent("p") == pytest.approx(0.425)
+    with ThreadPoolExecutor(calls) as pool:
+        futures = [pool.submit(one_call) for _ in range(calls)]
+        for _ in range(calls):
+            assert decided.acquire(timeout=10)
+        release.set()
+        outcomes = [future.result() for future in futures]
+
+    streamed = [outcome for outcome in outcomes if isinstance(outcome, ModelResponse)]
+    refused = [outcome for outcome in outcomes if isinstance(outcome, BudgetExceeded)]
+    assert len(transport.requests) == 2
+    assert (len(streamed), len(refused)) == (2, 3)
+    assert [response.cost_usd for response in streamed] == pytest.approx([0.085, 0.085])
+    assert gw.ledger.spent("p") <= 0.20
+    assert gw.ledger.spent("p") == pytest.approx(0.17)
+
+
+def test_a_call_that_fails_while_streaming_releases_its_reservation(tmp_path: Path) -> None:
+    """The first call reserves its 0.085 $ estimate, then the connection drops while it streams.
+
+    It spent nothing, so under a 0.20 $ cap two more calls still fit, one after the other.
+    """
+
+    class DropsFirst(ScriptedTransport):
+        drops = 1
+
+        def stream(self, params: dict) -> dict:
+            if self.drops:
+                self.drops -= 1
+                dropped = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+                raise anthropic.APIConnectionError(request=dropped)
+            return super().stream(params)
+
+    transport = DropsFirst([reply(input_tokens=0, output=4_000, write=1_000) for _ in range(2)])
+    gw = gateway(tmp_path, transport, budget=0.20)
+    assert gw.estimate_usd(request(), None) == pytest.approx(0.085)
+    with pytest.raises(anthropic.APIConnectionError):
+        gw.call(CONTEXT, request())
+    assert gw.ledger.spent("p") == 0
+
+    gw.call(CONTEXT, request())
+    gw.call(CONTEXT, request())
+
+    assert len(transport.requests) == 2
+    assert gw.ledger.spent("p") == pytest.approx(0.17)
 
 
 def test_project_ceiling_stops_before_the_call(tmp_path: Path) -> None:

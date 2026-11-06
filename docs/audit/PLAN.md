@@ -629,13 +629,15 @@ must not change behaviour. Every task starts with its failing test.
     - `test_resume_without_saved_work_says_so`: exit 1 with one line, and no `runs` row.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(runtime): validate the brief before the project exists, and say when there is nothing to resume`.
-- [ ] **Task 2.11: parallel calls cannot overspend the cap.** Closes COR-002.
+- [x] **Task 2.11: parallel calls cannot overspend the cap.** Closes COR-002.
   - Files: `src/agency/gateway/client.py` (`authorize`, `call`), `tests/test_gateway.py`.
   - Implementation: a `threading.Lock` plus `_reserved: dict[str, float]`. Authorize against
     `spent + reserved + estimate`, and release the reservation in `finally`, after `_record` or on error.
   - Tests:
     - `test_parallel_calls_cannot_overspend_the_cap`. Five threads wait at a barrier, against a 0.20 $ cap and a cost
       equal to the 0.085 $ estimate. Expect 2 calls streamed, 3 refused, and spend ≤ 0.20.
+    - `test_a_call_that_fails_while_streaming_releases_its_reservation`: a dropped connection frees its estimate, so
+      two later calls still fit a 0.20 $ cap.
   - Verify: the test passes; standard gate.
   - Commit: `fix(gateway): reserve each call's estimate until its usage is recorded`.
 - [ ] **Task 2.12 [APPROVAL]: one process at a time works on a project.** Closes COR-005.

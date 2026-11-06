@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -92,6 +93,8 @@ class ModelGateway:
         self.settings = settings
         self.clock = clock
         self.run: int | None = None
+        self._lock = threading.Lock()
+        self._reserved: dict[str, float] = {}  # per project: the estimates of calls not recorded yet
 
     def belongs_to(self, run: int) -> None:
         """Le chiamate da qui in poi appartengono a questa esecuzione, registrata prima del grafo."""
@@ -131,30 +134,41 @@ class ModelGateway:
 
     def authorize(self, context: CallContext, limit: float, estimate: float) -> None:
         """L'unico vincolo è il budget scelto dal cliente: nessun altro tetto ferma il lavoro."""
-        spent = self.ledger.spent(context.project)
-        if spent + estimate > limit:
-            raise BudgetExceeded(f"{spent:.2f} $ spesi su {limit:.2f} $")
+        with self._lock:  # check and reserve in one step: parallel calls cannot share one remaining budget
+            spent = self.ledger.spent(context.project)
+            reserved = self._reserved.get(context.project, 0.0)
+            if spent + reserved + estimate > limit:
+                raise BudgetExceeded(f"{spent:.2f} $ spesi su {limit:.2f} $")
+            self._reserved[context.project] = reserved + estimate
+
+    def _release(self, project: str, estimate: float) -> None:
+        with self._lock:
+            self._reserved[project] -= estimate
 
     def call(
         self, context: CallContext, request: ModelRequest, previous: ModelResponse | None = None
     ) -> ModelResponse:
         limit = self.project_limit(context.project)  # prima della stima: senza tetto non esce nulla
-        self.authorize(context, limit, self.estimate_usd(request, previous))
-        params = self._params(request)
-        with tracer.start_as_current_span("model.call") as span:
-            span.set_attributes(
-                {
-                    "agency.project": context.project,
-                    "agency.ticket": context.ticket_id,
-                    "agency.role": context.role,
-                    "gen_ai.request.model": request.model,
-                }
-            )
-            started = self.clock()
-            data = self._stream(params)
-            duration_ms = round((self.clock() - started) * 1000)
-            response = self._record(context, request, data, duration_ms)
-            span.set_attribute("agency.cost_usd", response.cost_usd)
+        estimate = self.estimate_usd(request, previous)
+        self.authorize(context, limit, estimate)
+        try:
+            params = self._params(request)
+            with tracer.start_as_current_span("model.call") as span:
+                span.set_attributes(
+                    {
+                        "agency.project": context.project,
+                        "agency.ticket": context.ticket_id,
+                        "agency.role": context.role,
+                        "gen_ai.request.model": request.model,
+                    }
+                )
+                started = self.clock()
+                data = self._stream(params)
+                duration_ms = round((self.clock() - started) * 1000)
+                response = self._record(context, request, data, duration_ms)
+                span.set_attribute("agency.cost_usd", response.cost_usd)
+        finally:  # after `_record` the spend holds the cost; on an error nothing was recorded
+            self._release(context.project, estimate)
         return response
 
     def _stream(self, params: dict) -> dict:

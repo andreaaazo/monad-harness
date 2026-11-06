@@ -258,7 +258,9 @@ def build(
                 continue
             row = concepts[title]
             ledger.update_concept(row.idea_ticket, status="proposta")
-            mark, applications = presentation.proposal_files(work_dir(project), turn, row.anon)
+            mark, applications = presentation.proposal_files(
+                work_dir(project), turn, row.anon, ledger.delivered(ticket)
+            )
             view = f"proposals/r{turn}/insieme-{row.anon.lower()}.png"
             presentation.sheet(mark, applications, work_dir(project) / view)
             card = ConceptCard.model_validate_json(row.card_json)

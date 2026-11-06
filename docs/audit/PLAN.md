@@ -406,7 +406,7 @@ Known bugs pinned as they behave today. Each pin has a comment that names the ta
 |---|---|---|
 | SEC-001 | `tests/test_hardening.py::test_compute_writes_through_a_planted_ops_symlink` | 2.1 |
 | COR-001 | `tests/test_agent_flow.py::test_observe_accepts_a_render_viewed_for_an_older_version` | 2.4 |
-| SEC-003 | `tests/test_sketch_flow.py::test_a_hidden_image_reaches_the_presentation_but_not_delivery` | 2.6 |
+| SEC-003 | `tests/test_sketch_flow.py::test_a_hidden_image_never_reaches_the_presentation` | 2.6 |
 | SEC-004 | `tests/test_hardening.py::test_a_reviewer_leaves_reviews_with_dotdot` | 2.7 |
 | COR-007 | `tests/test_agent_flow.py::test_sources_with_one_stem_share_one_proof` | 2.8 |
 | COR-012 | `tests/test_agent_flow.py::test_two_zooms_with_one_corner_share_one_file` | 2.8 |
@@ -568,7 +568,7 @@ must not change behaviour. Every task starts with its failing test.
   - Verify: the tests pass; `rg -n "Image\.open\(" src/agency --glob '!**/qa/scripts/**'` finds only
     `contracts/media.py`; standard gate.
   - Commit: `fix(tools): open sandbox-written images only as PNG, JPEG, WebP or GIF`.
-- [ ] **Task 2.6: the presentation shows only delivered images.** Closes SEC-003.
+- [x] **Task 2.6: the presentation shows only delivered images.** Closes SEC-003.
   - Files: `src/agency/tools/presentation.py` (`proposal_files`), `src/agency/graph/workflow.py` (`present`, :255-263),
     `src/agency/tools/surface.py` (`draft_presentation`), `tests/test_sketch_flow.py`.
   - Interface: `proposal_files(work: Path, turn: int, anon: str, delivered: Iterable[str]) -> tuple[Path, tuple[Path, ...]]`.
@@ -973,7 +973,8 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   tools/presentation.py:152-159 (`sheet`). The glob in `proposal_files` is SEC-003, closed by Task 2.6. `sheet` reads
   the images and writes `proposals/r<n>/insieme-<x>.png` with `mkdir` and `save`. Task 2.2's rule; its list names
   `_fit` and `build` in presentation.py, not `sheet`. Since Task 2.2, `sheet` reads the images through `_fit`, which
-  goes through the helper. Its `mkdir` and `save` are still open.
+  goes through the helper. Its `mkdir` and `save` are still open. Since Task 2.6, `proposal_files` takes the proposal
+  ticket's delivered paths (workflow.py:261 passes `ledger.delivered(ticket)`), so the glob is gone.
 - [ ] **Task 2.F7: the production node copies the chosen proposal through links.** graph/workflow.py:340-341 and
   :360. It copies `proposals/r<n>/<x>/proposta-<x>.vectorcraft`, written by a proposer sandbox, into the root ticket's
   target, then hashes the inputs. Task 2.2's rule; workflow.py is not on its list.
@@ -1056,6 +1057,12 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   file the model wrote, in the harness's process tree and with the operator's `HOME`. `tools/craft.py` and
   `tools/render.py` run it through `Sandbox`, so only this path is unconfined. Closed by Task 2.27 (SEC-006), which
   adds a `render` callable backed by `Sandbox` that `cli.py` supplies.
+- [ ] **Task 2.F26: `present_concepts` lists the pages to check by globbing the folder.** tools/surface.py:765
+  (`folder.glob("pagina-*.png")`). The pages the director must have viewed are whatever `pagina-*.png` files sit in
+  `presentation/r<n>/`, not the list `draft_presentation` returned, so a page planted there is checked and kept as if
+  it were part of the draft, and a page missing from the draft is not noticed. Only the PDF is sent, and `build`
+  deletes old pages, so the exposure is small. Found by Task 2.6. Same shape as SEC-003; the fix is to read the page
+  list from `testi.json` or from the draft result. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

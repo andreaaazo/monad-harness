@@ -11,9 +11,10 @@ import fnmatch
 import io
 import os
 import subprocess
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -228,10 +229,19 @@ def pdf_of(turn: int) -> str:
     return f"{folder_of(turn)}/{PDF}"
 
 
-def proposal_files(work: Path, turn: int, anon: str) -> tuple[Path, tuple[Path, ...]]:
+def proposal_files(
+    work: Path, turn: int, anon: str, delivered: Iterable[str]
+) -> tuple[Path, tuple[Path, ...]]:
+    """The mark and the applications of a proposal. `delivered` holds paths relative to the proposal folder:
+    only those are shown, so a file nobody delivered or checked never reaches the pages."""
     letter = anon.lower()
     folder = work / f"proposals/r{turn}/{letter}"
-    return folder / f"proposta-{letter}.png", tuple(sorted((folder / f"applicazioni-{letter}").glob("*.png")))
+    shown = {
+        folder / path
+        for path in delivered
+        if PurePosixPath(path).parent == PurePosixPath(f"applicazioni-{letter}") and path.endswith(".png")
+    }
+    return folder / f"proposta-{letter}.png", tuple(sorted(shown))
 
 
 def _encoded(page: Image.Image, kind: str, **options: object) -> bytes:

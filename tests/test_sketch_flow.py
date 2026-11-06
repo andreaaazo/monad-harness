@@ -17,7 +17,7 @@ from agency.config import Settings
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import ConceptGate
 from agency.contracts.run import Fingerprint, changes
-from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType
+from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.gateway import BudgetExceeded
 from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.domain import derive_phase
@@ -930,30 +930,70 @@ def test_export_master_refuses_unknown_options(tmp_path: Path) -> None:
     assert result["content"] == "opzioni non ammesse: ['--plugin']"
 
 
-def test_a_hidden_image_reaches_the_presentation_but_not_delivery(tmp_path: Path) -> None:
-    """A dot-file left in a proposal's applications is never delivered, yet the presentation picks it up."""
-    proposal = tmp_path / "proposals/r1/v"
-    applications = proposal / "applicazioni-v"
+def test_a_hidden_image_never_reaches_the_presentation(tmp_path: Path) -> None:
+    """A dot-file left in a proposal's applications is never delivered, so no page may show it."""
+    folder = tmp_path / "proposals/r1/v"
+    applications = folder / "applicazioni-v"
     applications.mkdir(parents=True)
-    Image.new("RGB", (40, 40), (240, 240, 240)).save(applications / "insegna.png")
-    Image.new("RGB", (40, 40), (200, 0, 0)).save(applications / ".zz.png")
+    Image.new("RGB", (300, 300), (30, 60, 200)).save(folder / "proposta-v.png")
+    Image.new("RGB", (300, 300), (240, 240, 240)).save(applications / "insegna.png")
+    Image.new("RGB", (300, 300), (13, 201, 77)).save(applications / ".zz.png")
+    ctx = context(tmp_path, "design-director", "T-0001")
+    root = ctx.ledger.open(
+        TicketSpec(
+            title="Radice",
+            request="r",
+            type=TicketType.PRODUCTION,
+            sender="design-director",
+            assignee="design-director",
+            outputs=["x.png"],
+            checks={"*.png": ["visual_review"]},
+            media=[Medium.IMAGE],
+        ),
+        "p",
+    )
     spec = TicketSpec(
-        title="Proposta V",
+        title="Proposta V r1",
         request="Sviluppa la proposta",
         type=TicketType.PROPOSAL,
         sender="design-director",
-        assignee="direction-a",
-        outputs=["applicazioni-v/*.png"],
+        assignee="identity-designer",
+        outputs=["proposta-v.png", "applicazioni-v/*.png"],
         checks={"*.png": ["visual_review"]},
         media=[Medium.IMAGE],
+        parent=root,
+        workspace="proposals/r1/v",
+    )
+    delivered, _ = delivery.expected(spec, folder)
+    assert delivered == ["proposta-v.png", "applicazioni-v/insegna.png"]
+    ticket = ctx.ledger.open(spec, "p")
+    ctx.ledger.apply(
+        ticket,
+        Action.DELIVER,
+        "identity-designer",
+        "consegna",
+        None,
+        {path: sha256(folder / path) for path in delivered},
+    )
+    ctx.ledger.add_concept(
+        ConceptRow(
+            project="p", round=1, letter="a", lever="l", idea_ticket="T-9", anon="V", status="proposta"
+        )
+    )
+    text = {"letter": "V", "title": "T", "idea": "I", "why": "W", "risk": "R"}
+
+    done = Toolbox(ctx, [TOOLS["draft_presentation"]]).call(
+        "a", "draft_presentation", {"proposals": [text], "recommended": "V", "reasons": "r"}
     )
 
-    delivered, _ = delivery.expected(spec, proposal)
-    _, shown = presentation.proposal_files(tmp_path, 1, "V")
-
-    assert delivered == ["applicazioni-v/insegna.png"]
-    # Pins current behavior of SEC-003; phase 2 (Task 2.6) flips this assertion: only delivered images.
-    assert [image.name for image in shown] == [".zz.png", "insegna.png"]
+    assert not done.get("is_error"), done
+    colours = set()
+    for page in sorted(tmp_path.glob("presentation/r1/pagina-*.png")):
+        with Image.open(page) as image:
+            counted = image.convert("RGB").getcolors(presentation.WIDTH * presentation.HEIGHT) or []
+            colours |= {colour for _, colour in counted}
+    assert (30, 60, 200) in colours  # the delivered mark is shown
+    assert (13, 201, 77) not in colours
 
 
 def test_finisher_cannot_explore(tmp_path: Path) -> None:

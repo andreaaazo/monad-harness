@@ -711,6 +711,16 @@ def select_concepts(ctx: ToolContext, a: SelectConcepts, _: str) -> dict:
     return a.model_dump()
 
 
+def _delivered_proposal(ctx: ToolContext, letter: str) -> dict[str, str]:
+    """What the proposal ticket delivered, by path relative to its folder; empty if it delivered nothing."""
+    title = f"Proposta {letter} r{ctx.round}"
+    for ticket in ctx.ledger.children(ctx.ticket_id):
+        spec = ctx.ledger.spec(ticket)
+        if spec.type is TicketType.PROPOSAL and spec.title == title:
+            return ctx.ledger.delivered(ticket)
+    return {}
+
+
 def draft_presentation(ctx: ToolContext, a: PresentConcepts, _: str) -> dict:
     """Compone le pagine vere: il direttore vede ciò che vedrà il cliente, non i testi che ha scritto."""
     available = {row.anon for row in ctx.ledger.concepts(ctx.project, ctx.round) if row.status == "proposta"}
@@ -730,7 +740,9 @@ def draft_presentation(ctx: ToolContext, a: PresentConcepts, _: str) -> dict:
             item.idea,
             item.why,
             item.risk,
-            *presentation.proposal_files(ctx.work, ctx.round, item.letter),
+            *presentation.proposal_files(
+                ctx.work, ctx.round, item.letter, _delivered_proposal(ctx, item.letter)
+            ),
         )
         for item in a.proposals
     ]

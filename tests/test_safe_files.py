@@ -194,7 +194,9 @@ def presenting(work: Path, host: Path) -> Read:
     (folder / "proposta-v.png").write_bytes(png((20, 20, 20)))
     (folder / "applicazioni-v/insegna.png").write_bytes(png((240, 240, 240)))
     (folder / "applicazioni-v/.zz.png").symlink_to(host / "secret.png")
-    mark, applications = presentation.proposal_files(work, 1, "V")
+    mark, applications = presentation.proposal_files(
+        work, 1, "V", ["applicazioni-v/insegna.png", "applicazioni-v/.zz.png"]
+    )
     item = presentation.Proposal("V", "Il merlo", "L'idea", "Perché", "Il limite", mark, applications)
     return lambda: presentation.build([item], "V", "Regge meglio", work / "presentation/r1")
 

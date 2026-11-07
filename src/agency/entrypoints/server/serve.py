@@ -15,6 +15,8 @@ from collections.abc import MutableMapping
 from socketserver import ThreadingMixIn
 from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
 
+from agency.contracts.layout import RelativeDataRoot
+
 SETTINGS = "agency.entrypoints.server.settings"
 SECRETS = ("ANTHROPIC_API_KEY", "AGENCY_ANTHROPIC_API_KEY")
 HOST, PORT = "127.0.0.1", 8000
@@ -64,6 +66,9 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(f"SERVER: {exc}", file=sys.stderr)
         return 2
+    except RelativeDataRoot as exc:  # the settings load here; the engine prints the same line (ADR-0045)
+        print(exc, file=sys.stderr)
+        return 1
     except OSError as exc:
         if exc.errno != errno.EADDRINUSE:
             raise

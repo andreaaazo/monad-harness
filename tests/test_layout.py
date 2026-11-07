@@ -9,10 +9,17 @@ from pathlib import Path
 
 import pytest
 
-from agency.config import Settings
+from agency.config import REPO_ROOT, Settings
 from agency.contracts.layout import DataLayout
 
 SERVER_ROOT = "from agency.entrypoints.server import settings; print(settings.AGENCY_DATA_DIR)"
+# A fresh process, so the class keeps its own `.env` setting; `_env_file=None`, so it reads no `.env`.
+ENGINE_ROOTS = (
+    "from agency.config import REPO_ROOT, Settings\n"
+    "settings = Settings(_env_file=None)\n"
+    "dotenv = Settings.model_config['env_file']\n"
+    "print(REPO_ROOT, dotenv, settings.data_dir, settings.projects_dir, sep='\\n')\n"
+)
 
 
 def paths(layout: DataLayout) -> tuple[Path, ...]:
@@ -54,27 +61,52 @@ def test_data_paths_under_a_root() -> None:
     assert settings.project_dir("p") == Path("/q/p")
 
 
-def test_engine_and_server_take_the_data_root_from_different_places(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`.env` moves the engine's data root, not the server's: the server never reads `.env` (ADR-0031)."""
+def test_the_default_data_root_is_the_checkout_from_any_directory(tmp_path: Path) -> None:
+    """From `web/`, the engine uses the checkout's registry and `.env`, not ones in `web/` (DX-003)."""
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("AGENCY_")}
+    seen = []
+    for folder in (tmp_path, tmp_path / "web"):
+        folder.mkdir(exist_ok=True)
+        done = subprocess.run(
+            [sys.executable, "-c", ENGINE_ROOTS],
+            cwd=folder,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        seen.append(done.stdout.splitlines())
+
+    expected = [str(REPO_ROOT / name) for name in ("", ".env", ".data", "projects")]
+    assert seen == [expected, expected]
+    assert (REPO_ROOT / "registry" / "roles.json").is_file()  # the checkout the code runs from
+
+
+def test_engine_and_server_resolve_the_same_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """From a folder outside the checkout, with or without `AGENCY_DATA_DIR`: one root for both (ADR-0045)."""
     environment = {key: value for key, value in os.environ.items() if not key.startswith("AGENCY_")}
     for key in set(os.environ) - set(environment):
         monkeypatch.delenv(key)
     monkeypatch.chdir(tmp_path)
-    default = Settings(_env_file=None).data_dir  # type: ignore[call-arg]
-    (tmp_path / ".env").write_text("AGENCY_DATA_DIR=altrove\n", encoding="utf-8")
+    chosen = tmp_path / "registro"
 
-    engine = Settings().ledger_path  # type: ignore[call-arg]
-    started = subprocess.run(
-        [sys.executable, "-c", SERVER_ROOT], cwd=tmp_path, env=environment, capture_output=True, text=True
-    )
+    def server_root(extra: dict[str, str]) -> Path:
+        started = subprocess.run(
+            [sys.executable, "-c", SERVER_ROOT],
+            cwd=tmp_path,
+            env=environment | extra,
+            capture_output=True,
+            text=True,
+        )
+        assert started.returncode == 0, started.stderr
+        return Path(started.stdout.strip())
 
-    # Pins current behavior of STR-001; phase 2 (Tasks 2.15-2.16) flips these assertions: one absolute root.
-    assert default == Path(".data")  # relative: it follows whatever directory the command runs from
-    assert engine == Path("altrove/ledger.sqlite")
-    assert started.returncode == 0, started.stderr
-    assert Path(started.stdout.strip()) == tmp_path.resolve() / ".data"
+    default = (Settings().data_dir, server_root({}))
+    monkeypatch.setenv("AGENCY_DATA_DIR", str(chosen))
+    given = (Settings().data_dir, server_root({"AGENCY_DATA_DIR": str(chosen)}))
+
+    assert default == (REPO_ROOT / ".data", REPO_ROOT / ".data")
+    assert given == (chosen, chosen)
 
 
 def test_project_names_become_folders_unchecked(tmp_path: Path) -> None:

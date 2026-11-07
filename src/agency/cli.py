@@ -18,6 +18,7 @@ from agency.artifacts import FileStore, keeping
 from agency.config import Settings
 from agency.contracts.artifact import Origin
 from agency.contracts.gate import ConceptGate
+from agency.contracts.layout import RelativeDataRoot
 from agency.doctor import run_checks
 from agency.evaluation import blind, board
 from agency.gateway import BudgetExceeded
@@ -397,6 +398,9 @@ def main(argv: list[str] | None = None) -> int:
         return args.fn(args)
     except (LedgerMissing, LedgerOutdated, LedgerMismatch, ChainBroken, insights.RegistryNotReadable) as exc:
         print(f"REGISTRO: {exc}")
+        return 1
+    except RelativeDataRoot as exc:  # the dashboard server prints the same line (ADR-0045)
+        print(exc)
         return 1
 
 

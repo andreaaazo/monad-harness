@@ -27,6 +27,7 @@ from django.conf import settings  # noqa: E402
 from django.http import HttpRequest, HttpResponse  # noqa: E402
 from django.test import Client, RequestFactory, override_settings  # noqa: E402
 
+from agency import cli  # noqa: E402
 from agency.agents.transcript import Transcript  # noqa: E402
 from agency.config import REPO_ROOT  # noqa: E402
 from agency.contracts.layout import DataLayout  # noqa: E402
@@ -409,6 +410,41 @@ def test_the_server_runs_as_its_own_process(tmp_path: Path, studio: Ledger) -> N
     finally:
         process.terminate()
         process.wait(timeout=10)
+
+
+RELATIVE = (
+    "{name} deve essere un percorso assoluto, non {value!r}: uno relativo dipende dalla cartella da cui parte"
+    " il comando"
+)
+
+
+def test_a_relative_data_root_is_refused_by_engine_and_server(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`AGENCY_DATA_DIR=.data task dashboard`: neither process starts, and both say why in the same line."""
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("AGENCY_")}
+    for key in set(os.environ) - set(environment):
+        monkeypatch.delenv(key)
+    monkeypatch.chdir(tmp_path)
+    line = RELATIVE.format(name="AGENCY_DATA_DIR", value=".data") + "\n"
+
+    monkeypatch.setenv("AGENCY_DATA_DIR", ".data")
+    assert (cli.main(["verify"]), capsys.readouterr().out) == (1, line)
+    monkeypatch.delenv("AGENCY_DATA_DIR")
+    monkeypatch.setenv("AGENCY_PROJECTS_DIR", "projects")  # the projects folder follows the same rule
+    projects = RELATIVE.format(name="AGENCY_PROJECTS_DIR", value="projects") + "\n"
+    assert (cli.main(["verify"]), capsys.readouterr().out) == (1, projects)
+
+    server = subprocess.run(
+        [sys.executable, "-m", "agency.entrypoints.server", "--port", "0"],
+        cwd=tmp_path,
+        env=environment | {"AGENCY_DATA_DIR": ".data"},
+        capture_output=True,
+        text=True,
+        timeout=30,  # a server that accepts the root serves until this kills it
+    )
+    assert (server.returncode, server.stderr) == (1, line)
+    assert not (tmp_path / ".data").exists()
 
 
 # I confini

@@ -5,8 +5,47 @@ Il server del cruscotto lo usa senza passare da `agency.config`, che legge `.env
 
 from __future__ import annotations
 
+import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+
+# The checkout the code runs from: `prompts/`, `registry/`, `.env` and the default data root hang from it,
+# whatever the current folder (ADR-0045). Each worktree is its own checkout, with its own `.data`.
+CHECKOUT = Path(__file__).resolve().parents[3]
+
+
+class RelativeDataRoot(Exception):
+    """A data or projects folder given as a relative path: it would follow the current folder (ADR-0045)."""
+
+    def __init__(self, name: str, value: str) -> None:
+        self.name, self.value = name, value
+        super().__init__(
+            f"{name} deve essere un percorso assoluto, non {value!r}: uno relativo dipende dalla cartella"
+            " da cui parte il comando"
+        )
+
+
+def data_root(environ: Mapping[str, str] = os.environ) -> Path:
+    """The registry's folder: `AGENCY_DATA_DIR`, which must be absolute, or `.data` in the checkout.
+
+    The engine and the dashboard server both resolve it here, so the two never look at different registries.
+    """
+    return _anchored(environ, "AGENCY_DATA_DIR", CHECKOUT / ".data")
+
+
+def projects_root(environ: Mapping[str, str] = os.environ) -> Path:
+    """The client projects' folder, by the same rule: `AGENCY_PROJECTS_DIR`, or `projects` in the checkout."""
+    return _anchored(environ, "AGENCY_PROJECTS_DIR", CHECKOUT / "projects")
+
+
+def _anchored(environ: Mapping[str, str], name: str, default: Path) -> Path:
+    value = environ.get(name)
+    if value is None:
+        return default
+    if not Path(value).is_absolute():
+        raise RelativeDataRoot(name, value)
+    return Path(value)
 
 
 @dataclass(frozen=True)

@@ -10,6 +10,8 @@ import os
 import secrets
 from pathlib import Path
 
+from agency.contracts.layout import data_root
+
 DEBUG = False
 # Nessuna sessione, nessun utente, niente da firmare: una chiave nuova a ogni avvio, mai scritta.
 SECRET_KEY = secrets.token_urlsafe(50)
@@ -28,7 +30,8 @@ X_FRAME_OPTIONS = "DENY"
 USE_TZ = True
 TIME_ZONE = "UTC"
 
-AGENCY_DATA_DIR = Path(os.environ.get("AGENCY_DATA_DIR", ".data")).resolve()
+# The engine's resolver: the same root, and the same refusal of a relative one (ADR-0045).
+AGENCY_DATA_DIR = data_root()
 # Senza la variabile la proiezione sta accanto al registro, qualunque esso sia quando la si usa: None, non una
 # cartella fissata all'avvio.
 _PROJECTION = os.environ.get("AGENCY_PROJECTION_DIR")

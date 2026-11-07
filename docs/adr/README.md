@@ -49,3 +49,4 @@ vecchio. Date: 2026-10-31.
 | [0042](0042-il-riferimento-di-qualita-e-merlo3.md) | Il riferimento di qualità di E1 è `merlo3` | Accettata, sostituisce `merlo` in `07-EVALS.md` |
 | [0043](0043-il-tetto-si-dichiara-all-avvio.md) | Il tetto di spesa si dichiara all'avvio | Accettata, toglie il budget di default a 0015 |
 | [0044](0044-i-file-dell-harness-fuori-dalla-sandbox.md) | I file dell'harness fuori dalla sandbox | Accettata, estende 0005 |
+| [0045](0045-una-radice-dei-dati-e-env-solo-per-i-segreti.md) | Una radice dei dati, e `.env` solo per i segreti | Accettata, si attua in tre passi (Task 2.15–2.17 di `docs/audit/PLAN.md`) |

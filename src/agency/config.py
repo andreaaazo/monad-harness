@@ -4,19 +4,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from agency.contracts.layout import DataLayout
+from agency.contracts.layout import CHECKOUT, DataLayout, data_root, projects_root
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = CHECKOUT
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="AGENCY_", extra="ignore")
+    model_config = SettingsConfigDict(env_file=CHECKOUT / ".env", env_prefix="AGENCY_", extra="ignore")
 
-    data_dir: Path = Path(".data")
-    projects_dir: Path = Path("projects")
+    data_dir: Path = Field(default_factory=data_root)
+    projects_dir: Path = Field(default_factory=projects_root)
     explorer_effort: str = "high"
     proposal_effort: str = "high"
     explorers: int = 5
@@ -25,6 +25,17 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = Field(
         default=None, validation_alias=AliasChoices("ANTHROPIC_API_KEY", "AGENCY_ANTHROPIC_API_KEY")
     )
+
+    @field_validator("data_dir", mode="before")
+    @classmethod
+    def _absolute_data_dir(cls, value: object) -> Path:
+        """The value from the environment, `.env` or the caller, checked by the resolver the server uses."""
+        return data_root({"AGENCY_DATA_DIR": str(value)})
+
+    @field_validator("projects_dir", mode="before")
+    @classmethod
+    def _absolute_projects_dir(cls, value: object) -> Path:
+        return projects_root({"AGENCY_PROJECTS_DIR": str(value)})
 
     @property
     def layout(self) -> DataLayout:

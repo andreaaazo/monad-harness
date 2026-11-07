@@ -21,6 +21,11 @@ Ogni dato ha un solo proprietario.
 
 `.data/` e `projects/` non sono versionati.
 
+Tutti e due stanno nella radice del checkout da cui gira il codice, la stessa di `prompts/` e `registry/`, da qualunque
+cartella parta il comando: ogni worktree ha i suoi. `AGENCY_DATA_DIR` e `AGENCY_PROJECTS_DIR` li spostano, ma solo con
+un percorso assoluto; uno relativo ferma il motore e il server con la stessa riga. Il motore e il server risolvono la
+radice in un solo punto, `data_root()` di `agency.contracts.layout` (ADR-0045).
+
 ## Registro: solo in aggiunta
 
 `events` non si può modificare: lo impediscono i trigger SQLite, e la catena di hash rileva chi li

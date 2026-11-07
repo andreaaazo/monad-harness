@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig, devices } from "@playwright/test";
 
 import { CANARY } from "./e2e/canary";
@@ -13,6 +15,8 @@ const NOBODY = "http://127.0.0.1:18766";
 const withoutKey = "env -u ANTHROPIC_API_KEY -u AGENCY_ANTHROPIC_API_KEY";
 /** Ogni server parte da un ambiente con la chiave finta: `withoutKey` deve toglierla. */
 const withCanary = { ANTHROPIC_API_KEY: CANARY, AGENCY_ANTHROPIC_API_KEY: CANARY };
+/** The test registry, as an absolute path: the server refuses a relative AGENCY_DATA_DIR (ADR-0045). */
+const DATA = fileURLToPath(new URL("e2e/.data", import.meta.url));
 
 export default defineConfig({
   testDir: "e2e",
@@ -27,8 +31,8 @@ export default defineConfig({
   webServer: [
     {
       command:
-        `uv run python ../tests/dashboard_fixture.py e2e/.data && ` +
-        `${withoutKey} AGENCY_DATA_DIR=e2e/.data uv run agency-server --port 18765`,
+        `uv run python ../tests/dashboard_fixture.py ${DATA} && ` +
+        `${withoutKey} AGENCY_DATA_DIR=${DATA} uv run agency-server --port 18765`,
       url: `${DJANGO}/api/provenance`,
       env: withCanary,
       reuseExistingServer: false,

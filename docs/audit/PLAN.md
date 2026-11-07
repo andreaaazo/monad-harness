@@ -675,7 +675,7 @@ must not change behaviour. Every task starts with its failing test.
     - Task 1.5's `verify` test adapts its setup if it needs to.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(cli): refuse a missing registry instead of creating an empty one`.
-- [ ] **Task 2.15 [APPROVAL]: one resolver for the data root, anchored at the checkout.** Closes STR-001 part 1 of 3,
+- [x] **Task 2.15 [APPROVAL]: one resolver for the data root, anchored at the checkout.** Closes STR-001 part 1 of 3,
   STR-008, and DX-003 (the alias part) (Q2, Q3). New ADR, expected ADR-0045 ("Una radice dei dati, e `.env` solo per i
   segreti"). It describes Tasks 2.15–2.17.
   - Files:
@@ -694,6 +694,20 @@ must not change behaviour. Every task starts with its failing test.
     - `test_engine_and_server_resolve_the_same_root`.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(config): resolve the data root from the checkout, the same way in the engine and the server`.
+  - As built:
+    - ADR-0045 is `docs/adr/0045-una-radice-dei-dati-e-env-solo-per-i-segreti.md`.
+    - The projects rule is `projects_root(environ)`. `RelativeDataRoot(name, value)` is not a `ValueError`, so it
+      leaves pydantic unwrapped. `Settings` checks a `data_dir` or `projects_dir` from any source (environment, `.env`
+      or the caller) through the same two functions. The server's root is `data_root()`, without `.resolve()`.
+    - The refusal is one line, printed as is: `AGENCY_DATA_DIR deve essere un percorso assoluto, non '.data': uno
+      relativo dipende dalla cartella da cui parte il comando`. `cli.main` prints it on stdout and `agency-server` on
+      stderr; both exit 1. So two more files: `src/agency/cli.py` and `src/agency/entrypoints/server/serve.py`.
+    - `tests/conftest.py` gains an autouse fixture that sets `Settings.model_config["env_file"]` to None, so no test
+      reads the checkout's `.env`.
+    - `web/playwright.config.ts` gives the e2e server an absolute `AGENCY_DATA_DIR`; the relative `e2e/.data` is now
+      refused.
+    - The phase 1 pin `test_engine_and_server_take_the_data_root_from_different_places` became
+      `test_engine_and_server_resolve_the_same_root`.
 - [ ] **Task 2.16 [APPROVAL]: `.env` holds the API key only.** Closes STR-001, part 2 of 3 (Q2).
   - Files: `src/agency/config.py`, `src/agency/cli.py` (`main` catches the new error), `.env.example`,
     `tests/test_layout.py`.
@@ -1119,6 +1133,24 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   `Ledger(settings.ledger_path)`). It writes judgments, so creating the registry may be intended, but a wrong data
   root makes a fresh one that holds only that judgment. Needs the owner to say whether `judge` may create it. Found
   by Task 2.14.
+
+- [ ] **Task 2.F34: `agency-schemas` writes and checks the schema relative to the current folder.**
+  entrypoints/server/schema.py:15 (`OUTPUT = Path("schemas/openapi.json")`). `task schemas` runs it from the root,
+  but `uv run agency-schemas` from `web/` writes `web/schemas/openapi.json`, and `--check` from there reports a
+  missing file as "non allineato". The anchor is `CHECKOUT / "schemas/openapi.json"`. Also, since Task 2.15
+  `render()` loads the server settings, so a relative `AGENCY_DATA_DIR` in the shell stops `agency-schemas` with a
+  traceback that ends in the refusal line: `main` does not catch `RelativeDataRoot`. Found by Task 2.15. Not covered
+  by a planned task.
+- [ ] **Task 2.F35: a relative `AGENCY_PROJECTION_DIR` follows the server's current folder.**
+  entrypoints/server/settings.py:37-38 (as of Task 2.15). `Path(_PROJECTION).resolve()` accepts a relative value and
+  resolves it against the folder the server starts from, the case of Review focus 2. Only Compose sets it today, to
+  `/projection`. The fix is the rule of `data_root`: absolute, or refused with the same kind of line. Found by Task
+  2.15. Not covered by a planned task.
+- [ ] **Task 2.F36: a relative `AGENCY_TOOLCHAIN_DIR` follows the engine's current folder.** config.py:24
+  (`toolchain_dir`; its default under `~/.local/share` is absolute) takes any value from the environment or `.env`,
+  and tools/sandbox.py:77-78 binds it as given (`--ro-bind <value> <value>`), so a relative value names a different
+  folder from each current folder. Task 2.16 stops it in `.env`, not in the process environment. The fix is the
+  rule of `data_root`. Found by Task 2.15. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

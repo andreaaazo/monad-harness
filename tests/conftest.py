@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from agency.config import REPO_ROOT
+from agency.config import REPO_ROOT, Settings
 from agency.contracts.layout import DataLayout
 from agency.insights import application
 from agency.insights.adapters.projection import SqliteProjection
@@ -42,6 +42,15 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     if touched:
         print(f"\nLe prove hanno scritto nel registro vero {REAL_DATA}: {', '.join(touched)}")
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
+@pytest.fixture(autouse=True)
+def _no_dotenv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test reads a `.env`: the checkout's own holds the operator's real API key (ADR-0045).
+
+    A test about `.env` passes its file explicitly, as `Settings(_env_file=...)`.
+    """
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
 
 
 @pytest.fixture

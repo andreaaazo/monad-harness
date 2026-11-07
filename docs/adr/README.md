@@ -44,7 +44,7 @@ vecchio. Date: 2026-10-31.
 | [0037](0037-la-vista-confronto.md) | La vista Confronto | Accettata |
 | [0038](0038-la-vista-replay.md) | La vista Replay | Accettata, rovescia le trascrizioni nella proiezione di 0029 |
 | [0039](0039-taskfile-come-ingresso-unico.md) | Taskfile come ingresso unico | Accettata |
-| [0040](0040-il-cruscotto-in-docker.md) | Il cruscotto in Docker | Accettata |
+| [0040](0040-il-cruscotto-in-docker.md) | Il cruscotto in Docker | Accettata, il nome della variabile dell'host passa a 0045 |
 | [0041](0041-la-tavola-del-giudizio.md) | La tavola del giudizio e il migliore coerente | Accettata, aggiunge a 0027 |
 | [0042](0042-il-riferimento-di-qualita-e-merlo3.md) | Il riferimento di qualità di E1 è `merlo3` | Accettata, sostituisce `merlo` in `07-EVALS.md` |
 | [0043](0043-il-tetto-si-dichiara-all-avvio.md) | Il tetto di spesa si dichiara all'avvio | Accettata, toglie il budget di default a 0015 |

@@ -1,5 +1,5 @@
 # Il cruscotto in Docker (ADR-0040): l'API Django e l'interfaccia Next.js, nello stesso spazio di rete. Il motore resta
-# sull'host. Si avvia con `task docker:up`, che dà AGENCY_DATA, AGENCY_UID e AGENCY_GID.
+# sull'host. Si avvia con `task docker:up`, che dà AGENCY_DATA_DIR, AGENCY_UID e AGENCY_GID.
 #
 # Questo file sta in docker/ e non nella radice: Compose legge da solo il .env della cartella del progetto per le sue
 # variabili, e quello della radice contiene la chiave API. Qui non ci sono .env, env_file né chiavi.
@@ -29,7 +29,7 @@ services:
       # SQLite deve crearne il -shm, e su un mount di sola lettura non lo apre (ADR-0040). Il server non scrive
       # altro: connessione mode=ro, query_only, API solo GET, come quando gira sull'host.
       - type: bind
-        source: "${AGENCY_DATA:?AGENCY_DATA, la cartella del registro, manca. Si avvia con task docker:up}"
+        source: "${AGENCY_DATA_DIR:?AGENCY_DATA_DIR, la cartella del registro, manca. Si avvia con task docker:up}"
         target: /data
     # La proiezione di insights sta in memoria: si rifà a ogni avvio, e il container non aggiunge file al registro.
     tmpfs:

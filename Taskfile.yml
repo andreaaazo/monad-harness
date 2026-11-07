@@ -119,9 +119,9 @@ tasks:
       - pnpm --dir web run start
 
   docker:up:
-    desc: "Il cruscotto in Docker su http://127.0.0.1:3000; il registro è .data, o AGENCY_DATA se lo dai"
+    desc: "Il cruscotto in Docker su http://127.0.0.1:3000; il registro è .data, o AGENCY_DATA_DIR se lo dai"
     env: &compose
-      AGENCY_DATA: '{{.AGENCY_DATA | default (printf "%s/.data" .ROOT_DIR)}}'
+      AGENCY_DATA_DIR: '{{.AGENCY_DATA_DIR | default (printf "%s/.data" .ROOT_DIR)}}'
       AGENCY_UID:
         sh: id -u
       AGENCY_GID:

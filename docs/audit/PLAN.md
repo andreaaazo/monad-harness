@@ -723,7 +723,7 @@ must not change behaviour. Every task starts with its failing test.
     message says which ones.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(config): read only the API key from .env`.
-- [ ] **Task 2.17 [APPROVAL]: `task docker:up` uses `AGENCY_DATA_DIR`.** Closes STR-001 (Q2).
+- [x] **Task 2.17 [APPROVAL]: `task docker:up` uses `AGENCY_DATA_DIR`.** Closes STR-001 (Q2).
   - Files: `Taskfile.yml` (`docker:up`, `docker:down`), `docker/compose.yaml` (the host side; the container keeps
     `/data`), `tests/test_docker.py`, `README.md` (the `docker:up` line), `docs/adr/README.md` (mark ADR-0040 as
     partly superseded by ADR-0045).
@@ -1151,6 +1151,16 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   and tools/sandbox.py:77-78 binds it as given (`--ro-bind <value> <value>`), so a relative value names a different
   folder from each current folder. Task 2.16 stops it in `.env`, not in the process environment. The fix is the
   rule of `data_root`. Found by Task 2.15. Not covered by a planned task.
+- [ ] **Task 2.F37: an old `AGENCY_DATA` in the operator's shell is now ignored silently.** Taskfile.yml:124 and
+  docker/compose.yaml:32 (as of Task 2.17). Until Task 2.17 `task docker:up` read `AGENCY_DATA`; now it reads only
+  `AGENCY_DATA_DIR`, so an operator who still exports the old name gets the default `<root>/.data` with no message,
+  and the dashboard can show a registry other than the one intended. Needs the owner's decision (a refusal when the
+  old name is set, a note in the Taskfile, or nothing). Found by Task 2.17. Not covered by a planned task.
+- [ ] **Task 2.F38: a relative `AGENCY_DATA_DIR` given to `task docker:up` is resolved against `docker/`.**
+  Taskfile.yml:124 and docker/compose.yaml:32 (as of Task 2.17). Compose resolves a relative bind source against the
+  folder of the Compose file, not the folder the operator is in, whereas the engine and the server refuse a relative
+  data root (ADR-0045). Needs the owner's decision (refuse it in the Taskfile like the others, or accept it). Found by
+  Task 2.17. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

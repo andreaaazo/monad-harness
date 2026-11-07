@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -112,3 +113,31 @@ def test_the_dashboard_starts_api_and_interface_together_and_stops_both_if_one_s
         "pnpm --dir web run build",
         "pnpm --dir web run start",
     ]
+
+
+def test_docker_up_gives_compose_the_host_data_root_as_agency_data_dir(tmp_path: Path) -> None:
+    """`task docker:up` hands Compose AGENCY_DATA_DIR: `<root>/.data`, or the operator's value if given.
+
+    A stub `docker` first on PATH records its AGENCY_* variables and exits 0, so no real docker runs.
+    """
+    stub = tmp_path / "bin" / "docker"
+    stub.parent.mkdir()
+    seen = tmp_path / "seen.txt"
+    stub.write_text(f'#!/bin/sh\nenv | grep "^AGENCY_" > "{seen}"\n', encoding="utf-8")  # no secret on disk
+    stub.chmod(0o755)
+    binary = shutil.which("task")
+    if binary is None:
+        pytest.fail("Task is not on PATH: it comes from mise.toml, run it with mise active or `mise exec --`")
+
+    def host_side(**variables: str) -> dict[str, str]:
+        environment = {key: value for key, value in os.environ.items() if not key.startswith("AGENCY_DATA")}
+        environment |= {"PATH": f"{stub.parent}{os.pathsep}{os.environ['PATH']}"} | variables
+        subprocess.run([binary, "docker:up"], cwd=REPO_ROOT, env=environment, capture_output=True, check=True)
+        lines = seen.read_text(encoding="utf-8").splitlines()
+        seen.unlink()
+        return dict(line.split("=", 1) for line in lines if "=" in line)
+
+    default = host_side()
+    assert default["AGENCY_DATA_DIR"] == str(REPO_ROOT / ".data")
+    assert "AGENCY_DATA" not in default
+    assert host_side(AGENCY_DATA_DIR=str(tmp_path))["AGENCY_DATA_DIR"] == str(tmp_path)

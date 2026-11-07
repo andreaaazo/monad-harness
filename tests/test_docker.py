@@ -31,14 +31,14 @@ def compose(tmp_path: Path, *arguments: str, **variables: str) -> subprocess.Com
     """Compose con le variabili di `task docker:up`, più una chiave finta nell'ambiente di chi lo avvia."""
     environment = {"PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", str(tmp_path))}
     environment |= {"ANTHROPIC_API_KEY": CANARY, "AGENCY_ANTHROPIC_API_KEY": CANARY}
-    environment |= {"AGENCY_DATA": str(tmp_path), "AGENCY_UID": "1000", "AGENCY_GID": "1000"} | variables
+    environment |= {"AGENCY_DATA_DIR": str(tmp_path), "AGENCY_UID": "1000", "AGENCY_GID": "1000"} | variables
     environment = {key: value for key, value in environment.items() if value}
     command = [str(DOCKER), "compose", "-f", str(COMPOSE), *arguments]
     return subprocess.run(command, env=environment, capture_output=True, text=True, check=False)
 
 
-def rendered(tmp_path: Path) -> dict:
-    done = compose(tmp_path, "config", "--format", "json")
+def rendered(tmp_path: Path, **variables: str) -> dict:
+    done = compose(tmp_path, "config", "--format", "json", **variables)
     assert done.returncode == 0, done.stderr
     assert CANARY not in done.stdout, "la chiave dell'ambiente è finita nella configurazione"
     return json.loads(done.stdout)
@@ -84,6 +84,20 @@ def test_the_api_mounts_the_registry_as_the_host_user_and_keeps_its_projection_i
     assert ("volumes" not in web, "environment" not in web) == (True, True)
 
 
+def test_compose_mounts_agency_data_dir(tmp_path: Path) -> None:
+    """The host data root is AGENCY_DATA_DIR, like every other process; AGENCY_DATA is ignored (ADR-0045)."""
+    elsewhere = tmp_path / "elsewhere"
+    old = str(tmp_path / "old")
+    api = rendered(tmp_path, AGENCY_DATA_DIR=str(elsewhere), AGENCY_DATA=old)["services"]["api"]
+    assert [(volume["source"], volume["target"]) for volume in api["volumes"]] == [(str(elsewhere), "/data")]
+
+
+def test_compose_names_agency_data_dir_when_missing(tmp_path: Path) -> None:
+    done = compose(tmp_path, "config", AGENCY_DATA_DIR="", AGENCY_DATA=str(tmp_path))
+    assert done.returncode != 0
+    assert "AGENCY_DATA_DIR" in done.stderr and "task docker:up" in done.stderr
+
+
 def test_no_key_and_no_env_file_reach_the_containers(tmp_path: Path) -> None:
     """Compose legge da solo il .env della cartella del progetto: per questo il file non sta nella radice."""
     services = rendered(tmp_path)["services"]
@@ -105,7 +119,7 @@ def test_every_container_is_hardened(tmp_path: Path) -> None:
 
 
 def test_without_the_variables_of_task_compose_refuses_to_start(tmp_path: Path) -> None:
-    for missing in ("AGENCY_DATA", "AGENCY_UID", "AGENCY_GID"):
+    for missing in ("AGENCY_DATA_DIR", "AGENCY_UID", "AGENCY_GID"):
         done = compose(tmp_path, "config", **{missing: ""})
         assert done.returncode != 0 and "task docker:up" in done.stderr, missing
 

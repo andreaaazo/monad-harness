@@ -9,7 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from agency.config import REPO_ROOT, Settings
+from agency import cli
+from agency.config import REPO_ROOT, DotenvHoldsSetting, Settings
 from agency.contracts.layout import DataLayout
 
 SERVER_ROOT = "from agency.entrypoints.server import settings; print(settings.AGENCY_DATA_DIR)"
@@ -118,3 +119,60 @@ def test_project_names_become_folders_unchecked(tmp_path: Path) -> None:
     assert settings.project_dir("acme/v2") == projects.resolve() / "acme" / "v2"  # too deep for insights
     assert settings.project_dir("") == projects.resolve()  # the projects folder itself
     assert settings.layout.transcript("../fuori", "i") == data / "runs" / ".." / "fuori" / "i.jsonl"
+
+
+OLD_ENV_EXAMPLE = """# Copia in .env. Non committare mai la chiave.
+ANTHROPIC_API_KEY=
+# Dove vivono registro, checkpoint e artefatti locali.
+AGENCY_DATA_DIR=.data
+AGENCY_EXPLORER_EFFORT=high
+AGENCY_PROPOSAL_EFFORT=high
+AGENCY_EXPLORERS=5
+AGENCY_MAX_PARALLEL=5
+"""
+
+
+def test_dotenv_provides_only_the_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`.env` is read by the engine alone, so it holds the key and nothing else (ADR-0045)."""
+    for name in set(os.environ):
+        if name.startswith("AGENCY_"):
+            monkeypatch.delenv(name)
+    dotenv = tmp_path / ".env"
+
+    dotenv.write_text("# a comment\nOTHER=1\nAGENCY_ANTHROPIC_API_KEY=sk-test\n")
+    assert Settings(_env_file=dotenv).anthropic_api_key.get_secret_value() == "sk-test"  # type: ignore[call-arg, union-attr]
+
+    # The first offending variable in file order is named, whatever its value.
+    for line in ("AGENCY_EXPLORERS=9", "AGENCY_EXPLORERS=", "AGENCY_EXPLORERS"):
+        dotenv.write_text(f"ANTHROPIC_API_KEY=sk-test\n{line}\nAGENCY_DATA_DIR=/x\n")
+        with pytest.raises(DotenvHoldsSetting) as refused:
+            Settings(_env_file=dotenv)  # type: ignore[call-arg]
+        assert refused.value.name == "AGENCY_EXPLORERS"
+
+    # Also when the process environment sets the same variable.
+    monkeypatch.setenv("AGENCY_EXPLORERS", "3")
+    with pytest.raises(DotenvHoldsSetting):
+        Settings(_env_file=dotenv)  # type: ignore[call-arg]
+
+    # The process environment keeps working.
+    dotenv.write_text("ANTHROPIC_API_KEY=sk-test\n")
+    assert Settings(_env_file=dotenv).explorers == 3  # type: ignore[call-arg]
+
+
+def test_an_old_env_example_copy_stops_with_one_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An old `.env.example` copy stops the engine before it starts or creates anything (Review focus 1)."""
+    dotenv = tmp_path / ".env"
+    dotenv.write_text(OLD_ENV_EXAMPLE)
+    monkeypatch.setitem(Settings.model_config, "env_file", dotenv)
+    monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
+
+    code = cli.main(["run", "acme", "brief.md", "--budget", "1"])
+
+    out = capsys.readouterr().out
+    assert code == 1
+    assert out.startswith("AGENCY_DATA_DIR è in .env")
+    assert len(out.splitlines()) == 1
+    assert "ambiente del processo" in out
+    assert not list(tmp_path.rglob("ledger.sqlite"))

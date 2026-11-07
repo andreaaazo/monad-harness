@@ -708,7 +708,7 @@ must not change behaviour. Every task starts with its failing test.
       refused.
     - The phase 1 pin `test_engine_and_server_take_the_data_root_from_different_places` became
       `test_engine_and_server_resolve_the_same_root`.
-- [ ] **Task 2.16 [APPROVAL]: `.env` holds the API key only.** Closes STR-001, part 2 of 3 (Q2).
+- [x] **Task 2.16 [APPROVAL]: `.env` holds the API key only.** Closes STR-001, part 2 of 3 (Q2).
   - Files: `src/agency/config.py`, `src/agency/cli.py` (`main` catches the new error), `.env.example`,
     `tests/test_layout.py`.
   - Behaviour:

@@ -3,13 +3,43 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    DotEnvSettingsSource,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
 from agency.contracts.layout import CHECKOUT, DataLayout, data_root, projects_root
 
 REPO_ROOT = CHECKOUT
+
+# The only variables `.env` may hold, lowercased as the source reads them (ADR-0045).
+_DOTENV_KEYS = ("anthropic_api_key", "agency_anthropic_api_key")
+
+
+class DotenvHoldsSetting(Exception):
+    """A setting in `.env`: only the engine reads that file, so the server would not see it (ADR-0045)."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__(
+            f"{name} è in .env, ma .env contiene solo la chiave API: mettilo nell'ambiente del processo,"
+            " per esempio sulla riga di comando o nella shell"
+        )
+
+
+class _KeyOnlyDotEnv(DotEnvSettingsSource):
+    """The `.env` source, which refuses any `AGENCY_*` line other than the API key."""
+
+    def __call__(self) -> dict[str, Any]:
+        for name in self.env_vars:  # file order, empty and bare lines included
+            if name.startswith("agency_") and name not in _DOTENV_KEYS:
+                raise DotenvHoldsSetting(name.upper())
+        return super().__call__()
 
 
 class Settings(BaseSettings):
@@ -25,6 +55,18 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = Field(
         default=None, validation_alias=AliasChoices("ANTHROPIC_API_KEY", "AGENCY_ANTHROPIC_API_KEY")
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        keyed = _KeyOnlyDotEnv(settings_cls, env_file=getattr(dotenv_settings, "env_file", None))
+        return init_settings, env_settings, keyed, file_secret_settings
 
     @field_validator("data_dir", mode="before")
     @classmethod

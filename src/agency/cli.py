@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import anthropic
 
 from agency.artifacts import FileStore, keeping
-from agency.config import Settings
+from agency.config import DotenvHoldsSetting, Settings
 from agency.contracts.artifact import Origin
 from agency.contracts.gate import ConceptGate
 from agency.contracts.layout import RelativeDataRoot
@@ -400,6 +400,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"REGISTRO: {exc}")
         return 1
     except RelativeDataRoot as exc:  # the dashboard server prints the same line (ADR-0045)
+        print(exc)
+        return 1
+    except DotenvHoldsSetting as exc:  # `.env` holds the API key only (ADR-0045)
         print(exc)
         return 1
 

@@ -11,6 +11,10 @@ OPS = "/ops"
 QA_MOUNT = "/opt/agency-qa"
 ETC_ALLOWED = ("/etc/ld.so.cache", "/etc/fonts", "/etc/alternatives", "/etc/ssl", "/etc/mime.types")
 HOME = "/home/studio"
+# Size bounds: of the RAM-backed tmpfs mounts, and of each file a command writes (not of the disk as a whole).
+TMP_BYTES = 2 * 2**30
+HOME_BYTES = 256 * 2**20
+FILE_BYTES = 2 * 2**30  # RLIMIT_FSIZE of every command: the largest file it can write or extend
 
 
 @dataclass(frozen=True)
@@ -49,8 +53,8 @@ class Sandbox:
             "--symlink", "usr/sbin", "/sbin",
             "--proc", "/proc",
             "--dev", "/dev",
-            "--tmpfs", "/tmp",
-            "--tmpfs", "/home",
+            "--size", str(TMP_BYTES), "--tmpfs", "/tmp",
+            "--size", str(HOME_BYTES), "--tmpfs", "/home",
             "--dir", HOME,
             "--bind", str(self.work), JOB,
             "--chdir", JOB,
@@ -78,7 +82,7 @@ class Sandbox:
             args += ["--ro-bind", str(self.toolchain), str(self.toolchain)]
         for path in self.read_only:
             args += ["--ro-bind", str(path), str(path)]
-        return [*args, *command]
+        return [*args, "prlimit", f"--fsize={FILE_BYTES}", "--", *command]
 
     def python(self) -> str:
         if self.toolchain:

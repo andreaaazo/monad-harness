@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
@@ -10,7 +11,7 @@ from agency.contracts.ticket import Medium
 from agency.ledger import Ledger
 from agency.ledger.models import DerivationRow
 from agency.ledger.store import now
-from agency.tools.files import ensure_dir_under, inside, read_under, sha256_under
+from agency.tools.files import ensure_dir_under, inside, open_under, sha256_under
 from agency.tools.sandbox import JOB, Sandbox
 
 
@@ -62,7 +63,8 @@ def problem(sandbox: Sandbox, relative: str) -> str | None:
         layers = (json.loads(done.stdout).get("activeComp") or {}).get("layers")
         return None if layers else "progetto vuoto: nessun livello"
     if extension == ".blend":
-        head = read_under(sandbox.work, relative)[:8]
+        with os.fdopen(open_under(sandbox.work, relative, os.O_RDONLY), "rb") as handle:
+            head = handle.read(8)  # the header only: the file can be as large as the sandbox could write
         known = head[:7] == b"BLENDER" or head[:4] == b"\x28\xb5\x2f\xfd" or head[:2] == b"\x1f\x8b"
         return None if known else "non è un file Blender"
     return f"{extension}: non è un master dello studio"

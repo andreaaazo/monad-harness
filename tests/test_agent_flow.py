@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import shutil
 import subprocess
+import tracemalloc
 from pathlib import Path, PurePosixPath
 
 import pytest
+from PIL import Image
 
 from agency.agents.loop import AgentRunner
 from agency.agents.transcript import Transcript
@@ -20,7 +23,7 @@ from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType, Verd
 from agency.gateway import BudgetExceeded, ModelGateway, ScriptedTransport
 from agency.ledger import Ledger
 from agency.runtime import open_session
-from agency.tools import craft
+from agency.tools import craft, master
 from agency.tools.craft import Command, CommandIndex
 from agency.tools.sandbox import JOB, Completed, Sandbox
 from agency.tools.surface import TOOLS, Toolbox, ToolContext, tools_for
@@ -805,6 +808,71 @@ def test_sandbox_writes_only_in_its_folder(tmp_path: Path) -> None:
     box.run(["sh", "-c", f"echo a > {outside}; echo a > /etc/agency-probe"])
     assert not outside.exists()
     assert not Path("/etc/agency-probe").exists()
+
+
+def test_sandbox_tmp_is_size_limited(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    box = Sandbox(work)
+    # The totals come first: a 3G fallocate also fails on the file-size limit alone, so it cannot prove the
+    # tmpfs bound, and at an unbounded /tmp it would allocate 3 GiB of RAM.
+    probe = (
+        "import os;"
+        "total=lambda path:(lambda s:s.f_blocks*s.f_frsize)(os.statvfs(path));"
+        "print(total('/tmp'), total('/home'))"
+    )
+    assert box.run(["python3", "-c", probe]).stdout.split() == [str(2 * 2**30), str(256 * 2**20)]
+    assert box.run(["fallocate", "-l", "3G", "/tmp/x"]).code != 0
+
+
+def test_sandbox_file_size_is_limited(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    assert Sandbox(work).run(["truncate", "-s", "3G", f"{JOB}/x"]).code != 0
+    assert not (work / "x").exists() or (work / "x").stat().st_size < 3 * 2**30
+
+
+def test_master_problem_reads_only_the_header(tmp_path: Path) -> None:
+    with (tmp_path / "x.blend").open("wb") as handle:
+        handle.write(b"BLENDER")
+        handle.truncate(64 * 2**20)  # sparse: no disk, and a full read would show as 64 MiB of memory
+    tracemalloc.start()
+    try:
+        why = master.problem(Sandbox(tmp_path), "x.blend")
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert why is None
+    assert peak < 2**20
+
+
+def test_view_image_refuses_a_huge_file(tmp_path: Path) -> None:
+    buffer = io.BytesIO()
+    Image.new("RGB", (4, 4)).save(buffer, "PNG")
+    # A valid image, which view_image would otherwise show: zeros alone would be refused as unreadable. Its
+    # sparse tail makes it twice the limit, so the peak shows that the read stops near the limit.
+    with (tmp_path / "big.png").open("wb") as handle:
+        handle.write(buffer.getvalue())
+        handle.truncate(2 * 64 * 2**20)
+    context = ToolContext(
+        "critic",
+        "p",
+        "T-1",
+        "i",
+        Ledger(tmp_path / "ledger.db"),
+        Sandbox(tmp_path),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
+    tracemalloc.start()
+    try:
+        result = Toolbox(context).call("a", "view_image", {"path": "big.png"})
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert result.get("is_error")
+    assert "64 MiB" in result["content"]
+    assert peak < 96 * 2**20
 
 
 @needs_craft

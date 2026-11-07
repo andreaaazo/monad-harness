@@ -732,7 +732,7 @@ must not change behaviour. Every task starts with its failing test.
     - `test_compose_names_agency_data_dir_when_missing`.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(docker): name the host data root AGENCY_DATA_DIR, like every other process`.
-- [ ] **Task 2.18: sandbox limits that need no measurement.** Closes SEC-005, part 1 of 2 (Q20).
+- [x] **Task 2.18: sandbox limits that need no measurement.** Closes SEC-005, part 1 of 2 (Q20).
   - Files: `src/agency/tools/sandbox.py`, `src/agency/tools/master.py` (`problem`), `src/agency/tools/surface.py`
     (`view_image`), `tests/test_agent_flow.py`.
   - Values:
@@ -1161,6 +1161,28 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   folder of the Compose file, not the folder the operator is in, whereas the engine and the server refuse a relative
   data root (ADR-0045). Needs the owner's decision (refuse it in the Taskfile like the others, or accept it). Found by
   Task 2.17. Not covered by a planned task.
+- [ ] **Task 2.F39: `/dev/shm` in the sandbox has no size bound.** tools/sandbox.py:55 (`--dev /dev`; as of Task 2.18).
+  bwrap's `--size` applies only to the next `--tmpfs`, not to `--dev`, so the `/dev/shm` it mounts still reports the
+  host's free RAM (30.5 GiB in the SEC-005 probe) while `/tmp` and `/home` are now 2 GiB and 256 MiB. Sandboxed code can
+  fill RAM through it. Task 2.19's `MemoryMax` would bound it in practice, because tmpfs pages are charged to the cgroup
+  of the process that writes them, but its plan never names `/dev/shm`, so its test should write there. The direct fix
+  is `--tmpfs /dev/shm` with `--size` after `--dev /dev`. Found by Task 2.18. Partly covered by Task 2.19.
+- [ ] **Task 2.F40: `Sandbox.run` collects stdout and stderr of any size in memory.** tools/sandbox.py:96-98 (as of
+  Task 2.18). `subprocess.run(..., capture_output=True, text=True)` holds everything the command prints until it exits
+  or the timeout fires, so a command that prints at full speed for 120 s fills the harness's RAM; the cgroup of Task
+  2.19 wraps bwrap, but the pipes are read by the harness outside it. Fix: read the pipes with a byte cap and kill the
+  command past it. Found by Task 2.18. Not covered by a planned task.
+- [ ] **Task 2.F41: the harness reads whole sandbox-written text and JSON files with no size bound.**
+  tools/surface.py:300 (`read_file`), :706 (`valutazione.json`), :776 (`draft`), tools/craft.py:138,143-144 (the
+  partial document, the stored document and the result record) (as of Task 2.18). The sandbox can now write a file of up
+  to 2 GiB, and each of these reads it whole into memory (`read_under`, `read_text`) and, for `read_file` and the
+  JSON ones, decodes and parses it. Fix: a limit in `read_under` for these callers, or a refusal by size before the
+  read. Found by Task 2.18. Not covered by a planned task.
+- [ ] **Task 2.F42: the harness reads whole image files before decoding in the render and board paths.**
+  tools/render.py:27, tools/board.py:43, tools/presentation.py:71 (as of Task 2.18). `view_image` now refuses a file
+  over `MAX_IMAGE_FILE_BYTES`, but these three call `read_under` on a proof or a page the sandbox wrote and decode it,
+  with no size check. Fix: share the bounded read of `view_image` (a helper beside `read_under`), after the owner decides
+  where that helper lives (see Task 4.F1). Found by Task 2.18. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

@@ -6,6 +6,7 @@ import base64
 import hashlib
 import io
 import json
+import os
 import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -35,6 +36,7 @@ from agency.tools.files import (
     clip,
     ensure_dir_under,
     inside,
+    open_under,
     read_under,
     replace_under,
     sha256,
@@ -47,6 +49,7 @@ TEXT_FILES = (".md", ".txt", ".json")
 EXPORT_OPTIONS = {"--artboard", "--range", "--scale", "--outline-text", "--decimals"}
 IMAGE_SIDE = 1600
 IMAGE_BYTES = 3_500_000
+MAX_IMAGE_FILE_BYTES = 64 * 2**20
 IMAGE_MEDIA = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
 # The harness's folders in /job, which list_files does not show. `.ops` held its files before ADR-0044 and can
 # still be in an older work folder.
@@ -345,7 +348,11 @@ def view_image(ctx: ToolContext, a: ViewImage, operation_id: str) -> list[dict]:
     target = inside(ctx.work, a.path)
     if target.suffix.lower() not in IMAGE_MEDIA or not target.is_file():
         raise Refused(f"{a.path}: non è un'immagine leggibile. Usa render.")
-    raw = read_under(ctx.work, a.path)  # one read: the hash below is of the bytes that are shown
+    # One read: the hash below is of the bytes that are shown. It stops one byte past the limit.
+    with os.fdopen(open_under(ctx.work, a.path, os.O_RDONLY), "rb") as handle:
+        raw = handle.read(MAX_IMAGE_FILE_BYTES + 1)
+    if len(raw) > MAX_IMAGE_FILE_BYTES:
+        raise Refused(f"{a.path}: supera il limite di {MAX_IMAGE_FILE_BYTES // 2**20} MiB per un'immagine.")
     key = f"{a.path}:{hashlib.sha256(raw).hexdigest()}"
     seen = _viewed(ctx)
     try:

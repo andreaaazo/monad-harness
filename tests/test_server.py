@@ -31,6 +31,7 @@ from agency import cli  # noqa: E402
 from agency.agents.transcript import Transcript  # noqa: E402
 from agency.config import REPO_ROOT  # noqa: E402
 from agency.contracts.layout import DataLayout  # noqa: E402
+from agency.contracts.project import ProjectName  # noqa: E402
 from agency.contracts.ticket import TicketSpec, TicketType  # noqa: E402
 from agency.entrypoints.server import serve  # noqa: E402
 from agency.entrypoints.server.middleware import ReadOnly  # noqa: E402
@@ -134,12 +135,34 @@ def test_compare_puts_two_projects_side_by_side_and_refuses_one_with_itself(
         assert client.post("/api/compare?before=bottega&after=officina").status_code == 405
 
 
+def test_a_stored_name_the_rule_rejects_is_a_404_and_the_list_still_answers(
+    tmp_path: Path, studio: Ledger
+) -> None:
+    """A registry written before the name rule may hold `Merlo`: its routes refuse it (COR-013)."""
+    studio.set_project("Merlo", 5)
+    studio.record_usage(usage(3, project="Merlo"))
+    studio.engine.dispose()
+    with override_settings(AGENCY_DATA_DIR=tmp_path):
+        client = Client(HTTP_HOST="127.0.0.1")
+        listing = client.get("/api/projects")
+        assert listing.status_code == 200
+        assert {item["name"] for item in listing.json()} == {"Merlo", "officina"}
+        for route in ["report", "flow", "behaviour", "quality", "instances/T-0001-a1/replay"]:
+            refused = client.get(f"/api/projects/Merlo/{route}")
+            assert refused.status_code == 404, route
+            assert "Merlo" in refused.json()["detail"], route
+        assert client.get("/api/projects/Merlo/instances/T-0001-a1/images/0").status_code == 404
+        assert client.get("/api/compare?before=Merlo&after=officina").status_code == 404
+        assert client.get("/api/compare?before=officina&after=Merlo").status_code == 404
+        assert client.get("/api/projects/officina/report").status_code == 200
+
+
 PNG = b"\x89PNG\r\n\x1a\n un pixel"
 
 
 def replayable(tmp_path: Path) -> None:
     """L'istanza T-0001-a1 di officina, come la scrive il motore: un'immagine PNG e una SVG."""
-    transcript = Transcript(DataLayout(tmp_path).transcript("officina", "T-0001-a1"))
+    transcript = Transcript(DataLayout(tmp_path).transcript(ProjectName("officina"), "T-0001-a1"))
     transcript.append({"role": "user", "content": "Il compito"})
     transcript.append(
         {
@@ -511,7 +534,12 @@ def test_by_default_the_projection_sits_next_to_the_registry(client: Client, tmp
 
 def test_the_data_layout_has_one_owner() -> None:
     layout = DataLayout(Path("/dati"))
-    assert (layout.ledger, layout.traces, layout.insights, layout.transcript("merlo", "T-0002-a1")) == (
+    assert (
+        layout.ledger,
+        layout.traces,
+        layout.insights,
+        layout.transcript(ProjectName("merlo"), "T-0002-a1"),
+    ) == (
         Path("/dati/ledger.sqlite"),
         Path("/dati/traces.jsonl"),
         Path("/dati/insights.sqlite"),

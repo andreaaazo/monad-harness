@@ -12,6 +12,7 @@ import pytest
 from agency import cli
 from agency.config import REPO_ROOT, DotenvHoldsSetting, Settings
 from agency.contracts.layout import DataLayout
+from agency.contracts.project import ProjectName, parse_project_name
 
 SERVER_ROOT = "from agency.entrypoints.server import settings; print(settings.AGENCY_DATA_DIR)"
 # A fresh process, so the class keeps its own `.env` setting; `_env_file=None`, so it reads no `.env`.
@@ -31,7 +32,7 @@ def paths(layout: DataLayout) -> tuple[Path, ...]:
         layout.traces,
         layout.insights,
         layout.transcripts,
-        layout.transcript("p", "i"),
+        layout.transcript(ProjectName("p"), "i"),
     )
 
 
@@ -59,7 +60,7 @@ def test_data_paths_under_a_root() -> None:
         settings.insights_path,
     )
     assert shortcuts == paths(layout)[:5]
-    assert settings.project_dir("p") == Path("/q/p")
+    assert settings.project_dir(ProjectName("p")) == Path("/q/p")
 
 
 def test_the_default_data_root_is_the_checkout_from_any_directory(tmp_path: Path) -> None:
@@ -110,15 +111,10 @@ def test_engine_and_server_resolve_the_same_root(tmp_path: Path, monkeypatch: py
     assert given == (chosen, chosen)
 
 
-def test_project_names_become_folders_unchecked(tmp_path: Path) -> None:
-    data, projects = tmp_path / "data", tmp_path / "projects"
-    settings = Settings(data_dir=data, projects_dir=projects, _env_file=None)  # type: ignore[call-arg]
-
-    # Pins current behavior of COR-013; phase 2 (Task 2.24) flips these assertions: each name is refused.
-    assert settings.project_dir("../fuori") == tmp_path.resolve() / "fuori"  # outside projects/
-    assert settings.project_dir("acme/v2") == projects.resolve() / "acme" / "v2"  # too deep for insights
-    assert settings.project_dir("") == projects.resolve()  # the projects folder itself
-    assert settings.layout.transcript("../fuori", "i") == data / "runs" / ".." / "fuori" / "i.jsonl"
+def test_names_that_would_leave_projects_are_refused_at_the_boundary() -> None:
+    for name in ["../fuori", "acme/v2", ""]:  # outside projects/, too deep for insights, the folder itself
+        with pytest.raises(ValueError, match="nome di progetto non valido"):
+            parse_project_name(name)
 
 
 OLD_ENV_EXAMPLE = """# Copia in .env. Non committare mai la chiave.

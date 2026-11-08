@@ -12,6 +12,7 @@ from agency.config import Settings
 from agency.contracts import phase
 from agency.contracts.artifact import ArtifactStore
 from agency.contracts.outcome import Outcome, OutcomeState
+from agency.contracts.project import parse_project_name
 from agency.contracts.ticket import Action, Status, TicketSpec
 from agency.gateway import CallContext, ModelGateway, ModelRequest, ModelResponse
 from agency.ledger import IllegalTransition, Ledger
@@ -83,13 +84,14 @@ class AgentRunner:
         """
         spec = self.ledger.spec(ticket_id)
         project = self.ledger.project_of(ticket_id)
+        folder = parse_project_name(project)  # a name read back from the registry is checked again (COR-013)
         role = spec.assignee
         instance = phase.instance(ticket_id, attempt, mode)
-        transcript = Transcript(self.settings.layout.transcript(project, instance))
+        transcript = Transcript(self.settings.layout.transcript(folder, instance))
         finished = transcript.outcome()
         if finished is not None:  # la ripresa non rifà un lavoro già concluso
             return finished
-        work = self.settings.project_dir(project) / "work" / spec.workspace
+        work = self.settings.project_dir(folder) / "work" / spec.workspace
         work.mkdir(parents=True, exist_ok=True)
         inputs = self.settings.layout.ops_inputs(project, instance)  # its parent holds the records (ADR-0044)
         inputs.mkdir(parents=True, exist_ok=True)

@@ -20,6 +20,7 @@ from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.gate import ConceptGate, Gate
+from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.gateway import ModelGateway, ScriptedTransport
 from agency.insights.views import ProjectReport
@@ -328,7 +329,20 @@ def test_nothing_runs_after_the_tool_that_closes_the_ticket(tmp_path: Path) -> N
     ticket = ledger.open(spec(), "p")
     run.run(ticket)
     assert ledger.status(ticket)[0] is Status.BLOCKED
-    assert not (settings(tmp_path).project_dir("p") / "work/tardi.md").exists()
+    assert not (settings(tmp_path).project_dir(ProjectName("p")) / "work/tardi.md").exists()
+
+
+def test_the_runner_refuses_a_stored_name_the_rule_rejects_before_it_writes(tmp_path: Path) -> None:
+    """A name read back from the registry becomes a folder only after the rule has seen it (COR-013)."""
+    config = settings(tmp_path)
+    run, transport, ledger = runner(config, [])
+    ledger.set_project("Merlo", 25.0)
+    ticket = ledger.open(spec(), "Merlo")
+    with pytest.raises(ValueError, match="nome di progetto non valido: 'Merlo'"):
+        run.run(ticket)
+    assert transport.requests == []
+    assert not config.layout.transcripts.exists()
+    assert not config.projects_dir.exists()
 
 
 def paused() -> dict:
@@ -676,6 +690,77 @@ def test_a_refused_contract_leaves_no_project(tmp_path: Path, monkeypatch: pytes
     with pytest.raises(ContractRefused):
         session.start("p", brief, ["logo.svg"], {"nulla.png": []}, budget=5.0)
     assert Ledger(path).project("p") is None
+
+
+def test_project_names(tmp_path: Path) -> None:
+    """A project name is a DNS label: it becomes a folder, and later a subdomain (COR-013)."""
+    for name in ["merlo", "merlo4", "officina-e2e", "p", "a" * 63, "a-b-c", "0", "9-9"]:
+        assert parse_project_name(name) == name
+    for bad in ["../x", "a/b", "", "Merlo", "-a", "a-", "merlo\n", "a" * 64, "a.b", "a b", "à", "a_b", ".."]:
+        with pytest.raises(ValueError) as refused:
+            parse_project_name(bad)
+        assert "nome di progetto non valido" in str(refused.value)
+        assert repr(bad) in str(refused.value)
+
+
+def test_a_project_name_that_would_leave_projects_never_starts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from agency.runtime import open_session
+
+    path = cli_data(tmp_path, monkeypatch)
+    brief = tmp_path / "brief.md"
+    brief.write_text("Un segno per un forno", encoding="utf-8")
+    session = open_session(Settings(), ScriptedTransport([]))
+    for bad in ["../x", "a/b", ""]:
+        with pytest.raises(ValueError, match="nome di progetto non valido"):
+            session.start(bad, brief, cli.LOGO_OUTPUTS, cli.LOGO_CHECKS, budget=5.0)
+    assert not (tmp_path / "x").exists()  # `projects/../x`
+    assert not (tmp_path / "projects").exists()
+    assert Ledger(path).project("../x") is None
+    assert Ledger(path).project("") is None
+
+
+def test_every_command_refuses_a_bad_project_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = cli_data(tmp_path, monkeypatch)
+    brief = tmp_path / "brief.md"
+    brief.write_text("Un segno per un forno", encoding="utf-8")
+    scripted_run(monkeypatch, [])
+    for command in [
+        ["run", "../x", str(brief), "--budget", "5"],
+        ["resume", "../x"],
+        ["decide", "../x", "--approve", "--text", "ok"],
+        ["budget", "../x", "40"],
+        ["report", "../x"],
+        ["runs", "../x"],
+        ["artifacts", "../x"],
+    ]:
+        with pytest.raises(SystemExit) as stopped:
+            cli.main(command)
+        assert stopped.value.code == 2, command
+        err = capsys.readouterr().err
+        assert "nome di progetto non valido: '../x'" in err, command
+        assert "Traceback" not in err
+    assert not path.exists()  # no command opened, let alone created, the registry
+    assert not (tmp_path / "x").exists()
+    assert not (tmp_path / "data" / "locks").exists()
+
+
+def test_an_invalid_stored_name_is_reported_not_crashed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A registry written before the rule may hold `Merlo`: the report refuses it in one line (COR-013)."""
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("Merlo", 5.0)
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(["report", "Merlo"])
+    assert stopped.value.code == 2
+    captured = capsys.readouterr()
+    assert "nome di progetto non valido: 'Merlo'" in captured.err
+    assert "Traceback" not in captured.err
+    assert captured.out == ""
 
 
 def test_resume_without_saved_work_says_so(

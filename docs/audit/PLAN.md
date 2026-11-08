@@ -813,7 +813,7 @@ must not change behaviour. Every task starts with its failing test.
     - `test_a_context_window_cut_blocks_without_appending`.
   - Verify: the test passes; standard gate.
   - Commit: `fix(agents): block instead of appending a turn cut off by the context window`.
-- [ ] **Task 2.24 [APPROVAL]: project names follow the DNS-label rule.** Closes COR-013 (Q21).
+- [x] **Task 2.24 [APPROVAL]: project names follow the DNS-label rule.** Closes COR-013 (Q21).
   - Files:
     - create `src/agency/contracts/project.py`;
     - `src/agency/config.py` (`project_dir`), `src/agency/contracts/layout.py` (`transcript`);
@@ -1230,6 +1230,19 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   `model_context_window_exceeded`, so `StopCount.complete` is true for it and the Model page does not mark it as cut.
   Fix: add `malformed_stream` to `INCOMPLETE` (and its comment). Related finding: COR-011. Found by Task 2.23. Not
   covered by a planned task.
+- [ ] **Task 2.F49: `DataLayout.lock`, `ops_inputs` and `ops_records` still take a plain `str` project.**
+  contracts/layout.py:86, :93 and :97, called from cli.py:147, agents/loop.py:96 and tools/surface.py:411 (as of Task
+  2.24). They build paths from the project name exactly as `transcript` does (`locks/{project}.lock`, `ops/{project}/
+  {instance}`), so a `str` that did not go through `parse_project_name` can still reach the filesystem. Task 2.24
+  validates every name at the CLI, `Session.start` and the API, but these three methods do not carry the type. Fix: take
+  `ProjectName` and parse at the three call sites (`ToolContext.project` is a `str`). Related finding: COR-013. Found
+  by Task 2.24. Not covered by a planned task.
+- [ ] **Task 2.F50: `agency judge` records the folder name under `projects/` as the project without the name rule.**
+  evaluation/blind.py:55-61 (as of Task 2.24). `_judged` takes `project` from the first path part below the projects
+  folder, and `keeping.keep(..., project=judged.project)` stores it. A folder such as `projects/Merlo` is therefore
+  written into the registry as a project name that `parse_project_name` rejects, and the dashboard then answers 404 for
+  it. Fix: treat a first path part that fails `parse_project_name` like a file outside the projects (`project=""`), or
+  refuse the comparison with a message. Related finding: COR-013. Found by Task 2.24. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

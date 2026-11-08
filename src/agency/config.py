@@ -14,6 +14,7 @@ from pydantic_settings import (
 )
 
 from agency.contracts.layout import CHECKOUT, DataLayout, data_root, projects_root
+from agency.contracts.project import ProjectName
 
 REPO_ROOT = CHECKOUT
 
@@ -103,5 +104,5 @@ class Settings(BaseSettings):
     def insights_path(self) -> Path:
         return self.layout.insights
 
-    def project_dir(self, slug: str) -> Path:
+    def project_dir(self, slug: ProjectName) -> Path:
         return (self.projects_dir / slug).resolve()

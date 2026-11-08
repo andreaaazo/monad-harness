@@ -24,6 +24,7 @@ from agency.config import Settings
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import ConceptGate, Decision, FinalGate
 from agency.contracts.outcome import OutcomeState
+from agency.contracts.project import parse_project_name
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.ledger.models import GateRow
@@ -65,7 +66,7 @@ def build(
     runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer: BaseCheckpointSaver
 ) -> Graph:
     def work_dir(project: str):
-        return settings.project_dir(project) / "work"
+        return settings.project_dir(parse_project_name(project)) / "work"
 
     # Esplorazione
 

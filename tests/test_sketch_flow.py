@@ -16,6 +16,7 @@ from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import ConceptGate
+from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, changes
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.gateway import BudgetExceeded
@@ -321,7 +322,7 @@ def test_client_only_sees_developed_proposals_then_production_starts(tmp_path: P
     assert isinstance(gate, ConceptGate)
     assert (gate.gate, gate.options, gate.recommended) == ("concept", ["X", "Y"], "X")
     assert gate.files == ["presentation/r1/presentazione.pdf"]
-    work = config.project_dir("officina") / "work"
+    work = config.project_dir(ProjectName("officina")) / "work"
     assert (work / gate.files[0]).read_bytes()[:4] == b"%PDF"
     concepts = session.ledger.concepts("officina", 1)
     assert {row.anon: row.status for row in concepts} == {"X": "proposta", "Y": "proposta", "Z": "schizzo"}
@@ -404,7 +405,7 @@ def test_finisher_starts_from_the_approved_proposal(tmp_path: Path) -> None:
     session = open_session(config, Router(script))
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "La Y", "Y")
-    work = config.project_dir("officina") / "work"
+    work = config.project_dir(ProjectName("officina")) / "work"
     assert (work / MASTER).read_bytes() == (work / "proposals/r1/y/proposta-y.vectorcraft").read_bytes()
 
 
@@ -527,7 +528,7 @@ def test_five_directions_run_together_and_reach_the_board(tmp_path: Path) -> Non
     assert {session.ledger.spec(row.idea_ticket).assignee for row in concepts} == {
         f"direction-{letter}" for letter in "abcde"
     }
-    work = config.project_dir("officina") / "work"
+    work = config.project_dir(ProjectName("officina")) / "work"
     with Image.open(work / "board/r1/tavola.png") as image:
         assert max(image.size) <= 1600
     assert sorted(path.stem for path in (work / "board/r1/fogli").glob("*.png")) == list("VWXYZ")
@@ -1080,7 +1081,7 @@ def test_second_exploration_is_rated_on_its_own_letters(tmp_path: Path) -> None:
     ]
     session = open_session(settings(tmp_path), Router(script))
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
-    work = settings(tmp_path).project_dir("officina") / "work"
+    work = settings(tmp_path).project_dir(ProjectName("officina")) / "work"
     rated = json.loads((work / "board/r2/reviews/valutazione.json").read_text())
     assert {item["letter"] for item in rated} == {"Y", "Z"}
 
@@ -1111,7 +1112,7 @@ def test_new_concept_after_a_rejection_gets_its_own_production(tmp_path: Path) -
     session.decide("officina", True, "Mi piace la X", "X")
     session.decide("officina", True, "Mi piace la Y", "Y")
     assert session.ledger.spec("T-0014").prompt == "finisher"
-    work = settings(tmp_path).project_dir("officina") / "work"
+    work = settings(tmp_path).project_dir(ProjectName("officina")) / "work"
     assert sha256(work / MASTER) == sha256(work / "proposals/r2/y/proposta-y.vectorcraft")
 
 

@@ -10,6 +10,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from agency.contracts.project import ProjectName
+
 # The checkout the code runs from: `prompts/`, `registry/`, `.env` and the default data root hang from it,
 # whatever the current folder (ADR-0045). Each worktree is its own checkout, with its own `.data`.
 CHECKOUT = Path(__file__).resolve().parents[3]
@@ -85,7 +87,7 @@ class DataLayout:
         """The claim that lets one engine process at a time work on a project (COR-005)."""
         return self.root / "locks" / f"{project}.lock"
 
-    def transcript(self, project: str, instance: str) -> Path:
+    def transcript(self, project: ProjectName, instance: str) -> Path:
         return self.transcripts / project / f"{instance}.jsonl"
 
     def ops_inputs(self, project: str, instance: str) -> Path:

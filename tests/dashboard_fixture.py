@@ -23,6 +23,7 @@ from agency.agents.transcript import Transcript
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
 from agency.contracts.layout import DataLayout
 from agency.contracts.outcome import Outcome, OutcomeState
+from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
@@ -252,7 +253,7 @@ def build_before(ledger: Ledger) -> int:
 def write_transcripts(layout: DataLayout) -> None:
     """Con la classe del motore: il formato è quello che il motore scrive davvero."""
     for instance, (turns, closed) in TRANSCRIPTS.items():
-        transcript = Transcript(layout.transcript(PROJECT, instance))
+        transcript = Transcript(layout.transcript(ProjectName(PROJECT), instance))
         transcript.append({"role": "user", "content": "Prova del cruscotto"})
         for number, (call, thoughts, words, tools, notes) in enumerate(turns, start=1):
             uses = [

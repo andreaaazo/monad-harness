@@ -19,6 +19,7 @@ from agency.config import DotenvHoldsSetting, Settings
 from agency.contracts.artifact import Origin
 from agency.contracts.gate import ConceptGate
 from agency.contracts.layout import RelativeDataRoot
+from agency.contracts.project import ProjectName, parse_project_name
 from agency.doctor import run_checks
 from agency.evaluation import blind, board
 from agency.gateway import BudgetExceeded
@@ -85,7 +86,7 @@ def _report_of(settings: Settings, project: str) -> ProjectReport:
     return insights.report(projection, project)
 
 
-def _show(session: Session, project: str) -> int:
+def _show(session: Session, project: ProjectName) -> int:
     print(report.render(_report_of(session.settings, project)))
     for gate in session.pending(project):
         work = session.settings.project_dir(project) / "work"
@@ -101,7 +102,7 @@ def _show(session: Session, project: str) -> int:
     return 0
 
 
-def _guarded(project: str, session: Session, action: Callable[[], str]) -> int:
+def _guarded(project: ProjectName, session: Session, action: Callable[[], str]) -> int:
     """Il budget finito non è un errore: il lavoro resta salvato e la scelta passa al cliente."""
     try:
         outcome = action()
@@ -128,6 +129,14 @@ def _dollars(text: str) -> float:
     if not math.isfinite(amount) or amount <= 0:
         raise argparse.ArgumentTypeError(f"{text!r}: il tetto è un importo positivo in dollari, come 30")
     return amount
+
+
+def _project(text: str) -> ProjectName:
+    """A project name argument: the rule's refusal, in argparse's words, before any command runs."""
+    try:
+        return parse_project_name(text)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
 
 
 def _locked(project: str, body: Callable[[], int]) -> int:
@@ -340,7 +349,7 @@ def main(argv: list[str] | None = None) -> int:
         fn=_migrate
     )
     run = sub.add_parser("run", help="esegue un brief di logo fino al gate del cliente")
-    run.add_argument("project")
+    run.add_argument("project", type=_project)
     run.add_argument("brief")
     run.add_argument(
         "--budget",
@@ -352,10 +361,10 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--effort", choices=["low", "medium", "high"], help="effort per tutti i ruoli")
     run.set_defaults(fn=_run)
     resume = sub.add_parser("resume", help="riprende un progetto interrotto")
-    resume.add_argument("project")
+    resume.add_argument("project", type=_project)
     resume.set_defaults(fn=_resume)
     decide = sub.add_parser("decide", help="registra la decisione del cliente al gate")
-    decide.add_argument("project")
+    decide.add_argument("project", type=_project)
     choice = decide.add_mutually_exclusive_group(required=True)
     choice.add_argument("--approve", action="store_true")
     choice.add_argument("--reject", action="store_true")
@@ -363,15 +372,15 @@ def main(argv: list[str] | None = None) -> int:
     decide.add_argument("--choice", help="la lettera dell'idea, al gate concept")
     decide.set_defaults(fn=_decide)
     budget = sub.add_parser("budget", help="cambia il tetto di spesa di un progetto")
-    budget.add_argument("project")
+    budget.add_argument("project", type=_project)
     budget.add_argument("usd", type=_dollars, help="il nuovo tetto, in dollari")
     budget.set_defaults(fn=_budget)
     show = sub.add_parser("report", help="costi, fasi e stato di un progetto")
-    show.add_argument("project")
+    show.add_argument("project", type=_project)
     show.add_argument("--json", action="store_true", help="il modello del rapporto, lo stesso del cruscotto")
     show.set_defaults(fn=_report)
     runs = sub.add_parser("runs", help="le esecuzioni di un progetto e cosa è cambiato dall'una all'altra")
-    runs.add_argument("project")
+    runs.add_argument("project", type=_project)
     runs.set_defaults(fn=_runs)
     compare = sub.add_parser("compare", help="cosa cambia tra due esecuzioni, anche di progetti diversi")
     compare.add_argument("first", type=int, help="numero dell'esecuzione, da agency runs")
@@ -384,7 +393,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     judge.set_defaults(fn=_judge)
     kept = sub.add_parser("artifacts", help="le versioni conservate di un progetto, con il loro hash")
-    kept.add_argument("project")
+    kept.add_argument("project", type=_project)
     kept.set_defaults(fn=_artifacts)
     restore = sub.add_parser("restore", help="riporta una versione conservata in un file nuovo")
     restore.add_argument("hash", help="lo sha256, o le sue prime cifre (almeno 8)")

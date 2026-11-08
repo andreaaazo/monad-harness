@@ -21,6 +21,7 @@ from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
 from agency.contracts import phase
 from agency.contracts.outcome import Outcome, OutcomeState
+from agency.contracts.project import ProjectName
 from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType, Verdict
 from agency.gateway import BudgetExceeded, ModelGateway, ScriptedTransport
 from agency.ledger import Ledger
@@ -335,7 +336,7 @@ def test_truncated_response_is_not_added_to_history(tmp_path: Path) -> None:
 
 
 def _assistant_turns(config: Settings, ticket: str) -> list[dict]:
-    entries = Transcript(config.layout.transcript("p", f"{ticket}-a1")).entries()
+    entries = Transcript(config.layout.transcript(ProjectName("p"), f"{ticket}-a1")).entries()
     return [entry for entry in entries if entry.get("message", {}).get("role") == "assistant"]
 
 
@@ -350,7 +351,7 @@ def test_a_context_window_cut_blocks_without_appending(tmp_path: Path) -> None:
     assert ledger.status(ticket)[0] == Status.BLOCKED
     assert len(transport.requests) == 1  # a full window does not shrink on a retry
     assert _assistant_turns(config, ticket) == []
-    entries = Transcript(config.layout.transcript("p", f"{ticket}-a1")).entries()
+    entries = Transcript(config.layout.transcript(ProjectName("p"), f"{ticket}-a1")).entries()
     assert [entry.get("message", {}).get("role") for entry in entries if "message" in entry] == ["user"]
 
 
@@ -379,7 +380,7 @@ def test_each_answer_in_the_transcript_names_its_request_and_a_truncated_one_is_
     run, _, ledger = runner(config, [partial, final])
     ticket = ledger.open(production_spec(), "p")
     run.run(ticket)
-    entries = Transcript(config.layout.transcript("p", f"{ticket}-a1")).entries()
+    entries = Transcript(config.layout.transcript(ProjectName("p"), f"{ticket}-a1")).entries()
     answers = [entry for entry in entries if entry.get("message", {}).get("role") == "assistant"]
     assert [entry.get("request_id") for entry in answers] == ["req_blocco"]
 
@@ -415,7 +416,7 @@ def test_tool_calls_before_a_fallback_are_not_executed(tmp_path: Path) -> None:
     history = transport.requests[1]["messages"]
     assert history[1] == {"role": "assistant", "content": served}
     assert [block["tool_use_id"] for block in history[2]["content"]] == ["tB"]
-    entries = Transcript(config.layout.transcript("p", f"{ticket}-a1")).entries()
+    entries = Transcript(config.layout.transcript(ProjectName("p"), f"{ticket}-a1")).entries()
     answers = [entry for entry in entries if entry.get("message", {}).get("role") == "assistant"]
     assert answers[0]["message"]["content"] == served
     assert answers[0]["raw"] == content
@@ -775,7 +776,7 @@ def test_compute_script_lives_outside_the_work_folder(tmp_path: Path) -> None:
     inputs = config.layout.ops_inputs("p", phase.instance(ticket, 1))
     assert (inputs / PurePosixPath(script).name).read_text(encoding="utf-8") == probe
     assert not (inputs / "x").exists()
-    assert not (config.project_dir("p") / "work" / ".ops").exists()
+    assert not (config.project_dir(ProjectName("p")) / "work" / ".ops").exists()
 
 
 def test_craft_run_resume_reads_only_the_harness_record(tmp_path: Path) -> None:
@@ -1225,7 +1226,7 @@ def test_an_effect_tool_records_its_result_for_resume(
     )
     run, transport, ledger = runner(config, [batch])
     ticket = ledger.open(spec, "p")
-    work = config.project_dir("p") / "work"
+    work = config.project_dir(ProjectName("p")) / "work"
     (work / "exports").mkdir(parents=True)
     drawing = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="{SVG_PATH}"/></svg>'
     (work / svg).write_text(drawing)

@@ -17,6 +17,7 @@ from agency.agents.transcript import Transcript
 from agency.contracts import phase
 from agency.contracts.layout import DataLayout
 from agency.contracts.outcome import Outcome, OutcomeState
+from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.insights import application
@@ -242,7 +243,7 @@ def answer(id_: str, text: str, *, error: bool = False) -> dict:
 def test_transcripts_give_every_tool_call_and_the_refusals_with_their_words(tmp_path: Path) -> None:
     """Il motore scrive la trascrizione, insights la legge con lo stesso percorso: DataLayout."""
     layout = DataLayout(tmp_path)
-    transcript = Transcript(layout.transcript("merlo4", "T-0002-a1"))
+    transcript = Transcript(layout.transcript(ProjectName("merlo4"), "T-0002-a1"))
     transcript.append({"role": "user", "content": "Il brief del cliente"})
     transcript.append(
         turn({"type": "text", "text": "Guardo il file"}, use("u1", "view_image"), use("u2", "deliver"))
@@ -272,8 +273,8 @@ def test_a_half_written_line_is_counted_and_skipped_and_the_stamp_names_each_tra
     tmp_path: Path,
 ) -> None:
     layout = DataLayout(tmp_path)
-    Transcript(layout.transcript("merlo4", "T-0002-a1")).append(turn(use("u1", "render")))
-    with layout.transcript("merlo4", "T-0002-a1").open("a", encoding="utf-8") as handle:
+    Transcript(layout.transcript(ProjectName("merlo4"), "T-0002-a1")).append(turn(use("u1", "render")))
+    with layout.transcript(ProjectName("merlo4"), "T-0002-a1").open("a", encoding="utf-8") as handle:
         handle.write('{"message": {"role": "user", "cont')  # il motore sta scrivendo
 
     transcripts = JsonlTranscripts(layout)
@@ -286,7 +287,7 @@ def test_a_half_written_line_is_counted_and_skipped_and_the_stamp_names_each_tra
 def test_a_line_torn_inside_a_utf8_character_counts_as_unreadable(tmp_path: Path) -> None:
     """The engine writes Italian unescaped, so a line can stop after the first byte of `è`."""
     layout = DataLayout(tmp_path)
-    path = layout.transcript("merlo4", "T-0002-a1")
+    path = layout.transcript(ProjectName("merlo4"), "T-0002-a1")
     Transcript(path).append(turn(use("u1", "render")))
     with path.open("ab") as handle:
         handle.write(b'{"a":"\xc3')  # the engine was writing "è"
@@ -305,7 +306,7 @@ def test_a_line_torn_inside_a_utf8_character_counts_as_unreadable(tmp_path: Path
 def test_a_long_refusal_keeps_its_head_and_its_tail_and_says_where_it_was_cut(tmp_path: Path) -> None:
     """craft_run risponde con il registro dei passi: l'errore può stare in fondo."""
     layout = DataLayout(tmp_path)
-    transcript = Transcript(layout.transcript("merlo4", "T-0002-a1"))
+    transcript = Transcript(layout.transcript(ProjectName("merlo4"), "T-0002-a1"))
     transcript.append(turn(use("u1", "craft_run")))
     log = "passo 1 ok\n" + "x" * 5000 + "\nstep 9 (select.set): no such object"
     transcript.append(results(answer("u1", log, error=True)))
@@ -325,7 +326,7 @@ def image_block(media_type: str = "image/png", data: str = PIXEL) -> dict:
 def replayed(tmp_path: Path) -> DataLayout:
     """Un'istanza come la scrive il motore: il compito, due turni, un promemoria, l'esito."""
     layout = DataLayout(tmp_path)
-    transcript = Transcript(layout.transcript("merlo4", "T-0002-a1"))
+    transcript = Transcript(layout.transcript(ProjectName("merlo4"), "T-0002-a1"))
     transcript.append({"role": "user", "content": "TICKET T-0002: il segno"})
     transcript.append(
         turn(
@@ -409,6 +410,11 @@ def test_a_name_that_is_not_an_instance_never_becomes_a_path(tmp_path: Path) -> 
     assert transcripts.transcript("merlo4", "appunti") is None
     assert transcripts.transcript("../fuori", "T-0002-a1") is None
     assert transcripts.image("../fuori", "T-0002-a1", 0) is None
+    nested = tmp_path / "runs" / "acme" / "v2"  # inside the folder, but not a project name (COR-013)
+    nested.mkdir(parents=True)
+    (nested / "T-0002-a1.jsonl").write_text(line, encoding="utf-8")
+    assert transcripts.transcript("acme/v2", "T-0002-a1") is None
+    assert transcripts.image("acme/v2", "T-0002-a1", 0) is None
     for project, instance in [
         ("..", "segreto"),
         ("merlo4", "../../segreto"),
@@ -843,7 +849,7 @@ def test_a_projection_of_the_previous_schema_is_rebuilt_not_misread(tmp_path: Pa
 def test_a_transcript_that_grows_makes_the_projection_old(tmp_path: Path) -> None:
     """Un'istanza che lavora scrive la sua trascrizione: alla lettura dopo, la proiezione si rifà."""
     layout = DataLayout(tmp_path)
-    transcript = Transcript(layout.transcript("merlo3", "T-0002-a1"))
+    transcript = Transcript(layout.transcript(ProjectName("merlo3"), "T-0002-a1"))
     transcript.append(turn(use("u1", "render")))
     registry, traces = FakeRegistry(application.READS_REVISION), JsonlTraces(tmp_path / "t.jsonl")
     projection, transcripts = (

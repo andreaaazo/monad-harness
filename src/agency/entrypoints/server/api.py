@@ -10,6 +10,7 @@ from django.http import HttpRequest, HttpResponse
 from ninja import NinjaAPI, Schema, Status
 
 from agency.contracts.layout import DataLayout
+from agency.contracts.project import parse_project_name
 from agency.insights import application
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.registry import ReadOnlyRegistry
@@ -76,6 +77,10 @@ def projects(request: HttpRequest) -> list[ProjectSummary]:
 
 def _unknown(projection: SqliteProjection, name: str) -> Status | None:
     """Un progetto che il registro non conosce è un 404, non una vista vuota."""
+    try:
+        parse_project_name(name)
+    except ValueError:  # a registry from before the name rule may still hold such a name (COR-013)
+        return Status(404, Problem(detail=f"progetto sconosciuto: {name}"))
     if name in {summary.name for summary in application.projects(projection)}:
         return None
     return Status(404, Problem(detail=f"progetto sconosciuto: {name}"))

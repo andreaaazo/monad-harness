@@ -19,6 +19,7 @@ from agency.agents.loop import AgentRunner
 from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.gate import GATE, Decision, Gate
+from agency.contracts.project import parse_project_name
 from agency.contracts.run import RunCommand
 from agency.contracts.ticket import TicketSpec, TicketType
 from agency.gateway import AnthropicTransport, ModelGateway, Transport
@@ -116,6 +117,7 @@ class Session:
         effort: str = "",
     ) -> str:
         """`budget` è il tetto dichiarato da chi avvia, in dollari: non ha un valore di default (ADR-0043)."""
+        folder = parse_project_name(project)  # before anything is read or written (COR-013)
         try:
             request = brief.read_text(encoding="utf-8")
         except UnicodeDecodeError as error:
@@ -132,7 +134,7 @@ class Session:
             exempt={"construction.md": "documento di costruzione, verificato dal critico con il segno"},
         )
         delivery.validate(spec)
-        work = self.settings.project_dir(project) / "work"
+        work = self.settings.project_dir(folder) / "work"
         work.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(brief, work / "brief.md")
         self.ledger.set_project(project, budget, model, effort)

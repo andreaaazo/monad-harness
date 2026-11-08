@@ -16,6 +16,7 @@ from pathlib import Path
 
 from agency.contracts import phase
 from agency.contracts.layout import DataLayout
+from agency.contracts.project import parse_project_name
 from agency.insights.domain import (
     AssistantTurn,
     ImageRef,
@@ -79,7 +80,11 @@ class JsonlTranscripts:
         """Il file di un'istanza: solo per un nome d'istanza, e solo dentro la cartella delle trascrizioni."""
         if phase.INSTANCE.fullmatch(instance) is None:
             return None
-        path = self.layout.transcript(project, instance).resolve()
+        try:
+            name = parse_project_name(project)
+        except ValueError:
+            return None
+        path = self.layout.transcript(name, instance).resolve()
         if not path.is_relative_to(self.root.resolve()) or not path.is_file():
             return None
         return path

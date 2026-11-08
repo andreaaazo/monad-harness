@@ -477,6 +477,107 @@ def test_malformed_tool_json_is_retried(tmp_path: Path) -> None:
     assert gateway(tmp_path, Flaky([reply()])).call(CONTEXT, request()).stop_reason == "end_turn"
 
 
+class MalformedThenOk(ScriptedTransport):
+    """Raises the SDK's malformed-tool-JSON `ValueError` for the first `fails` streams."""
+
+    def __init__(self, fails: int, responses: list[dict]) -> None:
+        super().__init__(responses)
+        self.fails = fails
+
+    def stream(self, params: dict) -> dict:
+        if self.fails:
+            self.fails -= 1
+            self.requests.append(params)
+            raise ValueError("JSON illeggibile")
+        return super().stream(params)
+
+
+def count_authorizations(gw: ModelGateway) -> list[float]:
+    """Wrap `authorize` on the instance and return the list its estimates are appended to."""
+    estimates: list[float] = []
+    real = gw.authorize
+
+    def counting(context: CallContext, limit: float, estimate: float) -> None:
+        estimates.append(estimate)
+        real(context, limit, estimate)
+
+    gw.authorize = counting  # type: ignore[method-assign]
+    return estimates
+
+
+def test_a_malformed_stream_retry_is_authorized_and_recorded(tmp_path: Path) -> None:
+    """Each failed attempt is billed by the API: it is authorized first and leaves a usage row."""
+    transport = MalformedThenOk(2, [reply()])
+    gw = gateway(tmp_path, transport)
+    estimate = gw.estimate_usd(request(), None)
+    authorized = count_authorizations(gw)
+    taken = fingerprint.take(Settings(_env_file=None), "", "", tools=())  # type: ignore[call-arg]
+    run = gw.ledger.record_run("p", RunCommand.RUN, taken)
+    gw.belongs_to(run)
+
+    response = gw.call(CONTEXT, request())
+
+    assert response.stop_reason == "end_turn"
+    assert len(transport.requests) == 3
+    assert authorized == [estimate] * 3
+    rows = gw.ledger.usage("p")
+    assert [row.stop_reason for row in rows] == ["malformed_stream", "malformed_stream", "end_turn"]
+    assert [row.run for row in rows] == [run] * 3
+    for failed in rows[:2]:
+        assert failed.cost_usd == estimate
+        assert (failed.input_tokens, failed.output_tokens) == (0, 0)
+        cache = (failed.cache_read_tokens, failed.cache_write_5m_tokens, failed.cache_write_1h_tokens)
+        assert cache == (0, 0, 0)
+        assert (failed.model, failed.request_id) == ("claude-opus-5-5", "")
+        assert failed.ttft_ms is None and failed.reasoning_tokens is None
+        who = (failed.project, failed.ticket_id, failed.role, failed.instance)
+        assert who == ("p", "T-0001", "critic", "i1")
+        assert (failed.phase, failed.effort) == ("critic-board", "high")
+        assert failed.duration_ms is not None
+    assert gw.ledger.spent("p") == pytest.approx(2 * estimate + response.cost_usd)
+    assert gw._reserved["p"] == pytest.approx(0)  # every attempt released its own reservation, once
+
+
+def test_a_malformed_stream_failure_records_its_own_duration(tmp_path: Path) -> None:
+    ticks = iter(range(0, 100, 3))  # each clock read is 3 s after the last
+    gw = gateway(tmp_path, MalformedThenOk(1, [reply()]), clock=lambda: float(next(ticks)))
+    gw.call(CONTEXT, request())
+    failed, ok = gw.ledger.usage("p")
+    assert failed.duration_ms == 3000 and ok.duration_ms == 3000
+
+
+def test_a_retry_over_the_cap_is_refused_after_the_failed_attempt_is_recorded(tmp_path: Path) -> None:
+    probe = gateway(tmp_path / "probe", ScriptedTransport([]))
+    estimate = probe.estimate_usd(request(), None)
+    transport = MalformedThenOk(2, [reply()])
+    gw = gateway(tmp_path, transport, budget=1.5 * estimate)  # one call fits, two do not
+
+    with pytest.raises(BudgetExceeded, match="spesi"):
+        gw.call(CONTEXT, request())
+
+    assert len(transport.requests) == 1  # the retry never went out
+    rows = gw.ledger.usage("p")
+    assert [row.stop_reason for row in rows] == ["malformed_stream"]
+    assert rows[0].cost_usd == estimate
+    assert gw._reserved["p"] == pytest.approx(0)
+
+
+def test_the_last_malformed_stream_failure_is_recorded_and_raised(tmp_path: Path) -> None:
+    transport = MalformedThenOk(3, [reply()])
+    gw = gateway(tmp_path, transport)
+    estimate = gw.estimate_usd(request(), None)
+    authorized = count_authorizations(gw)
+
+    with pytest.raises(ValueError, match="JSON illeggibile"):
+        gw.call(CONTEXT, request())
+
+    assert len(transport.requests) == 3 and len(transport.responses) == 1
+    assert authorized == [estimate] * 3
+    assert [row.stop_reason for row in gw.ledger.usage("p")] == ["malformed_stream"] * 3
+    assert gw.ledger.spent("p") == pytest.approx(3 * estimate)
+    assert gw._reserved["p"] == pytest.approx(0)
+
+
 def test_key_reaches_settings_from_the_documented_variable(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     settings = Settings(_env_file=None)  # type: ignore[call-arg]

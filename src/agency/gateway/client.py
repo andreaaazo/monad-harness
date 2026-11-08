@@ -150,35 +150,65 @@ class ModelGateway:
     ) -> ModelResponse:
         limit = self.project_limit(context.project)  # prima della stima: senza tetto non esce nulla
         estimate = self.estimate_usd(request, previous)
-        self.authorize(context, limit, estimate)
-        try:
-            params = self._params(request)
-            with tracer.start_as_current_span("model.call") as span:
-                span.set_attributes(
-                    {
-                        "agency.project": context.project,
-                        "agency.ticket": context.ticket_id,
-                        "agency.role": context.role,
-                        "gen_ai.request.model": request.model,
-                    }
-                )
-                started = self.clock()
-                data = self._stream(params)
-                duration_ms = round((self.clock() - started) * 1000)
-                response = self._record(context, request, data, duration_ms)
-                span.set_attribute("agency.cost_usd", response.cost_usd)
-        finally:  # after `_record` the spend holds the cost; on an error nothing was recorded
-            self._release(context.project, estimate)
-        return response
-
-    def _stream(self, params: dict) -> dict:
-        for attempt in range(MAX_MALFORMED_RETRIES + 1):
-            try:
-                return self.transport.stream(params)
-            except ValueError:  # JSON degli strumenti illeggibile nello stream: si ripete la richiesta.
-                if attempt == MAX_MALFORMED_RETRIES:
-                    raise
+        params = self._params(request)
+        with tracer.start_as_current_span("model.call") as span:
+            span.set_attributes(
+                {
+                    "agency.project": context.project,
+                    "agency.ticket": context.ticket_id,
+                    "agency.role": context.role,
+                    "gen_ai.request.model": request.model,
+                }
+            )
+            for attempt in range(MAX_MALFORMED_RETRIES + 1):
+                # Every attempt is billed by the API, so each one is authorized and recorded on its own.
+                self.authorize(context, limit, estimate)
+                try:  # after a record the spend holds the cost; on an unrecorded error nothing was spent
+                    started = self.clock()
+                    try:
+                        data = self.transport.stream(params)
+                    except ValueError:  # JSON degli strumenti illeggibile: si ripete la richiesta.
+                        duration_ms = round((self.clock() - started) * 1000)
+                        self._record_malformed(context, request, estimate, duration_ms)
+                        if attempt == MAX_MALFORMED_RETRIES:
+                            raise
+                        continue
+                    duration_ms = round((self.clock() - started) * 1000)
+                    response = self._record(context, request, data, duration_ms)
+                    span.set_attribute("agency.cost_usd", response.cost_usd)
+                    return response
+                finally:
+                    self._release(context.project, estimate)
         raise AssertionError("non raggiungibile")
+
+    def _record_malformed(
+        self, context: CallContext, request: ModelRequest, estimate: float, duration_ms: int
+    ) -> None:
+        """A stream that died on unreadable tool JSON was billed but reported no usage: use the estimate."""
+        self.ledger.record_usage(
+            UsageRow(
+                at=now(),
+                project=context.project,
+                ticket_id=context.ticket_id,
+                role=context.role,
+                instance=context.instance,
+                model=request.model,
+                input_tokens=0,
+                output_tokens=0,
+                cache_read_tokens=0,
+                cache_write_5m_tokens=0,
+                cache_write_1h_tokens=0,
+                cost_usd=estimate,
+                stop_reason="malformed_stream",
+                request_id="",
+                run=self.run,
+                phase=context.phase,
+                effort=request.effort,
+                duration_ms=duration_ms,
+                ttft_ms=None,
+                reasoning_tokens=None,
+            )
+        )
 
     def _record(
         self, context: CallContext, request: ModelRequest, data: dict, duration_ms: int

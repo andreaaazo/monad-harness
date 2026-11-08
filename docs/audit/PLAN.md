@@ -796,7 +796,7 @@ must not change behaviour. Every task starts with its failing test.
       only B runs, A is missing from the history, and `raw` holds A.
   - Verify: the test passes; standard gate.
   - Commit: `fix(agents): drop a declined attempt's tool calls after a server-side fallback`.
-- [ ] **Task 2.22: every attempt of a retried call is authorized and recorded.** Closes COR-010.
+- [x] **Task 2.22: every attempt of a retried call is authorized and recorded.** Closes COR-010.
   - Files: `src/agency/gateway/client.py` (`_stream`, `call`), `tests/test_gateway.py`.
   - Behaviour: authorize before each attempt. A failed attempt writes a usage row with `stop_reason="malformed_stream"`,
     its estimate as the cost, and zero tokens.

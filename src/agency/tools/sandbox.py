@@ -15,6 +15,11 @@ HOME = "/home/studio"
 TMP_BYTES = 2 * 2**30
 HOME_BYTES = 256 * 2**20
 FILE_BYTES = 2 * 2**30  # RLIMIT_FSIZE of every command: the largest file it can write or extend
+# Caps of the cgroup scope every command runs in (ADR-0046). tmpfs pages written by the command count toward
+# the memory cap, so /tmp and /home above are part of it.
+MEMORY_MAX_BYTES = 8 * 2**30
+TASKS_MAX = 512  # threads count as tasks
+SCOPE_PROBE_SECONDS = 15
 
 
 @dataclass(frozen=True)
@@ -26,6 +31,43 @@ class Completed:
     @property
     def output(self) -> str:
         return self.stdout + self.stderr
+
+
+class SandboxUnavailable(RuntimeError):
+    """The sandbox cannot start without its cgroup caps. A RuntimeError, so that `Toolbox.call` hands the
+    reason to the model as a refused tool call instead of reporting a tool crash."""
+
+
+def scope_prefix() -> list[str]:
+    """The command that puts what follows it in a transient cgroup scope with memory and task caps."""
+    return [
+        "systemd-run", "--user", "--scope", "--quiet",
+        "-p", f"MemoryMax={MEMORY_MAX_BYTES}",
+        "-p", "MemorySwapMax=0",
+        "-p", f"TasksMax={TASKS_MAX}",
+        "--",
+    ]  # fmt: skip
+
+
+def scope_problem() -> str | None:
+    """None if a capped scope can be created now, else the reason.
+
+    A probe that runs before the command, never a reading of the command's own exit code or output, which
+    model-written code could fake."""
+    try:
+        done = subprocess.run(
+            [*scope_prefix(), "true"], capture_output=True, text=True, timeout=SCOPE_PROBE_SECONDS
+        )
+    except FileNotFoundError:
+        return "systemd-run non esiste su questa macchina"
+    except subprocess.TimeoutExpired:
+        return f"systemd-run non risponde entro {SCOPE_PROBE_SECONDS} s"
+    except OSError as exc:
+        return f"systemd-run non parte: {exc}"
+    if done.returncode == 0:
+        return None
+    said = (done.stderr or done.stdout).strip()
+    return f"systemd-run non crea lo scope (uscita {done.returncode}): {said[:300]}"
 
 
 class Sandbox:
@@ -42,9 +84,11 @@ class Sandbox:
         self.toolchain = toolchain
         self.read_only = read_only
         self.ops = ops
+        self._scope_checked = False
 
     def argv(self, command: list[str]) -> list[str]:
         args = [
+            *scope_prefix(),
             "bwrap",
             "--ro-bind", "/usr", "/usr",
             "--symlink", "usr/bin", "/bin",
@@ -92,6 +136,11 @@ class Sandbox:
         return "python3"
 
     def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+        if not self._scope_checked:
+            why = scope_problem()
+            if why:
+                raise SandboxUnavailable(f"la sandbox non parte senza i limiti di memoria e processi: {why}")
+            self._scope_checked = True
         try:
             result = subprocess.run(
                 self.argv(command), capture_output=True, text=True, timeout=timeout, input=stdin

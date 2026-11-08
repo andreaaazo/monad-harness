@@ -51,6 +51,14 @@ che scrive per la sandbox dell'agente, lo script di `compute` e il piano di `cra
 Il registro della ripresa di `craft_run` sta nella cartella sopra, `.data/ops/<progetto>/<istanza>/`, che nessuna
 sandbox vede. In `/job` restano solo le uscite degli strumenti, come l'esportazione in `/job/.partial/`.
 
+Ogni comando ha anche dei limiti di risorse (ADR-0046, SEC-005):
+- `/tmp` è una tmpfs da 2 GiB e `/home` da 256 MiB, e nessun file scritto supera i 2 GiB (`prlimit --fsize`);
+- il comando gira in uno scope cgroup dell'utente, `systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 -p
+  TasksMax=512 -- bwrap …`: 8 GiB di memoria, tmpfs comprese, niente swap, 512 task. Il tetto è il doppio del picco
+  misurato su Blender e sulle CLI Craft;
+- senza uno scope la sandbox non parte: `Sandbox.run` alza `SandboxUnavailable`, e `agency doctor` lo segnala nella
+  riga `limiti sandbox`. Serve quindi una sessione utente di systemd con i controller `memory` e `pids`.
+
 ## Dati del cliente
 
 I materiali restano in `projects/<slug>/`. Possono uscire solo verso l'API Anthropic, necessaria per il

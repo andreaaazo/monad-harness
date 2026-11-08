@@ -748,7 +748,7 @@ must not change behaviour. Every task starts with its failing test.
     - `test_view_image_refuses_a_huge_file`.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(sandbox): bound tmpfs, file sizes and harness-side reads`.
-- [ ] **Task 2.19 [APPROVAL]: memory and task caps in a cgroup scope.** Closes SEC-005 (Q20). New ADR, expected
+- [x] **Task 2.19 [APPROVAL]: memory and task caps in a cgroup scope.** Closes SEC-005 (Q20). New ADR, expected
   ADR-0046 ("I limiti della sandbox").
   - Files: `src/agency/tools/sandbox.py`, `src/agency/doctor.py`, `docs/adr/0046-*.md`, `docs/adr/README.md`,
     `docs/06-SECURITY.md`, `docs/04-TOOLS.md`, `tests/test_agent_flow.py`, `tests/test_doctor.py`.
@@ -1161,12 +1161,15 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   folder of the Compose file, not the folder the operator is in, whereas the engine and the server refuse a relative
   data root (ADR-0045). Needs the owner's decision (refuse it in the Taskfile like the others, or accept it). Found by
   Task 2.17. Not covered by a planned task.
-- [ ] **Task 2.F39: `/dev/shm` in the sandbox has no size bound.** tools/sandbox.py:55 (`--dev /dev`; as of Task 2.18).
-  bwrap's `--size` applies only to the next `--tmpfs`, not to `--dev`, so the `/dev/shm` it mounts still reports the
-  host's free RAM (30.5 GiB in the SEC-005 probe) while `/tmp` and `/home` are now 2 GiB and 256 MiB. Sandboxed code can
-  fill RAM through it. Task 2.19's `MemoryMax` would bound it in practice, because tmpfs pages are charged to the cgroup
-  of the process that writes them, but its plan never names `/dev/shm`, so its test should write there. The direct fix
-  is `--tmpfs /dev/shm` with `--size` after `--dev /dev`. Found by Task 2.18. Partly covered by Task 2.19.
+- [ ] **Task 2.F39: `/dev/shm` in the sandbox has no size bound of its own.** tools/sandbox.py:55 (`--dev /dev`; as of
+  Task 2.18, re-checked as of Task 2.19). bwrap's `--size` applies only to the next `--tmpfs`, not to `--dev`, so the
+  `/dev/shm` it mounts still reports the host's free RAM (30.5 GiB in the SEC-005 probe) while `/tmp` and `/home` are
+  now 2 GiB and 256 MiB. Task 2.19 measured it: with the real Sandbox argv and `MemoryMax` set to 64 MiB in a scratch
+  run only, `dd` of 128 MiB into `/dev/shm` was killed (`Killed`, exit -15 for the sandbox command), the same as
+  128 MiB into `/tmp` and 128 MiB of heap. So it is bounded by the scope at `MEMORY_MAX_BYTES` (8 GiB), not by a
+  size of its own. No test was added for it. A smaller bound would be `--tmpfs /dev/shm` with `--size` after
+  `--dev /dev`. Found by Task 2.18. Covered by Task 2.19 as far as the host is concerned (the cap is 8 GiB, not a
+  small `/dev/shm`); the direct fix is not covered by a planned task.
 - [ ] **Task 2.F40: `Sandbox.run` collects stdout and stderr of any size in memory.** tools/sandbox.py:96-98 (as of
   Task 2.18). `subprocess.run(..., capture_output=True, text=True)` holds everything the command prints until it exits
   or the timeout fires, so a command that prints at full speed for 120 s fills the harness's RAM; the cgroup of Task
@@ -1183,6 +1186,16 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   over `MAX_IMAGE_FILE_BYTES`, but these three call `read_under` on a proof or a page the sandbox wrote and decode it,
   with no size check. Fix: share the bounded read of `view_image` (a helper beside `read_under`), after the owner decides
   where that helper lives (see Task 4.F1). Found by Task 2.18. Not covered by a planned task.
+- [ ] **Task 2.F43: when the sandbox cannot get its scope, nothing decides whether the project stops or goes on.**
+  tools/sandbox.py:138-143 (`Sandbox.run`), tools/surface.py:966-978 (`Toolbox.call`) and graph/workflow.py:399-402
+  (`client_gate`) (as of Task 2.19). `SandboxUnavailable` is a `RuntimeError`, so inside `Toolbox.call` it reaches the
+  model as a refused tool call with the reason (the `Refused/.../RuntimeError` branch, `is_error`, no traceback). The
+  model can then retry or close with `block`, and every retry fails the same way, so a project on a machine
+  without a user systemd session spends model turns on refusals. Outside `Toolbox.call` there is no catch site:
+  `client_gate` builds a `Sandbox` and calls `delivery.acceptance_problems` after the client has approved, so the
+  exception would leave that graph node. Needs the owner's decision: stop the project at the start with
+  `agency doctor`'s message (a check in `agency run`), or let each tool refuse (today), or catch it at the gate and send
+  the work back with the reason. Found by Task 2.19. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

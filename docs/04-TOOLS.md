@@ -16,6 +16,9 @@ Docker 29.9, `bwrap`.
 Per EffectCraft e PhotoCraft il numero viene dalle righe del catalogo: è un ordine di grandezza. Tutti
 e cinque girano in `bwrap` senza rete (`spikes/sandbox_craft.sh`).
 
+Girano in uno scope cgroup dell'utente con 8 GiB di memoria e 512 task (ADR-0046): serve `systemd-run --user`, cioè una
+sessione utente di systemd con i controller `memory` e `pids`. `agency doctor` lo controlla nella riga `limiti sandbox`.
+
 **Lo strumento è obbligatorio per mezzo.** Il calcolo in `compute` serve a costruire, poi entra nel
 master. Le consegne si esportano dal master.
 

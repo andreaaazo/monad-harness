@@ -7,6 +7,8 @@ import json
 import os
 import shutil
 import subprocess
+import threading
+import time
 import tracemalloc
 from pathlib import Path, PurePosixPath
 
@@ -25,7 +27,7 @@ from agency.ledger import Ledger
 from agency.runtime import open_session
 from agency.tools import craft, master
 from agency.tools.craft import Command, CommandIndex
-from agency.tools.sandbox import JOB, Completed, Sandbox
+from agency.tools.sandbox import JOB, MEMORY_MAX_BYTES, TASKS_MAX, Completed, Sandbox, SandboxUnavailable
 from agency.tools.surface import TOOLS, Toolbox, ToolContext, tools_for
 
 SVG_PATH = "M10 90 L50 10 L90 90 Z"
@@ -830,6 +832,72 @@ def test_sandbox_file_size_is_limited(tmp_path: Path) -> None:
     work.mkdir()
     assert Sandbox(work).run(["truncate", "-s", "3G", f"{JOB}/x"]).code != 0
     assert not (work / "x").exists() or (work / "x").stat().st_size < 3 * 2**30
+
+
+def host_cgroup(path: str) -> Path:
+    return Path("/sys/fs/cgroup") / path.removeprefix("0::/").strip()
+
+
+def test_sandbox_runs_in_its_own_capped_scope(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    # The sandbox has no /sys, so the caps are read from the host while the command is still running: it
+    # writes its cgroup into /job and waits for a marker. Every wait is bounded, so a failure cannot hang.
+    command = (
+        f"cat /proc/self/cgroup > {JOB}/cgroup; i=0; "
+        f"while [ ! -e {JOB}/done ] && [ $i -lt 300 ]; do sleep 0.1; i=$((i+1)); done"
+    )
+    results: list[Completed] = []
+
+    def job() -> None:
+        results.append(Sandbox(work).run(["sh", "-c", command], timeout=60))
+
+    runner = threading.Thread(target=job)
+    runner.start()
+    try:
+        deadline = time.monotonic() + 30
+        while not ((work / "cgroup").exists() and (work / "cgroup").read_text("utf-8")):
+            assert time.monotonic() < deadline, "the sandboxed command never reported its cgroup"
+            time.sleep(0.1)
+        inside = (work / "cgroup").read_text("utf-8").strip()
+        scope = host_cgroup(inside)
+        assert inside != Path("/proc/self/cgroup").read_text("utf-8").strip()
+        assert (scope / "memory.max").read_text("utf-8").strip() == str(MEMORY_MAX_BYTES)
+        assert (scope / "memory.swap.max").read_text("utf-8").strip() == "0"
+        assert (scope / "pids.max").read_text("utf-8").strip() == str(TASKS_MAX)
+    finally:
+        (work / "done").write_text("")
+        runner.join(timeout=60)
+    assert results
+    assert results[0].code == 0
+
+
+def break_the_user_bus(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """`systemd-run --user` cannot reach the user's systemd: the case of a cron job or a bare container."""
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "no-runtime-dir"))
+    monkeypatch.delenv("DBUS_SESSION_BUS_ADDRESS", raising=False)
+
+
+def test_sandbox_refuses_to_run_without_a_scope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    break_the_user_bus(monkeypatch, tmp_path)
+    with pytest.raises(SandboxUnavailable) as refused:
+        Sandbox(work).run(["sh", "-c", f"echo ran > {JOB}/ran"])
+    assert "systemd-run" in str(refused.value)  # the reason names what failed
+    assert not (work / "ran").exists()  # the command never started, outside any cap
+
+
+def test_a_missing_scope_reaches_the_model_as_a_tool_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    box = Toolbox(bare_context(tmp_path, "identity-designer"))
+    break_the_user_bus(monkeypatch, tmp_path)
+    result = box.call("c1", "compute", {"code": "print(1)"})
+    assert result["is_error"] is True
+    assert "scope" in result["content"]
+    assert "Traceback" not in result["content"]
+    assert "non è riuscito" not in result["content"]  # a refusal (ADR-0046), not a tool crash
 
 
 def test_master_problem_reads_only_the_header(tmp_path: Path) -> None:

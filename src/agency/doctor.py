@@ -8,6 +8,7 @@ import subprocess
 from dataclasses import dataclass
 
 from agency.config import Settings
+from agency.tools.sandbox import MEMORY_MAX_BYTES, TASKS_MAX, scope_problem
 
 BINARIES: tuple[tuple[str, bool, str], ...] = (
     ("vectorcraft-cli", True, "master vettoriali e tavola del giudizio"),
@@ -54,5 +55,8 @@ def run_checks(settings: Settings | None = None) -> list[Finding]:
     ]
     has_key = bool(os.environ.get("ANTHROPIC_API_KEY")) or settings.anthropic_api_key is not None
     findings.append(Finding("chiave API", has_key, False, "serve da M1, non per i test locali"))
+    why = scope_problem()
+    caps = f"scope systemd con {MEMORY_MAX_BYTES // 2**30} GiB di memoria e {TASKS_MAX} task"
+    findings.append(Finding("limiti sandbox", why is None, True, caps if why is None else why))
     findings.append(Finding("GPU", shutil.which("nvidia-smi") is not None, False, _gpu()))
     return findings

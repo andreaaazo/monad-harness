@@ -9,7 +9,7 @@ vecchio. Date: 2026-10-31.
 | [0002](0002-langgraph-processo.md) | LangGraph solo per il processo | Accettata |
 | [0003](0003-loop-proprio.md) | Loop proprio sulla Messages API, niente smolagents | Accettata |
 | [0004](0004-indice-comandi.md) | Tre strumenti e un indice per i comandi Craft | Accettata |
-| [0005](0005-sandbox-bwrap.md) | Sandbox `bwrap` e istanze per lavoro | Accettata; i file dell'harness stanno fuori da `/job` (0044) |
+| [0005](0005-sandbox-bwrap.md) | Sandbox `bwrap` e istanze per lavoro | Accettata; i file dell'harness stanno fuori da `/job` (0044); i limiti di risorse in 0046 |
 | [0006](0006-niente-litellm.md) | Anthropic diretto, niente LiteLLM | Accettata |
 | [0007](0007-openusd-rimandato.md) | Master nativi, OpenUSD rimandato | Accettata |
 | [0008](0008-dspy-separato.md) | DSPy tardi e in ambiente separato | Accettata |
@@ -50,3 +50,4 @@ vecchio. Date: 2026-10-31.
 | [0043](0043-il-tetto-si-dichiara-all-avvio.md) | Il tetto di spesa si dichiara all'avvio | Accettata, toglie il budget di default a 0015 |
 | [0044](0044-i-file-dell-harness-fuori-dalla-sandbox.md) | I file dell'harness fuori dalla sandbox | Accettata, estende 0005 |
 | [0045](0045-una-radice-dei-dati-e-env-solo-per-i-segreti.md) | Una radice dei dati, e `.env` solo per i segreti | Accettata, si attua in tre passi (Task 2.15–2.17 di `docs/audit/PLAN.md`) |
+| [0046](0046-i-limiti-della-sandbox.md) | I limiti della sandbox | Accettata, estende 0005: tetto di memoria e di task in uno scope cgroup |

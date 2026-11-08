@@ -32,7 +32,7 @@ from agency.insights.ports import RegistrySnapshot
 BUSY_SECONDS = 30
 # Le colonne nominate una per una, dal modello: una colonna nuova del registro non entra di nascosto.
 USAGE = f"SELECT {', '.join(UsageRecord.model_fields)} FROM usage ORDER BY seq"
-TICKETS = "SELECT id, project, spec_json, status, verdict, created_at FROM tickets ORDER BY id"
+TICKETS = "SELECT id, project, spec_json, status, verdict, created_at FROM tickets ORDER BY rowid"
 PROJECTS = f"SELECT {', '.join(ProjectRecord.model_fields)} FROM projects ORDER BY name"
 GATES = f"SELECT {', '.join(GateRecord.model_fields)} FROM gates ORDER BY seq"
 CONCEPTS = "SELECT seq, project, round, letter, anon, lever, status, card_json FROM concepts ORDER BY seq"

@@ -832,7 +832,7 @@ must not change behaviour. Every task starts with its failing test.
     - `test_an_invalid_stored_name_is_reported_not_crashed` (Review focus 4).
   - Verify: the tests pass; pyright passes; standard gate.
   - Commit: `fix(contracts): accept only DNS-label project names`.
-- [ ] **Task 2.25: tickets are listed in creation order.** Closes COR-014.
+- [x] **Task 2.25: tickets are listed in creation order.** Closes COR-014.
   - Files:
     - `src/agency/ledger/store.py` (:139-140, :177, :203);
     - `src/agency/insights/adapters/registry.py:35`, `src/agency/insights/adapters/projection.py:90`;
@@ -1243,6 +1243,14 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   written into the registry as a project name that `parse_project_name` rejects, and the dashboard then answers 404 for
   it. Fix: treat a first path part that fails `parse_project_name` like a file outside the projects (`project=""`), or
   refuse the comparison with a message. Related finding: COR-013. Found by Task 2.24. Not covered by a planned task.
+- [ ] **Task 2.F51: the insights flow report sorts tickets by their text id.**
+  insights/flow.py:204 (as of Task 2.25). `flow_report` builds the ticket list with
+  `sorted(data.tickets, key=lambda ticket: ticket.id)`, and `_outcome` at insights/flow.py:186 sorts the unfinished
+  ids with `sorted(ticket.id ...)`. Both compare `T-{n:04d}` as text, so from the 10,000th ticket `T-10000` is listed
+  before `T-9999`, the same defect as COR-014 (the registry and projection now read in creation order, and this sort
+  discards it). Fix: keep the incoming order (rowid order from the registry) for the ticket list, and order
+  `unfinished` by the numeric part of the id or by the incoming order. Found in Task 2.25. Not covered by a planned
+  task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

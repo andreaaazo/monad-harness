@@ -61,6 +61,7 @@ class _Table[T: BaseModel]:
     model: type[T]
     key: str
     scope: str = "project"  # la colonna con cui si legge un progetto
+    order: str | None = None  # defaults to the key; "rowid" reads in insertion order
 
     @property
     def columns(self) -> list[str]:
@@ -79,7 +80,7 @@ class _Table[T: BaseModel]:
 
     def select(self, scoped: bool) -> str:
         where = f" WHERE {self.scope} = ?" if scoped else ""
-        return f"SELECT {', '.join(self.columns)} FROM {self.name}{where} ORDER BY {self.key}"
+        return f"SELECT {', '.join(self.columns)} FROM {self.name}{where} ORDER BY {self.order or self.key}"
 
     def rows(self, items: list[T]) -> list[tuple[object, ...]]:
         return [tuple(item.model_dump(mode="json")[column] for column in self.columns) for item in items]
@@ -87,7 +88,7 @@ class _Table[T: BaseModel]:
 
 CALLS = _Table("calls", Call, "seq")
 PROJECTS = _Table("projects", ProjectRecord, "name", scope="name")
-TICKETS = _Table("tickets", TicketRecord, "id")
+TICKETS = _Table("tickets", TicketRecord, "id", order="rowid")
 GATES = _Table("gates", GateRecord, "seq")
 CONCEPTS = _Table("concepts", ConceptRecord, "seq")
 JUDGMENTS = _Table("judgments", JudgmentRecord, "seq")

@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import event as sa_event
-from sqlalchemy import func
+from sqlalchemy import func, literal_column
 from sqlalchemy.dialects.sqlite import insert
 from sqlmodel import Session, col, create_engine, select
 
@@ -201,7 +201,7 @@ class Ledger:
 
     def children(self, ticket_id: str) -> list[str]:
         with Session(self.engine) as session:
-            rows = session.exec(select(TicketRow).order_by(TicketRow.id)).all()
+            rows = session.exec(select(TicketRow).order_by(literal_column("rowid"))).all()
             return [r.id for r in rows if TicketSpec.model_validate_json(r.spec_json).parent == ticket_id]
 
     def spec(self, ticket_id: str) -> TicketSpec:
@@ -227,7 +227,7 @@ class Ledger:
 
     def tickets(self, project: str) -> list[TicketRow]:
         with Session(self.engine) as session:
-            query = select(TicketRow).where(TicketRow.project == project).order_by(TicketRow.id)
+            query = select(TicketRow).where(TicketRow.project == project).order_by(literal_column("rowid"))
             return list(session.exec(query).all())
 
     def apply(

@@ -3,10 +3,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import text
+from sqlmodel import Session
 
 from agency import cli
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.ledger import ForbiddenAction, IllegalTransition, Ledger
+from agency.ledger.models import TicketRow
 
 
 def production(**extra: object) -> TicketSpec:
@@ -169,3 +171,25 @@ def test_past_projects_stay_readable() -> None:
         "max_tools": 16,  # campo di una versione precedente
     }
     assert TicketSpec.model_validate(old).type is TicketType.IDEA
+
+
+def test_ticket_10000_sorts_after_ticket_9999(ledger: Ledger) -> None:
+    with Session(ledger.engine) as session:
+        session.add_all(
+            TicketRow(
+                id=f"T-{n:04d}",
+                project="merlo4",
+                spec_json=production().model_dump_json(),
+                status=Status.OPEN.value,
+                created_at="2026-11-02T09:00:00+00:00",
+            )
+            for n in range(1, 9999)
+        )
+        session.commit()
+    parent = "T-0001"
+    first = ledger.open(production(parent=parent), "merlo4")
+    second = ledger.open(production(parent=parent), "merlo4")
+
+    assert (first, second) == ("T-9999", "T-10000")
+    assert [row.id for row in ledger.tickets("merlo4")][-2:] == [first, second]
+    assert ledger.children(parent) == [first, second]

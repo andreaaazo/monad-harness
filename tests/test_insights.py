@@ -11,6 +11,7 @@ from contextlib import closing
 from pathlib import Path
 
 import pytest
+from sqlmodel import Session
 
 from agency import cli
 from agency.agents.transcript import Transcript
@@ -49,7 +50,7 @@ from agency.insights.domain import (
 )
 from agency.insights.ports import RegistrySnapshot
 from agency.ledger import Ledger
-from agency.ledger.models import EvidenceRow, UsageRow
+from agency.ledger.models import EvidenceRow, TicketRow, UsageRow
 from agency.ledger.schema import head
 
 
@@ -903,3 +904,32 @@ def test_agency_insights_on_an_outdated_registry_says_what_to_do(
     assert cli.main(["insights"]) == 1
     assert "agency migrate" in capsys.readouterr().out
     assert not (tmp_path / "insights.sqlite").exists()
+
+
+def test_ticket_10000_is_listed_after_ticket_9999_by_the_registry_reader_and_the_projection(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "ledger.sqlite"
+    ledger = Ledger(path)
+    with Session(ledger.engine) as session:
+        session.add_all(
+            TicketRow(
+                id=id_,
+                project="merlo4",
+                spec_json=TicketSpec(
+                    title=id_, request="x", type=TicketType.DISPUTE, sender="a", assignee="b"
+                ).model_dump_json(),
+                status="open",
+                created_at="2026-11-02T09:00:00+00:00",
+            )
+            for id_ in ("T-9999", "T-10000")
+        )
+        session.commit()
+    ledger.engine.dispose()
+
+    snapshot = ReadOnlyRegistry(path).read()
+    assert list(snapshot.tickets) == ["T-9999", "T-10000"]
+
+    projection = SqliteProjection(tmp_path / "insights.sqlite")
+    projection.replace(only([]).model_copy(update={"tickets": list(snapshot.tickets.values())}), rebuilt(0))
+    assert [item.id for item in projection.project("merlo4").tickets] == ["T-9999", "T-10000"]

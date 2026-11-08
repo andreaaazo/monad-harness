@@ -22,6 +22,31 @@ from agency.tools.surface import Toolbox, ToolContext, tools_for
 tracer = trace.get_tracer("agency.agents")
 MAX_TOKENS = 32000
 API_MAX_TOKENS = 128000
+
+
+def _after_fallback(content: list[dict]) -> list[dict]:
+    """Keep what the serving model continues from after a mid-output server-side fallback.
+
+    Before the last `fallback` block only text, `fallback` and paired server-tool blocks stay: the declined
+    attempt's thinking and tool calls are not continuation context, and the loop must not run them. Blocks
+    after the boundary stay as they are."""
+    boundary = max((i for i, block in enumerate(content) if block.get("type") == "fallback"), default=None)
+    if boundary is None:
+        return content
+    answered = {block["tool_use_id"] for block in content if "tool_use_id" in block}
+    uses = {block["id"] for block in content if block.get("type") == "server_tool_use"}
+
+    def kept(block: dict) -> bool:
+        kind = block.get("type")
+        if kind in ("text", "fallback"):
+            return True
+        if kind == "server_tool_use":
+            return block["id"] in answered
+        return block.get("tool_use_id") in uses
+
+    return [block for i, block in enumerate(content) if i > boundary or kept(block)]
+
+
 CLOSING = (
     "deliver",
     "hand_off",
@@ -151,11 +176,15 @@ class AgentRunner:
                 limit = API_MAX_TOKENS  # la risposta troncata non entra in cronologia
                 continue
             limit = MAX_TOKENS
-            assistant = {"role": "assistant", "content": response.content}
-            transcript.append(assistant, request_id=response.request_id)
+            content = _after_fallback(response.content)
+            assistant = {"role": "assistant", "content": content}
+            if content is response.content:
+                transcript.append(assistant, request_id=response.request_id)
+            else:
+                transcript.append(assistant, request_id=response.request_id, raw=response.content)
             messages.append(assistant)
             if response.stop_reason == "tool_use":
-                self._run_tools(response.content, toolbox, transcript, messages)
+                self._run_tools(content, toolbox, transcript, messages)
                 if toolbox.context.finished is not None:
                     return toolbox.context.finished
                 reminded = False  # ha ripreso a lavorare: il promemoria vale per la prossima pausa

@@ -783,7 +783,7 @@ must not change behaviour. Every task starts with its failing test.
     - `test_a_replayed_deliver_closes_as_delivered`.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(tools): commit an effect together with its resume record`.
-- [ ] **Task 2.21: a declined attempt's tool calls are dropped after a fallback.** Closes COR-009 (Q9). Load the
+- [x] **Task 2.21: a declined attempt's tool calls are dropped after a fallback.** Closes COR-009 (Q9). Load the
   `claude-api` skill first.
   - Files: `src/agency/agents/loop.py`, `src/agency/agents/transcript.py` (a `raw` field kept for audit),
     `tests/test_agent_flow.py`.

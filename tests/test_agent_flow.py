@@ -15,7 +15,7 @@ from pathlib import Path, PurePosixPath
 import pytest
 from PIL import Image
 
-from agency.agents.loop import AgentRunner
+from agency.agents.loop import AgentRunner, _after_fallback
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
@@ -347,6 +347,62 @@ def test_each_answer_in_the_transcript_names_its_request_and_a_truncated_one_is_
     entries = Transcript(config.layout.transcript("p", f"{ticket}-a1")).entries()
     answers = [entry for entry in entries if entry.get("message", {}).get("role") == "assistant"]
     assert [entry.get("request_id") for entry in answers] == ["req_blocco"]
+
+
+FALLBACK = {"type": "fallback", "from": {"model": "claude-opus-5-5"}, "to": {"model": "claude-opus-5"}}
+
+
+def test_tool_calls_before_a_fallback_are_not_executed(tmp_path: Path) -> None:
+    """The declined attempt's `block` must not close the ticket: only the serving model's call runs."""
+    config = settings(tmp_path)
+    declined = use("block", "tA", reason="scelto dal tentativo respinto")
+    text = {"type": "text", "text": "continuo"}
+    content = [declined, FALLBACK, text, use("list_files", "tB")]
+    closing = turn(use("block", "t2", reason="manca il brief"))
+    run, transport, ledger = runner(config, [turn(*content), closing])
+    ticket = ledger.open(production_spec(), "p")
+    outcome = run.run(ticket)
+    assert outcome.note == "manca il brief"  # A would have closed the ticket with its own reason
+    assert len(transport.requests) == 2
+    served = [FALLBACK, text, use("list_files", "tB")]
+    history = transport.requests[1]["messages"]
+    assert history[1] == {"role": "assistant", "content": served}
+    assert [block["tool_use_id"] for block in history[2]["content"]] == ["tB"]
+    entries = Transcript(config.layout.transcript("p", f"{ticket}-a1")).entries()
+    answers = [entry for entry in entries if entry.get("message", {}).get("role") == "assistant"]
+    assert answers[0]["message"]["content"] == served
+    assert answers[0]["raw"] == content
+    assert "raw" not in answers[1]
+
+
+def test_a_fallback_keeps_only_what_the_serving_model_continues_from() -> None:
+    other = {"type": "fallback", "from": {"model": "claude-opus-5"}, "to": {"model": "claude-opus-4-8"}}
+    paired = {"type": "server_tool_use", "id": "s1", "name": "web_search", "input": {}}
+    result = {"type": "web_search_tool_result", "tool_use_id": "s1", "content": []}
+    unpaired = {"type": "server_tool_use", "id": "s2", "name": "web_search", "input": {}}
+    text = {"type": "text", "text": "parziale"}
+    after = [
+        {"type": "thinking", "thinking": "", "signature": "x"},
+        use("list_files", "tB"),
+        {"type": "mystery", "x": 1},
+        unpaired,
+    ]
+    before = [
+        {"type": "thinking", "thinking": "", "signature": "x"},
+        {"type": "redacted_thinking", "data": "x"},
+        use("block", "tA", reason="no"),
+        paired,
+        result,
+        unpaired,
+        {"type": "mystery", "x": 1},
+        text,
+        FALLBACK,
+        use("block", "tC", reason="no"),
+        other,
+    ]
+    assert _after_fallback([*before, *after]) == [paired, result, text, FALLBACK, other, *after]
+    plain = [{"type": "thinking", "thinking": "", "signature": "x"}, use("list_files", "tB"), unpaired]
+    assert _after_fallback(plain) == plain
 
 
 def test_agent_ending_without_delivery_is_reminded_then_blocked(tmp_path: Path) -> None:

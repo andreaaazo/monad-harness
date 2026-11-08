@@ -175,8 +175,16 @@ class AgentRunner:
                     return self._block(context, role, "risposta troncata due volte")
                 limit = API_MAX_TOKENS  # la risposta troncata non entra in cronologia
                 continue
+            if response.stop_reason == "model_context_window_exceeded":
+                # A full window does not shrink on a retry, and the cut-off turn never enters the history.
+                return self._block(context, role, "risposta troncata dalla finestra di contesto")
             limit = MAX_TOKENS
             content = _after_fallback(response.content)
+            unanswered = any(block.get("type") == "tool_use" for block in content)
+            if response.stop_reason != "tool_use" and unanswered:
+                # A turn holding a tool call enters the append-only history only when its tools run.
+                reason = f"risposta interrotta ({response.stop_reason}) con uno strumento senza risultato"
+                return self._block(context, role, reason)
             assistant = {"role": "assistant", "content": content}
             if content is response.content:
                 transcript.append(assistant, request_id=response.request_id)

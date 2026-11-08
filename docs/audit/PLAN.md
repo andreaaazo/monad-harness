@@ -805,7 +805,7 @@ must not change behaviour. Every task starts with its failing test.
       usage rows and 3 authorizations. Under a cap that allows one call, the retry raises `BudgetExceeded`.
   - Verify: the test passes; standard gate.
   - Commit: `fix(gateway): authorize and record every attempt of a retried call`.
-- [ ] **Task 2.23: a turn cut off by the context window blocks.** Closes COR-011. Load the `claude-api` skill first.
+- [x] **Task 2.23: a turn cut off by the context window blocks.** Closes COR-011. Load the `claude-api` skill first.
   - Files: `src/agency/agents/loop.py` (:144-169), `tests/test_agent_flow.py`.
   - Behaviour: on `model_context_window_exceeded`, block with an Italian reason, as for a second `max_tokens`, without
     appending the turn. A content holding a `tool_use` with no result is never appended.
@@ -1224,6 +1224,12 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   and `scelta` are read), so the effect is a wrong status shown in the concept table. Fix: pass the status through
   `Ledger.open(..., concept=...)`-style atomic write, or set it for the existing ticket too. Found by Task 2.20.
   Not covered by a planned task.
+- [ ] **Task 2.F48: the behaviour view shows a `malformed_stream` call as a complete answer.**
+  insights/behaviour.py:21 and :89, gateway/client.py:202 (as of Task 2.23). The gateway records a usage row with
+  `stop_reason="malformed_stream"` when a stream breaks, and `INCOMPLETE` lists only `max_tokens`, `refusal` and
+  `model_context_window_exceeded`, so `StopCount.complete` is true for it and the Model page does not mark it as cut.
+  Fix: add `malformed_stream` to `INCOMPLETE` (and its comment). Related finding: COR-011. Found by Task 2.23. Not
+  covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

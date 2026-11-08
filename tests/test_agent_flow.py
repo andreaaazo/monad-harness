@@ -334,6 +334,41 @@ def test_truncated_response_is_not_added_to_history(tmp_path: Path) -> None:
     assert len(transport.requests[1]["messages"]) == 1
 
 
+def _assistant_turns(config: Settings, ticket: str) -> list[dict]:
+    entries = Transcript(config.layout.transcript("p", f"{ticket}-a1")).entries()
+    return [entry for entry in entries if entry.get("message", {}).get("role") == "assistant"]
+
+
+def test_a_context_window_cut_blocks_without_appending(tmp_path: Path) -> None:
+    config = settings(tmp_path)
+    cut = turn(use("list_files", "t1"), stop="model_context_window_exceeded")
+    run, transport, ledger = runner(config, [cut, turn(use("block", "t2", reason="non deve arrivare"))])
+    ticket = ledger.open(production_spec(), "p")
+    outcome = run.run(ticket)
+    assert outcome.state == "blocked"
+    assert outcome.note == "risposta troncata dalla finestra di contesto"
+    assert ledger.status(ticket)[0] == Status.BLOCKED
+    assert len(transport.requests) == 1  # a full window does not shrink on a retry
+    assert _assistant_turns(config, ticket) == []
+    entries = Transcript(config.layout.transcript("p", f"{ticket}-a1")).entries()
+    assert [entry.get("message", {}).get("role") for entry in entries if "message" in entry] == ["user"]
+
+
+@pytest.mark.parametrize("stop", ["end_turn", "stop_sequence"])
+def test_a_tool_call_is_never_appended_without_its_result(tmp_path: Path, stop: str) -> None:
+    config = settings(tmp_path)
+    odd = turn(use("block", "t1", reason="non deve girare"), stop=stop)
+    run, transport, ledger = runner(config, [odd, turn(use("block", "t2", reason="non deve arrivare"))])
+    ticket = ledger.open(production_spec(), "p")
+    outcome = run.run(ticket)
+    assert outcome.state == "blocked"
+    assert outcome.note == f"risposta interrotta ({stop}) con uno strumento senza risultato"
+    assert ledger.status(ticket)[0] == Status.BLOCKED
+    assert len(transport.requests) == 1
+    assert _assistant_turns(config, ticket) == []
+    assert "non deve girare" not in str(ledger.history(ticket))  # the tool did not run
+
+
 def test_each_answer_in_the_transcript_names_its_request_and_a_truncated_one_is_not_there(
     tmp_path: Path,
 ) -> None:
@@ -350,6 +385,18 @@ def test_each_answer_in_the_transcript_names_its_request_and_a_truncated_one_is_
 
 
 FALLBACK = {"type": "fallback", "from": {"model": "claude-opus-5-5"}, "to": {"model": "claude-opus-5"}}
+
+
+def test_the_unanswered_tool_guard_looks_only_at_the_kept_content(tmp_path: Path) -> None:
+    """A declined attempt's tool call is dropped, so a finished answer after it is not an interrupted one."""
+    config = settings(tmp_path)
+    declined = use("block", "tA", reason="scelto dal tentativo respinto")
+    text = {"type": "text", "text": "ho finito"}
+    done = turn(declined, FALLBACK, text, stop="end_turn")
+    run, transport, ledger = runner(config, [done, turn(use("block", "t2", reason="manca il brief"))])
+    ticket = ledger.open(production_spec(), "p")
+    assert run.run(ticket).note == "manca il brief"
+    assert len(transport.requests) == 2
 
 
 def test_tool_calls_before_a_fallback_are_not_executed(tmp_path: Path) -> None:

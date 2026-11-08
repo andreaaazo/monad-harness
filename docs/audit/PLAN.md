@@ -842,7 +842,7 @@ must not change behaviour. Every task starts with its failing test.
     - `test_ticket_10000_sorts_after_ticket_9999`.
   - Verify: the test passes; standard gate.
   - Commit: `fix(ledger): list tickets in creation order`.
-- [ ] **Task 2.26 [APPROVAL]: `svg_audit` flags strokes inherited from a group.** Closes COR-016 (Q4). This task
+- [x] **Task 2.26 [APPROVAL]: `svg_audit` flags strokes inherited from a group.** Closes COR-016 (Q4). This task
   changes QA outcomes.
   - Files: `src/agency/qa/scripts/svg_audit.py`, `src/agency/qa/scripts/MANIFEST.json` (the current hash),
     create `src/agency/qa/scripts/PATCHES.md`, create `tests/test_qa_scripts.py`.
@@ -1251,6 +1251,16 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   discards it). Fix: keep the incoming order (rowid order from the registry) for the ticket list, and order
   `unfinished` by the numeric part of the id or by the incoming order. Found in Task 2.25. Not covered by a planned
   task.
+- [ ] **Task 2.F52: `svg_audit` ignores `opacity`, `filter`, `mask`, `clip-path` and `transform` written in the inline
+  `style`.** src/agency/qa/scripts/svg_audit.py:164-167 (as of Task 2.26). The loop reads those five properties only as
+  attributes (`el.get(attr)`), while it reads `stroke` from both the attribute and `style`. `<path style="opacity:.5">`
+  or `style="filter:url(#f)"` passes. Fix: read them from the `style` declaration too, as `own_stroke` does for
+  `stroke`, and record the change in PATCHES.md and the manifest. Found in Task 2.26. Not covered by a planned task.
+- [ ] **Task 2.F53: `svg_audit` gives the `stroke` attribute precedence over the `stroke:` of the inline `style`.**
+  src/agency/qa/scripts/svg_audit.py:108-109 (`own_stroke`; the `el.get("stroke") or ...` expression, as of Task 2.26). In CSS
+  the `style` declaration wins over the presentation attribute, so `<path stroke="none" style="stroke:#000">` is drawn
+  stroked but audited as unstroked (and the reverse). Fix: read `style` first, then the attribute. Found in Task 2.26.
+  Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

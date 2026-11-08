@@ -102,6 +102,30 @@ def shape_points(el):
     return None
 
 
+GRAPHICS = ("path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text", "tspan", "textPath", "use")
+
+
+def own_stroke(el):
+    stroke = el.get("stroke") or (re.search(r"stroke\s*:\s*([^;]+)", el.get("style", "")) or [None, None])[1]
+    return stroke.strip() if stroke else None
+
+
+def effective_strokes(root):
+    """Maps each element to its stroke: its own value, else the one inherited from its parent."""
+    result = {}
+
+    def walk(el, parent):
+        stroke = own_stroke(el)
+        if stroke is None or stroke == "inherit":
+            stroke = parent
+        result[el] = stroke
+        for child in el:
+            walk(child, stroke)
+
+    walk(root, None)
+    return result
+
+
 def near_misses(values, tol):
     vals = sorted(set(round(v, 6) for v in values))
     hits = []
@@ -133,6 +157,7 @@ def main():
         report["warnings"].append("viewBox assente: la scala dell'SVG dipende da width/height")
     all_x, all_y = [], []
     flagged = set()
+    strokes = effective_strokes(root)
 
     for el in root.iter():
         tag = local(el.tag)
@@ -140,10 +165,16 @@ def main():
                           ("mask", "maschera"), ("filter", "filtro"), ("clip-path", "clip-path")):
             if el.get(attr) is not None:
                 flagged.add(f"{msg} su <{tag} id={el.get('id', '?')}>")
-        style = el.get("style", "")
-        stroke = el.get("stroke") or (re.search(r"stroke\s*:\s*([^;]+)", style) or [None, None])[1]
-        if stroke and stroke.strip() != "none" and tag not in ("svg", "g"):
-            flagged.add(f"tratto non espanso su <{tag} id={el.get('id', '?')}> (stroke={stroke.strip()})")
+        stroke = own_stroke(el)
+        if stroke == "inherit":
+            stroke = None
+        if stroke and stroke != "none" and tag not in ("svg", "g"):
+            flagged.add(f"tratto non espanso su <{tag} id={el.get('id', '?')}> (stroke={stroke})")
+        elif not stroke and tag in GRAPHICS and strokes[el] and strokes[el] != "none":
+            # inherited from an ancestor
+            flagged.add(f"tratto non espanso su <{tag} id={el.get('id', '?')}> (stroke={strokes[el]})")
+        if tag == "style":
+            flagged.add("foglio di stile <style>: stili non verificabili, scriverli come attributi sugli elementi")
         if tag in ("text", "tspan"):
             flagged.add("testo vivo: nel deliverable convertire in tracciati, conservare il master con testo")
         if tag in ("linearGradient", "radialGradient"):

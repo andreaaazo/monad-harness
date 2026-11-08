@@ -576,7 +576,19 @@ def hand_off(ctx: ToolContext, a: HandOff, _: str) -> dict:
     return {"ok": True, "waiting": waiting}
 
 
+def _replayed(ctx: ToolContext, target: Status, action: Action) -> bool:
+    """True when this ticket is already in `target` because this actor just did `action`: a replay after a
+    crash between the ledger transition and its resume record (COR-003)."""
+    if ctx.ledger.status(ctx.ticket_id)[0] is not target:
+        return False
+    history = ctx.ledger.history(ctx.ticket_id)
+    return bool(history) and history[-1].action == action.value and history[-1].actor == ctx.actor
+
+
 def deliver(ctx: ToolContext, a: Deliver, _: str) -> dict:
+    if _replayed(ctx, Status.DELIVERED, Action.DELIVER):
+        ctx.finished = Outcome(state=OutcomeState.DELIVERED, note=a.note)
+        return {"ok": True, "status": "delivered"}
     spec = ctx.ledger.spec(ctx.ticket_id)
     present, problems = delivery.delivery_problems(
         ctx.ledger,
@@ -645,11 +657,11 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
             prompt="explorer",
             effort=ctx.settings.explorer_effort,
         )
-        ticket = ctx.ledger.open(spec, ctx.project, operation=(operation, ctx.instance, "plan_exploration"))
-        ctx.ledger.add_concept(
-            ConceptRow(
-                project=ctx.project, round=ctx.round, letter=letter, lever=lever.lever, idea_ticket=ticket
-            )
+        concept = ConceptRow(
+            project=ctx.project, round=ctx.round, letter=letter, lever=lever.lever, idea_ticket=""
+        )
+        ticket = ctx.ledger.open(
+            spec, ctx.project, operation=(operation, ctx.instance, "plan_exploration"), concept=concept
         )
         opened.append(ticket)
     ctx.finished = Outcome(state=OutcomeState.HANDED_OFF, note=f"esplorazione con {len(opened)} leve")
@@ -658,6 +670,9 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
 
 def submit_concept(ctx: ToolContext, a: ConceptCard, _: str) -> dict:
     """Chiude l'esplorazione: la scheda vale solo insieme agli schizzi guardati."""
+    if _replayed(ctx, Status.DELIVERED, Action.DELIVER):
+        ctx.finished = Outcome(state=OutcomeState.DELIVERED, note=a.concept)
+        return {"ok": True}
     target = inside(ctx.work, "scheda.json")
     target.write_text(a.model_dump_json(indent=2), encoding="utf-8")
     spec = ctx.ledger.spec(ctx.ticket_id)
@@ -795,6 +810,9 @@ def reject_concept(ctx: ToolContext, a: RejectConcept, _: str) -> dict:
 
 
 def block(ctx: ToolContext, a: Block, _: str) -> dict:
+    if _replayed(ctx, Status.BLOCKED, Action.BLOCK):
+        ctx.finished = Outcome(state=OutcomeState.BLOCKED, note=a.reason)
+        return {"ok": True, "status": "blocked"}
     ctx.ledger.apply(ctx.ticket_id, Action.BLOCK, ctx.actor, a.reason)
     ctx.finished = Outcome(state=OutcomeState.BLOCKED, note=a.reason)
     return {"ok": True, "status": "blocked"}

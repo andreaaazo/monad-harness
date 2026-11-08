@@ -151,9 +151,14 @@ class Ledger:
         project: str = "default",
         inputs: dict[str, str] | None = None,
         operation: tuple[str, str, str] | None = None,
+        concept: ConceptRow | None = None,
     ) -> str:
         """`inputs` sono gli hash all'apertura. `operation` (id, istanza, strumento) rende l'apertura
-        e la sua registrazione un solo passo: alla ripresa il ticket non si duplica."""
+        e la sua registrazione un solo passo: alla ripresa il ticket non si duplica.
+
+        `concept` is written in the same transaction as the ticket, so an interruption cannot leave a ticket
+        without its concept row. The caller cannot know the new ticket id, so `open` sets
+        `concept.idea_ticket` to it."""
         with self._writing() as session:
             count = session.exec(select(func.count()).select_from(TicketRow)).one()
             ticket_id = f"T-{count + 1:04d}"
@@ -174,6 +179,9 @@ class Ledger:
                 session.add(
                     OperationRow(id=operation_id, instance=instance, tool=tool, result_json=result, at=now())
                 )
+            if concept is not None:
+                concept.idea_ticket = ticket_id
+                session.add(concept)
             session.commit()
         return ticket_id
 

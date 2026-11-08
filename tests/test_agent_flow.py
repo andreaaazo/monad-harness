@@ -24,6 +24,7 @@ from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType, Verdict
 from agency.gateway import BudgetExceeded, ModelGateway, ScriptedTransport
 from agency.ledger import Ledger
+from agency.ledger.models import ConceptRow
 from agency.runtime import open_session
 from agency.tools import craft, master
 from agency.tools.craft import Command, CommandIndex
@@ -1237,6 +1238,177 @@ def test_redelivery_with_identical_outputs_is_refused(tmp_path: Path) -> None:
         "d", "record_requirement", {"file": "nota.md", "check": "req:letta", "result": "PASS", "note": "ok"}
     )
     assert not box.call("e", "deliver", {"note": "corretta", "verdict": None}).get("is_error")
+
+
+def closing_box(
+    tmp_path: Path, spec: TicketSpec, actor: str, *tools: str
+) -> tuple[Toolbox, ToolContext, str]:
+    """A ticket of `spec` open for `actor`, its work folder ready: the toolbox, its context, the ticket."""
+    config = settings(tmp_path)
+    work = tmp_path / "work"
+    work.mkdir()
+    ledger = Ledger(config.ledger_path)
+    ticket = ledger.open(spec, "p")
+    context = ToolContext(
+        actor, "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), FileStore(tmp_path / "artifacts")
+    )
+    return Toolbox(context, [TOOLS[name] for name in tools]), context, ticket
+
+
+def crash_after_the_transition(
+    box: Toolbox, context: ToolContext, monkeypatch: pytest.MonkeyPatch, name: str, arguments: dict
+) -> None:
+    """The process dies once the ledger transition has committed, before the resume record is written."""
+
+    def die(*_: object) -> None:
+        raise KeyboardInterrupt
+
+    with monkeypatch.context() as patch:
+        patch.setattr(context.ledger, "record_operation", die)
+        with pytest.raises(KeyboardInterrupt):
+            box.call("t1", name, arguments)
+    assert context.ledger.operation("i:t1") is None
+    context.finished = None  # the process restarts: nothing of the old context survives
+
+
+def test_a_replayed_deliver_closes_as_delivered(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = TicketSpec(
+        title="Nota",
+        request="r",
+        type=TicketType.PRODUCTION,
+        sender="design-director",
+        assignee="copywriter",
+        outputs=["nota.md"],
+        checks={"*.md": ["req:letta"]},
+        media=[Medium.NONE],
+        medium_why="solo un testo di prova",
+    )
+    box, context, ticket = closing_box(tmp_path, spec, "copywriter", "record_requirement", "deliver")
+    (tmp_path / "work" / "nota.md").write_text("v1")
+    box.call(
+        "a", "record_requirement", {"file": "nota.md", "check": "req:letta", "result": "PASS", "note": "ok"}
+    )
+    arguments = {"note": "fatto", "verdict": None}
+    crash_after_the_transition(box, context, monkeypatch, "deliver", arguments)
+    assert context.ledger.status(ticket)[0] is Status.DELIVERED
+
+    result = box.call("t1", "deliver", arguments)
+
+    assert not result.get("is_error"), result["content"]
+    assert json.loads(result["content"]) == {"ok": True, "status": "delivered"}
+    assert context.finished == Outcome(state=OutcomeState.DELIVERED, note="fatto")
+    assert context.ledger.status(ticket)[0] is Status.DELIVERED
+    assert [event.action for event in context.ledger.history(ticket)].count("deliver") == 1
+
+
+def test_a_replayed_block_closes_as_blocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    box, context, ticket = closing_box(tmp_path, production_spec(), "identity-designer", "block")
+    arguments = {"reason": "manca il brief"}
+    crash_after_the_transition(box, context, monkeypatch, "block", arguments)
+    assert context.ledger.status(ticket)[0] is Status.BLOCKED
+
+    result = box.call("t1", "block", arguments)
+
+    assert not result.get("is_error"), result["content"]
+    assert json.loads(result["content"]) == {"ok": True, "status": "blocked"}
+    assert context.finished == Outcome(state=OutcomeState.BLOCKED, note="manca il brief")
+    assert [event.action for event in context.ledger.history(ticket)].count("block") == 1
+
+
+def test_a_close_by_another_actor_is_not_taken_for_a_replay(tmp_path: Path) -> None:
+    """Only the actor whose transition committed can replay it: anyone else still meets the ledger's rule."""
+    box, context, ticket = closing_box(tmp_path, production_spec(), "identity-designer", "block")
+    assert not box.call("t1", "block", {"reason": "manca il brief"}).get("is_error")
+    other = ToolContext(
+        "design-director",
+        "p",
+        ticket,
+        "j",
+        context.ledger,
+        Sandbox(tmp_path / "work"),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
+    result = Toolbox(other, [TOOLS["block"]]).call("t2", "block", {"reason": "anche io"})
+    assert result.get("is_error")
+    assert "non è ammesso" in result["content"]
+    assert [event.action for event in context.ledger.history(ticket)].count("block") == 1
+
+
+def test_a_replayed_submit_concept_closes_as_delivered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spec = TicketSpec(
+        title="Esplorazione A",
+        request="r",
+        type=TicketType.SKETCH,
+        sender="design-director",
+        assignee="direction-a",
+        outputs=["scheda.json", "schizzo-a.png"],
+        checks={"*.png": ["req:letta"]},
+        exempt={"scheda.json": "la scheda la giudicano critico e direttore"},
+        media=[Medium.NONE],
+        medium_why="solo uno schizzo di prova",
+    )
+    box, context, ticket = closing_box(tmp_path, spec, "direction-a", "record_requirement", "submit_concept")
+    Image.new("RGB", (64, 64), (255, 255, 255)).save(tmp_path / "work" / "schizzo-a.png")
+    box.call(
+        "a",
+        "record_requirement",
+        {"file": "schizzo-a.png", "check": "req:letta", "result": "PASS", "note": "ok"},
+    )
+    context.ledger.add_concept(ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket=ticket))
+    card = {
+        "concept": "un'idea",
+        "client_fact": "un fatto",
+        "why_not_obvious": "perché",
+        "drawing": "un segno",
+        "substitution": "non regge altrove",
+    }
+    crash_after_the_transition(box, context, monkeypatch, "submit_concept", card)
+    assert context.ledger.status(ticket)[0] is Status.DELIVERED
+
+    result = box.call("t1", "submit_concept", card)
+
+    assert not result.get("is_error"), result["content"]
+    assert json.loads(result["content"]) == {"ok": True}
+    assert context.finished == Outcome(state=OutcomeState.DELIVERED, note="un'idea")
+    assert [event.action for event in context.ledger.history(ticket)].count("deliver") == 1
+
+
+def test_an_interrupted_plan_never_loses_a_direction(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = settings(tmp_path)
+    box, context, root = closing_box(tmp_path, DIRECTOR, "design-director", "plan_exploration")
+    context.settings = config
+    (tmp_path / "work" / "brief.md").write_text("brief")
+    plan = {
+        "levers": [{"lever": "uno"}, {"lever": "due"}, {"lever": "tre"}],
+        "assets": ["acqua"],
+        "excluded": ["gradiente", "ombra", "lente"],
+        "applications": [{"name": "insegna", "size": "16 mm"}, {"name": "app", "size": "32 px"}],
+    }
+    real_open = context.ledger.open
+
+    def open_then_die_on_b(spec: TicketSpec, *args: object, **kwargs: object) -> str:
+        ticket = real_open(spec, *args, **kwargs)  # type: ignore[arg-type]
+        if spec.assignee == "direction-b":
+            raise KeyboardInterrupt
+        return ticket
+
+    with monkeypatch.context() as patch:
+        patch.setattr(context.ledger, "open", open_then_die_on_b)
+        with pytest.raises(KeyboardInterrupt):
+            box.call("t1", "plan_exploration", plan)
+    context.finished = None
+
+    result = box.call("t1", "plan_exploration", plan)
+
+    assert not result.get("is_error"), result["content"]
+    tickets = context.ledger.children(root)
+    assert len(tickets) == 3  # no direction was opened twice
+    rows = context.ledger.concepts("p", 1)
+    assert sorted(row.idea_ticket for row in rows) == sorted(tickets)
+    assert [row.letter for row in rows] == ["a", "b", "c"]
 
 
 def test_cli_lists_new_commands() -> None:

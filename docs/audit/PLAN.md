@@ -771,7 +771,7 @@ must not change behaviour. Every task starts with its failing test.
 
 ### Low (behaviour changes; they precede Phases 3–6)
 
-- [ ] **Task 2.20: an effect and its resume record are committed together.** Closes COR-003.
+- [x] **Task 2.20: an effect and its resume record are committed together.** Closes COR-003.
   - Files: `src/agency/ledger/store.py` (`open`), `src/agency/tools/surface.py` (`plan_exploration` :587-624, and the
     closing handlers), `tests/test_agent_flow.py`.
   - Interface: `Ledger.open(..., concept: ConceptRow | None = None)` writes the concept row in the same transaction as
@@ -1196,6 +1196,34 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   exception would leave that graph node. Needs the owner's decision: stop the project at the start with
   `agency doctor`'s message (a check in `agency run`), or let each tool refuse (today), or catch it at the gate and send
   the work back with the reason. Found by Task 2.19. Not covered by a planned task.
+- [ ] **Task 2.F44: `accept_ticket` and `rework_ticket` replayed after a crash raise `IllegalTransition`.**
+  tools/surface.py:550-564 (as of Task 2.20). Each calls `ledger.apply` (one transaction) and `Toolbox.call` writes the
+  resume record afterwards (another). Killed between the two, the ticket is already `accepted` (or `rework`); the
+  replay with the same tool_use id runs the handler again and `apply` refuses (`accept non è ammesso da accepted`), so
+  the director gets an error for a call that worked and may repeat it or give up. Same shape as COR-003, but nothing
+  closes the instance, so it costs a turn, not the project. Fix: the replay check of Task 2.20 (`_replayed`) with the
+  target status and the last event, or record the operation in the `apply` transaction. Found by Task 2.20. Not covered
+  by a planned task.
+- [ ] **Task 2.F45: `run_check`, `observe`, `judge` and `record_requirement` double-apply on a replay.**
+  tools/surface.py:437-500 and qa/evidence.py:100 (as of Task 2.20). `evidence.record` commits the evidence row and its
+  hash-chain event (`add_evidence`), then `Toolbox.call` records the operation in a second transaction. A replay after
+  a crash between them appends a second evidence row and a second chain event for the same call, and `run_check`
+  also runs the check again. `evidence.latest` takes the newest row per file and check, so verdicts do not change; the
+  ledger shows the same proof twice. Fix: write the operation record inside the `add_evidence` transaction, or key
+  the evidence row by the operation id. Found by Task 2.20. Not covered by a planned task.
+- [ ] **Task 2.F46: `export_master`, `render` and the renders of `run_check` duplicate their rows on a replay.**
+  tools/master.py:89 (`add_derivation`), tools/render.py:82 and qa/checks.py:70 (`add_render`) (as of Task 2.20). Each
+  writes a row with no conflict rule, then `Toolbox.call` records the operation separately. A replay after a crash
+  between them redoes the export or render and adds a second identical derivation or render row (`renders_of` then
+  lists a proof twice). `record_artifacts` already uses `on_conflict_do_nothing`; these two tables do not. Found by Task
+  2.20. Not covered by a planned task.
+- [ ] **Task 2.F47: the proposals node can lose the `in-sviluppo` status of a concept.** graph/workflow.py:236-237
+  (as of Task 2.20). `ledger.open(spec, ...)` for the proposal ticket and `ledger.update_concept(..., status=
+  "in-sviluppo")` are two transactions. If the process dies between them, the replayed node finds the ticket by its
+  title (line 200-201), `continue`s, and never sets the status. Nothing reads `in-sviluppo` today (only `proposta`
+  and `scelta` are read), so the effect is a wrong status shown in the concept table. Fix: pass the status through
+  `Ledger.open(..., concept=...)`-style atomic write, or set it for the existing ticket too. Found by Task 2.20.
+  Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

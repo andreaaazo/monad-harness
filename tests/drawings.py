@@ -26,6 +26,12 @@ def svg(canvas: tuple[float, float], rect: tuple[float, float, float, float]) ->
     )
 
 
+def red_pixels(image: Image.Image) -> int:
+    """How many pixels are clearly red: the colour of the secret images the sandbox tests try to draw."""
+    data = image.convert("RGB").tobytes()
+    return sum(1 for i in range(0, len(data), 3) if data[i] > 150 and data[i + 1] < 60 and data[i + 2] < 60)
+
+
 def _numbers(text: str, tag: str) -> dict[str, float]:
     element = re.search(rf"<{tag}\b[^>]*>", text)
     assert element is not None, tag

@@ -5,21 +5,23 @@ from __future__ import annotations
 import hashlib
 import os
 import random
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from PIL import Image
 from pydantic import ValidationError
 
 from agency import cli
 from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
-from agency.evaluation import blind, board
+from agency.evaluation import blind
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
 from agency.telemetry import report
-from drawings import FakeVectorcraft, svg
+from drawings import FakeVectorcraft, red_pixels, svg
 
 
 def rating(letter: str, level: Level = Level.GOOD, specific: bool = True, why: str = "Si legge") -> Rating:
@@ -277,7 +279,16 @@ def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "projects"))
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(board, "vectorcraft", FakeVectorcraft)  # la tavola senza dipendere dalla macchina
+    monkeypatch.setattr(cli, "_board_renderer", FakeVectorcraft)  # la tavola senza dipendere dalla macchina
+    return Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+@pytest.fixture
+def unfaked_studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
+    """Like `studio`, but the board is drawn by the real renderer."""
+    monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "projects"))
+    monkeypatch.chdir(tmp_path)
     return Settings(_env_file=None)  # type: ignore[call-arg]
 
 
@@ -436,3 +447,31 @@ def test_a_type_without_a_board_is_judged_as_it_is_and_says_so(
 
     assert seen[0] == ["A.pdf", "B.pdf"]
     assert "Per i file .pdf non c'è una tavola" in capsys.readouterr().out
+
+
+@pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="manca vectorcraft-cli")
+def test_judge_board_cannot_draw_host_files(
+    unfaked_studio: Settings, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    secret = tmp_path / "hidden/secret.png"
+    secret.parent.mkdir()
+    Image.new("RGB", (80, 80), (200, 0, 0)).save(secret)
+    probe = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">'
+        '<rect x="10" y="10" width="80" height="80" fill="#111113"/>'
+        f'<image href="{secret}" x="100" y="100" width="80" height="80"/></svg>'
+    )
+    paths = files(tmp_path, {"cli/probe.svg": probe, "cli/plain.svg": MERLO})
+    reds: list[int] = []
+
+    def look(prompt: str) -> str:
+        (board_png,) = Path("data/blind").glob("*/tavola.png")
+        with Image.open(board_png) as opened:
+            reds.append(red_pixels(opened))
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", look)
+
+    assert cli.main(["judge", *map(str, paths), "--judge", "andrea"]) == 1
+
+    assert reds == [0]

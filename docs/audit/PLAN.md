@@ -852,10 +852,10 @@ must not change behaviour. Every task starts with its failing test.
     - `test_svg_audit_flags_a_style_element`.
   - Verify: the tests pass, Task 1.18's manifest test passes, and the standard gate holds.
   - Commit: `fix(qa): flag strokes inherited from a group in svg_audit`.
-- [ ] **Task 2.27: blind-judgment boards are rendered inside the sandbox.** Closes SEC-006.
+- [x] **Task 2.27: blind-judgment boards are rendered inside the sandbox.** Closes SEC-006.
   - Files: `src/agency/evaluation/board.py`, `src/agency/cli.py` (`_judge`), `tests/test_board.py`.
-  - Interface: `board.build(..., render: Callable[[Path, Path], None])`. `cli.py` supplies a renderer backed by
-    `Sandbox`, because `evaluation` may not import `tools`.
+  - Interface: `board.lay_board(copies, folder, render)` already takes the renderer. `cli._board_renderer()` supplies
+    one backed by `Sandbox`, because `evaluation` may not import `tools`; `board.vectorcraft()` is deleted.
   - Tests:
     - `test_judge_board_cannot_draw_host_files`: an SVG holding `<image href="/tmp/…/secret.png">` renders without
       red.
@@ -1079,7 +1079,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   `reviews/../` route to it. Found by Task 2.3. No
   planned task closes it. The fix would record the ratings where only the harness writes, the ledger or
   `ops_records`, and have `select_concepts` read them from there.
-- [ ] **Task 2.F25: `agency judge` feeds a sandbox-written vector file to `vectorcraft-cli` on the host.**
+- [x] **Task 2.F25: `agency judge` feeds a sandbox-written vector file to `vectorcraft-cli` on the host.**
   evaluation/board.py:62-66 (`render` runs `vectorcraft-cli convert <copy> <target>` with `subprocess.run`, outside
   bwrap) and :115-121 (`_raster`). Found by Task 2.5, which closed the Pillow side of SEC-002 only (every image is now
   opened through `contracts/media.open_image`, restricted to PNG, JPEG, WebP and GIF). The converter still parses a

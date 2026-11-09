@@ -10,9 +10,6 @@ piccole si rendono ciascuna alla sua scala, come in `logo_proof`, e non si riduc
 from __future__ import annotations
 
 import math
-import os
-import shutil
-import subprocess
 import tempfile
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -46,32 +43,6 @@ KINDS = RASTER | {VECTOR}
 
 type Render = Callable[[Path, float, Path], None]
 type Box = tuple[int, int, int, int]
-
-
-def vectorcraft() -> Render | None:
-    """Il renderer dello studio, che `agency doctor` richiede, o None se manca.
-
-    Riceve solo PATH e HOME: se la chiave API è nell'ambiente di chi giudica, al renderer non arriva.
-    """
-    binary = shutil.which("vectorcraft-cli")
-    if binary is None:
-        return None
-    environment = {name: os.environ[name] for name in ("PATH", "HOME") if name in os.environ}
-
-    def render(source: Path, scale: float, target: Path) -> None:
-        command = [binary, "convert", str(source), str(target), "--scale", f"{scale:.6f}"]
-        try:
-            done = subprocess.run(
-                command, env=environment, capture_output=True, text=True, timeout=TIMEOUT, check=False
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise CannotCompare(f"{source.name} non si rende in {TIMEOUT} secondi") from exc
-        if done.returncode != 0 or not target.is_file():
-            said = (done.stderr or done.stdout).strip().splitlines()
-            detail = said[-1] if said else f"uscita {done.returncode}"
-            raise CannotCompare(f"{source.name} non si rende con vectorcraft-cli: {detail}")
-
-    return render
 
 
 def lay_board(copies: Mapping[str, Path], folder: Path, render: Render | None) -> Path | None:

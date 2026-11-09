@@ -8,7 +8,9 @@ import math
 import random
 import shutil
 import sys
+import tempfile
 from collections.abc import Callable
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -34,6 +36,8 @@ from agency.ledger import Ledger, LedgerMissing, LedgerOutdated, require_registr
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 from agency.ledger.store import now
 from agency.telemetry import report
+from agency.tools.files import OutsidePerimeter, read_under
+from agency.tools.sandbox import JOB, Sandbox, SandboxUnavailable
 
 if TYPE_CHECKING:  # la sessione carica il motore: i comandi leggeri non la importano
     from agency.runtime import Session
@@ -257,6 +261,39 @@ def _compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _board_renderer() -> board.Render | None:
+    """The renderer of the blind board, or None without vectorcraft-cli.
+
+    The SVGs are model-produced, so each render runs in the sandbox on a private copy of the file: no host
+    file is readable from it and no secret reaches it. `evaluation` cannot import `tools`, so the CLI
+    wires it."""
+    if shutil.which("vectorcraft-cli") is None:
+        return None
+
+    def render(source: Path, scale: float, target: Path) -> None:
+        with tempfile.TemporaryDirectory(dir=target.parent) as job:
+            shutil.copy(source, Path(job) / source.name)
+            produced = f"{source.name}.png"
+            command = ["vectorcraft-cli", "convert", f"{JOB}/{source.name}", f"{JOB}/{produced}"]
+            try:
+                done = Sandbox(Path(job)).run([*command, "--scale", f"{scale:.6f}"], timeout=board.TIMEOUT)
+            except SandboxUnavailable as exc:
+                raise blind.CannotCompare(str(exc)) from exc
+            if done.code == 124:
+                raise blind.CannotCompare(f"{source.name} non si rende in {board.TIMEOUT} secondi")
+            data = None
+            if done.code == 0:
+                with suppress(OSError, OutsidePerimeter):  # a link planted as the output is refused
+                    data = read_under(Path(job), produced)
+            if data is None:
+                said = (done.stderr or done.stdout).strip().splitlines()
+                detail = said[-1] if said else f"uscita {done.code}"
+                raise blind.CannotCompare(f"{source.name} non si rende con vectorcraft-cli: {detail}")
+            target.write_bytes(data)
+
+    return render
+
+
 def _judge(args: argparse.Namespace) -> int:
     settings = Settings()
     ledger = Ledger(settings.ledger_path)
@@ -271,7 +308,7 @@ def _judge(args: argparse.Namespace) -> int:
     folder = settings.data_dir / "blind" / comparison
     try:
         copies = blind.lay_out(assigned, folder)
-        sheet = board.lay_board(dict(zip(assigned, copies, strict=True)), folder, board.vectorcraft())
+        sheet = board.lay_board(dict(zip(assigned, copies, strict=True)), folder, _board_renderer())
         print(f"Confronto alla cieca di {len(copies)} file, nella cartella {folder.resolve()}:")
         if sheet is not None:
             print(f"  {sheet.name}  {board.SHOWN}")

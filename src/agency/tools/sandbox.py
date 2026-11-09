@@ -111,6 +111,7 @@ class Sandbox:
             "--unshare-pid",
             "--unshare-ipc",
             "--die-with-parent",
+            "--new-session",
         ]  # fmt: skip
         if self.ops is not None:
             args += ["--ro-bind", str(self.ops), OPS]

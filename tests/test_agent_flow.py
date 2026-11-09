@@ -905,6 +905,16 @@ def test_sandbox_has_no_network_key_or_outside_files(tmp_path: Path) -> None:
     assert done.stdout.split() == ["None", "False", "lo", "True"]
 
 
+def test_sandbox_runs_in_a_new_session(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    # With --new-session bwrap calls setsid() before it unshares the pid namespace, so the session leader is
+    # the sandbox's own init (pid 1) and the sid is visible inside. Without it the session is the operator's
+    # terminal one, outside the namespace, and getsid(0) reads 0: that is what lets TIOCSTI inject keystrokes.
+    probe = "import os;print(os.getsid(0))"
+    assert Sandbox(work).run(["python3", "-c", probe]).stdout.split() == ["1"]
+
+
 def test_sandbox_writes_only_in_its_folder(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()

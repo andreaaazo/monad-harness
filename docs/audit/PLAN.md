@@ -870,7 +870,7 @@ must not change behaviour. Every task starts with its failing test.
     - `test_ticket_paths_must_stay_inside_the_work_folder`.
   - Verify: the test passes; standard gate.
   - Commit: `fix(contracts): refuse absolute and parent paths in ticket specs`.
-- [ ] **Task 2.29: every sandbox starts in a new session.** Closes SEC-008, for the engine. The spike follows in 5.10.
+- [x] **Task 2.29: every sandbox starts in a new session.** Closes SEC-008, for the engine. The spike follows in 5.10.
   - Files: `src/agency/tools/sandbox.py` (`--new-session`), `tests/test_agent_flow.py`.
   - Tests:
     - `test_sandbox_runs_in_a_new_session`: `os.getsid(0)` inside differs from the test process's.

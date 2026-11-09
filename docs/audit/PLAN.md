@@ -905,7 +905,7 @@ must not change behaviour. Every task starts with its failing test.
   - Verify: the tests pass; `agency migrate` on a copy of the real registry succeeds (read-only source); standard
     gate.
   - Commit: `fix(ledger): bind verdicts and delivered hashes into the hash chain`.
-- [ ] **Task 2.32: an unreadable fingerprint no longer crashes `agency runs`.** Closes SIM-001's behaviour half.
+- [x] **Task 2.32: an unreadable fingerprint no longer crashes `agency runs`.** Closes SIM-001's behaviour half.
   - Files: `src/agency/contracts/run.py`, `src/agency/telemetry/report.py` (:108-133), `tests/test_runs.py`.
   - Interface: `read_fingerprint(text: str) -> Fingerprint | None`.
   - Behaviour: an unreadable run is listed with an Italian label instead of raising.

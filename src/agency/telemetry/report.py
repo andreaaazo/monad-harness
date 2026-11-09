@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from agency.contracts.run import Change, Fingerprint, changes
+from agency.contracts.run import Change, Fingerprint, changes, read_fingerprint
 from agency.insights.domain import Provenance
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
@@ -111,8 +111,7 @@ def _label(change: Change) -> str:
     return change.item or change.part
 
 
-def _fingerprint(row: RunRow) -> Fingerprint:
-    return Fingerprint.model_validate_json(row.fingerprint_json)
+UNREADABLE = "impronta di una forma che questa versione non legge"
 
 
 def render_runs(ledger: Ledger, project: str) -> str:
@@ -122,8 +121,11 @@ def render_runs(ledger: Ledger, project: str) -> str:
     lines = [f"{project}: {_count(len(rows), 'esecuzione', 'esecuzioni')}"]
     previous: Fingerprint | None = None
     for row in rows:
-        current = _fingerprint(row)
+        current = read_fingerprint(row.fingerprint_json)
         line = f"  #{row.seq:<5}{row.at}  {row.command:8}{row.digest[:12]}"
+        if current is None:
+            lines.append(f"{line}  {UNREADABLE}")
+            continue
         if previous is not None:
             found = changes(previous, current)
             names = ", ".join(_label(change) for change in found[:NAMED])
@@ -136,8 +138,14 @@ def render_runs(ledger: Ledger, project: str) -> str:
 
 
 def render_comparison(first: RunRow, second: RunRow) -> str:
-    found = changes(_fingerprint(first), _fingerprint(second))
     title = f"#{first.seq} {first.project} {first.command} → #{second.seq} {second.project} {second.command}"
+    before, after = read_fingerprint(first.fingerprint_json), read_fingerprint(second.fingerprint_json)
+    if before is None or after is None:
+        unreadable = [row for row, fingerprint in ((first, before), (second, after)) if fingerprint is None]
+        lines = [f"{title}: confronto non possibile"]
+        lines += [f"  #{row.seq}: {UNREADABLE}" for row in unreadable]
+        return plain("\n".join(lines))
+    found = changes(before, after)
     lines = [f"{title}: {_count(len(found), 'differenza', 'differenze') if found else 'nessuna differenza'}"]
     for change in found:
         where = f"{change.part} {change.item}".rstrip()

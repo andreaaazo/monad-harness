@@ -6,7 +6,7 @@ import hashlib
 import json
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
 class RunCommand(StrEnum):
@@ -39,6 +39,14 @@ class Fingerprint(BaseModel):
         """Uguale per due impronte uguali, qualunque sia l'ordine in cui sono stati letti i file."""
         canonical = json.dumps(self.model_dump(), sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def read_fingerprint(text: str) -> Fingerprint | None:
+    """The fingerprint stored in `text`, or None when it has a shape this version does not read."""
+    try:
+        return Fingerprint.model_validate_json(text)
+    except ValidationError:
+        return None
 
 
 class Change(BaseModel):

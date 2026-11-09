@@ -6,11 +6,13 @@ import hashlib
 from pathlib import Path
 
 import pytest
+from sqlmodel import Session
 
 from agency import cli
 from agency.config import REPO_ROOT, Settings
-from agency.contracts.run import Change, Fingerprint, RunCommand, changes
+from agency.contracts.run import Change, Fingerprint, RunCommand, changes, read_fingerprint
 from agency.ledger import Ledger
+from agency.ledger.models import RunRow
 from agency.telemetry import fingerprint
 
 A, B, C, D, E = ("a" * 64, "b" * 64, "c" * 64, "d" * 64, "e" * 64)
@@ -43,6 +45,12 @@ def plain() -> Settings:
 
 
 # Le regole: pure, senza file né processi
+
+
+def test_read_fingerprint_returns_none_for_what_it_cannot_read() -> None:
+    assert read_fingerprint(sample().model_dump_json()) == sample()
+    assert read_fingerprint('{"model": "", "effort": "", "explorer_effort": "high"}') is None
+    assert read_fingerprint("{") is None
 
 
 def test_identical_runs_have_no_changes_and_the_same_digest() -> None:
@@ -311,6 +319,54 @@ def test_compare_shows_every_difference_between_two_executions(
         "  model: predefinito → claude-sonnet-5-5",
         f"  prompts prompts/roles/explorer.md: {B[:12]} → assente",
         "  tools vectorcraft-cli: vectorcraft-cli 0.18.0 → vectorcraft-cli 0.18.1",
+    ]
+
+
+UNREADABLE = "impronta di una forma che questa versione non legge"
+
+
+def record_unreadable(ledger: Ledger, project: str) -> int:
+    """Store a fingerprint of an old shape, the way a registry written by an earlier version holds it."""
+    old_shape = '{"model": "", "effort": "", "explorer_effort": "high"}'
+    row = RunRow(
+        at="2026-11-01T00:00:00+00:00",
+        project=project,
+        command="run",
+        digest="0" * 64,
+        fingerprint_json=old_shape,
+    )
+    with Session(ledger.engine) as session:
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        assert row.seq is not None
+        return row.seq
+
+
+def test_runs_lists_an_unreadable_fingerprint(data: Ledger, capsys: pytest.CaptureFixture[str]) -> None:
+    data.record_run("officina", RunCommand.RUN, sample())
+    record_unreadable(data, "officina")
+    data.record_run("officina", RunCommand.RESUME, sample(effort="low"))
+
+    assert cli.main(["runs", "officina"]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "officina: 3 esecuzioni"
+    assert lines[2].endswith(f"{'0' * 12}  {UNREADABLE}")
+    assert lines[3].endswith("1 differenza dalla precedente: effort")
+
+
+def test_compare_with_an_unreadable_fingerprint_says_it_cannot_compare(
+    data: Ledger, capsys: pytest.CaptureFixture[str]
+) -> None:
+    first = data.record_run("merlo4", RunCommand.RUN, sample())
+    second = record_unreadable(data, "merlo4")
+
+    assert cli.main(["compare", str(first), str(second)]) == 0
+
+    assert capsys.readouterr().out.splitlines() == [
+        f"#{first} merlo4 run → #{second} merlo4 run: confronto non possibile",
+        f"  #{second}: {UNREADABLE}",
     ]
 
 

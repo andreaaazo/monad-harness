@@ -71,6 +71,14 @@ def now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+def _parsed(text: str) -> object:
+    """JSON from a row that may have been tampered with: None when it does not parse, so verify reports it."""
+    try:
+        return json.loads(text)
+    except ValueError:
+        return None
+
+
 class Ledger:
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -107,10 +115,19 @@ class Ledger:
             session.connection().exec_driver_sql("BEGIN IMMEDIATE")
             yield session
 
-    def _append(self, session: Session, ticket_id: str, actor: str, action: str, note: str) -> None:
+    def _append(
+        self, session: Session, ticket_id: str, actor: str, action: str, note: str, ticket: TicketRow | None
+    ) -> None:
+        """`ticket` is the row as this event leaves it: the event binds its state into the chain (ADR-0047).
+        An event that belongs to no ticket binds an empty state."""
         last = session.exec(select(EventRow).order_by(col(EventRow.seq).desc())).first()
         prev = last.hash if last else chain.GENESIS
         at = now()
+        payload_json = (
+            ""
+            if ticket is None
+            else chain.ticket_state(ticket.status, ticket.verdict, json.loads(ticket.delivered_json))
+        )
         session.add(
             EventRow(
                 ticket_id=ticket_id,
@@ -119,7 +136,9 @@ class Ledger:
                 action=action,
                 note=note,
                 prev_hash=prev,
-                hash=chain.digest(prev, ticket_id, at, actor, action, note),
+                hash=chain.digest_v2(prev, ticket_id, at, actor, action, note, payload_json),
+                version=2,
+                payload_json=payload_json,
             )
         )
 
@@ -162,17 +181,16 @@ class Ledger:
         with self._writing() as session:
             count = session.exec(select(func.count()).select_from(TicketRow)).one()
             ticket_id = f"T-{count + 1:04d}"
-            session.add(
-                TicketRow(
-                    id=ticket_id,
-                    project=project,
-                    spec_json=spec.model_dump_json(),
-                    status=Status.OPEN.value,
-                    inputs_json=json.dumps(inputs or {}),
-                    created_at=now(),
-                )
+            row = TicketRow(
+                id=ticket_id,
+                project=project,
+                spec_json=spec.model_dump_json(),
+                status=Status.OPEN.value,
+                inputs_json=json.dumps(inputs or {}),
+                created_at=now(),
             )
-            self._append(session, ticket_id, spec.sender, "open", spec.title)
+            session.add(row)
+            self._append(session, ticket_id, spec.sender, "open", spec.title, row)
             if operation:
                 operation_id, instance, tool = operation
                 result = json.dumps({"ok": True, "ticket": ticket_id}, ensure_ascii=False)
@@ -267,7 +285,7 @@ class Ledger:
             if delivered is not None:
                 row.delivered_json = json.dumps(delivered)
             session.add(row)
-            self._append(session, ticket_id, actor, action.value, note)
+            self._append(session, ticket_id, actor, action.value, note, row)
             session.commit()
             return target
 
@@ -279,6 +297,30 @@ class Ledger:
     def verify_chain(self) -> bool:
         with Session(self.engine) as session:
             return chain.intact(session.exec(select(EventRow).order_by(col(EventRow.seq))).all())
+
+    def replay_mismatches(self) -> list[str]:
+        """Each ticket against the state its last event binds: `tickets` is a projection of the chain, and a
+        difference is tampering (ADR-0047). One line per ticket the chain does not bind, and per field that
+        differs."""
+        with Session(self.engine) as session:
+            last = {
+                event.ticket_id: event for event in session.exec(select(EventRow).order_by(col(EventRow.seq)))
+            }
+            tickets = session.exec(select(TicketRow).order_by(literal_column("rowid"))).all()
+        found: list[str] = []
+        for ticket in tickets:
+            event = last.get(ticket.id)
+            bound = _parsed(event.payload_json) if event is not None and event.version == 2 else None
+            if not isinstance(bound, dict):
+                found.append(f"{ticket.id}: stato non legato alla catena")
+                continue
+            if bound.get("status") != ticket.status:
+                found.append(f"{ticket.id}: stato diverso dalla catena")
+            if bound.get("verdict") != ticket.verdict:
+                found.append(f"{ticket.id}: verdetto diverso dalla catena")
+            if bound.get("delivered") != _parsed(ticket.delivered_json):
+                found.append(f"{ticket.id}: consegna diversa dalla catena")
+        return found
 
     # Consumi
 
@@ -305,7 +347,8 @@ class Ledger:
         with self._writing() as session:
             session.add(row)
             note = f"{row.file}:{row.check_name}:{row.result}:{row.sha256[:16]}"
-            self._append(session, row.ticket_id or "-", row.signer, "evidence", note)
+            ticket = session.get(TicketRow, row.ticket_id) if row.ticket_id else None
+            self._append(session, row.ticket_id or "-", row.signer, "evidence", note, ticket)
             session.commit()
 
     def evidence(self, project: str) -> list[EvidenceRow]:

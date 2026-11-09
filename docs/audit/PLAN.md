@@ -885,7 +885,7 @@ must not change behaviour. Every task starts with its failing test.
       ESC or BEL.
   - Verify: the test passes; standard gate.
   - Commit: `fix(cli): strip control sequences from model text before printing it`.
-- [ ] **Task 2.31 [APPROVAL]: the hash chain covers verdicts and delivered hashes.** Closes CMT-007's invariant (Q17;
+- [x] **Task 2.31 [APPROVAL]: the hash chain covers verdicts and delivered hashes.** Closes CMT-007's invariant (Q17;
   the comment follows in 3.12). New ADR, expected ADR-0047 ("La catena copre verdetti e consegne").
   - Files:
     - `src/agency/ledger/models.py` (`EventRow.version: int = 1`, `payload_json: str = ""`);
@@ -1270,6 +1270,36 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   at :117 carries harness text only). `anthropic.APIError` messages include the response body from the API or from a
   proxy in between, which the harness does not control. Fix: wrap the line with `report.plain`. Found in Task 2.30. Not
   covered by a planned task.
+- [ ] **Task 2.F56: a ticket's contract and opening hashes are outside the hash chain.** ledger/store.py:206-230
+  (`inputs`, `spec`) and :266 (`apply` takes the parties and the type from `spec_json`), tools/surface.py:592-600 and
+  qa/delivery.py:205-229 (as of Task 2.31). `tickets.spec_json` decides who may deliver and accept, whether a delivery
+  needs a verdict, and which outputs and checks `delivery_problems` requires; `tickets.inputs_json` holds the hashes its
+  staleness check compares. `tickets` has no triggers, and since Task 2.31 the chain binds only the status, the verdict
+  and the delivered hashes of a ticket (the `open` event's note is the title). A direct `UPDATE tickets SET spec_json =
+  …` that drops a check or an output lets the next delivery pass without it, and `agency verify` still prints
+  `registro integro`. No code changes either column after `open`. Fix: bind the sha256 of both columns into the chain
+  (a new field of the version-2 payload, which needs its own ADR) and compare them in `replay_mismatches`. Same bug as
+  CMT-007 (Q17). Found in Task 2.31. Not covered by a planned task.
+- [ ] **Task 2.F57: the concept rows that decide what is developed and presented are outside the hash chain.**
+  ledger/store.py:416-422 (`update_concept`), graph/workflow.py:109, :198, :261 and :275, tools/surface.py:730 and :748
+  (as of Task 2.31). `concepts` is updated in place by design and has no triggers. Its `status` decides which ideas are
+  developed into proposals (`selezionata`, workflow.py:198) and which proposals the director may put in the client
+  presentation (`proposta`, surface.py:748 and workflow.py:275); `anon`, `card_json` and `sketch_file` decide what the
+  presentation and the sheets show. None of it is chained, so a direct `UPDATE concepts SET status = …` changes what
+  reaches the client with no trace, and `agency verify` stays `registro integro`. Fix: record each concept change as a
+  chain event that binds the concept row, as Task 2.31 does for tickets, and replay it in `agency verify`. Same bug as
+  CMT-007 (Q17). Found in Task 2.31. Not covered by a planned task.
+- [ ] **Task 2.F58: the append-only tables other than `events` rely on triggers alone, and `agency verify` cannot see
+  a bypass.** migrations/versions/0001_baseline.py:222-236 (the `*_no_update` triggers), ledger/store.py:346-350
+  (`add_evidence`) and qa/delivery.py:151 (as of Task 2.31). `gates` holds the client's decisions with the hashes of
+  the files they were taken on, and `evidence` the QA results that decide whether a delivery passes
+  (`evidence_problems` reads `evidence.latest`). Both refuse UPDATE and DELETE through triggers, but `DROP TRIGGER` is
+  one statement for anyone who can write the file, and only `events` has a chain that detects it
+  (`test_chain_detects_tampering_that_bypasses_the_triggers`). Each evidence row has a chain event whose note is
+  `file:check:result:sha256[:16]`, but `agency verify` never compares the two; a gate has no event at all, so a dispute
+  over what the client approved (Q17) has nothing chained to point at. Fix: needs the owner's decision on scope: replay
+  `evidence` against its events and add a chained event per gate, or chain every append-only table. Same family as
+  CMT-007 (Q17). Found in Task 2.31. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

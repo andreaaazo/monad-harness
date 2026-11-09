@@ -25,7 +25,10 @@ from agency.ledger import chain
 MIGRATIONS = Path(__file__).parent / "migrations"
 BASELINE = "0001"
 BUSY_SECONDS = 30
-EVENTS = "SELECT ticket_id, at, actor, action, note, prev_hash, hash FROM events ORDER BY seq"
+EVENTS = (
+    "SELECT ticket_id, at, actor, action, note, prev_hash, hash, version, payload_json"
+    " FROM events ORDER BY seq"
+)
 CATALOG = "SELECT type, name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
 
 

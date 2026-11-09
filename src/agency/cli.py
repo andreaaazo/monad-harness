@@ -57,8 +57,11 @@ def _doctor(_: argparse.Namespace) -> int:
 def _verify(_: argparse.Namespace) -> int:
     settings = Settings()
     ledger = Ledger.existing(settings.ledger_path)
-    ok = ledger.verify_chain()
+    mismatches = ledger.replay_mismatches()
+    ok = ledger.verify_chain() and not mismatches
     print("registro integro" if ok else "REGISTRO ALTERATO")
+    for mismatch in mismatches:
+        print(f"  {report.plain(mismatch)}")  # ticket ids come from a table that may have been altered
     broken = keeping.damaged(FileStore(settings.artifacts_dir), ledger)
     print(report.render_damaged(broken) if broken else f"artefatti integri: {keeping.versions(ledger)}")
     return 0 if ok and not broken else 1

@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import json
+import re
 import shutil
 import sqlite3
 import threading
 from contextlib import closing
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
+from sqlalchemy import create_engine, text
 from sqlmodel import SQLModel
 
 from agency import cli
@@ -99,6 +103,94 @@ def add_migration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, body: str) ->
     monkeypatch.setattr(schema, "MIGRATIONS", folder)
 
 
+def migrations_up_to(tmp_path: Path, revision: str) -> Path:
+    """A copy of the real migrations without those after `revision`: the project's own are not touched."""
+    folder = tmp_path / f"migrations-{revision}"
+    shutil.copytree(schema.MIGRATIONS, folder, ignore=shutil.ignore_patterns("__pycache__"))
+    for later in (folder / "versions").glob("*.py"):
+        if later.name[:4] > revision:
+            later.unlink()
+    return folder
+
+
+LOGO = TicketSpec(
+    title="Logo",
+    request="Disegna",
+    type=TicketType.PRODUCTION,
+    sender="design-director",
+    assignee="identity-designer",
+    outputs=["segno.svg"],
+    checks={"*.svg": ["svg_audit"]},
+    media=[Medium.VECTOR],
+)
+REVIEW = TicketSpec.model_validate(
+    LOGO.model_dump() | {"title": "Verifica", "type": TicketType.QA, "assignee": "qa-inspector", "media": []}
+)
+TICKET = (
+    "INSERT INTO tickets (id, project, spec_json, status, verdict, delivered_json, inputs_json, created_at)"
+    " VALUES (?, 'prova', ?, ?, ?, ?, '{}', '2026-11-01T10:00:00+00:00')"
+)
+# Each ticket of a registry at revision 0005: its spec, status, verdict and delivered hashes, and the
+# version-1 events that led there as (actor, action, note).
+BEFORE_0006 = (
+    ("T-0001", LOGO, "open", None, {}, (("design-director", "open", "Logo"),)),
+    (
+        "T-0002",
+        REVIEW,
+        "delivered",
+        "READY",
+        {"segno.svg": "a1b2"},
+        (("design-director", "open", "Verifica"), ("qa-inspector", "deliver", "")),
+    ),
+    (
+        "T-0003",
+        REVIEW,
+        "rework",
+        None,
+        {"segno.svg": "c3d4"},
+        (
+            ("design-director", "open", "Verifica"),
+            ("qa-inspector", "deliver", ""),
+            ("design-director", "rework", "rifai la verifica"),
+        ),
+    ),
+    (
+        "T-0004",
+        LOGO,
+        "accepted",
+        None,
+        {"segno.svg": "e5f6"},
+        (
+            ("design-director", "open", "Logo"),
+            ("identity-designer", "deliver", ""),
+            ("design-director", "accept", ""),
+        ),
+    ),
+)
+V1_COLUMNS = "seq, ticket_id, at, actor, action, note, prev_hash, hash"
+
+
+def at_revision_0005(path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A registry at revision 0005, before events bound the ticket state: tickets in several states and the
+    version-1 events that led there."""
+    with monkeypatch.context() as patch:
+        patch.setattr(schema, "MIGRATIONS", migrations_up_to(tmp_path, "0005"))
+        engine = create_engine(f"sqlite:///{path}")
+        schema.ensure_current(engine)
+        engine.dispose()
+    with closing(sqlite3.connect(path)) as connection:
+        previous, at = chain.GENESIS, "2026-11-01T10:00:00+00:00"
+        for ticket, spec, status, verdict, delivered, history in BEFORE_0006:
+            connection.execute(
+                TICKET, (ticket, spec.model_dump_json(), status, verdict, json.dumps(delivered))
+            )
+            for actor, action, note in history:
+                digest = chain.digest(previous, ticket, at, actor, action, note)
+                connection.execute(EVENT, (ticket, at, actor, action, note, previous, digest))
+                previous = digest
+        connection.commit()
+
+
 def test_baseline_is_the_schema_of_the_real_registry() -> None:
     with closing(sqlite3.connect(":memory:")) as real:
         real.executescript(REAL_SCHEMA.read_text(encoding="utf-8"))
@@ -158,7 +250,8 @@ def test_migrate_adopts_a_registry_older_than_the_migrations(tmp_path: Path) -> 
     result = migrate(path)
 
     assert result.revision == schema.head()
-    assert read(path, "SELECT * FROM events ORDER BY seq") == events
+    assert read(path, f"SELECT {V1_COLUMNS} FROM events ORDER BY seq") == events
+    assert read(path, "SELECT version, payload_json FROM events ORDER BY seq") == [(1, "")] * 2
     assert Ledger(path).verify_chain()
 
 
@@ -307,3 +400,63 @@ def test_agency_migrate_without_a_registry_creates_nothing(
     assert cli.main(["migrate"]) == 0
     assert "nessun registro" in capsys.readouterr().out.lower()
     assert not (tmp_path / "ledger.sqlite").exists()
+
+
+def test_migration_binds_every_ticket_state_into_the_chain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One baseline event per ticket binds the state `tickets` holds, with the real time of the migration; the
+    events written before stay as they were (ADR-0047)."""
+    path = tmp_path / "l.sqlite"
+    at_revision_0005(path, tmp_path, monkeypatch)
+    assert read(path, "SELECT version_num FROM alembic_version") == [("0005",)]
+    before = read(path, f"SELECT {V1_COLUMNS} FROM events ORDER BY seq")
+    started = datetime.now(UTC).replace(microsecond=0)
+
+    assert migrate(path).revision == schema.head()
+
+    events = read(path, f"SELECT {V1_COLUMNS}, version, payload_json FROM events ORDER BY seq")
+    old, added = events[: len(before)], events[len(before) :]
+    assert [row[:8] for row in old] == before
+    assert {row[8:] for row in old} == {(1, "")}
+    assert [(row[1], row[3], row[4], row[5], row[8]) for row in added] == [
+        (ticket, "migrate", "baseline", "", 2) for ticket, *_ in BEFORE_0006
+    ]
+    states = [(status, verdict, delivered) for _, _, status, verdict, delivered, _ in BEFORE_0006]
+    assert [json.loads(row[9]) for row in added] == [
+        {"status": status, "verdict": verdict, "delivered": delivered}
+        for status, verdict, delivered in states
+    ]
+    assert [row[9] for row in added] == [chain.ticket_state(*state) for state in states]
+    (stamp,) = {row[2] for row in added}
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+00:00", stamp)
+    assert started <= datetime.fromisoformat(stamp) <= datetime.now(UTC)
+    ledger = Ledger(path)
+    assert ledger.verify_chain()
+    assert ledger.replay_mismatches() == []
+
+
+def test_v1_events_still_verify(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each event is checked with the formula of its version: old rows are never rewritten (ADR-0047)."""
+    path = tmp_path / "l.sqlite"
+    at_revision_0005(path, tmp_path, monkeypatch)
+    migrate(path)
+    ledger = Ledger(path)
+    ledger.apply("T-0001", Action.BLOCK, "identity-designer", "manca il brief")
+    assert [version for (version,) in read(path, "SELECT version FROM events ORDER BY seq")] == [1] * 9 + [
+        2
+    ] * 5
+    assert ledger.verify_chain()
+
+    def intact_after(statement: str) -> bool:
+        with ledger.engine.begin() as connection:
+            connection.execute(text("DROP TRIGGER IF EXISTS events_no_update"))
+            connection.execute(text(statement))
+        return ledger.verify_chain()
+
+    assert not intact_after("UPDATE events SET note = 'riscritta' WHERE seq = 1")
+    assert intact_after("UPDATE events SET note = 'Logo' WHERE seq = 1")
+    verdict = "UPDATE events SET payload_json = replace(payload_json, '{0}', '{1}') WHERE action = 'baseline'"
+    assert not intact_after(verdict.format("READY", "REVISE"))
+    assert intact_after(verdict.format("REVISE", "READY"))
+    assert not intact_after("UPDATE events SET version = 3 WHERE seq = 14")

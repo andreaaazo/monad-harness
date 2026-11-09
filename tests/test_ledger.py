@@ -7,8 +7,8 @@ from sqlmodel import Session
 
 from agency import cli
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
-from agency.ledger import ForbiddenAction, IllegalTransition, Ledger
-from agency.ledger.models import TicketRow
+from agency.ledger import ForbiddenAction, IllegalTransition, Ledger, chain
+from agency.ledger.models import EvidenceRow, TicketRow
 
 
 def production(**extra: object) -> TicketSpec:
@@ -148,6 +148,162 @@ def test_verify_exits_1_on_a_broken_chain(
     capsys.readouterr()
     assert cli.main(["verify"]) == 1
     assert capsys.readouterr().out.splitlines()[0] == "REGISTRO ALTERATO"
+
+
+def review() -> TicketSpec:
+    return production(type=TicketType.QA, assignee="qa-inspector", media=[], checks={"*.svg": ["svg_audit"]})
+
+
+DELIVERED = {"segno.svg": "a1b2"}
+
+
+@pytest.mark.parametrize(
+    ("column", "value", "line"),
+    [
+        ("verdict", "READY", "T-0001: verdetto diverso dalla catena"),
+        ("status", "accepted", "T-0001: stato diverso dalla catena"),
+        ("delivered_json", '{"segno.svg": "c3d4"}', "T-0001: consegna diversa dalla catena"),
+    ],
+)
+def test_changing_a_verdict_in_tickets_breaks_verify(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    column: str,
+    value: str,
+    line: str,
+) -> None:
+    """The verdict, the status and the delivered hashes are bound into the chain: `tickets` is only their
+    projection, and a direct change of it is tampering (CMT-007, ADR-0047)."""
+    ledger = Ledger(use_data_dir(tmp_path, monkeypatch))
+    ticket = ledger.open(review())
+    ledger.apply(ticket, Action.DELIVER, "qa-inspector", verdict=Verdict.REVISE, delivered=DELIVERED)
+    assert cli.main(["verify"]) == 0
+    assert capsys.readouterr().out.splitlines()[0] == "registro integro"
+
+    with ledger.engine.begin() as conn:
+        conn.execute(text(f"UPDATE tickets SET {column} = :value"), {"value": value})
+
+    assert ledger.verify_chain()  # the events are untouched: the replay finds the change
+    assert cli.main(["verify"]) == 1
+    assert capsys.readouterr().out.splitlines()[:2] == ["REGISTRO ALTERATO", f"  {line}"]
+
+
+def test_every_new_event_binds_the_state_it_leaves(ledger: Ledger) -> None:
+    ticket = ledger.open(review())
+    ledger.apply(ticket, Action.DELIVER, "qa-inspector", verdict=Verdict.READY, delivered=DELIVERED)
+    ledger.add_evidence(
+        EvidenceRow(
+            at="2026-11-09T10:00:00+00:00",
+            project="default",
+            file="segno.svg",
+            sha256="a1b2",
+            check_name="svg_audit",
+            result="PASS",
+            signer="qa-inspector",
+            ticket_id=ticket,
+        )
+    )
+    ledger.apply(ticket, Action.REWORK, "design-director", "rifai la verifica")
+
+    delivered = '{"delivered":{"segno.svg":"a1b2"},"status":"delivered","verdict":"READY"}'
+    assert [(event.action, event.version, event.payload_json) for event in ledger.history(ticket)] == [
+        ("open", 2, '{"delivered":{},"status":"open","verdict":null}'),
+        ("deliver", 2, delivered),
+        ("evidence", 2, delivered),
+        ("rework", 2, '{"delivered":{"segno.svg":"a1b2"},"status":"rework","verdict":null}'),
+    ]
+    assert ledger.verify_chain()
+    assert ledger.replay_mismatches() == []
+
+
+def test_an_event_without_a_ticket_binds_no_state(ledger: Ledger) -> None:
+    ledger.add_evidence(
+        EvidenceRow(
+            at="2026-11-09T10:00:00+00:00",
+            project="default",
+            file="segno.svg",
+            sha256="a1b2",
+            check_name="svg_audit",
+            result="PASS",
+            signer="qa-inspector",
+        )
+    )
+    assert [(event.action, event.version, event.payload_json) for event in ledger.history("-")] == [
+        ("evidence", 2, "")
+    ]
+    assert ledger.verify_chain()
+
+
+def test_a_ticket_the_chain_does_not_bind_breaks_verify(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A ticket whose last event is version 1, or that has no event at all, has a state nothing in the chain
+    vouches for."""
+    ledger = Ledger(use_data_dir(tmp_path, monkeypatch))
+    ticket = ledger.open(production())
+    with ledger.engine.begin() as conn:
+        prev = conn.execute(text("SELECT hash FROM events ORDER BY seq DESC LIMIT 1")).scalar_one()
+        at = "2026-11-09T10:00:00+00:00"
+        digest = chain.digest(prev, ticket, at, "identity-designer", "block", "manca il brief")
+        conn.execute(
+            text(
+                "INSERT INTO events (ticket_id, at, actor, action, note, prev_hash, hash)"
+                " VALUES (:ticket, :at, 'identity-designer', 'block', 'manca il brief', :prev, :hash)"
+            ),
+            {"ticket": ticket, "at": at, "prev": prev, "hash": digest},
+        )
+    with Session(ledger.engine) as session:
+        session.add(
+            TicketRow(
+                id="T-0002",
+                spec_json=production().model_dump_json(),
+                status=Status.OPEN.value,
+                created_at="2026-11-09T10:00:00+00:00",
+            )
+        )
+        session.commit()
+
+    assert ledger.verify_chain()
+    assert ledger.replay_mismatches() == [
+        "T-0001: stato non legato alla catena",
+        "T-0002: stato non legato alla catena",
+    ]
+    assert cli.main(["verify"]) == 1
+    assert capsys.readouterr().out.splitlines()[:3] == [
+        "REGISTRO ALTERATO",
+        "  T-0001: stato non legato alla catena",
+        "  T-0002: stato non legato alla catena",
+    ]
+
+
+def test_a_version_1_event_binds_no_state_whatever_its_payload_says(ledger: Ledger) -> None:
+    """A version-1 digest does not cover `payload_json`, so a payload written into a v1 row afterwards proves
+    nothing, even when it matches the ticket row exactly."""
+    ticket = ledger.open(production())
+    status, verdict = ledger.status(ticket)
+    forged = chain.ticket_state(status.value, verdict, ledger.delivered(ticket))
+    with ledger.engine.begin() as conn:
+        prev = conn.execute(text("SELECT hash FROM events ORDER BY seq DESC LIMIT 1")).scalar_one()
+        at = "2026-11-09T10:00:00+00:00"
+        digest = chain.digest(prev, ticket, at, "identity-designer", "block", "manca il brief")
+        conn.execute(
+            text(
+                "INSERT INTO events (ticket_id, at, actor, action, note, prev_hash, hash)"
+                " VALUES (:ticket, :at, 'identity-designer', 'block', 'manca il brief', :prev, :hash)"
+            ),
+            {"ticket": ticket, "at": at, "prev": prev, "hash": digest},
+        )
+        conn.execute(text("DROP TRIGGER events_no_update"))
+        conn.execute(
+            text("UPDATE events SET payload_json = :forged WHERE hash = :hash"),
+            {"forged": forged, "hash": digest},
+        )
+
+    last = ledger.history(ticket)[-1]
+    assert (last.version, last.payload_json) == (1, forged)
+    assert ledger.verify_chain()
+    assert ledger.replay_mismatches() == [f"{ticket}: stato non legato alla catena"]
 
 
 def test_verify_on_a_missing_registry_exits_1_with_its_path_and_creates_nothing(

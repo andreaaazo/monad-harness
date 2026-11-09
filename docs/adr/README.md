@@ -5,7 +5,7 @@ vecchio. Date: 2026-10-31.
 
 | ADR | Decisione | Stato |
 |---|---|---|
-| [0001](0001-registro-sqlite.md) | Registro su SQLite + SQLModel, niente Kitsu | Accettata, da rivedere prima di M7 (0023) |
+| [0001](0001-registro-sqlite.md) | Registro su SQLite + SQLModel, niente Kitsu | Accettata, da rivedere prima di M7 (0023); la catena copre verdetti e consegne (0047) |
 | [0002](0002-langgraph-processo.md) | LangGraph solo per il processo | Accettata |
 | [0003](0003-loop-proprio.md) | Loop proprio sulla Messages API, niente smolagents | Accettata |
 | [0004](0004-indice-comandi.md) | Tre strumenti e un indice per i comandi Craft | Accettata |
@@ -51,3 +51,4 @@ vecchio. Date: 2026-10-31.
 | [0044](0044-i-file-dell-harness-fuori-dalla-sandbox.md) | I file dell'harness fuori dalla sandbox | Accettata, estende 0005 |
 | [0045](0045-una-radice-dei-dati-e-env-solo-per-i-segreti.md) | Una radice dei dati, e `.env` solo per i segreti | Accettata, si attua in tre passi (Task 2.15–2.17 di `docs/audit/PLAN.md`) |
 | [0046](0046-i-limiti-della-sandbox.md) | I limiti della sandbox | Accettata, estende 0005: tetto di memoria e di task in uno scope cgroup |
+| [0047](0047-la-catena-copre-verdetti-e-consegne.md) | La catena copre verdetti e consegne | Accettata, estende 0001: eventi di versione 2 e `agency verify` che rifà il conto |

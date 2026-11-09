@@ -31,16 +31,21 @@ radice in un solo punto, `data_root()` di `agency.contracts.layout` (ADR-0045).
 `events` non si può modificare: lo impediscono i trigger SQLite, e la catena di hash rileva chi li
 aggira. Gli stessi trigger proteggono `usage`, `evidence`, `renders`, `derivations`, `gates`, `runs`, `judgments` e
 `artifacts`.
-`tickets` è una vista di comodo dello stato; la verità è la storia degli eventi. `agency verify`
-ricontrolla la catena.
+`tickets` tiene lo stato attuale dei ticket; per stato, verdetto e consegna è una proiezione della storia degli eventi,
+che è la verità. Dalla revisione 0006 ogni evento nuovo è di
+versione 2 e lega nella catena lo stato del suo ticket dopo l'evento: stato, verdetto e hash consegnati, in
+`payload_json`. Gli eventi precedenti restano di versione 1 e si verificano con la loro formula, e la migrazione ha
+aggiunto un evento `baseline` per ticket con lo stato di quel momento (ADR-0047). `agency verify` ricontrolla la catena
+e confronta ogni ticket con lo stato legato dal suo ultimo evento: una differenza è un registro alterato. Restano fuori
+dalla catena il contratto del ticket (`spec_json`, `inputs_json`) e le idee (`concepts`).
 
 ### Tabelle
 
 | Tabella | Traguardo | Contenuto |
 |---|---|---|
 | `projects` | M1.5 | Budget, modello ed effort scelti dal cliente |
-| `tickets` | M0 | Contratto, stato, verdetto |
-| `events` | M0 | Chi ha fatto cosa, quando, con quale hash precedente |
+| `tickets` | M0 | Contratto, stato, verdetto, hash consegnati: per stato, verdetto e consegna è una proiezione degli eventi (ADR-0047) |
+| `events` | M0 | Chi ha fatto cosa, quando, con quale hash precedente. Dalla versione 2 anche lo stato del ticket dopo l'evento (ADR-0047) |
 | `evidence` | M1 | File, hash, controllo, esito, firma, prova, input confrontati |
 | `artifacts` | M1.6 | Versione conservata: hash, progetto, percorso, ticket, esecuzione, motivo, tipo MIME, dimensione (ADR-0028) |
 | `renders` | M1 | Prova di render di una versione precisa di un file |

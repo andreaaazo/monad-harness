@@ -41,6 +41,10 @@ class EventRow(SQLModel, table=True):
     note: str = ""
     prev_hash: str
     hash: str
+    # Version 1 binds no ticket state; version 2 binds the state the event leaves, in `payload_json`
+    # (ADR-0047).
+    version: int = 1
+    payload_json: str = ""
 
 
 class UsageRow(SQLModel, table=True):

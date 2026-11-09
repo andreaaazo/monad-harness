@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from pathlib import PurePosixPath
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -115,6 +116,10 @@ class TicketSpec(BaseModel):
             raise ValueError("dichiara gli output")
         if self.type not in NO_CHECK_TYPES and not self.checks:
             raise ValueError("dichiara i controlli di accettazione")
+        for path in (*self.outputs, *self.inputs, *self.checks):
+            pure = PurePosixPath(path)
+            if pure.is_absolute() or ".." in pure.parts:
+                raise ValueError(f"{path} è fuori dalla cartella del lavoro")
         for output in self.outputs:
             if output.endswith("/"):
                 raise ValueError(f"{output} è una cartella: dichiara file o glob")

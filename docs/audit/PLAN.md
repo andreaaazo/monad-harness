@@ -861,7 +861,7 @@ must not change behaviour. Every task starts with its failing test.
       red.
   - Verify: the test passes; lint-imports passes; standard gate.
   - Commit: `fix(evaluation): render blind-judgment boards inside the sandbox`.
-- [ ] **Task 2.28: ticket paths cannot be absolute or contain `..`.** Closes SEC-007.
+- [x] **Task 2.28: ticket paths cannot be absolute or contain `..`.** Closes SEC-007.
   - Files: `src/agency/contracts/ticket.py` (a `TicketSpec` validator over outputs, inputs and the check patterns),
     `tests/test_hardening.py`.
   - First check whether stored specs are re-validated on load (`rg -n "TicketSpec.model_validate" src`). If they are,

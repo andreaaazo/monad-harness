@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import re
 import threading
 from collections.abc import Callable
 from pathlib import Path
@@ -182,6 +183,54 @@ def test_a_reviewer_cannot_leave_reviews_with_dotdot(tmp_path: Path) -> None:
     assert result.get("is_error")
     assert "fuori dalla cartella del lavoro" in str(result["content"])
     assert brief.read_text(encoding="utf-8") == "il brief del cliente"
+
+
+# Percorsi dei ticket
+
+
+def with_path(field: str, path: str) -> TicketSpec:
+    """A review-free production spec whose `field` carries `path`."""
+    if field == "outputs":
+        return spec(outputs=[path], checks={"*": ["req:testo"]})
+    if field == "inputs":
+        return spec(inputs=[path])
+    return spec(checks={path: ["req:testo"]})
+
+
+@pytest.mark.parametrize("field", ["outputs", "inputs", "checks"])
+@pytest.mark.parametrize("path", ["/etc/passwd", "/**", "../x.png", "exports/../../x.png"])
+def test_ticket_paths_must_stay_inside_the_work_folder(field: str, path: str) -> None:
+    with pytest.raises(ValidationError, match=f"{re.escape(path)} è fuori dalla cartella del lavoro"):
+        with_path(field, path)
+
+
+@pytest.mark.parametrize("field", ["outputs", "inputs", "checks"])
+@pytest.mark.parametrize(
+    "path", ["exports/segno.svg", "reviews/*.md", "**/*.png", "segno..svg", "v1..2/a.png"]
+)
+def test_ticket_paths_inside_the_work_folder_are_accepted(field: str, path: str) -> None:
+    assert with_path(field, path)
+
+
+def test_open_ticket_refuses_an_absolute_review_output_without_globbing_it(tmp_path: Path) -> None:
+    ctx = context(tmp_path, "design-director")
+    host = tmp_path / "host.png"
+    host.write_text("fuori", encoding="utf-8")
+    for output in (str(host), str(tmp_path / "nope.png")):
+        result = call(
+            ctx,
+            "open_ticket",
+            title="Giudizio",
+            request="Guarda",
+            type="revisione",
+            assignee="critic",
+            outputs=[output],
+            checks={"*.png": ["req:testo"]},
+        )
+        assert result.get("is_error")
+        # The same refusal whether the file exists or not: no oracle.
+        assert f"{output} è fuori dalla cartella del lavoro" in str(result["content"])
+    assert not ctx.ledger.tickets("p")
 
 
 # Deleghe

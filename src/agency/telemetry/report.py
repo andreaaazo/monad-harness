@@ -12,6 +12,12 @@ from agency.ledger.models import ArtifactRow, JudgmentRow, RunRow
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
 NAMED = 5  # oltre, l'elenco delle differenze si legge con agency compare
+CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")  # every control character except \n and \t
+
+
+def plain(text: str) -> str:
+    """Drop C0, C1 and DEL (not strictly C0, but terminals act on it), keeping newline and tab."""
+    return CONTROL.sub("", text)
 
 
 def _seconds(milliseconds: float | None) -> str:
@@ -86,7 +92,7 @@ def render(view: ProjectReport) -> str:
             f"  {ticket.id} {ticket.status}{verdict} → {ticket.assignee}: {ticket.title}"
             f" ({ticket.cost_usd:.2f} $)"
         )
-    return "\n".join(lines)
+    return plain("\n".join(lines))
 
 
 def _count(number: int, one: str, many: str) -> str:
@@ -126,7 +132,7 @@ def render_runs(ledger: Ledger, project: str) -> str:
             line += f"  {count} dalla precedente: {names}{more}" if found else "  identica alla precedente"
         lines.append(line)
         previous = current
-    return "\n".join(lines)
+    return plain("\n".join(lines))
 
 
 def render_comparison(first: RunRow, second: RunRow) -> str:
@@ -136,7 +142,7 @@ def render_comparison(first: RunRow, second: RunRow) -> str:
     for change in found:
         where = f"{change.part} {change.item}".rstrip()
         lines.append(f"  {where}: {_value(change.before)} → {_value(change.after)}")
-    return "\n".join(lines)
+    return plain("\n".join(lines))
 
 
 def _quality(level: str, specific: bool) -> str:
@@ -152,7 +158,7 @@ def render_reveal(rows: list[JudgmentRow]) -> str:
         best = ", il migliore" if row.best else ""
         origin = f"{row.file} di {row.project}" if row.project else row.file
         lines.append(f"  {row.letter} {_quality(row.level, row.specific)}{best}: {origin}")
-    return "\n".join(lines)
+    return plain("\n".join(lines))
 
 
 def _size(size: int) -> str:
@@ -170,7 +176,7 @@ def render_artifacts(rows: list[ArtifactRow], project: str) -> str:
         lines.append(
             f"  {row.sha256[:12]}  {row.origin}  {row.ticket_id or '-'}  {_size(row.size)}  {row.path}"
         )
-    return "\n".join(lines)
+    return plain("\n".join(lines))
 
 
 def render_restored(rows: list[ArtifactRow], destination: str) -> str:
@@ -178,24 +184,26 @@ def render_restored(rows: list[ArtifactRow], destination: str) -> str:
     for row in rows:
         reason = f"{row.origin} di {row.ticket_id}" if row.ticket_id else row.origin
         lines.append(f"  {reason}, {row.project or 'fuori dai progetti'}: {row.path}")
-    return "\n".join(lines)
+    return plain("\n".join(lines))
 
 
 def render_damaged(rows: list[ArtifactRow]) -> str:
     lines = ["ARTEFATTI DANNEGGIATI: queste versioni mancano dal deposito o non hanno più il loro hash"]
     lines += [f"  {row.sha256[:12]}  {row.project or '-'}  {row.path}" for row in rows]
-    return "\n".join(lines)
+    return plain("\n".join(lines))
 
 
 def render_provenance(built: Provenance, path: str) -> str:
-    return "\n".join(
-        [
-            f"Proiezione rigenerata in {path}, dal registro alla revisione {built.registry_revision}:",
-            f"  {_count(built.calls, 'chiamata', 'chiamate')}",
-            f"  misure: {built.from_registry} dal registro, {built.from_traces} dalle tracce,"
-            f" {built.unmeasured} non misurate",
-            f"  fasi: {built.phases_recorded} registrate, {built.phases_derived} ricavate",
-            f"  righe di traccia illeggibili: {built.unreadable_trace_lines}",
-            f"  righe di trascrizione illeggibili: {built.unreadable_transcript_lines}",
-        ]
+    return plain(
+        "\n".join(
+            [
+                f"Proiezione rigenerata in {path}, dal registro alla revisione {built.registry_revision}:",
+                f"  {_count(built.calls, 'chiamata', 'chiamate')}",
+                f"  misure: {built.from_registry} dal registro, {built.from_traces} dalle tracce,"
+                f" {built.unmeasured} non misurate",
+                f"  fasi: {built.phases_recorded} registrate, {built.phases_derived} ricavate",
+                f"  righe di traccia illeggibili: {built.unreadable_trace_lines}",
+                f"  righe di trascrizione illeggibili: {built.unreadable_transcript_lines}",
+            ]
+        )
     )

@@ -96,10 +96,12 @@ def _show(session: Session, project: ProjectName) -> int:
         work = session.settings.project_dir(project) / "work"
         print(f"\nIN ATTESA DEL CLIENTE: gate {gate.gate}")
         for file in gate.files:
-            print(f"  {work / file}")
+            print(report.plain(f"  {work / file}"))
         if isinstance(gate, ConceptGate):
-            print(f"Proposte: {', '.join(gate.options)}. Lo studio raccomanda {gate.recommended}.")
-            print(gate.reasons)
+            print(
+                report.plain(f"Proposte: {', '.join(gate.options)}. Lo studio raccomanda {gate.recommended}.")
+            )
+            print(report.plain(gate.reasons))
             print(f"agency decide {project} --approve --choice X --text '…'  oppure  --reject --text '…'")
         else:
             print(f"agency decide {project} --approve --text '…'  oppure  --reject --text '…'")
@@ -120,7 +122,7 @@ def _guarded(project: ProjectName, session: Session, action: Callable[[], str]) 
         print(f"Per riprendere: agency resume {project}")
         return 3
     if outcome:
-        print(f"Esito: {outcome}")
+        print(report.plain(f"Esito: {outcome}"))
     return _show(session, project)
 
 
@@ -301,7 +303,7 @@ def _judge(args: argparse.Namespace) -> int:
     try:
         found = blind.candidates([Path(path) for path in args.files], settings.projects_dir)
     except blind.CannotCompare as exc:
-        print(f"Confronto non possibile: {exc}")
+        print(report.plain(f"Confronto non possibile: {exc}"))
         return 1
     comparison = blind.comparison_id()
     assigned = blind.assign(found, random.SystemRandom())
@@ -335,7 +337,7 @@ def _judge(args: argparse.Namespace) -> int:
                 run=None,
             )
     except blind.CannotCompare as exc:
-        print(f"Confronto non possibile: {exc}. Nulla registrato")
+        print(report.plain(f"Confronto non possibile: {exc}. Nulla registrato"))
         return 1
     except (EOFError, KeyboardInterrupt):
         print("\nGiudizio interrotto: nulla registrato")

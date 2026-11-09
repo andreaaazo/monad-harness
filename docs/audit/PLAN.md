@@ -876,7 +876,7 @@ must not change behaviour. Every task starts with its failing test.
     - `test_sandbox_runs_in_a_new_session`: `os.getsid(0)` inside differs from the test process's.
   - Verify: the test passes; standard gate.
   - Commit: `fix(sandbox): start every sandbox in a new terminal session`.
-- [ ] **Task 2.30: model text is printed without control sequences.** Closes SEC-009.
+- [x] **Task 2.30: model text is printed without control sequences.** Closes SEC-009.
   - Files: `src/agency/cli.py`, `src/agency/telemetry/report.py` (every field that comes from the model),
     `tests/test_hardening.py`.
   - Interface: `plain(text: str) -> str` drops C0 and C1 control characters, except `\n` and `\t`.
@@ -1261,6 +1261,15 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   the `style` declaration wins over the presentation attribute, so `<path stroke="none" style="stroke:#000">` is drawn
   stroked but audited as unstroked (and the reverse). Fix: read `style` first, then the attribute. Found in Task 2.26.
   Not covered by a planned task.
+- [ ] **Task 2.F54: the dashboard server logs the raw HTTP request line to stderr.** entrypoints/server/serve.py:30-31
+  (`_Handler.log_message`: `format % args` carries the request line and path). The text is written by the HTTP client,
+  not the model, and no control characters are removed, so a request with ESC or OSC bytes in its path forges lines of
+  the operator's terminal (Task 2.30's bug, on the server side). Fix: pass the line through `report.plain` (or an
+  equivalent shared helper that the server may import) before writing it. Found in Task 2.30. Not covered by a planned task.
+- [ ] **Task 2.F55: the API error text is printed raw.** cli.py:121 (`API NON DISPONIBILE: {exc}`; `BUDGET FINITO: {exc}`
+  at :117 carries harness text only). `anthropic.APIError` messages include the response body from the API or from a
+  proxy in between, which the harness does not control. Fix: wrap the line with `report.plain`. Found in Task 2.30. Not
+  covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

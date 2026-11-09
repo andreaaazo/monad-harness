@@ -22,11 +22,14 @@ from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.gate import ConceptGate, Gate
 from agency.contracts.project import ProjectName, parse_project_name
+from agency.contracts.run import Fingerprint
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
+from agency.evaluation.blind import CannotCompare
 from agency.gateway import ModelGateway, ScriptedTransport
+from agency.insights.domain import Provenance
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
-from agency.ledger.models import EvidenceRow, UsageRow
+from agency.ledger.models import ArtifactRow, EvidenceRow, JudgmentRow, RunRow, UsageRow
 from agency.qa import checks as qa
 from agency.qa import delivery, evidence
 from agency.telemetry import report
@@ -1061,3 +1064,195 @@ def test_read_only_commands_never_create_a_registry(
     assert cli.main(command) == 1
     assert capsys.readouterr().out.splitlines() == [f"REGISTRO: nessun registro in {path.absolute()}"]
     assert not path.exists()
+
+
+# Testo del modello: arriva al terminale dell'operatore senza sequenze di controllo (SEC-009)
+
+OSC_52 = "\x1b]52;c;ZWNobyBwd25lZA==\x07"
+
+
+def test_cli_strips_control_sequences_from_model_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    gate = ConceptGate(
+        ticket="T-0001",
+        files=["tavola\x1b[31m.pdf"],
+        options=["V", "X\x1b[2J"],
+        recommended="V\x07",
+        reasons=f"scelgo B{OSC_52} perché\x1b[2J regge",
+    )
+    session = FakeSession([gate], Ledger(tmp_path / "l.sqlite"))
+    monkeypatch.setattr(cli, "_report_of", lambda *_: None)
+    monkeypatch.setattr(report, "render", lambda _: "rapporto")
+    project = parse_project_name("officina")
+    assert cli._guarded(project, session, lambda: "bloccato: fermo\x1b[2J qui") == 0  # type: ignore[arg-type]
+    out = capsys.readouterr().out
+    assert "\x1b" not in out
+    assert "\x07" not in out
+    assert "scelgo B" in out
+    assert "regge" in out
+    assert "Esito: bloccato: fermo" in out
+    assert "tavola" in out
+
+
+@pytest.mark.parametrize(
+    ("raw", "kept"),
+    [
+        ("a\nb\tc", "a\nb\tc"),
+        ("perché è così, 5 €", "perché è così, 5 €"),
+        ("logo 🎨", "logo 🎨"),
+        ("a\x00b", "ab"),
+        ("a\x07b", "ab"),
+        ("a\x1b[2Jb", "a[2Jb"),
+        ("a\x7fb", "ab"),
+        ("a\x85b", "ab"),
+        ("a\x9b2Jb", "a2Jb"),
+        ("a\rb", "ab"),
+    ],
+)
+def test_plain_drops_control_characters_and_keeps_text(raw: str, kept: str) -> None:
+    assert report.plain(raw) == kept
+
+
+def test_a_report_filters_the_model_text_it_renders(
+    tmp_path: Path, report_of: Callable[[Path, str], ProjectReport]
+) -> None:
+    ledger = Ledger(tmp_path / "l.sqlite")
+    ledger.open(spec(title="Segno\x1b[31m rosso\x9b2J"), "p")
+    out = report.render(report_of(tmp_path / "l.sqlite", "p"))
+    assert "\x1b" not in out
+    assert "\x9b" not in out
+    assert "Segno[31m rosso2J" in out
+    assert len(out.splitlines()) > 5  # newlines survive
+
+
+def _run_row(seq: int, command: str) -> RunRow:
+    fingerprint = Fingerprint(
+        model="",
+        effort="",
+        explorer_effort="",
+        proposal_effort="",
+        explorers=1,
+        max_parallel=1,
+        prompts={},
+        registry={},
+        code={},
+        lock="",
+        python="3",
+        tools={},
+    )
+    return RunRow(
+        seq=seq,
+        at="2026-11-01",
+        project="p",
+        command=command,
+        digest="d" * 64,
+        fingerprint_json=fingerprint.model_dump_json(),
+    )
+
+
+def _artifact_row(path: str) -> ArtifactRow:
+    return ArtifactRow(
+        at="2026-11-01",
+        sha256="a" * 64,
+        project="p",
+        path=path,
+        ticket_id="T-1",
+        origin="consegna",
+        media_type="text/plain",
+        size=3,
+    )
+
+
+def _judgment_row(file: str) -> JudgmentRow:
+    return JudgmentRow(
+        at="2026-11-01",
+        comparison="c1",
+        judge="andrea",
+        letter="A",
+        project="p",
+        file=file,
+        sha256="a" * 64,
+        level="buono",
+        specific=True,
+        best=True,
+        why="",
+    )
+
+
+class _RunsLedger:
+    def runs(self, _: str) -> list[RunRow]:
+        return [_run_row(1, "run\x1b[31m"), _run_row(2, "resume\x07")]
+
+
+def _provenance() -> Provenance:
+    return Provenance(
+        built_at="t",
+        sources=[],
+        registry_revision="r\x1b[31m",
+        calls=1,
+        from_registry=1,
+        from_traces=0,
+        unmeasured=0,
+        phases_recorded=0,
+        phases_derived=0,
+        unreadable_trace_lines=0,
+        unreadable_transcript_lines=0,
+    )
+
+
+RENDERERS: dict[str, Callable[[], str]] = {
+    "runs": lambda: report.render_runs(_RunsLedger(), "p"),  # type: ignore[arg-type]
+    "comparison": lambda: report.render_comparison(_run_row(1, "run\x1b[31m"), _run_row(2, "run\x07")),
+    "reveal": lambda: report.render_reveal([_judgment_row("segno\x1b[31m.svg")]),
+    "artifacts": lambda: report.render_artifacts([_artifact_row("segno\x1b[31m.svg")], "p"),
+    "restored": lambda: report.render_restored([_artifact_row("segno\x1b[31m.svg")], "dest\x07"),
+    "damaged": lambda: report.render_damaged([_artifact_row("segno\x1b[31m.svg")]),
+    "provenance": lambda: report.render_provenance(_provenance(), "path\x1b[31m"),
+}
+
+
+@pytest.mark.parametrize("name", RENDERERS)
+def test_every_report_renderer_filters_control_characters(name: str) -> None:
+    out = RENDERERS[name]()
+    assert "\x1b" not in out
+    assert "\x07" not in out
+    assert out.strip()
+
+
+def judge_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "projects"))
+    monkeypatch.chdir(tmp_path)
+    first, second = tmp_path / "a.svg", tmp_path / "b.svg"
+    first.write_text("<svg>1</svg>", encoding="utf-8")
+    second.write_text("<svg>2</svg>", encoding="utf-8")
+    return [str(first), str(second)]
+
+
+def test_judge_filters_the_refusal_of_a_missing_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    judge_setup(tmp_path, monkeypatch)
+    assert cli.main(["judge", "manca\x1b[2J.svg", "altro.svg"]) == 1
+    out = capsys.readouterr().out
+    assert "\x1b" not in out
+    assert "manca[2J.svg" in out
+
+
+def test_judge_filters_a_refusal_after_the_copies_are_laid_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    paths = judge_setup(tmp_path, monkeypatch)
+
+    def refuse(*_: object) -> None:
+        raise CannotCompare("non si rende\x1b[2J \x07")
+
+    monkeypatch.setattr("agency.evaluation.board.lay_board", lambda *_: None)
+    monkeypatch.setattr("agency.evaluation.blind.interview", refuse)
+    assert cli.main(["judge", *paths]) == 1
+    out = capsys.readouterr().out
+    assert "Nulla registrato" in out
+    assert "\x1b" not in out
+    assert "\x07" not in out
+    assert "non si rende" in out

@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Compare
-         * @description Due progetti diversi, tutti e due conosciuti dal registro.
+         * @description Two different projects, both known to the registry.
          */
         readonly get: operations["compareProjects"];
         readonly put?: never;
@@ -84,7 +84,7 @@ export interface paths {
         };
         /**
          * Image
-         * @description L'immagine `index` della trascrizione: solo PNG, JPEG, GIF e WebP, mai incorniciata né eseguita.
+         * @description Image `index` of the transcript: only PNG, JPEG, GIF and WebP, never framed or executed.
          */
         readonly get: operations["instanceImage"];
         readonly put?: never;
@@ -169,7 +169,7 @@ export interface components {
     schemas: {
         /**
          * Alignment
-         * @description Come si sono legati turni e chiamate.
+         * @description How turns and calls were matched.
          * @enum {string}
          */
         readonly Alignment: "per richiesta" | "per ordine" | "nessuna";
@@ -197,7 +197,7 @@ export interface components {
         };
         /**
          * ChangeView
-         * @description Una differenza fra due impronte: `None` vuol dire che da quella parte l'elemento non c'è.
+         * @description A difference between two fingerprints: `None` means the item is absent on that side.
          */
         readonly ChangeView: {
             /** After */
@@ -230,7 +230,8 @@ export interface components {
         };
         /**
          * CheckSummary
-         * @description Un controllo: quante prove, quante FAIL, su quanti file di un ticket, e su quanti è passato subito.
+         * @description A check: how many proofs, how many FAILs, on how many files of a ticket, and on how many it passed at
+         *     once.
          */
         readonly CheckSummary: {
             /** Check Name */
@@ -246,7 +247,7 @@ export interface components {
         };
         /**
          * Compared
-         * @description Quali impronte ci sono: le esecuzioni prima di M1.6 non la hanno.
+         * @description Which fingerprints exist: runs from before M1.6 have none.
          * @enum {string}
          */
         readonly Compared: "entrambe" | "manca prima" | "manca dopo" | "nessuna";
@@ -262,8 +263,8 @@ export interface components {
         };
         /**
          * Execution
-         * @description Un'esecuzione: il comando, l'impronta, quanto ha speso, e quante differenze ha dalla precedente
-         *     leggibile. `readable` è falso per un'impronta di una forma che questa versione non conosce.
+         * @description One run: the command, the fingerprint, what it spent, and how many differences it has from the previous
+         *     readable one. `readable` is false for a fingerprint of a shape this version does not know.
          */
         readonly Execution: {
             /** At */
@@ -320,8 +321,8 @@ export interface components {
         };
         /**
          * ImageRef
-         * @description Un'immagine restituita a un'istanza: la sua posizione nella trascrizione, da 0, il suo tipo, e se il
-         *     cruscotto la serve.
+         * @description An image returned to an instance: its position in the transcript, from 0, its media type, and whether
+         *     the dashboard serves it.
          */
         readonly ImageRef: {
             /** Index */
@@ -348,7 +349,8 @@ export interface components {
         };
         /**
          * InstanceView
-         * @description Un'istanza nella timeline, dalla prima all'ultima chiamata. `model_ms`: il tempo col modello.
+         * @description An instance on the timeline, from its first call to its last. `model_ms`: the time spent with the
+         *     model.
          */
         readonly InstanceView: {
             /** Calls */
@@ -397,14 +399,14 @@ export interface components {
         };
         /**
          * Lifecycle
-         * @description Ciò che il registro scrive nella storia di un ticket, tranne le prove: l'apertura e le transizioni di
-         *     `Action`. Un test le tiene allineate.
+         * @description What the registry writes into a ticket's history, proofs aside: the opening and the transitions of
+         *     `Action`. A test keeps the two aligned.
          * @enum {string}
          */
         readonly Lifecycle: "open" | "deliver" | "accept" | "rework" | "block" | "resume" | "cancel";
         /**
          * Measured
-         * @description Una chiamata: quanto è costata, quanto contesto ha letto, quanto ha aspettato, perché si è fermata.
+         * @description One call: what it cost, how much context it read, how long it waited, why it stopped.
          */
         readonly Measured: {
             /** Cache Read Tokens */
@@ -428,7 +430,7 @@ export interface components {
         };
         /**
          * Milestone
-         * @description Fino al gate `concept` approvato: quanto è costato e quanto è durato arrivarci.
+         * @description Up to the approved `concept` gate: what getting there cost, and how long it took.
          */
         readonly Milestone: {
             /** Calls */
@@ -440,7 +442,7 @@ export interface components {
         };
         /**
          * Outcome
-         * @description Dove si è fermato il progetto: la consegna al cliente, ciò che resta da finire, l'ultimo passo.
+         * @description Where the project stopped: the delivery to the client, what is left to finish, the last step.
          */
         readonly Outcome: {
             /** Delivery Id */
@@ -457,7 +459,7 @@ export interface components {
         };
         /**
          * PhaseFlow
-         * @description Una fase: quanto è costata e quanto lavoro è tornato indietro. `started_at` è la prima chiamata.
+         * @description A phase: what it cost and how much work went back. `started_at` is its first call.
          */
         readonly PhaseFlow: {
             /** Blocked */
@@ -485,7 +487,7 @@ export interface components {
         };
         /**
          * PhasePair
-         * @description Una fase dei due lati: `None` vuol dire che da quella parte la fase non c'è.
+         * @description One phase on both sides: `None` means that side has no such phase.
          */
         readonly PhasePair: {
             /** After Usd */
@@ -497,7 +499,7 @@ export interface components {
         };
         /**
          * PhaseView
-         * @description Come ha lavorato il modello in una fase. Le medie valgono solo sulle chiamate misurate.
+         * @description How the model worked in one phase. The averages count only the measured calls.
          */
         readonly PhaseView: {
             /** Calls */
@@ -569,7 +571,7 @@ export interface components {
         };
         /**
          * ProjectSummary
-         * @description Un progetto nell'elenco: quanto è costato, quante chiamate, quando ha lavorato.
+         * @description A project in the list: what it cost, how many calls it made, when it worked.
          */
         readonly ProjectSummary: {
             /** Budget Usd */
@@ -587,7 +589,8 @@ export interface components {
         };
         /**
          * Provenance
-         * @description Da cosa è nata la proiezione: chi la legge sa quando, da quale registro e quanto è completa.
+         * @description What the projection was built from: a reader knows when, from which registry, and how complete it
+         *     is.
          */
         readonly Provenance: {
             /** Built At */
@@ -640,7 +643,7 @@ export interface components {
         };
         /**
          * Refusal
-         * @description Uno strumento che ha detto no, al turno `turn` dell'istanza, con le sue parole.
+         * @description A tool that said no, at turn `turn` of the instance, in its own words.
          */
         readonly Refusal: {
             /** Instance */
@@ -707,8 +710,8 @@ export interface components {
         };
         /**
          * ReplayTurn
-         * @description Un turno: la chiamata che lo ha prodotto, quelle scartate prima, ciò che il modello ha pensato,
-         *     scritto e chiesto, e i messaggi dell'harness che lo seguono.
+         * @description One turn: the call that produced it, the ones discarded before it, what the model thought, wrote and
+         *     asked for, and the harness messages that follow it.
          */
         readonly ReplayTurn: {
             /** Discarded */
@@ -729,7 +732,8 @@ export interface components {
         };
         /**
          * RoleBehaviour
-         * @description Un ruolo: quanto contesto ha letto, quanto ne veniva dalla cache, quanto ha pensato e aspettato.
+         * @description A role: how much context it read, how much of it came from the cache, how much it thought and
+         *     waited.
          */
         readonly RoleBehaviour: {
             /** Cache Hit */
@@ -776,8 +780,8 @@ export interface components {
         };
         /**
          * Setback
-         * @description Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne, e perché, con le
-         *     parole di chi lo ha fatto.
+         * @description A step back: a ticket sent back for rework, blocked or cancelled, after how many deliveries, and why,
+         *     in the words of whoever did it.
          */
         readonly Setback: {
             readonly action: components["schemas"]["Lifecycle"];
@@ -798,8 +802,8 @@ export interface components {
         };
         /**
          * Side
-         * @description Un progetto: `model` ed `effort` vuoti sono i predefiniti, `None` un progetto senza la sua riga, di
-         *     prima di M1.5.
+         * @description A project: empty `model` and `effort` mean the defaults; `None` is a project without its row, from
+         *     before M1.5.
          */
         readonly Side: {
             /** Blocked Usd */
@@ -848,7 +852,7 @@ export interface components {
         };
         /**
          * SourceStamp
-         * @description Un file da cui nasce la proiezione, com'era quando è stato letto. Se manca, la dimensione è vuota.
+         * @description A file the projection is built from, as it was when read. If the file is missing, the size is empty.
          */
         readonly SourceStamp: {
             /** Modified Ns */
@@ -860,7 +864,7 @@ export interface components {
         };
         /**
          * Step
-         * @description Un passo nella storia di un ticket. `setback`: un rimando, un blocco o un annullamento.
+         * @description One step in a ticket's history. `setback`: a rework, a block or a cancellation.
          */
         readonly Step: {
             readonly action: components["schemas"]["Lifecycle"];
@@ -873,7 +877,7 @@ export interface components {
         };
         /**
          * StopCount
-         * @description Perché il modello ha smesso di scrivere, e quante volte. `complete`: la risposta è arrivata intera.
+         * @description Why the model stopped writing, and how often. `complete`: the answer arrived whole.
          */
         readonly StopCount: {
             /** Calls */
@@ -885,7 +889,7 @@ export interface components {
         };
         /**
          * TicketFlow
-         * @description Un ticket dall'apertura all'ultimo passo. `redone_usd`: ciò che è costato dopo il primo rimando.
+         * @description A ticket from its opening to its last step. `redone_usd`: what it cost after its first rework.
          */
         readonly TicketFlow: {
             /** Assignee */
@@ -943,7 +947,7 @@ export interface components {
         };
         /**
          * Turn
-         * @description Una chiamata di un'istanza. Durata, TTFT e ragionamento sono vuoti se non è misurata.
+         * @description One call of an instance. Duration, TTFT and reasoning are empty when the call was not measured.
          */
         readonly Turn: {
             /** At */
@@ -991,7 +995,7 @@ export interface components {
         };
         /**
          * WaitView
-         * @description Il run fermo per una decisione del cliente: dall'ultima chiamata prima del gate alla decisione.
+         * @description The run stopped for a client decision: from the last call before the gate to the decision.
          */
         readonly WaitView: {
             /** Ended At */
@@ -1230,7 +1234,7 @@ export interface operations {
         };
         readonly requestBody?: never;
         readonly responses: {
-            /** @description L'immagine restituita all'istanza, nel suo tipo */
+            /** @description The image returned to the instance, in its own media type */
             readonly 200: {
                 headers: {
                     readonly [name: string]: unknown;

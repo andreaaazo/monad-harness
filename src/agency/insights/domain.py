@@ -132,8 +132,8 @@ class JudgmentRecord(BaseModel):
 
 
 class Lifecycle(StrEnum):
-    """Ciò che il registro scrive nella storia di un ticket, tranne le prove: l'apertura e le transizioni di
-    `Action`. Un test le tiene allineate."""
+    """What the registry writes into a ticket's history, proofs aside: the opening and the transitions of
+    `Action`. A test keeps the two aligned."""
 
     OPEN = "open"
     DELIVER = "deliver"
@@ -195,8 +195,8 @@ class ToolCallRecord(BaseModel):
 
 
 class ImageRef(BaseModel):
-    """Un'immagine restituita a un'istanza: la sua posizione nella trascrizione, da 0, il suo tipo, e se il
-    cruscotto la serve."""
+    """An image returned to an instance: its position in the transcript, from 0, its media type, and whether
+    the dashboard serves it."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -392,7 +392,7 @@ class Projected(BaseModel):
 
 
 class SourceStamp(BaseModel):
-    """Un file da cui nasce la proiezione, com'era quando è stato letto. Se manca, la dimensione è vuota."""
+    """A file the projection is built from, as it was when read. If the file is missing, the size is empty."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -402,7 +402,8 @@ class SourceStamp(BaseModel):
 
 
 class Provenance(BaseModel):
-    """Da cosa è nata la proiezione: chi la legge sa quando, da quale registro e quanto è completa."""
+    """What the projection was built from: a reader knows when, from which registry, and how complete it
+    is."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 

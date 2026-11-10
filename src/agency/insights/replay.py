@@ -27,7 +27,7 @@ class _View(BaseModel):
 
 
 class Alignment(StrEnum):
-    """Come si sono legati turni e chiamate."""
+    """How turns and calls were matched."""
 
     BY_REQUEST = "per richiesta"
     BY_ORDER = "per ordine"
@@ -35,7 +35,7 @@ class Alignment(StrEnum):
 
 
 class Measured(_View):
-    """Una chiamata: quanto è costata, quanto contesto ha letto, quanto ha aspettato, perché si è fermata."""
+    """One call: what it cost, how much context it read, how long it waited, why it stopped."""
 
     seq: int
     cost_usd: float
@@ -58,8 +58,8 @@ class ReplayTool(_View):
 
 
 class ReplayTurn(_View):
-    """Un turno: la chiamata che lo ha prodotto, quelle scartate prima, ciò che il modello ha pensato,
-    scritto e chiesto, e i messaggi dell'harness che lo seguono."""
+    """One turn: the call that produced it, the ones discarded before it, what the model thought, wrote and
+    asked for, and the harness messages that follow it."""
 
     number: int
     measured: Measured | None

@@ -28,7 +28,7 @@ from agency.insights.views import ProjectReport, ProjectSummary
 api = NinjaAPI(
     title="Design agency: cruscotto",
     version="1",
-    description="Il cruscotto in sola lettura: registro e tracce attraverso insights (ADR-0019).",
+    description="The read-only dashboard: the registry and the traces, through insights (ADR-0019).",
     docs_url=None,
 )
 _refresh = threading.Lock()  # una rigenerazione per volta: chi arriva dopo trova la proiezione già fatta
@@ -136,7 +136,7 @@ def quality(request: HttpRequest, name: str) -> Status:
     operation_id="compareProjects",
 )
 def compare(request: HttpRequest, before: str, after: str) -> Status:
-    """Due progetti diversi, tutti e due conosciuti dal registro."""
+    """Two different projects, both known to the registry."""
     if before == after:
         return Status(400, Problem(detail=f"scegli due progetti diversi: {before} due volte"))
     projection = _projection()
@@ -166,7 +166,7 @@ def replay(request: HttpRequest, name: str, instance: str) -> Status:
 # Un'immagine è byte, non JSON: lo schema dice i tipi che può avere.
 _PICTURE = {
     200: {
-        "description": "L'immagine restituita all'istanza, nel suo tipo",
+        "description": "The image returned to the instance, in its own media type",
         "content": {
             media: {"schema": {"type": "string", "format": "binary"}} for media in sorted(IMAGE_TYPES)
         },
@@ -181,7 +181,7 @@ _PICTURE = {
     openapi_extra={"responses": _PICTURE},
 )
 def image(request: HttpRequest, name: str, instance: str, index: int) -> HttpResponse | Status:
-    """L'immagine `index` della trascrizione: solo PNG, JPEG, GIF e WebP, mai incorniciata né eseguita."""
+    """Image `index` of the transcript: only PNG, JPEG, GIF and WebP, never framed or executed."""
     unknown = _unknown(_projection(), name)
     if unknown is not None:
         return unknown

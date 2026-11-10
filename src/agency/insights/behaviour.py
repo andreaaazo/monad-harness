@@ -27,7 +27,7 @@ class _View(BaseModel):
 
 
 class StopCount(_View):
-    """Perché il modello ha smesso di scrivere, e quante volte. `complete`: la risposta è arrivata intera."""
+    """Why the model stopped writing, and how often. `complete`: the answer arrived whole."""
 
     reason: str
     calls: int
@@ -35,7 +35,8 @@ class StopCount(_View):
 
 
 class RoleBehaviour(_View):
-    """Un ruolo: quanto contesto ha letto, quanto ne veniva dalla cache, quanto ha pensato e aspettato."""
+    """A role: how much context it read, how much of it came from the cache, how much it thought and
+    waited."""
 
     role: str
     calls: int
@@ -54,7 +55,7 @@ class RoleBehaviour(_View):
 
 
 class Turn(_View):
-    """Una chiamata di un'istanza. Durata, TTFT e ragionamento sono vuoti se non è misurata."""
+    """One call of an instance. Duration, TTFT and reasoning are empty when the call was not measured."""
 
     seq: int
     at: str

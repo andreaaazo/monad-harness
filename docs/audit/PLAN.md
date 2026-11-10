@@ -1380,7 +1380,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
     `src/agency/entrypoints/server/schema.py:30`.
   - Change: each `description=__doc__` becomes the exact current text, so the help is unchanged.
   - Commit: `refactor(cli): give each argument parser its own description`.
-- [ ] **Task 3.2 [APPROVAL]: the OpenAPI descriptions are written in English.** Closes CMT-001 (the OpenAPI part).
+- [x] **Task 3.2 [APPROVAL]: the OpenAPI descriptions are written in English.** Closes CMT-001 (the OpenAPI part).
   - Files:
     - the 27 [O] class docstrings: `insights/views.py`, `flow.py`, `behaviour.py`, `quality.py`, `compare.py`,
       `replay.py` and `domain.py`;

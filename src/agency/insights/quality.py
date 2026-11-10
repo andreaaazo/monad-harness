@@ -29,7 +29,8 @@ class _View(BaseModel):
 
 
 class CheckSummary(_View):
-    """Un controllo: quante prove, quante FAIL, su quanti file di un ticket, e su quanti è passato subito."""
+    """A check: how many proofs, how many FAILs, on how many files of a ticket, and on how many it passed at
+    once."""
 
     check_name: str
     runs: int
@@ -57,7 +58,7 @@ class ToolSummary(_View):
 
 
 class Refusal(_View):
-    """Uno strumento che ha detto no, al turno `turn` dell'istanza, con le sue parole."""
+    """A tool that said no, at turn `turn` of the instance, in its own words."""
 
     instance: str
     ticket_id: str

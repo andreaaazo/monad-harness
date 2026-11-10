@@ -852,7 +852,7 @@ def test_a_change_to_what_the_projection_stores_changes_its_schema_number() -> N
     shape = json.dumps([model.model_json_schema() for model in stored], sort_keys=True)
     assert (SqliteProjection.SCHEMA, hashlib.sha256(shape.encode()).hexdigest()[:16]) == (
         6,
-        "783da0deafd739ad",
+        "aeaebc6ebbf0ae3a",
     )
 
 

@@ -28,7 +28,7 @@ class RoleView(_View):
 
 
 class PhaseView(_View):
-    """Come ha lavorato il modello in una fase. Le medie valgono solo sulle chiamate misurate."""
+    """How the model worked in one phase. The averages count only the measured calls."""
 
     phase: str
     calls: int
@@ -45,7 +45,7 @@ class TypeCost(_View):
 
 
 class Milestone(_View):
-    """Fino al gate `concept` approvato: quanto è costato e quanto è durato arrivarci."""
+    """Up to the approved `concept` gate: what getting there cost, and how long it took."""
 
     cost_usd: float
     calls: int
@@ -53,7 +53,7 @@ class Milestone(_View):
 
 
 class WaitView(_View):
-    """Il run fermo per una decisione del cliente: dall'ultima chiamata prima del gate alla decisione."""
+    """The run stopped for a client decision: from the last call before the gate to the decision."""
 
     gate: str
     started_at: str
@@ -84,7 +84,8 @@ class JudgmentView(_View):
 
 
 class InstanceView(_View):
-    """Un'istanza nella timeline, dalla prima all'ultima chiamata. `model_ms`: il tempo col modello."""
+    """An instance on the timeline, from its first call to its last. `model_ms`: the time spent with the
+    model."""
 
     instance: str
     ticket_id: str
@@ -107,7 +108,7 @@ class TicketView(_View):
 
 
 class ProjectSummary(_View):
-    """Un progetto nell'elenco: quanto è costato, quante chiamate, quando ha lavorato."""
+    """A project in the list: what it cost, how many calls it made, when it worked."""
 
     name: str
     budget_usd: float | None

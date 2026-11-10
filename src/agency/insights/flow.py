@@ -30,7 +30,7 @@ class _View(BaseModel):
 
 
 class Step(_View):
-    """Un passo nella storia di un ticket. `setback`: un rimando, un blocco o un annullamento."""
+    """One step in a ticket's history. `setback`: a rework, a block or a cancellation."""
 
     at: str
     action: Lifecycle
@@ -39,7 +39,7 @@ class Step(_View):
 
 
 class TicketFlow(_View):
-    """Un ticket dall'apertura all'ultimo passo. `redone_usd`: ciò che è costato dopo il primo rimando."""
+    """A ticket from its opening to its last step. `redone_usd`: what it cost after its first rework."""
 
     id: str
     title: str
@@ -57,7 +57,7 @@ class TicketFlow(_View):
 
 
 class PhaseFlow(_View):
-    """Una fase: quanto è costata e quanto lavoro è tornato indietro. `started_at` è la prima chiamata."""
+    """A phase: what it cost and how much work went back. `started_at` is its first call."""
 
     phase: str
     started_at: str | None
@@ -73,8 +73,8 @@ class PhaseFlow(_View):
 
 
 class Setback(_View):
-    """Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne, e perché, con le
-    parole di chi lo ha fatto."""
+    """A step back: a ticket sent back for rework, blocked or cancelled, after how many deliveries, and why,
+    in the words of whoever did it."""
 
     at: str
     action: Lifecycle
@@ -87,7 +87,7 @@ class Setback(_View):
 
 
 class Outcome(_View):
-    """Dove si è fermato il progetto: la consegna al cliente, ciò che resta da finire, l'ultimo passo."""
+    """Where the project stopped: the delivery to the client, what is left to finish, the last step."""
 
     delivery_id: str | None
     delivery_status: str | None

@@ -30,7 +30,7 @@ class _View(BaseModel):
 
 
 class Compared(StrEnum):
-    """Quali impronte ci sono: le esecuzioni prima di M1.6 non la hanno."""
+    """Which fingerprints exist: runs from before M1.6 have none."""
 
     BOTH = "entrambe"
     NOT_BEFORE = "manca prima"
@@ -39,8 +39,8 @@ class Compared(StrEnum):
 
 
 class Execution(_View):
-    """Un'esecuzione: il comando, l'impronta, quanto ha speso, e quante differenze ha dalla precedente
-    leggibile. `readable` è falso per un'impronta di una forma che questa versione non conosce."""
+    """One run: the command, the fingerprint, what it spent, and how many differences it has from the previous
+    readable one. `readable` is false for a fingerprint of a shape this version does not know."""
 
     seq: int
     at: str
@@ -53,8 +53,8 @@ class Execution(_View):
 
 
 class Side(_View):
-    """Un progetto: `model` ed `effort` vuoti sono i predefiniti, `None` un progetto senza la sua riga, di
-    prima di M1.5."""
+    """A project: empty `model` and `effort` mean the defaults; `None` is a project without its row, from
+    before M1.5."""
 
     project: str
     model: str | None
@@ -81,7 +81,7 @@ class Side(_View):
 
 
 class ChangeView(_View):
-    """Una differenza fra due impronte: `None` vuol dire che da quella parte l'elemento non c'è."""
+    """A difference between two fingerprints: `None` means the item is absent on that side."""
 
     part: str
     item: str
@@ -97,7 +97,7 @@ class FingerprintDiff(_View):
 
 
 class PhasePair(_View):
-    """Una fase dei due lati: `None` vuol dire che da quella parte la fase non c'è."""
+    """One phase on both sides: `None` means that side has no such phase."""
 
     phase: str
     before_usd: float | None

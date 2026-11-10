@@ -2,7 +2,7 @@
   "components": {
     "schemas": {
       "Alignment": {
-        "description": "Come si sono legati turni e chiamate.",
+        "description": "How turns and calls were matched.",
         "enum": [
           "per richiesta",
           "per ordine",
@@ -83,7 +83,7 @@
       },
       "ChangeView": {
         "additionalProperties": false,
-        "description": "Una differenza fra due impronte: `None` vuol dire che da quella parte l'elemento non c'è.",
+        "description": "A difference between two fingerprints: `None` means the item is absent on that side.",
         "properties": {
           "after": {
             "anyOf": [
@@ -176,7 +176,7 @@
       },
       "CheckSummary": {
         "additionalProperties": false,
-        "description": "Un controllo: quante prove, quante FAIL, su quanti file di un ticket, e su quanti è passato subito.",
+        "description": "A check: how many proofs, how many FAILs, on how many files of a ticket, and on how many it passed at\nonce.",
         "properties": {
           "check_name": {
             "title": "Check Name",
@@ -247,7 +247,7 @@
         "type": "object"
       },
       "Compared": {
-        "description": "Quali impronte ci sono: le esecuzioni prima di M1.6 non la hanno.",
+        "description": "Which fingerprints exist: runs from before M1.6 have none.",
         "enum": [
           "entrambe",
           "manca prima",
@@ -259,7 +259,7 @@
       },
       "Execution": {
         "additionalProperties": false,
-        "description": "Un'esecuzione: il comando, l'impronta, quanto ha speso, e quante differenze ha dalla precedente\nleggibile. `readable` è falso per un'impronta di una forma che questa versione non conosce.",
+        "description": "One run: the command, the fingerprint, what it spent, and how many differences it has from the previous\nreadable one. `readable` is false for a fingerprint of a shape this version does not know.",
         "properties": {
           "at": {
             "title": "At",
@@ -437,7 +437,7 @@
       },
       "ImageRef": {
         "additionalProperties": false,
-        "description": "Un'immagine restituita a un'istanza: la sua posizione nella trascrizione, da 0, il suo tipo, e se il\ncruscotto la serve.",
+        "description": "An image returned to an instance: its position in the transcript, from 0, its media type, and whether\nthe dashboard serves it.",
         "properties": {
           "index": {
             "title": "Index",
@@ -504,7 +504,7 @@
       },
       "InstanceView": {
         "additionalProperties": false,
-        "description": "Un'istanza nella timeline, dalla prima all'ultima chiamata. `model_ms`: il tempo col modello.",
+        "description": "An instance on the timeline, from its first call to its last. `model_ms`: the time spent with the\nmodel.",
         "properties": {
           "calls": {
             "title": "Calls",
@@ -629,7 +629,7 @@
         "type": "object"
       },
       "Lifecycle": {
-        "description": "Ciò che il registro scrive nella storia di un ticket, tranne le prove: l'apertura e le transizioni di\n`Action`. Un test le tiene allineate.",
+        "description": "What the registry writes into a ticket's history, proofs aside: the opening and the transitions of\n`Action`. A test keeps the two aligned.",
         "enum": [
           "open",
           "deliver",
@@ -644,7 +644,7 @@
       },
       "Measured": {
         "additionalProperties": false,
-        "description": "Una chiamata: quanto è costata, quanto contesto ha letto, quanto ha aspettato, perché si è fermata.",
+        "description": "One call: what it cost, how much context it read, how long it waited, why it stopped.",
         "properties": {
           "cache_read_tokens": {
             "title": "Cache Read Tokens",
@@ -720,7 +720,7 @@
       },
       "Milestone": {
         "additionalProperties": false,
-        "description": "Fino al gate `concept` approvato: quanto è costato e quanto è durato arrivarci.",
+        "description": "Up to the approved `concept` gate: what getting there cost, and how long it took.",
         "properties": {
           "calls": {
             "title": "Calls",
@@ -745,7 +745,7 @@
       },
       "Outcome": {
         "additionalProperties": false,
-        "description": "Dove si è fermato il progetto: la consegna al cliente, ciò che resta da finire, l'ultimo passo.",
+        "description": "Where the project stopped: the delivery to the client, what is left to finish, the last step.",
         "properties": {
           "delivery_id": {
             "anyOf": [
@@ -822,7 +822,7 @@
       },
       "PhaseFlow": {
         "additionalProperties": false,
-        "description": "Una fase: quanto è costata e quanto lavoro è tornato indietro. `started_at` è la prima chiamata.",
+        "description": "A phase: what it cost and how much work went back. `started_at` is its first call.",
         "properties": {
           "blocked": {
             "title": "Blocked",
@@ -901,7 +901,7 @@
       },
       "PhasePair": {
         "additionalProperties": false,
-        "description": "Una fase dei due lati: `None` vuol dire che da quella parte la fase non c'è.",
+        "description": "One phase on both sides: `None` means that side has no such phase.",
         "properties": {
           "after_usd": {
             "anyOf": [
@@ -940,7 +940,7 @@
       },
       "PhaseView": {
         "additionalProperties": false,
-        "description": "Come ha lavorato il modello in una fase. Le medie valgono solo sulle chiamate misurate.",
+        "description": "How the model worked in one phase. The averages count only the measured calls.",
         "properties": {
           "calls": {
             "title": "Calls",
@@ -1186,7 +1186,7 @@
       },
       "ProjectSummary": {
         "additionalProperties": false,
-        "description": "Un progetto nell'elenco: quanto è costato, quante chiamate, quando ha lavorato.",
+        "description": "A project in the list: what it cost, how many calls it made, when it worked.",
         "properties": {
           "budget_usd": {
             "anyOf": [
@@ -1247,7 +1247,7 @@
       },
       "Provenance": {
         "additionalProperties": false,
-        "description": "Da cosa è nata la proiezione: chi la legge sa quando, da quale registro e quanto è completa.",
+        "description": "What the projection was built from: a reader knows when, from which registry, and how complete it\nis.",
         "properties": {
           "built_at": {
             "title": "Built At",
@@ -1394,7 +1394,7 @@
       },
       "Refusal": {
         "additionalProperties": false,
-        "description": "Uno strumento che ha detto no, al turno `turn` dell'istanza, con le sue parole.",
+        "description": "A tool that said no, at turn `turn` of the instance, in its own words.",
         "properties": {
           "instance": {
             "title": "Instance",
@@ -1577,7 +1577,7 @@
       },
       "ReplayTurn": {
         "additionalProperties": false,
-        "description": "Un turno: la chiamata che lo ha prodotto, quelle scartate prima, ciò che il modello ha pensato,\nscritto e chiesto, e i messaggi dell'harness che lo seguono.",
+        "description": "One turn: the call that produced it, the ones discarded before it, what the model thought, wrote and\nasked for, and the harness messages that follow it.",
         "properties": {
           "discarded": {
             "items": {
@@ -1648,7 +1648,7 @@
       },
       "RoleBehaviour": {
         "additionalProperties": false,
-        "description": "Un ruolo: quanto contesto ha letto, quanto ne veniva dalla cache, quanto ha pensato e aspettato.",
+        "description": "A role: how much context it read, how much of it came from the cache, how much it thought and\nwaited.",
         "properties": {
           "cache_hit": {
             "title": "Cache Hit",
@@ -1782,7 +1782,7 @@
       },
       "Setback": {
         "additionalProperties": false,
-        "description": "Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne, e perché, con le\nparole di chi lo ha fatto.",
+        "description": "A step back: a ticket sent back for rework, blocked or cancelled, after how many deliveries, and why,\nin the words of whoever did it.",
         "properties": {
           "action": {
             "$ref": "#/components/schemas/Lifecycle"
@@ -1831,7 +1831,7 @@
       },
       "Side": {
         "additionalProperties": false,
-        "description": "Un progetto: `model` ed `effort` vuoti sono i predefiniti, `None` un progetto senza la sua riga, di\nprima di M1.5.",
+        "description": "A project: empty `model` and `effort` mean the defaults; `None` is a project without its row, from\nbefore M1.5.",
         "properties": {
           "blocked_usd": {
             "title": "Blocked Usd",
@@ -1988,7 +1988,7 @@
       },
       "SourceStamp": {
         "additionalProperties": false,
-        "description": "Un file da cui nasce la proiezione, com'era quando è stato letto. Se manca, la dimensione è vuota.",
+        "description": "A file the projection is built from, as it was when read. If the file is missing, the size is empty.",
         "properties": {
           "modified_ns": {
             "anyOf": [
@@ -2027,7 +2027,7 @@
       },
       "Step": {
         "additionalProperties": false,
-        "description": "Un passo nella storia di un ticket. `setback`: un rimando, un blocco o un annullamento.",
+        "description": "One step in a ticket's history. `setback`: a rework, a block or a cancellation.",
         "properties": {
           "action": {
             "$ref": "#/components/schemas/Lifecycle"
@@ -2056,7 +2056,7 @@
       },
       "StopCount": {
         "additionalProperties": false,
-        "description": "Perché il modello ha smesso di scrivere, e quante volte. `complete`: la risposta è arrivata intera.",
+        "description": "Why the model stopped writing, and how often. `complete`: the answer arrived whole.",
         "properties": {
           "calls": {
             "title": "Calls",
@@ -2081,7 +2081,7 @@
       },
       "TicketFlow": {
         "additionalProperties": false,
-        "description": "Un ticket dall'apertura all'ultimo passo. `redone_usd`: ciò che è costato dopo il primo rimando.",
+        "description": "A ticket from its opening to its last step. `redone_usd`: what it cost after its first rework.",
         "properties": {
           "assignee": {
             "title": "Assignee",
@@ -2241,7 +2241,7 @@
       },
       "Turn": {
         "additionalProperties": false,
-        "description": "Una chiamata di un'istanza. Durata, TTFT e ragionamento sono vuoti se non è misurata.",
+        "description": "One call of an instance. Duration, TTFT and reasoning are empty when the call was not measured.",
         "properties": {
           "at": {
             "title": "At",
@@ -2380,7 +2380,7 @@
       },
       "WaitView": {
         "additionalProperties": false,
-        "description": "Il run fermo per una decisione del cliente: dall'ultima chiamata prima del gate alla decisione.",
+        "description": "The run stopped for a client decision: from the last call before the gate to the decision.",
         "properties": {
           "ended_at": {
             "title": "Ended At",
@@ -2411,7 +2411,7 @@
     }
   },
   "info": {
-    "description": "Il cruscotto in sola lettura: registro e tracce attraverso insights (ADR-0019).",
+    "description": "The read-only dashboard: the registry and the traces, through insights (ADR-0019).",
     "title": "Design agency: cruscotto",
     "version": "1"
   },
@@ -2419,7 +2419,7 @@
   "paths": {
     "/api/compare": {
       "get": {
-        "description": "Due progetti diversi, tutti e due conosciuti dal registro.",
+        "description": "Two different projects, both known to the registry.",
         "operationId": "compareProjects",
         "parameters": [
           {
@@ -2619,7 +2619,7 @@
     },
     "/api/projects/{name}/instances/{instance}/images/{index}": {
       "get": {
-        "description": "L'immagine `index` della trascrizione: solo PNG, JPEG, GIF e WebP, mai incorniciata né eseguita.",
+        "description": "Image `index` of the transcript: only PNG, JPEG, GIF and WebP, never framed or executed.",
         "operationId": "instanceImage",
         "parameters": [
           {
@@ -2678,7 +2678,7 @@
                 }
               }
             },
-            "description": "L'immagine restituita all'istanza, nel suo tipo"
+            "description": "The image returned to the instance, in its own media type"
           },
           "404": {
             "content": {

@@ -140,6 +140,11 @@ def _guarded(project: ProjectName, session: Session, action: Callable[[], str]) 
         print(report.plain(f"\nAPI NON DISPONIBILE: {exc}. Il lavoro è salvato."))
         print(f"Per riprendere: agency resume {project}")
         return 3
+    except SandboxUnavailable as exc:  # the client's decision is kept: the gate runs again on resume
+        print(report.render(_report_of(session.settings, project)))
+        print(report.plain(f"\nSANDBOX NON DISPONIBILE: {exc}. Il lavoro è salvato."))
+        print(f"Per riprendere: agency resume {project}")
+        return 4
     if outcome:
         print(report.plain(f"Esito: {outcome}"))
     return _show(session, project)

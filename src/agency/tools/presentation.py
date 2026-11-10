@@ -166,8 +166,8 @@ def sheet(mark: Path, applications: tuple[Path, ...], output: Path) -> None:
     picture = _fit(mark, (640, 760))
     page.paste(picture, (MARGIN + (640 - picture.width) // 2, 120 + (760 - picture.height) // 2))
     _grid(page, applications, 760, 60, 780, 880)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    page.save(output)
+    ensure_dir_under(ROOT, str(output.parent.relative_to(ROOT)))
+    replace_under(ROOT, str(output.relative_to(ROOT)), _encoded(page, "PNG"))
 
 
 def _page(label: str, title: str = "") -> tuple[Image.Image, ImageDraw.ImageDraw, int]:

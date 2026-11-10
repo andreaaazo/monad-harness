@@ -17,6 +17,7 @@ from agency.contracts.ticket import Action, Status, TicketSpec
 from agency.gateway import CallContext, ModelGateway, ModelRequest, ModelResponse
 from agency.ledger import IllegalTransition, Ledger
 from agency.tools.craft import CommandIndex
+from agency.tools.files import ensure_dir_under
 from agency.tools.sandbox import Sandbox
 from agency.tools.surface import Toolbox, ToolContext, tools_for
 
@@ -91,8 +92,11 @@ class AgentRunner:
         finished = transcript.outcome()
         if finished is not None:  # la ripresa non rifà un lavoro già concluso
             return finished
-        work = self.settings.project_dir(folder) / "work" / spec.workspace
-        work.mkdir(parents=True, exist_ok=True)
+        root = self.settings.project_dir(folder) / "work"
+        root.mkdir(parents=True, exist_ok=True)
+        if spec.workspace:
+            ensure_dir_under(root, spec.workspace)  # a link at any component is refused before bwrap binds it
+        work = root / spec.workspace
         inputs = self.settings.layout.ops_inputs(project, instance)  # its parent holds the records (ADR-0044)
         inputs.mkdir(parents=True, exist_ok=True)
         prompt = phase.of(role, spec.prompt, mode)

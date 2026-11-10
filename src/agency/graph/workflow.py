@@ -11,7 +11,7 @@ lavoro già concluso non si ripete perché ogni istanza ha un nome stabile e una
 from __future__ import annotations
 
 import json
-import shutil
+from pathlib import Path, PurePosixPath
 from typing import Any, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -31,7 +31,7 @@ from agency.ledger.models import GateRow
 from agency.ledger.store import now
 from agency.qa import delivery
 from agency.tools import board, presentation
-from agency.tools.files import sha256
+from agency.tools.files import ensure_dir_under, read_under, replace_under, sha256_under
 from agency.tools.sandbox import Sandbox
 from agency.tools.surface import PresentConcepts, SelectConcepts
 
@@ -60,6 +60,11 @@ def _rework_note(ledger: Ledger, ticket: str) -> str:
 
 
 type Graph = CompiledStateGraph[ProjectState, None, ProjectState, ProjectState]
+
+
+def _copy(work: Path, source: str, target: str) -> None:
+    """A copy inside the work folder: a sandbox may leave a link at either end, and none is followed."""
+    replace_under(work, target, read_under(work, source))
 
 
 def build(
@@ -112,7 +117,7 @@ def build(
                 ledger.apply(row.idea_ticket, Action.ACCEPT, "design-director", "passa alla tavola")
         folder = f"board/r{turn}"
         board.build(items, work / folder / "tavola.png")
-        shutil.copyfile(work / "brief.md", work / folder / "brief.md")
+        _copy(work, "brief.md", f"{folder}/brief.md")
         return {}
 
     def after_board(state: ProjectState) -> str:
@@ -155,12 +160,16 @@ def build(
                 lines += [f"## {row.anon}", card.concept, f"Fatto: {card.client_fact}", ""]
                 lines += [f"Non ovvia: {card.why_not_obvious}", f"Sostituzione: {card.substitution}", ""]
         folder = f"board/r{turn}"
-        (work / folder / "schede.md").write_text("\n".join(lines), encoding="utf-8")
-        (work / folder / "fogli").mkdir(exist_ok=True)
+        replace_under(work, f"{folder}/schede.md", "\n".join(lines).encode("utf-8"))
+        ensure_dir_under(work, f"{folder}/fogli")
         for row in ledger.concepts(project, turn):
-            sheet = work / f"explorations/r{turn}/{row.letter}/foglio-{row.letter}.png"
-            if row.anon and sheet.exists():
-                shutil.copyfile(sheet, work / folder / "fogli" / f"{row.anon}.png")
+            if not row.anon:
+                continue
+            try:  # a missing sheet is skipped; a link is refused, not followed
+                sheet = read_under(work, f"explorations/r{turn}/{row.letter}/foglio-{row.letter}.png")
+            except FileNotFoundError:
+                continue
+            replace_under(work, f"{folder}/fogli/{row.anon}.png", sheet)
         note = (
             f"Tavola: {folder}/tavola.png. Primo sguardo: {folder}/reviews/valutazione.json. "
             f"Critica: {folder}/reviews/selezione.md. Schede: {folder}/schede.md. "
@@ -192,9 +201,7 @@ def build(
         project, turn, root = state["project"], state["exploration"], state["root"]
         work = work_dir(project)
         existing = {ledger.spec(ticket).title for ticket in _proposal_tickets(state)}
-        applications = json.loads(
-            (work / f"explorations/r{turn}/applicazioni.json").read_text(encoding="utf-8")
-        )
+        applications = json.loads(read_under(work, f"explorations/r{turn}/applicazioni.json").decode("utf-8"))
         chosen = [row for row in ledger.concepts(project, turn) if row.status == "selezionata"]
         for row in sorted(chosen, key=lambda item: item.anon):
             title = f"Proposta {row.anon} r{turn}"
@@ -202,12 +209,11 @@ def build(
                 continue
             letter = row.anon.lower()
             workspace = f"proposals/r{turn}/{letter}"
-            folder = work / workspace
-            folder.mkdir(parents=True, exist_ok=True)
-            source = work / f"explorations/r{turn}/{row.letter}"
-            shutil.copyfile(work / "brief.md", folder / "brief.md")
-            shutil.copyfile(source / "scheda.json", folder / "scheda.json")
-            shutil.copyfile(work / row.sketch_file, folder / "schizzo.png")
+            ensure_dir_under(work, workspace)
+            source = f"explorations/r{turn}/{row.letter}"
+            _copy(work, "brief.md", f"{workspace}/brief.md")
+            _copy(work, f"{source}/scheda.json", f"{workspace}/scheda.json")
+            _copy(work, row.sketch_file, f"{workspace}/schizzo.png")
             names = "\n".join(f"- {item['name']}: {item['size']}" for item in applications)
             spec = TicketSpec(
                 title=title,
@@ -233,7 +239,7 @@ def build(
                 prompt="proposer",
                 effort=settings.proposal_effort,
             )
-            hashes = {path: sha256(folder / path) for path in spec.inputs}
+            hashes = {path: sha256_under(work, f"{workspace}/{path}") for path in spec.inputs}
             ledger.open(spec, project, hashes)
             ledger.update_concept(row.idea_ticket, status="in-sviluppo")
         return {}
@@ -302,7 +308,7 @@ def build(
             reasons=selection.reasons,
         )
         decision = Decision.model_validate(interrupt(gate.model_dump(mode="json")))
-        digest = {file: sha256(work_dir(project) / file)}
+        digest = {file: sha256_under(work_dir(project), file)}
         choice = decision.choice
         approved = decision.approved and choice in options
         recorded = {gate.files_json for gate in ledger.gates(project) if gate.gate == "concept"}
@@ -340,8 +346,9 @@ def build(
         folder = f"proposals/r{turn}/{letter}"
         work = work_dir(project)
         target = next(path for path in spec.outputs if path.endswith(".vectorcraft"))
-        (work / target).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(work / folder / f"proposta-{letter}.vectorcraft", work / target)
+        if PurePosixPath(target).parent.parts:
+            ensure_dir_under(work, str(PurePosixPath(target).parent))
+        _copy(work, f"{folder}/proposta-{letter}.vectorcraft", target)
         production = TicketSpec(
             title=title,
             request=f"{spec.request}\n\nCONCETTO SCELTO DAL CLIENTE\n{row.card_json}\n\n"
@@ -360,7 +367,7 @@ def build(
             parent=root,
             prompt="finisher",
         )
-        hashes = {path: sha256(work / path) for path in production.inputs}
+        hashes = {path: sha256_under(work, path) for path in production.inputs}
         ledger.open(production, project, hashes)
         return {"client_note": ""}
 

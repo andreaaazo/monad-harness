@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import fcntl
 import os
-import shutil
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,7 +28,7 @@ from agency.ledger.store import BUSY_SECONDS
 from agency.qa import delivery
 from agency.telemetry import configure, fingerprint
 from agency.tools.craft import CommandIndex
-from agency.tools.files import sha256
+from agency.tools.files import replace_under, sha256_under
 
 # Valore tecnico richiesto da LangGraph, irraggiungibile: a fermare il lavoro è solo il budget del cliente.
 GRAPH_STEPS = 100_000
@@ -141,9 +140,9 @@ class Session:
         delivery.validate(spec)
         work = self.settings.project_dir(folder) / "work"
         work.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(brief, work / "brief.md")
+        replace_under(work, "brief.md", brief.read_bytes())
         self.ledger.set_project(project, budget, model, effort)
-        root = self.ledger.open(spec, project, {"brief.md": sha256(work / "brief.md")})
+        root = self.ledger.open(spec, project, {"brief.md": sha256_under(work, "brief.md")})
         state = ProjectState(
             project=project,
             root=root,

@@ -977,34 +977,34 @@ file under a project's `work/` folder without the no-follow helpers of `agency.t
 the whole `work/`. Line numbers are as of Task 2.1. "Task 2.2's rule" means its title: every harness read and write
 under `/job` goes through the helper. Its file list is narrower, and each entry says whether the file is on it.
 
-- [ ] **Task 2.F1: the workspace folder is created and bound through a planted link.** agents/loop.py:67-68 and
+- [x] **Task 2.F1: the workspace folder is created and bound through a planted link.** agents/loop.py:67-68 and
   tools/sandbox.py:27. `work.mkdir(parents=True, exist_ok=True)` runs on the raw `project_dir / "work" / workspace`,
   then `Sandbox(work)` calls `work.resolve()`. A link at any component, for example `work/proposals -> <host folder>`
   left by a whole-work sandbox, makes the harness create the folders on the host and bind the link's target
   read-write at `/job`. The next sandbox then writes a host folder. Reproduced on the bwrap argv alone (Task 2.1
   report). No planned task closes it: loop.py and sandbox.py are not on Task 2.2's list, and Task 2.3 only adds
   `/ops` to sandbox.py.
-- [ ] **Task 2.F2: `start` copies the brief through a planted `brief.md`.** runtime.py:77-78, and the hash at :92.
+- [x] **Task 2.F2: `start` copies the brief through a planted `brief.md`.** runtime.py:77-78, and the hash at :92.
   `shutil.copyfile(brief, work / "brief.md")` follows a link left in an existing project's `work/`. Task 2.2's rule;
   runtime.py is not on its list.
-- [ ] **Task 2.F3: the board node writes with raw `work / …` joins.** graph/workflow.py:113-114. `board.build` writes
+- [x] **Task 2.F3: the board node writes with raw `work / …` joins.** graph/workflow.py:113-114. `board.build` writes
   `board/r<n>/tavola.png`, and `shutil.copyfile` reads `brief.md` and writes `board/r<n>/brief.md`, all following
   links. Task 2.2's rule; workflow.py is not on its list (board.py is). Since Task 2.2, `board.build` reads the
   sketches and writes `tavola.png` through the helper. The `brief.md` copy at :114 is still open.
-- [ ] **Task 2.F4: the select node copies the explorers' sheets through links.** graph/workflow.py:157-162. It writes
+- [x] **Task 2.F4: the select node copies the explorers' sheets through links.** graph/workflow.py:157-162. It writes
   `schede.md`, creates `fogli/`, and copies each `explorations/r<n>/<x>/foglio-<x>.png`, a file an explorer sandbox
   wrote and can make a link to a host image. Task 2.2's rule; workflow.py is not on its list.
-- [ ] **Task 2.F5: the proposals node reads and copies explorer files through links.** graph/workflow.py:195,
+- [x] **Task 2.F5: the proposals node reads and copies explorer files through links.** graph/workflow.py:195,
   :203-209 and :235. It reads `applicazioni.json`, creates the proposal folder with `mkdir(parents=True)`, copies
   `brief.md`, `scheda.json` and the sketch, then hashes the inputs, all on raw joins. Task 2.2's rule; workflow.py is
   not on its list.
-- [ ] **Task 2.F6: the present node builds each proposal sheet from raw paths.** graph/workflow.py:261-263 and
+- [x] **Task 2.F6: the present node builds each proposal sheet from raw paths.** graph/workflow.py:261-263 and
   tools/presentation.py:152-159 (`sheet`). The glob in `proposal_files` is SEC-003, closed by Task 2.6. `sheet` reads
   the images and writes `proposals/r<n>/insieme-<x>.png` with `mkdir` and `save`. Task 2.2's rule; its list names
   `_fit` and `build` in presentation.py, not `sheet`. Since Task 2.2, `sheet` reads the images through `_fit`, which
   goes through the helper. Its `mkdir` and `save` are still open. Since Task 2.6, `proposal_files` takes the proposal
   ticket's delivered paths (workflow.py:261 passes `ledger.delivered(ticket)`), so the glob is gone.
-- [ ] **Task 2.F7: the production node copies the chosen proposal through links.** graph/workflow.py:340-341 and
+- [x] **Task 2.F7: the production node copies the chosen proposal through links.** graph/workflow.py:340-341 and
   :360. It copies `proposals/r<n>/<x>/proposta-<x>.vectorcraft`, written by a proposer sandbox, into the root ticket's
   target, then hashes the inputs. Task 2.2's rule; workflow.py is not on its list.
 - [x] **Task 2.F8: `write_file` writes after `inside()`.** tools/surface.py:302-304. A check, then a use: a link
@@ -1053,7 +1053,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   `sha256_under`) and every plain read above. `os.open(..., O_RDONLY)` on a FIFO waits for a writer that never comes:
   a probe on `read_under` was still blocked when `timeout 3` killed it (exit 124). Not the same bug, but the readers
   Task 2.2 routes through the helper should refuse anything that is not a regular file (`O_NONBLOCK`, then `fstat`).
-- [ ] **Task 2.F22: the concept gate hashes the presentation PDF through links.** graph/workflow.py:302 (as of Task
+- [x] **Task 2.F22: the concept gate hashes the presentation PDF through links.** graph/workflow.py:302 (as of Task
   2.2). `sha256(work_dir(project) / file)` reads `presentation/r<n>/presentazione.pdf` on a raw join, so a link left
   at `presentation/` or at the PDF makes the gate record the hash of a host file. Found by Task 2.2. Task 2.2's rule;
   workflow.py is not on its list.
@@ -1191,7 +1191,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   over `MAX_IMAGE_FILE_BYTES`, but these three call `read_under` on a proof or a page the sandbox wrote and decode it,
   with no size check. Fix: share the bounded read of `view_image` (a helper beside `read_under`), after the owner decides
   where that helper lives (see Task 4.F1). Found by Task 2.18. Not covered by a planned task.
-- [ ] **Task 2.F43: when the sandbox cannot get its scope, nothing decides whether the project stops or goes on.**
+- [x] **Task 2.F43: when the sandbox cannot get its scope, nothing decides whether the project stops or goes on.**
   tools/sandbox.py:138-143 (`Sandbox.run`), tools/surface.py:966-978 (`Toolbox.call`) and graph/workflow.py:399-402
   (`client_gate`) (as of Task 2.19). `SandboxUnavailable` is a `RuntimeError`, so inside `Toolbox.call` it reaches the
   model as a refused tool call with the reason (the `Refused/.../RuntimeError` branch, `is_error`, no traceback). The

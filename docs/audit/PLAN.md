@@ -1409,7 +1409,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
 - [x] **Task 3.8: `src/agency/evaluation/`.** Closes CMT-009 for this package.
   - Keep the interview prompts and the `CannotCompare` texts.
   - Commit: `docs(evaluation): translate comments and docstrings to English`.
-- [ ] **Task 3.9: `src/agency/gateway/`.** Closes CMT-009 and CMT-011 (`transport.py:70`, `client.py:167`) for this
+- [x] **Task 3.9: `src/agency/gateway/`.** Closes CMT-009 and CMT-011 (`transport.py:70`, `client.py:167`) for this
   package, and its CMT-014 items.
   - Commit: `docs(gateway): translate comments, docstrings and internal messages to English`.
 - [ ] **Task 3.10: `src/agency/graph/`.** Closes CMT-009 and CMT-011 (`workflow.py:291`) for this package.

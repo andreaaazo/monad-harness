@@ -1,4 +1,4 @@
-"""Gateway del modello: autorizza la spesa, compone la richiesta, registra il consumo."""
+"""The model gateway: it authorizes the spend, builds the request, and records the usage."""
 
 from __future__ import annotations
 
@@ -23,20 +23,24 @@ MAX_MALFORMED_RETRIES = 2
 
 
 class BudgetExceeded(Exception):
-    """La chiamata supererebbe un tetto: il lavoro si ferma in uno stato ripartibile."""
+    """The call would go over the project's cap, or there is no cap: the work stops where it can resume."""
 
 
 @dataclass(frozen=True)
 class CallContext:
+    """Whom a call works for: it fills the usage row and the trace span."""
+
     project: str
     ticket_id: str
     role: str
     instance: str
-    phase: str  # il prompt della fase: un ruolo ne ha più d'una, come il direttore
+    phase: str  # the phase's prompt: a role can have more than one, like the director
 
 
 @dataclass
 class ModelRequest:
+    """One Messages API request, before the gateway adds adaptive thinking and automatic caching."""
+
     model: str
     effort: str
     system: list[dict]
@@ -47,6 +51,8 @@ class ModelRequest:
 
 @dataclass
 class ModelResponse:
+    """The final message, its usage and its cost. Read `stop_reason` before `content`."""
+
     content: list[dict]
     stop_reason: str
     stop_details: dict | None
@@ -57,6 +63,7 @@ class ModelResponse:
 
     @property
     def context_tokens(self) -> int:
+        """The whole prompt: uncached input plus cache reads and writes."""
         return (
             (self.usage.get("input_tokens", 0) or 0)
             + (self.usage.get("cache_read_input_tokens", 0) or 0)
@@ -65,7 +72,7 @@ class ModelResponse:
 
 
 def _fresh_tokens(message: dict) -> int:
-    """Stima prudente dei token nuovi: un'immagine non si conta dai caratteri del base64."""
+    """A generous estimate of the new tokens: an image is not counted by its base64 characters."""
     content = message.get("content")
     if isinstance(content, str):
         return len(content) // 3
@@ -81,6 +88,8 @@ def _fresh_tokens(message: dict) -> int:
 
 
 class ModelGateway:
+    """The one way to call the model: each attempt is authorized against the budget and recorded if billed."""
+
     def __init__(
         self,
         transport: Transport,
@@ -97,7 +106,7 @@ class ModelGateway:
         self._reserved: dict[str, float] = {}  # per project: the estimates of calls not recorded yet
 
     def belongs_to(self, run: int) -> None:
-        """Le chiamate da qui in poi appartengono a questa esecuzione, registrata prima del grafo."""
+        """The calls from here on belong to this run, which is recorded before the graph starts."""
         self.run = run
 
     def _params(self, request: ModelRequest) -> dict:
@@ -108,7 +117,7 @@ class ModelGateway:
             "messages": request.messages,
             "thinking": {"type": "adaptive"},
             "output_config": {"effort": request.effort},
-            # Breakpoint esplicito sul sistema, automatico sulla coda della conversazione.
+            # An explicit breakpoint on the system prompt, an automatic one on the tail of the conversation.
             "cache_control": {"type": "ephemeral"},
         }
         if request.tools:
@@ -116,6 +125,8 @@ class ModelGateway:
         return params
 
     def estimate_usd(self, request: ModelRequest, previous: ModelResponse | None) -> float:
+        """The first call is counted by the API; a later one reads the previous context from the cache and
+        writes the new message to it. Output is assumed at `EXPECTED_OUTPUT_TOKENS`."""
         price = price_of(request.model)
         if previous is None:
             tokens = self.transport.count_tokens(self._params(request))
@@ -126,14 +137,14 @@ class ModelGateway:
         return (input_cost + EXPECTED_OUTPUT_TOKENS * price.output) / 1_000_000
 
     def project_limit(self, project: str) -> float:
-        """Il tetto che il cliente ha dichiarato all'avvio: un progetto senza non spende (ADR-0043)."""
+        """The cap the client declared at the start: a project without one spends nothing (ADR-0043)."""
         row = self.ledger.project(project)
         if row is None:
             raise BudgetExceeded(f"{project} non ha un tetto dichiarato: si dichiara con agency run --budget")
         return row.budget_usd
 
     def authorize(self, context: CallContext, limit: float, estimate: float) -> None:
-        """L'unico vincolo è il budget scelto dal cliente: nessun altro tetto ferma il lavoro."""
+        """Reserves the estimate against the client's budget, the only limit: no other cap stops the work."""
         with self._lock:  # check and reserve in one step: parallel calls cannot share one remaining budget
             spent = self.ledger.spent(context.project)
             reserved = self._reserved.get(context.project, 0.0)
@@ -148,7 +159,7 @@ class ModelGateway:
     def call(
         self, context: CallContext, request: ModelRequest, previous: ModelResponse | None = None
     ) -> ModelResponse:
-        limit = self.project_limit(context.project)  # prima della stima: senza tetto non esce nulla
+        limit = self.project_limit(context.project)  # before the estimate: with no cap, nothing goes out
         estimate = self.estimate_usd(request, previous)
         params = self._params(request)
         with tracer.start_as_current_span("model.call") as span:
@@ -167,7 +178,7 @@ class ModelGateway:
                     started = self.clock()
                     try:
                         data = self.transport.stream(params)
-                    except ValueError:  # JSON degli strumenti illeggibile: si ripete la richiesta.
+                    except ValueError:  # the tool JSON was unreadable: send the request again
                         duration_ms = round((self.clock() - started) * 1000)
                         self._record_malformed(context, request, estimate, duration_ms)
                         if attempt == MAX_MALFORMED_RETRIES:
@@ -179,7 +190,7 @@ class ModelGateway:
                     return response
                 finally:
                     self._release(context.project, estimate)
-        raise AssertionError("non raggiungibile")
+        raise AssertionError("unreachable")
 
     def _record_malformed(
         self, context: CallContext, request: ModelRequest, estimate: float, duration_ms: int

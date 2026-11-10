@@ -1,4 +1,4 @@
-"""Trasporti verso il modello. Il gateway non sa se parla con l'API o con una risposta registrata."""
+"""Transports to the model. The gateway does not know whether it talks to the API or to a recorded answer."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
 class Transport(Protocol):
-    """`stream` restituisce il messaggio come dict, più `_request_id` e, se misurato, `_ttft_ms`."""
+    """`stream` returns the message as a dict, plus `_request_id` and, when measured, `_ttft_ms`."""
 
     def count_tokens(self, params: dict) -> int: ...
 
@@ -21,7 +21,7 @@ class Transport(Protocol):
 
 
 class AnthropicTransport:
-    """L'unica classe che apre una connessione verso l'API."""
+    """The only class that opens a connection to the API."""
 
     def __init__(
         self,
@@ -37,7 +37,7 @@ class AnthropicTransport:
         return self.client.messages.count_tokens(**fields).input_tokens
 
     def stream(self, params: dict) -> dict:
-        """Il TTFT si conta fino al primo `content_block_delta`, come nelle tracce dell'SDK."""
+        """TTFT is measured up to the first `content_block_delta`, as in the SDK's traces."""
         started = self.clock()
         first: float | None = None
         with self.client.beta.messages.stream(**params, betas=[FALLBACK_BETA], fallbacks="default") as stream:
@@ -53,7 +53,7 @@ class AnthropicTransport:
 
 
 class ScriptedTransport:
-    """Risposte preparate o registrate: i test non spendono."""
+    """Prepared or recorded answers, so tests spend nothing."""
 
     def __init__(self, responses: Iterable[dict], tokens: int = 1000) -> None:
         self.responses = list(responses)
@@ -66,5 +66,5 @@ class ScriptedTransport:
     def stream(self, params: dict) -> dict:
         self.requests.append(json.loads(json.dumps(params)))
         if not self.responses:
-            raise AssertionError("risposte registrate esaurite")
+            raise AssertionError("no recorded responses left")
         return self.responses.pop(0)

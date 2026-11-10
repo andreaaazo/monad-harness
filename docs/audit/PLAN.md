@@ -1166,7 +1166,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   data root (ADR-0045). Needs the owner's decision (refuse it in the Taskfile like the others, or accept it). Found by
   Task 2.17. Not covered by a planned task.
   - Decided (2026-11-10): refuse, as the engine and the server do (ADR-0045): `task docker:up` stops on a relative `AGENCY_DATA_DIR`.
-- [ ] **Task 2.F39: `/dev/shm` in the sandbox has no size bound of its own.** tools/sandbox.py:55 (`--dev /dev`; as of
+- [x] **Task 2.F39: `/dev/shm` in the sandbox has no size bound of its own.** tools/sandbox.py:55 (`--dev /dev`; as of
   Task 2.18, re-checked as of Task 2.19). bwrap's `--size` applies only to the next `--tmpfs`, not to `--dev`, so the
   `/dev/shm` it mounts still reports the host's free RAM (30.5 GiB in the SEC-005 probe) while `/tmp` and `/home` are
   now 2 GiB and 256 MiB. Task 2.19 measured it: with the real Sandbox argv and `MemoryMax` set to 64 MiB in a scratch
@@ -1175,7 +1175,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   size of its own. No test was added for it. A smaller bound would be `--tmpfs /dev/shm` with `--size` after
   `--dev /dev`. Found by Task 2.18. Covered by Task 2.19 as far as the host is concerned (the cap is 8 GiB, not a
   small `/dev/shm`); the direct fix is not covered by a planned task.
-- [ ] **Task 2.F40: `Sandbox.run` collects stdout and stderr of any size in memory.** tools/sandbox.py:96-98 (as of
+- [x] **Task 2.F40: `Sandbox.run` collects stdout and stderr of any size in memory.** tools/sandbox.py:96-98 (as of
   Task 2.18). `subprocess.run(..., capture_output=True, text=True)` holds everything the command prints until it exits
   or the timeout fires, so a command that prints at full speed for 120 s fills the harness's RAM; the cgroup of Task
   2.19 wraps bwrap, but the pipes are read by the harness outside it. Fix: read the pipes with a byte cap and kill the

@@ -29,7 +29,16 @@ from agency.ledger.models import ConceptRow
 from agency.runtime import open_session
 from agency.tools import craft, master
 from agency.tools.craft import Command, CommandIndex
-from agency.tools.sandbox import JOB, MEMORY_MAX_BYTES, TASKS_MAX, Completed, Sandbox, SandboxUnavailable
+from agency.tools.sandbox import (
+    JOB,
+    MEMORY_MAX_BYTES,
+    OUTPUT_BYTES,
+    SHM_BYTES,
+    TASKS_MAX,
+    Completed,
+    Sandbox,
+    SandboxUnavailable,
+)
 from agency.tools.surface import TOOLS, Toolbox, ToolContext, tools_for
 
 SVG_PATH = "M10 90 L50 10 L90 90 Z"
@@ -947,6 +956,112 @@ def test_sandbox_file_size_is_limited(tmp_path: Path) -> None:
     work.mkdir()
     assert Sandbox(work).run(["truncate", "-s", "3G", f"{JOB}/x"]).code != 0
     assert not (work / "x").exists() or (work / "x").stat().st_size < 3 * 2**30
+
+
+def test_sandbox_dev_shm_is_size_limited(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    # `--dev` mounts /dev/shm without a size, so it reports the host's free RAM. The probe writes 1 MiB blocks
+    # past the bound and reports why it stopped.
+    probe = (
+        "import errno,os;s=os.statvfs('/dev/shm');print(s.f_blocks*s.f_frsize);"
+        "fd=os.open('/dev/shm/x',os.O_WRONLY|os.O_CREAT);written=0\n"
+        f"for _ in range({SHM_BYTES // 2**20 + 1}):\n"
+        "    try:\n        written+=os.write(fd,bytes(2**20))\n"
+        "    except OSError as exc:\n        print(exc.errno==errno.ENOSPC,written);break\n"
+        "else:\n    print('no-error',written)"
+    )
+    total, enospc, written = Sandbox(work).run(["python3", "-c", probe]).stdout.split()
+    assert int(total) <= SHM_BYTES
+    assert enospc == "True"
+    assert 0 < int(written) <= SHM_BYTES
+
+
+def test_sandbox_stops_a_command_that_prints_too_much(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    started = time.monotonic()
+    done = Sandbox(work).run(["yes", "ycap"], timeout=60)
+    assert time.monotonic() - started < 30
+    assert done.code == 125
+    assert len(done.stdout) == OUTPUT_BYTES  # all of the cap, never a byte more
+    assert done.stdout.startswith("ycap\nycap\n")
+    assert done.stderr.endswith(f"\nuscita oltre {OUTPUT_BYTES // 2**20} MiB: comando fermato")
+    assert not process_running("yes ycap")
+
+
+def test_sandbox_stops_a_command_that_prints_too_much_on_stderr(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    done = Sandbox(work).run(["sh", "-c", "echo before; yes boom >&2"], timeout=60)
+    assert done.code == 125
+    assert done.stdout == "before\n"
+    assert done.stderr.startswith("boom\nboom\n")
+    note = f"\nuscita oltre {OUTPUT_BYTES // 2**20} MiB: comando fermato"
+    assert len(done.stderr.encode()) == OUTPUT_BYTES + len(note)
+    assert not process_running("yes boom")
+
+
+def test_sandbox_keeps_exactly_the_cap_of_output(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    done = Sandbox(work).run(["head", "-c", str(OUTPUT_BYTES), "/dev/zero"])
+    assert (done.code, len(done.stdout), done.stderr) == (0, OUTPUT_BYTES, "")
+
+
+def test_sandbox_stops_a_command_that_prints_one_byte_over_the_cap(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    done = Sandbox(work).run(["head", "-c", str(OUTPUT_BYTES + 1), "/dev/zero"])
+    assert (done.code, len(done.stdout)) == (125, OUTPUT_BYTES)
+
+
+def test_sandbox_returns_code_and_streams_of_a_normal_command(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    done = Sandbox(work).run(["sh", "-c", "echo out; echo err >&2; printf 'a\\r\\nb\\377'; exit 3"])
+    # `text=True` semantics: universal newlines, and a byte that is not UTF-8 is replaced instead of raising.
+    assert done == Completed(3, "out\na\nb\ufffd", "err\n")
+
+
+def test_sandbox_feeds_stdin_to_the_command(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    box = Sandbox(work)
+    assert box.run(["cat"], stdin="ciao\nmondo\n").stdout == "ciao\nmondo\n"
+    big = "x" * (3 * 2**20)  # far more than a pipe holds: it is fed while the output is read
+    assert box.run(["wc", "-c"], stdin=big).stdout.strip() == str(len(big))
+    assert box.run(["true"], stdin=big).code == 0  # a command that never reads is not waited on
+
+
+def test_sandbox_timeout_returns_124_and_leaves_nothing_running(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    started = time.monotonic()
+    done = Sandbox(work).run(["sh", "-c", "sleep 4321.5 & sleep 4321.6"], timeout=2)
+    assert time.monotonic() - started < 20
+    assert done == Completed(124, "", "tempo scaduto dopo 2 s")
+    assert not process_running("sleep 4321")
+
+
+def test_sandbox_timeout_also_covers_a_command_that_prints_a_little_and_hangs(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    done = Sandbox(work).run(["sh", "-c", "echo hi; sleep 4322.5"], timeout=2)
+    assert done == Completed(124, "", "tempo scaduto dopo 2 s")
+    assert not process_running("sleep 4322")
+
+
+def process_running(marker: str) -> bool:
+    """Whether a process whose command line contains `marker` is alive on the host, after a short grace for
+    the kernel to reap what was just killed."""
+    for _ in range(50):
+        found = subprocess.run(["pgrep", "-f", marker], capture_output=True, text=True).stdout.split()
+        found = [pid for pid in found if int(pid) != os.getpid()]
+        if not found:
+            return False
+        time.sleep(0.1)
+    return True
 
 
 def host_cgroup(path: str) -> Path:

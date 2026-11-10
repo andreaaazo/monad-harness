@@ -52,7 +52,8 @@ Il registro della ripresa di `craft_run` sta nella cartella sopra, `.data/ops/<p
 sandbox vede. In `/job` restano solo le uscite degli strumenti, come l'esportazione in `/job/.partial/`.
 
 Ogni comando ha anche dei limiti di risorse (ADR-0046, SEC-005):
-- `/tmp` è una tmpfs da 2 GiB e `/home` da 256 MiB, e nessun file scritto supera i 2 GiB (`prlimit --fsize`);
+- `/tmp` è una tmpfs da 2 GiB, `/home` e `/dev/shm` da 256 MiB, e nessun file scritto supera i 2 GiB (`prlimit --fsize`);
+- l'harness tiene al massimo 8 MiB di ciascuna uscita del comando, stdout e stderr: oltre, ferma il comando (codice 125);
 - il comando gira in uno scope cgroup dell'utente, `systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 -p
   TasksMax=512 -- bwrap …`: 8 GiB di memoria, tmpfs comprese, niente swap, 512 task. Il tetto è il doppio del picco
   misurato su Blender e sulle CLI Craft;

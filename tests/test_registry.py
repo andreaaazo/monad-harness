@@ -2,9 +2,25 @@ import hashlib
 import json
 from pathlib import Path
 
+from agency.artifacts import FileStore
+from agency.contracts.ticket import REVIEWERS, Medium, TicketSpec, TicketType
+from agency.ledger import Ledger
+from agency.tools.craft import CommandIndex
+from agency.tools.sandbox import Sandbox
+from agency.tools.surface import TOOLS, Toolbox, ToolContext, role_tools, tools_for
+
 ROOT = Path(__file__).resolve().parents[1]
 LEGACY = ROOT / "legacy/claude-code-v1"
 CLAUDE = LEGACY / "src/.claude"
+KINDS = {"director", "author", "reviewer", "router"}
+
+
+def registry_roles() -> dict[str, dict]:
+    return json.loads((ROOT / "registry/roles.json").read_text(encoding="utf-8"))["roles"]
+
+
+def can_open_rows() -> dict[str, list[str]]:
+    return json.loads((ROOT / "registry/org.json").read_text(encoding="utf-8"))["can_open"]
 
 
 def test_legacy_backup_is_frozen() -> None:
@@ -58,3 +74,76 @@ def test_parity_matrix_covers_everything_in_the_backup() -> None:
     items += [f"`{p.name}`" for p in (CLAUDE / "design-agency").glob("*.md")]
     missing = [item for item in items if item not in parity]
     assert not missing
+
+
+def test_only_roles_that_open_tickets_get_director_tools() -> None:
+    rows = can_open_rows()
+    for role in registry_roles():
+        assert ("open_ticket" in {tool.name for tool in role_tools(role)}) == (role in rows), role
+
+
+def test_tool_declarations_match_the_org_chart() -> None:
+    roles = registry_roles()
+    kinds = {name: config["tools"] for name, config in roles.items()}
+    assert set(kinds.values()) <= KINDS
+    assert {name for name, kind in kinds.items() if kind in {"director", "router"}} == set(can_open_rows())
+    assert [name for name, kind in kinds.items() if kind == "router"] == ["router"]
+    assert {name for name, kind in kinds.items() if kind == "reviewer"} == REVIEWERS
+    assert all("department" not in config for config in roles.values())
+
+
+def spec_of(kind: TicketType, prompt: str = "") -> TicketSpec:
+    return TicketSpec(
+        title="Prova",
+        request="r",
+        type=kind,
+        sender="d",
+        assignee="c",
+        outputs=["a"],
+        checks={"a": ["master_open"]},
+        media=[Medium.VECTOR],
+        prompt=prompt,
+    )
+
+
+def craft_box(tmp_path: Path, role: str) -> Toolbox:
+    ctx = ToolContext(
+        role,
+        "p",
+        "T-1",
+        "i",
+        Ledger(tmp_path / "l.sqlite"),
+        Sandbox(tmp_path),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+    )
+    return Toolbox(ctx, [TOOLS[name] for name in ("craft_search", "craft_describe", "craft_run")])
+
+
+CRAFT_CALLS = {
+    "craft_search": {"query": "cerchio"},
+    "craft_describe": {"command": "nessuno"},
+    "craft_run": {"document": "a.vectorcraft", "steps": []},
+}
+
+
+def test_craft_tools_follow_the_role_craft_list(tmp_path: Path) -> None:
+    roles = registry_roles()
+    specs = [spec_of(kind) for kind in TicketType] + [spec_of(TicketType.REVIEW, "critic-board")]
+    for role in (name for name, config in roles.items() if not config["craft"]):
+        offered = [role_tools(role)] + [
+            tools_for(role, spec, mode) for spec in specs for mode in ("", "plan", "select", "present")
+        ]
+        for tools in offered:
+            assert not {tool.name for tool in tools if tool.name.startswith("craft_")}, role
+    for role in ("motion-designer", "ux-designer"):
+        assert "vectorcraft" not in roles[role]["craft"]
+        for name, arguments in CRAFT_CALLS.items():
+            result = craft_box(tmp_path, role).call("x", name, arguments)
+            assert result["is_error"] and result["content"] == f"{role} non lavora con vectorcraft", (
+                role,
+                name,
+            )
+    for name, arguments in CRAFT_CALLS.items():
+        result = craft_box(tmp_path, "identity-designer").call("x", name, arguments)
+        assert "non lavora con" not in result["content"], name

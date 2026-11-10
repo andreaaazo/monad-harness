@@ -938,7 +938,7 @@ must not change behaviour. Every task starts with its failing test.
     - `test_a_recording_never_contains_the_key`.
   - Verify: the tests pass; standard gate.
   - Commit: `feat(gateway): record live runs keyed by request and replay them in tests`.
-- [ ] **Task 2.34: each role declares its tool set and Craft apps in `roles.json`.** Closes SIM-008 and STR-005 (the
+- [x] **Task 2.34: each role declares its tool set and Craft apps in `roles.json`.** Closes SIM-008 and STR-005 (the
   name-suffix part) (Q22). It changes no active tool set.
   - Files: `registry/roles.json`, `src/agency/tools/surface.py` (`role_tools` :862-869, `craft_run`, `craft_search`),
     `tests/test_registry.py`, `tests/test_sketch_flow.py`.
@@ -1312,6 +1312,17 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   seed concept rows through it, outside the transaction production uses. Same shape as SIM-006. Fix: seed through
   `Ledger.open(..., concept=...)` or a `tests/support/` helper, then delete the method; it fits Task 4.3. Found in
   Task 2.33. Not covered by a planned task.
+- [ ] **Task 2.F61: `REVIEWERS` is a second list of the reviewer roles.** contracts/ticket.py:79 (as of Task 2.34).
+  Task 2.34 made `roles.json` declare `"tools": "reviewer"` for `qa-inspector`, `critic` and `legal-reviewer`, but
+  `REVIEWERS` still hard-codes the same three names and is read by tools/surface.py:318 and :518 and qa/delivery.py:96.
+  Only `test_tool_declarations_match_the_org_chart` keeps the two equal. Fix: derive the set from the registry (after
+  Task 2.35 types it), or give the contract a single owner. Found in Task 2.34. Not covered by a planned task.
+- [ ] **Task 2.F62: `plan_exploration` builds the direction role names from a letter.** tools/surface.py:640-645
+  (`f"direction-{letter}"` over `"abcde"`, as of Task 2.34). The five direction roles are listed in `roles.json`, but
+  the code derives them from the position in a string, so a renamed or added direction in the registry is not seen.
+  Fix: read the direction roles from the registry, in order. The fixed pipeline roles named in graph/workflow.py
+  (`design-director`, `identity-designer`, `critic`) are the graph's own structure and are not flagged. Found in Task
+  2.34. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

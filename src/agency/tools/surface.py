@@ -388,11 +388,21 @@ def render_tool(ctx: ToolContext, a: Render, _: str) -> dict:
     return {"proofs": render.render_one(ctx.sandbox, ctx.ledger, ctx.project, a.path, zooms)}
 
 
+CRAFT_APP = "vectorcraft"  # every craft tool drives VectorCraft in this phase
+
+
+def require_craft_app(ctx: ToolContext, app: str = CRAFT_APP) -> None:
+    if app not in prompts.ROLES[ctx.actor]["craft"]:
+        raise Refused(f"{ctx.actor} non lavora con {app}")
+
+
 def craft_search(ctx: ToolContext, a: CraftSearch, _: str) -> dict:
+    require_craft_app(ctx)
     return {"commands": [{"id": c.id, "label": c.label} for c in ctx.index.search(a.query)]}
 
 
 def craft_describe(ctx: ToolContext, a: CraftDescribe, _: str) -> dict:
+    require_craft_app(ctx)
     command = ctx.index.commands.get(a.command)
     if command is None:
         raise Refused(f"comando inesistente: {a.command}. Usa craft_search.")
@@ -400,6 +410,7 @@ def craft_describe(ctx: ToolContext, a: CraftDescribe, _: str) -> dict:
 
 
 def craft_run(ctx: ToolContext, a: CraftRun, operation_id: str) -> dict:
+    require_craft_app(ctx)
     if not a.document.endswith(".vectorcraft"):
         raise Refused("in questa fase craft_run lavora su documenti .vectorcraft")
     outputs = ctx.finisher_outputs
@@ -919,13 +930,23 @@ PRESENT += ["block"]
 BOARD = ["read_file", "view_image", "observe", "rate_board", "write_file", "deliver", "block"]
 
 
+KIND_TOOLS = {
+    "director": BASE + DIRECTOR,
+    "router": BASE + DIRECTOR,
+    "reviewer": BASE + REVIEWER,
+    "author": BASE + AUTHOR,
+}
+
+
+def _without_craft(role: str, names: list[str]) -> list[str]:
+    """A role that lists no Craft app gets no craft_* tool, whatever set it is given."""
+    if prompts.ROLES[role]["craft"]:
+        return names
+    return [name for name in names if not name.startswith("craft_")]
+
+
 def role_tools(role: str) -> list[Tool]:
-    if role.endswith("-director") or role == "router":
-        names = BASE + DIRECTOR
-    elif role in REVIEWERS:
-        names = BASE + REVIEWER
-    else:
-        names = BASE + AUTHOR
+    names = _without_craft(role, KIND_TOOLS[prompts.ROLES[role]["tools"]])
     return [TOOLS[name] for name in sorted(names)]
 
 
@@ -938,7 +959,9 @@ def tools_for(role: str, spec: TicketSpec, mode: str = "") -> list[Tool]:
         names = EXPLORE
     if names is None and spec.type is TicketType.PROPOSAL:
         names = PROPOSAL
-    return [TOOLS[name] for name in sorted(names)] if names else role_tools(role)
+    if not names:
+        return role_tools(role)
+    return [TOOLS[name] for name in sorted(_without_craft(role, names))]
 
 
 def definition(tool: Tool) -> dict:

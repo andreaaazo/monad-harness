@@ -447,7 +447,7 @@ Si costruisce sulle slice di M1.7.
   `count_tokens`). Il gateway deve contare anche le ricerche, 10 $ ogni 1.000. Servono per ricerca e verifica legale.
 - `CommandIndex` deve chiedere `--json` agli altri Craft: oggi legge solo VectorCraft.
 - `craft_run`, `render` ed `export_master` per EffectCraft, PhotoCraft, FigCraft e Blender.
-- Il campo `craft` di `registry/roles.json` va applicato: oggi gli strumenti dipendono solo dalla fase.
+- Il campo `craft` di `registry/roles.json` è applicato (`tools` dichiara l'insieme di strumenti di ogni ruolo; `craft_*` rifiutano un'app che il ruolo non elenca). Resta da fare: un `app` per strumento, con enum nello schema, quando arrivano le altre app Craft.
 - Un'attivazione per ruolo: un ruolo senza prompt non riceve ticket, quindi ogni ruolo portato si abilita da solo.
 - Un progetto bloccato va ripreso dal cliente: oggi se il direttore si ferma il lavoro finisce, e `agency resume` non lo riapre.
 - `record_requirement` deve accettare `NOT_VERIFIED`: su `merlo3` il requisito dei 16 mm, non provato fisicamente, è stato

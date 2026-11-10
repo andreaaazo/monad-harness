@@ -44,6 +44,7 @@ if TYPE_CHECKING:  # la sessione carica il motore: i comandi leggeri non la impo
 
 LOGO_OUTPUTS = ["source/segno.vectorcraft", "exports/segno.svg", "construction.md"]
 LOGO_CHECKS = {"*.vectorcraft": ["master_open"], "*.svg": ["svg_audit", "svg_parity", "critique"]}
+RECORD_HELP = "registra le risposte del modello in .data/cassettes, per ripeterle nei test"
 
 
 def _doctor(_: argparse.Namespace) -> int:
@@ -167,7 +168,7 @@ def _run(args: argparse.Namespace) -> int:
 def _run_locked(args: argparse.Namespace) -> int:
     from agency.runtime import BriefNotUtf8, open_session
 
-    session = open_session(Settings())
+    session = open_session(Settings(), record=args.record)
     if session.ledger.project(args.project):
         print(f"Il progetto {args.project} esiste già: agency resume {args.project}, o scegli un altro nome")
         return 1
@@ -201,7 +202,7 @@ def _resume_locked(args: argparse.Namespace) -> int:
     if Ledger.existing(Settings().ledger_path).project(args.project) is None:
         print(f"Progetto sconosciuto: {args.project}")
         return 1
-    session = open_session(Settings())
+    session = open_session(Settings(), record=args.record)
     try:
         return _guarded(args.project, session, lambda: session.resume(args.project))
     except NothingToResume:
@@ -217,7 +218,7 @@ def _decide_locked(args: argparse.Namespace) -> int:
     from agency.runtime import open_session
 
     Ledger.existing(Settings().ledger_path)
-    session = open_session(Settings())
+    session = open_session(Settings(), record=args.record)
     waiting = session.pending(args.project)
     if not waiting:
         print(f"{args.project}: nessun gate in attesa del cliente")
@@ -401,9 +402,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     run.add_argument("--model", choices=sorted(PRICES), help="modello per tutti i ruoli")
     run.add_argument("--effort", choices=["low", "medium", "high"], help="effort per tutti i ruoli")
+    run.add_argument("--record", action="store_true", help=RECORD_HELP)
     run.set_defaults(fn=_run)
     resume = sub.add_parser("resume", help="riprende un progetto interrotto")
     resume.add_argument("project", type=_project)
+    resume.add_argument("--record", action="store_true", help=RECORD_HELP)
     resume.set_defaults(fn=_resume)
     decide = sub.add_parser("decide", help="registra la decisione del cliente al gate")
     decide.add_argument("project", type=_project)
@@ -412,6 +415,7 @@ def main(argv: list[str] | None = None) -> int:
     choice.add_argument("--reject", action="store_true")
     decide.add_argument("--text", required=True)
     decide.add_argument("--choice", help="la lettera dell'idea, al gate concept")
+    decide.add_argument("--record", action="store_true", help=RECORD_HELP)
     decide.set_defaults(fn=_decide)
     budget = sub.add_parser("budget", help="cambia il tetto di spesa di un progetto")
     budget.add_argument("project", type=_project)

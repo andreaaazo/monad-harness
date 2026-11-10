@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable, Iterable
-from pathlib import Path
 from typing import Protocol
 
 import anthropic
@@ -69,27 +68,3 @@ class ScriptedTransport:
         if not self.responses:
             raise AssertionError("risposte registrate esaurite")
         return self.responses.pop(0)
-
-    @classmethod
-    def from_cassette(cls, path: Path) -> ScriptedTransport:
-        lines = path.read_text(encoding="utf-8").splitlines()
-        return cls(json.loads(line)["response"] for line in lines if line.strip())
-
-
-class RecordingTransport:
-    """Avvolge un trasporto reale e salva ogni scambio, per ripeterlo poi nei test."""
-
-    def __init__(self, inner: Transport, path: Path) -> None:
-        self.inner = inner
-        self.path = path
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-    def count_tokens(self, params: dict) -> int:
-        return self.inner.count_tokens(params)
-
-    def stream(self, params: dict) -> dict:
-        response = self.inner.stream(params)
-        record = {"model": params.get("model"), "response": response}
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-        return response

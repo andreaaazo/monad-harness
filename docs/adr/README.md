@@ -52,3 +52,4 @@ vecchio. Date: 2026-10-31.
 | [0045](0045-una-radice-dei-dati-e-env-solo-per-i-segreti.md) | Una radice dei dati, e `.env` solo per i segreti | Accettata, si attua in tre passi (Task 2.15–2.17 di `docs/audit/PLAN.md`) |
 | [0046](0046-i-limiti-della-sandbox.md) | I limiti della sandbox | Accettata, estende 0005: tetto di memoria e di task in uno scope cgroup |
 | [0047](0047-la-catena-copre-verdetti-e-consegne.md) | La catena copre verdetti e consegne | Accettata, estende 0001: eventi di versione 2 e `agency verify` che rifà il conto |
+| [0048](0048-le-esecuzioni-si-registrano-e-si-ripetono.md) | Le esecuzioni si registrano e si ripetono | Accettata, sostituisce il registratore di M1: chiave per richiesta, `--record`, ripetizione nei test |

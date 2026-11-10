@@ -1,6 +1,6 @@
 usage: agency run [-h] --budget BUDGET
                   [--model {claude-opus-4-8,claude-opus-5,claude-opus-5-5,claude-sonnet-5,claude-sonnet-5-5}]
-                  [--effort {low,medium,high}]
+                  [--effort {low,medium,high}] [--record]
                   project brief
 
 positional arguments:
@@ -15,3 +15,5 @@ options:
                         modello per tutti i ruoli
   --effort {low,medium,high}
                         effort per tutti i ruoli
+  --record              registra le risposte del modello in .data/cassettes, per ripeterle nei
+                        test

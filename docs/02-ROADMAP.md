@@ -57,7 +57,8 @@ Se la risposta è no, ci si ferma qui e si capisce perché, prima di portare il 
 ### Lavoro, in ordine
 
 1. [x] **Gateway**: chiamata con streaming, `usage`, retry, rifiuti, costo per ticket, tetto preventivo.
-2. [x] **Risposte registrate**: registratore per ripetere nei test le chiamate senza spendere.
+2. [x] **Risposte registrate**: registratore per ripetere nei test le chiamate senza spendere, collegato con
+   `--record` dopo l'audit ([ADR-0048](adr/0048-le-esecuzioni-si-registrano-e-si-ripetono.md)).
 3. [x] **Loop dell'agente**: solo in aggiunta, strumenti strict, `deliver`, tutti gli `stop_reason`.
 4. [x] **Sandbox**: `agency.tools.sandbox` su `bwrap`.
 5. [x] **Indice Craft**: `craft_search`, `craft_describe`, `craft_run` per VectorCraft.
@@ -318,7 +319,7 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
       L'impronta di partenza è 5 esploratori, effort `high`, `vectorcraft-cli` 0.18.0. Il tetto si dichiara per forza
       all'avvio ([ADR-0043](adr/0043-il-tetto-si-dichiara-all-avvio.md)): l'ambiente di Andrea ne dava uno di 40 $.
     - [x] Il segno da battere è quello di `merlo3` ([ADR-0042](adr/0042-il-riferimento-di-qualita-e-merlo3.md)).
-    - [ ] Avvio, da Andrea, con il tetto che dichiara: `uv run agency run merlo4 evals/briefs/E1.md --budget <usd>`
+    - [ ] Avvio, da Andrea, con il tetto che dichiara: `uv run agency run merlo4 evals/briefs/E1.md --budget <usd> --record`
     - [ ] Gate `concept` e gate `final` decisi da Andrea, con `agency decide merlo4`
     - [ ] Giudizio alla cieca del segno finale contro quello di `merlo3`, e lettura per intero nel cruscotto
 18. [ ] **Confronto con la CLI** sullo stesso brief. Questa prova ha un tetto proprio, da dichiarare prima di partire.

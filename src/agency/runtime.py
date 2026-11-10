@@ -22,7 +22,7 @@ from agency.contracts.gate import GATE, Decision, Gate
 from agency.contracts.project import parse_project_name
 from agency.contracts.run import RunCommand
 from agency.contracts.ticket import TicketSpec, TicketType
-from agency.gateway import AnthropicTransport, ModelGateway, Transport
+from agency.gateway import AnthropicTransport, ModelGateway, RecordingTransport, Transport
 from agency.graph.workflow import Graph, ProjectState, build
 from agency.ledger import Ledger
 from agency.ledger.store import BUSY_SECONDS
@@ -89,6 +89,8 @@ class Session:
     ledger: Ledger
     graph: Graph
     gateway: ModelGateway
+    transport: Transport  # the one `open_session` chose: every recorded run wraps this one, never a recorder
+    record: bool = False
 
     def _config(self, project: str) -> RunnableConfig:
         return {
@@ -103,6 +105,9 @@ class Session:
         model, effort = (choice.model, choice.effort) if choice else ("", "")
         run = self.ledger.record_run(project, command, fingerprint.take(self.settings, model, effort))
         self.gateway.belongs_to(run)
+        if self.record:  # one cassette per run, named after it (ADR-0048)
+            cassette = self.settings.layout.cassette(parse_project_name(project), run)
+            self.gateway.transport = RecordingTransport(self.transport, cassette)
 
     def start(
         self,
@@ -169,7 +174,8 @@ class Session:
         return [GATE.validate_python(item.value) for task in state.tasks for item in task.interrupts]
 
 
-def open_session(settings: Settings, transport: Transport | None = None) -> Session:
+def open_session(settings: Settings, transport: Transport | None = None, record: bool = False) -> Session:
+    """`record` writes each run's answers to its cassette under the data root, for replay in tests."""
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     configure(settings.traces_path)
     ledger = Ledger(settings.ledger_path)
@@ -181,4 +187,4 @@ def open_session(settings: Settings, transport: Transport | None = None) -> Sess
     runner = AgentRunner(gateway, ledger, settings, index, FileStore(settings.artifacts_dir))
     connection = sqlite3.connect(settings.checkpoints_path, check_same_thread=False, timeout=BUSY_SECONDS)
     graph = build(runner, ledger, settings, SqliteSaver(connection))
-    return Session(settings, ledger, graph, gateway)
+    return Session(settings, ledger, graph, gateway, transport, record)

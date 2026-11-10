@@ -913,7 +913,7 @@ must not change behaviour. Every task starts with its failing test.
     - `test_runs_lists_an_unreadable_fingerprint`.
   - Verify: the test passes; standard gate.
   - Commit: `fix(cli): show an unreadable fingerprint instead of crashing agency runs`.
-- [ ] **Task 2.33 [APPROVAL]: live runs are recorded, keyed by request, and replayed in tests.** Closes SIM-006 and
+- [x] **Task 2.33 [APPROVAL]: live runs are recorded, keyed by request, and replayed in tests.** Closes SIM-006 and
   TST-009's cassette part (Q8). New ADR, expected ADR-0048 ("Le esecuzioni si registrano e si ripetono"). Load the
   `claude-api` skill first.
   - Files:
@@ -1300,6 +1300,18 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   over what the client approved (Q17) has nothing chained to point at. Fix: needs the owner's decision on scope: replay
   `evidence` against its events and add a chained event per gate, or chain every append-only table. Same family as
   CMT-007 (Q17). Found in Task 2.31. Not covered by a planned task.
+- [ ] **Task 2.F59: `write_new_under` has no production caller.** tools/files.py:89 (as of Task 2.33). Task 2.2a added
+  it with the other `*_under` helpers, but no harness write goes through it: `rg -n -w write_new_under src` finds only
+  the definition, and tests/test_safe_files.py is its only caller. Same shape as SIM-006: code in `src/` that only the
+  tests keep alive. Fix: delete it and its test uses, unless a harness write should refuse an existing file; then route
+  that write through it. Found in Task 2.33. Not covered by a planned task (Task 4.3 moves only `ScriptedTransport`).
+- [ ] **Task 2.F60: `Ledger.add_concept` is a seeding helper that only tests call.** ledger/store.py:404 (as of Task
+  2.33). Since COR-003 (55039eb) the concept row is written by `Ledger.open(..., concept=...)` in the ticket's own
+  transaction (tools/surface.py:660-665), and `rg -n -w add_concept src` finds only the definition. The tests
+  (test_sketch_flow.py, test_agent_flow.py, test_report_views.py) and the e2e fixture tests/dashboard_fixture.py still
+  seed concept rows through it, outside the transaction production uses. Same shape as SIM-006. Fix: seed through
+  `Ledger.open(..., concept=...)` or a `tests/support/` helper, then delete the method; it fits Task 4.3. Found in
+  Task 2.33. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

@@ -576,7 +576,7 @@ def decide(session: FakeSession, monkeypatch: pytest.MonkeyPatch, *arguments: st
     folder = Path(str(session.ledger.engine.url.database)).parent
     monkeypatch.setenv("AGENCY_DATA_DIR", str(folder))
     Ledger(folder / "ledger.sqlite")  # `decide` needs a registry to exist
-    monkeypatch.setattr("agency.runtime.open_session", lambda _: session)
+    monkeypatch.setattr("agency.runtime.open_session", lambda _, record=False: session)
     monkeypatch.setattr(cli, "_show", lambda *_: 0)
     return cli.main(["decide", "officina", *arguments, "--text", "Scelgo"])
 
@@ -608,7 +608,7 @@ def test_run_refuses_a_project_that_already_exists(
     ledger = Ledger(tmp_path / "l.sqlite")
     ledger.set_project("officina", 30)
     session = FakeSession([], ledger)
-    monkeypatch.setattr("agency.runtime.open_session", lambda _: session)
+    monkeypatch.setattr("agency.runtime.open_session", lambda _, record=False: session)
     assert cli.main(["run", "officina", "brief.md", "--budget", "30"]) == 1
     assert "esiste già" in capsys.readouterr().out
 
@@ -619,7 +619,7 @@ def test_run_does_not_start_without_a_declared_budget(
     """Il tetto lo dichiara chi avvia (ADR-0043): un valore dell'ambiente non è una scelta del cliente."""
     monkeypatch.setenv("AGENCY_PROJECT_BUDGET_USD", "40")
     opened: list[object] = []
-    monkeypatch.setattr("agency.runtime.open_session", lambda settings: opened.append(settings))
+    monkeypatch.setattr("agency.runtime.open_session", lambda settings, record=False: opened.append(settings))
     with pytest.raises(SystemExit) as stopped:
         cli.main(["run", "officina", "brief.md"])
     assert stopped.value.code == 2
@@ -632,7 +632,9 @@ def test_run_does_not_start_without_a_declared_budget(
 def test_a_budget_is_a_positive_amount_of_dollars(
     command: list[str], amount: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr("agency.runtime.open_session", lambda _: pytest.fail("non doveva partire"))
+    monkeypatch.setattr(
+        "agency.runtime.open_session", lambda _, record=False: pytest.fail("non doveva partire")
+    )
     with pytest.raises(SystemExit) as stopped:
         cli.main([*command, amount])
     assert stopped.value.code == 2
@@ -666,7 +668,10 @@ def scripted_run(monkeypatch: pytest.MonkeyPatch, responses: list[dict]) -> Scri
     from agency.runtime import open_session
 
     transport = ScriptedTransport(responses)
-    monkeypatch.setattr("agency.runtime.open_session", lambda settings: open_session(settings, transport))
+    monkeypatch.setattr(
+        "agency.runtime.open_session",
+        lambda settings, record=False: open_session(settings, transport, record=record),
+    )
     return transport
 
 

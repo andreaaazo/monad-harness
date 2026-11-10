@@ -1,4 +1,4 @@
-usage: agency decide [-h] (--approve | --reject) --text TEXT [--choice CHOICE] project
+usage: agency decide [-h] (--approve | --reject) --text TEXT [--choice CHOICE] [--record] project
 
 positional arguments:
   project
@@ -9,3 +9,4 @@ options:
   --reject
   --text TEXT
   --choice CHOICE  la lettera dell'idea, al gate concept
+  --record         registra le risposte del modello in .data/cassettes, per ripeterle nei test

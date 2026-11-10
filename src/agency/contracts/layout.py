@@ -90,6 +90,11 @@ class DataLayout:
     def transcript(self, project: ProjectName, instance: str) -> Path:
         return self.transcripts / project / f"{instance}.jsonl"
 
+    def cassette(self, project: ProjectName, run: int) -> Path:
+        """The model's answers in one run started with `--record` (ADR-0048). Like `runs/`, it holds the
+        client's materials, so it stays under the data root and is never versioned."""
+        return self.root / "cassettes" / project / f"{run}.jsonl"
+
     def ops_inputs(self, project: str, instance: str) -> Path:
         """The files the harness writes for an instance's sandbox, bound read-only at /ops (ADR-0044)."""
         return self.ops_records(project, instance) / "in"

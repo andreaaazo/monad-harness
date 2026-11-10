@@ -1,7 +1,8 @@
-usage: agency resume [-h] project
+usage: agency resume [-h] [--record] project
 
 positional arguments:
   project
 
 options:
   -h, --help  show this help message and exit
+  --record    registra le risposte del modello in .data/cassettes, per ripeterle nei test

@@ -1112,6 +1112,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   worker that is running (the gateway reads it per call). Whether that is wanted is a decision: raising the cap of a
   stopped project is the documented use, and refusing it while a worker runs may be right or may be too strict.
   Found by Task 2.12. Not covered by a planned task.
+  - Decided (2026-11-10): by design. Raising the cap of a running project is the way to let it finish, and the gateway reads the cap per call, so `agency budget` takes no claim on the project; a test pins it and `docs/05-COSTS.md` says it.
 - [ ] **Task 2.F30: `agency migrate` rewrites the registry while a worker may be using it.** cli.py:61-70 and
   ledger/schema.py `migrate`. It takes no claim on any project, and the per-project lock of Task 2.12 cannot cover it
   (it is a whole-registry operation). It needs its own exclusive claim. Found by Task 2.12. Not covered by a planned
@@ -1124,6 +1125,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   not recompute cost from tokens (`sums.cost` sums the stored column), so no cost figure is wrong. Changing the
   columns needs a decision on one row versus a nullable per-attempt column (SUMMARY.md, COR-008). Found by Task 2.13.
   Not covered by a planned task.
+  - Decided (2026-11-10): one row per call. The token columns stay the serving attempt's usage, the context the run actually used; `cost_usd` covers every attempt, as Task 2.13 made it. `docs/03-DATA-MODEL.md` says so beside the `usage` table.
 
 - [ ] **Task 2.F32: `agency restore` creates an empty registry when run from the wrong folder.** cli.py:310
   (`_restore`: `Ledger(settings.ledger_path)`). It only reads a kept version out of the registry, yet on a missing
@@ -1133,6 +1135,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   `Ledger(settings.ledger_path)`). It writes judgments, so creating the registry may be intended, but a wrong data
   root makes a fresh one that holds only that judgment. Needs the owner to say whether `judge` may create it. Found
   by Task 2.14.
+  - Decided (2026-11-10): `agency judge` never creates a registry, like every command but `agency run` (DX-003): `Ledger.existing`, the same message.
 
 - [ ] **Task 2.F34: `agency-schemas` writes and checks the schema relative to the current folder.**
   entrypoints/server/schema.py:15 (`OUTPUT = Path("schemas/openapi.json")`). `task schemas` runs it from the root,
@@ -1156,11 +1159,13 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   `AGENCY_DATA_DIR`, so an operator who still exports the old name gets the default `<root>/.data` with no message,
   and the dashboard can show a registry other than the one intended. Needs the owner's decision (a refusal when the
   old name is set, a note in the Taskfile, or nothing). Found by Task 2.17. Not covered by a planned task.
+  - Decided (2026-11-10): refuse. `task docker:up` stops when `AGENCY_DATA` is set, with one line naming `AGENCY_DATA_DIR`.
 - [ ] **Task 2.F38: a relative `AGENCY_DATA_DIR` given to `task docker:up` is resolved against `docker/`.**
   Taskfile.yml:124 and docker/compose.yaml:32 (as of Task 2.17). Compose resolves a relative bind source against the
   folder of the Compose file, not the folder the operator is in, whereas the engine and the server refuse a relative
   data root (ADR-0045). Needs the owner's decision (refuse it in the Taskfile like the others, or accept it). Found by
   Task 2.17. Not covered by a planned task.
+  - Decided (2026-11-10): refuse, as the engine and the server do (ADR-0045): `task docker:up` stops on a relative `AGENCY_DATA_DIR`.
 - [ ] **Task 2.F39: `/dev/shm` in the sandbox has no size bound of its own.** tools/sandbox.py:55 (`--dev /dev`; as of
   Task 2.18, re-checked as of Task 2.19). bwrap's `--size` applies only to the next `--tmpfs`, not to `--dev`, so the
   `/dev/shm` it mounts still reports the host's free RAM (30.5 GiB in the SEC-005 probe) while `/tmp` and `/home` are
@@ -1196,6 +1201,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   exception would leave that graph node. Needs the owner's decision: stop the project at the start with
   `agency doctor`'s message (a check in `agency run`), or let each tool refuse (today), or catch it at the gate and send
   the work back with the reason. Found by Task 2.19. Not covered by a planned task.
+  - Decided (2026-11-10): fail fast. `agency run`, `resume` and `decide` check the sandbox scope (`scope_problem`) before the session opens and stop with the reason and `agency doctor`, before any model call; `client_gate` turns `SandboxUnavailable` into a stop with the reason instead of a traceback; each tool keeps refusing as today, as a second line of defence.
 - [ ] **Task 2.F44: `accept_ticket` and `rework_ticket` replayed after a crash raise `IllegalTransition`.**
   tools/surface.py:550-564 (as of Task 2.20). Each calls `ledger.apply` (one transaction) and `Toolbox.call` writes the
   resume record afterwards (another). Killed between the two, the ticket is already `accepted` (or `rework`); the
@@ -1280,6 +1286,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   `registro integro`. No code changes either column after `open`. Fix: bind the sha256 of both columns into the chain
   (a new field of the version-2 payload, which needs its own ADR) and compare them in `replay_mismatches`. Same bug as
   CMT-007 (Q17). Found in Task 2.31. Not covered by a planned task.
+  - Decided (2026-11-10): with 2.F57 and 2.F58, one ADR (expected ADR-0049, «La catena copre ciò che decide la consegna») and one migration 0007. The version-2 ticket payload gains the sha256 of the ticket's contract (`spec_json`, `inputs_json`), and `agency verify` compares it.
 - [ ] **Task 2.F57: the concept rows that decide what is developed and presented are outside the hash chain.**
   ledger/store.py:416-422 (`update_concept`), graph/workflow.py:109, :198, :261 and :275, tools/surface.py:730 and :748
   (as of Task 2.31). `concepts` is updated in place by design and has no triggers. Its `status` decides which ideas are
@@ -1289,6 +1296,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   reaches the client with no trace, and `agency verify` stays `registro integro`. Fix: record each concept change as a
   chain event that binds the concept row, as Task 2.31 does for tickets, and replay it in `agency verify`. Same bug as
   CMT-007 (Q17). Found in Task 2.31. Not covered by a planned task.
+  - Decided (2026-11-10): with 2.F56 (ADR-0049, migration 0007). Every concept write appends a version-2 event that binds the concept row; the migration binds today's rows; `agency verify` replays them.
 - [ ] **Task 2.F58: the append-only tables other than `events` rely on triggers alone, and `agency verify` cannot see
   a bypass.** migrations/versions/0001_baseline.py:222-236 (the `*_no_update` triggers), ledger/store.py:346-350
   (`add_evidence`) and qa/delivery.py:151 (as of Task 2.31). `gates` holds the client's decisions with the hashes of
@@ -1300,11 +1308,13 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   over what the client approved (Q17) has nothing chained to point at. Fix: needs the owner's decision on scope: replay
   `evidence` against its events and add a chained event per gate, or chain every append-only table. Same family as
   CMT-007 (Q17). Found in Task 2.31. Not covered by a planned task.
+  - Decided (2026-11-10): with 2.F56 (ADR-0049, migration 0007). Every gate decision appends a version-2 event that binds the gate row, the migration binds today's rows, and `agency verify` compares gates and every evidence row with their chain events.
 - [ ] **Task 2.F59: `write_new_under` has no production caller.** tools/files.py:89 (as of Task 2.33). Task 2.2a added
   it with the other `*_under` helpers, but no harness write goes through it: `rg -n -w write_new_under src` finds only
   the definition, and tests/test_safe_files.py is its only caller. Same shape as SIM-006: code in `src/` that only the
   tests keep alive. Fix: delete it and its test uses, unless a harness write should refuse an existing file; then route
   that write through it. Found in Task 2.33. Not covered by a planned task (Task 4.3 moves only `ScriptedTransport`).
+  - Moved to Phase 4 (2026-11-10), with Task 4.3: not a bug, code that only tests use.
 - [ ] **Task 2.F60: `Ledger.add_concept` is a seeding helper that only tests call.** ledger/store.py:404 (as of Task
   2.33). Since COR-003 (55039eb) the concept row is written by `Ledger.open(..., concept=...)` in the ticket's own
   transaction (tools/surface.py:660-665), and `rg -n -w add_concept src` finds only the definition. The tests
@@ -1312,17 +1322,20 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   seed concept rows through it, outside the transaction production uses. Same shape as SIM-006. Fix: seed through
   `Ledger.open(..., concept=...)` or a `tests/support/` helper, then delete the method; it fits Task 4.3. Found in
   Task 2.33. Not covered by a planned task.
+  - Moved to Phase 4 (2026-11-10), with Task 4.3: not a bug, code that only tests use.
 - [ ] **Task 2.F61: `REVIEWERS` is a second list of the reviewer roles.** contracts/ticket.py:79 (as of Task 2.34).
   Task 2.34 made `roles.json` declare `"tools": "reviewer"` for `qa-inspector`, `critic` and `legal-reviewer`, but
   `REVIEWERS` still hard-codes the same three names and is read by tools/surface.py:318 and :518 and qa/delivery.py:96.
   Only `test_tool_declarations_match_the_org_chart` keeps the two equal. Fix: derive the set from the registry (after
   Task 2.35 types it), or give the contract a single owner. Found in Task 2.34. Not covered by a planned task.
+  - Moved to Phase 6 (2026-11-10): a second owner of a rule, refactor rather than bug.
 - [ ] **Task 2.F62: `plan_exploration` builds the direction role names from a letter.** tools/surface.py:640-645
   (`f"direction-{letter}"` over `"abcde"`, as of Task 2.34). The five direction roles are listed in `roles.json`, but
   the code derives them from the position in a string, so a renamed or added direction in the registry is not seen.
   Fix: read the direction roles from the registry, in order. The fixed pipeline roles named in graph/workflow.py
   (`design-director`, `identity-designer`, `critic`) are the graph's own structure and are not flagged. Found in Task
   2.34. Not covered by a planned task.
+  - Moved to Phase 6 (2026-11-10): a rule rebuilt from names, refactor rather than bug.
 
 ## Phase 3: comments and language (Q14–Q16)
 
@@ -1483,6 +1496,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
     page, e2e spec, API route, operationId, read model, module and pytest file.
   - Commit: `docs(architecture): map each dashboard view to its route, API and read model`.
 - [ ] **Task 4.F1: the no-follow helpers move below `tools`.** Found in Task 2.2a: `artifacts/keeping.py` now imports `agency.tools.files`, while `agency.tools` imports `agency.artifacts`, so the two packages depend on each other; and `evaluation` may not import `tools` (ADR-0027, Task 2.F23). Move `open_under` and the other `*_under` helpers (and `OutsidePerimeter`) to a module both can import, for example `agency.contracts.files` (see Task 6.10), keeping `agency.tools.files` re-exporting them. Move only; no behaviour change.
+  - Brought forward (2026-11-10): done before the found-bug fixes, because 2.F20 and 2.F23 need the helpers in `evaluation`. Move only.
 
 ## Phase 5: developer experience
 

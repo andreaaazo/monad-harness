@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import fnmatch
-import glob
 from pathlib import Path
 
-from agency.contracts.files import inside, sha256_under
+from agency.contracts.files import glob_under, inside, is_file_under, sha256_under
 from agency.contracts.ticket import (
     AUTHOR_TYPES,
     NO_CHECK_TYPES,
@@ -98,9 +97,7 @@ def validate_review(spec: TicketSpec, work: Path, coming: set[str]) -> None:
     absent = [
         output
         for output in spec.outputs
-        if not output.startswith(REPORTS)
-        and output not in coming
-        and not glob.glob(str(work / output), recursive=True)
+        if not output.startswith(REPORTS) and output not in coming and not glob_under(work, output)
     ]
     if absent:
         raise ContractRefused(
@@ -116,11 +113,7 @@ def expected(spec: TicketSpec, work: Path) -> tuple[list[str], list[str]]:
     empty: list[str] = []
     for output in spec.outputs:
         if any(char in output for char in GLOB):
-            found = sorted(
-                str(Path(path).relative_to(work))
-                for path in glob.glob(str(work / output), recursive=True)
-                if Path(path).is_file()
-            )
+            found = glob_under(work, output)
             files += found
             if not found:
                 empty.append(output)
@@ -195,7 +188,7 @@ def master_problems(
             continue
         if any(file == key or matches(file, key) for key in spec.no_master):
             continue
-        if inside(sandbox.work, file).exists():
+        if is_file_under(sandbox.work, file):
             why = master.derivation_problem(sandbox, ledger, project, file, masters)
             if why:
                 problems.append(f"{file}: {why}")
@@ -216,13 +209,13 @@ def delivery_problems(
     stale = [
         f"input superato: {path} è cambiato dopo l'apertura"
         for path, digest in (inputs or {}).items()
-        if not inside(work, path).exists() or sha256_under(work, path) != digest
+        if not is_file_under(work, path) or sha256_under(work, path) != digest
     ]
     problems = [f"{pattern}: nessun file corrisponde" for pattern in empty]
-    problems += [f"{file}: output mancante" for file in files if not inside(work, file).exists()]
+    problems += [f"{file}: output mancante" for file in files if not is_file_under(work, file)]
     if not inputs_changed:
         problems += stale
-    present = [file for file in files if inside(work, file).is_file()]
+    present = [file for file in files if is_file_under(work, file)]
     problems += coverage_problems(spec, present)
     problems += evidence_problems(ledger, project, work, spec, present, False, verdict)
     problems += master_problems(ledger, project, sandbox, spec, present)

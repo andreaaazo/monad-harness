@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from agency.config import REPO_ROOT
-from agency.contracts.files import inside, sha256_under
+from agency.contracts.files import is_file_under, sha256_under
 from agency.contracts.registry import read_checks, read_roles
 from agency.contracts.ticket import AUTHOR_TYPES
 from agency.ledger import Ledger
@@ -78,8 +78,7 @@ def record(
     inputs: list[str] | None = None,
 ) -> EvidenceRow:
     guard(ledger, project, file, check, actor)
-    target = inside(work, file)
-    if not target.exists():
+    if not is_file_under(work, file):
         raise EvidenceRefused(f"file inesistente: {file}")
     if CHECKS.get(check, {}).get("kind") == "measure" and result == "PASS":
         result = "MEASURED"
@@ -121,13 +120,11 @@ def latest(ledger: Ledger, project: str, signer: str | None = None) -> dict[tupl
 
 
 def freshness(row: EvidenceRow, work: Path) -> str:
-    target = inside(work, row.file)
-    if not target.exists():
+    if not is_file_under(work, row.file):
         return "MISSING"
     if sha256_under(work, row.file) != row.sha256:
         return "STALE"
     for path, digest in json.loads(row.inputs_json).items():
-        source = inside(work, path)
-        if not source.exists() or sha256_under(work, path) != digest:
+        if not is_file_under(work, path) or sha256_under(work, path) != digest:
             return "STALE"
     return "fresh"

@@ -10,7 +10,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from agency.tools.files import ensure_dir_under, inside, read_under, replace_under
+from agency.tools.files import ensure_dir_under, inside, is_file_under, read_under, replace_under
 from agency.tools.sandbox import JOB, OPS, Sandbox
 
 TOKEN = re.compile(r"[a-zA-Z0-9]+")
@@ -114,14 +114,14 @@ def run_steps(
     if inputs is None:
         raise ValueError("run_steps needs a sandbox with its /ops folder: the plan never goes into /job")
     result_name, built_name = f"{operation_id}.result.json", f"{operation_id}.vectorcraft"
-    target = inside(sandbox.work, document)
+    inside(sandbox.work, document)
     if not ((records / result_name).is_file() and (records / built_name).is_file()):
         plan = f"{operation_id}.steps.json"
         replace_under(inputs, plan, json.dumps(steps).encode("utf-8"))
         ensure_dir_under(sandbox.work, PARTIAL)
         partial = f"{PARTIAL}/{built_name}"
         command = ["vectorcraft-cli", "run"]
-        if target.exists():
+        if is_file_under(sandbox.work, document):
             command += ["--in", f"{JOB}/{document}"]
         command += ["--commands", f"{OPS}/{plan}", "--export", f"{JOB}/{partial}"]
         done = sandbox.run(command, timeout=120)

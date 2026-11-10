@@ -1020,7 +1020,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   :440-443 (`judge`), :486 and :509 (`open_ticket`), :560 (`deliver`), and :78 (`ToolContext.keep`), whose open is
   artifacts/files.py:55 (`FileStore.put`, `source.open("rb")`). Task 2.2's rule; keeping.py is on its list, but these
   surface.py functions and artifacts/files.py are not. Its `FileStore.put` part is closed by Task 2.2a.
-- [ ] **Task 2.F12: `run_steps` copies the built document through links and trusts `.ops` on resume.**
+- [x] **Task 2.F12: `run_steps` copies the built document through links and trusts `.ops` on resume.**
   tools/craft.py:137-138: `target.parent.mkdir(parents=True)` and `shutil.copy2(built, target)` follow a link at the
   target or at `built`. tools/craft.py:112, :117 and :139: the resume checks and the result read. Task 2.3 closes the
   resume reads (resume reads only `ops_records`). The copy into the document is Task 2.2's rule; craft.py is on Task
@@ -1036,9 +1036,9 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
 - [x] **Task 2.F16: the presentation pages are written, and old ones deleted, through links.**
   tools/presentation.py:229-238 (`build`: `mkdir`, `glob` and `unlink` of old pages, `save` of the pages and the PDF).
   Closed by Task 2.2 (named).
-- [ ] **Task 2.F17: the QA proof folders are created after `inside()`.** qa/checks.py:40 and :48; the proof glob at :53
+- [x] **Task 2.F17: the QA proof folders are created after `inside()`.** qa/checks.py:40 and :48; the proof glob at :53
   and the hash at :66-70 follow links too. Task 2.2's rule; qa/checks.py is not on its list.
-- [ ] **Task 2.F18: evidence and delivery hash work files through links.** qa/evidence.py:82, :98, :125 and :131;
+- [x] **Task 2.F18: evidence and delivery hash work files through links.** qa/evidence.py:82, :98, :125 and :131;
   qa/delivery.py:103, :121, :198, :219-225 and :239. Closed by Task 2.2 (named), except the globs. Task 2.2 moved
   every hash onto `sha256_under`: evidence.py :91, :98, :128 and :132, delivery.py :219 and :239. Still open: the
   globs in `validate_review` (:103) and `expected` (:121) list a linked host folder, and its file names reach the
@@ -1093,7 +1093,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   deletes old pages, so the exposure is small. Found by Task 2.6. Same shape as SEC-003; the fix is to read the page
   list from `testi.json` or from the draft result. Not covered by a planned task.
 
-- [ ] **Task 2.F27: the QA proof names drop the source extension.** qa/checks.py:38-39 (`proofs/optical/{stem}.png`)
+- [x] **Task 2.F27: the QA proof names drop the source extension.** qa/checks.py:38-39 (`proofs/optical/{stem}.png`)
   and :47 (`proofs/logo/{stem}`), with `Path(file).stem`. Two files with one stem in one folder, or under two
   folders, such as `a/mark.svg` and `b/mark.svg` or `mark.svg` and `mark.png`, share one proof file or folder, and
   the second run replaces the first. Same shape as COR-007. Found by Task 2.8. Not covered by a planned task.

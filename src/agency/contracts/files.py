@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import errno
+import fnmatch
 import hashlib
 import os
 import secrets
@@ -110,6 +111,99 @@ def replace_under(root: Path, relative: str, data: bytes) -> None:
 def sha256_under(root: Path, relative: str) -> str:
     with os.fdopen(open_under(root, relative, os.O_RDONLY), "rb") as handle:
         return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
+def is_file_under(root: Path, relative: str) -> bool:
+    """True for a regular file, reached without following any link: a link, a folder or a gap is False."""
+    _parts(relative)
+    try:
+        with _parent(root, relative) as (directory, name):
+            return stat.S_ISREG(os.stat(name, dir_fd=directory, follow_symlinks=False).st_mode)
+    except (OutsidePerimeter, OSError):
+        return False
+
+
+_MAGIC = "*?["
+
+
+def _listing(directory: int) -> list[str]:
+    try:
+        return os.listdir(directory)
+    except OSError:
+        return []
+
+
+def _kind(directory: int, name: str) -> int:
+    try:
+        return stat.S_IFMT(os.stat(name, dir_fd=directory, follow_symlinks=False).st_mode)
+    except OSError:
+        return 0
+
+
+def _matching(directory: int, pattern: str) -> list[str]:
+    """The names a path component matches; like `glob`, a wildcard never matches a hidden name."""
+    if not any(char in pattern for char in _MAGIC):
+        return [pattern]
+    hidden = pattern.startswith(".")
+    return [
+        name
+        for name in _listing(directory)
+        if (hidden or not name.startswith(".")) and fnmatch.fnmatchcase(name, pattern)
+    ]
+
+
+def _descend(
+    directory: int, name: str, prefix: tuple[str, ...], parts: tuple[str, ...], found: set[str]
+) -> None:
+    if _kind(directory, name) != stat.S_IFDIR:
+        return
+    try:
+        inner = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+    except OSError:
+        return
+    try:
+        _walk(inner, (*prefix, name), parts, found)
+    finally:
+        os.close(inner)
+
+
+def _walk(directory: int, prefix: tuple[str, ...], parts: tuple[str, ...], found: set[str]) -> None:
+    head, *rest = parts
+    if head == "**":
+        if rest:
+            _walk(directory, prefix, tuple(rest), found)
+        for name in _listing(directory):
+            if name.startswith("."):
+                continue
+            if not rest and _kind(directory, name) == stat.S_IFREG:
+                found.add("/".join((*prefix, name)))
+            _descend(directory, name, prefix, parts, found)
+        return
+    for name in _matching(directory, head):
+        if rest:
+            _descend(directory, name, prefix, tuple(rest), found)
+        elif _kind(directory, name) == stat.S_IFREG:
+            found.add("/".join((*prefix, name)))
+
+
+def glob_under(root: Path, pattern: str) -> list[str]:
+    """The regular files under `root` that the pattern matches, as sorted relative POSIX paths.
+
+    Matches by component like `glob.glob(recursive=True)`, `**` included. It never enters a folder that is a
+    link and never lists a link, so the names of a linked host folder cannot come out. A pattern that leaves
+    `root` matches nothing.
+    """
+    try:
+        parts = _parts(pattern)
+        top = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    except (OutsidePerimeter, OSError):
+        return []
+    found: set[str] = set()
+    try:
+        _walk(top, (), parts, found)
+    finally:
+        os.close(top)
+    return sorted(found)
 
 
 def inside(work: Path, relative: str) -> Path:

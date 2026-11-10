@@ -20,8 +20,8 @@ from agency.ledger.models import DerivationRow
 from agency.ledger.store import now
 from agency.qa import checks, delivery, evidence
 from agency.tools.craft import CommandIndex
-from agency.tools.files import sha256
-from agency.tools.sandbox import Sandbox
+from agency.tools.files import OutsidePerimeter, sha256
+from agency.tools.sandbox import Completed, Sandbox
 from agency.tools.surface import Toolbox, ToolContext, role_tools
 
 needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="needs VectorCraft")
@@ -329,3 +329,259 @@ def test_only_the_listed_roles_sign_an_independent_check(tmp_path: Path) -> None
         studio.sign("critique", "PASS", "qa-inspector", root)
     studio.sign("critique", "PASS", "critic", root)
     assert [row.signer for row in studio.ledger.evidence("p")] == ["critic"]
+
+
+# The QA modules list, hash and name files without following links (Tasks 2.F17, 2.F18, 2.F27)
+
+
+def plant_host(tmp_path: Path) -> Path:
+    """A folder outside the work folder, with files whose names must never reach a message."""
+    host = tmp_path / "host"
+    host.mkdir()
+    (host / "riservato.svg").write_text(SVG)
+    return host
+
+
+def host_state(host: Path) -> dict[str, bytes]:
+    return {path.name: path.read_bytes() for path in host.iterdir()}
+
+
+def link_exports_to(studio: Studio, host: Path) -> None:
+    shutil.rmtree(studio.work / "exports")
+    (studio.work / "exports").symlink_to(host, target_is_directory=True)
+
+
+def test_a_glob_output_through_a_linked_folder_matches_nothing(tmp_path: Path) -> None:
+    studio = Studio(tmp_path)
+    host = plant_host(tmp_path)
+    link_exports_to(studio, host)
+    spec = ticket(outputs=["exports/*.svg"])
+    assert delivery.expected(spec, studio.work) == ([], ["exports/*.svg"])
+    _, problems = delivery.delivery_problems(studio.ledger, "p", studio.sandbox, spec, None)
+    assert problems == ["exports/*.svg: nessun file corrisponde"]
+    assert host_state(host) == {"riservato.svg": SVG.encode()}
+
+
+def test_a_review_of_a_linked_folder_is_refused_without_its_names(tmp_path: Path) -> None:
+    studio = Studio(tmp_path)
+    host = plant_host(tmp_path)
+    spec = ticket(**(REVIEW | {"outputs": ["exports/*.svg", "reviews/critica.md"]}))
+    delivery.validate_review(spec, studio.work, set())  # the folder is real: the review may open
+    link_exports_to(studio, host)
+    with pytest.raises(delivery.ContractRefused) as refused:
+        delivery.validate_review(spec, studio.work, set())
+    assert "exports/*.svg" in str(refused.value)
+    assert "riservato" not in str(refused.value)
+
+
+def test_expected_lists_the_real_files_of_a_glob_output_in_order(tmp_path: Path) -> None:
+    studio = Studio(tmp_path)
+    (studio.work / "exports/altro.svg").write_text(SVG)
+    (studio.work / "exports/sotto").mkdir()
+    (studio.work / "exports/sotto/z.svg").write_text(SVG)
+    spec = ticket(outputs=["exports/**/*.svg", "reviews/*.md", "nulla/*"])
+    assert delivery.expected(spec, studio.work) == (
+        ["exports/altro.svg", "exports/segno.svg", "exports/sotto/z.svg", "reviews/critica.md"],
+        ["nulla/*"],
+    )
+
+
+def test_a_delivered_file_that_became_a_link_is_missing(tmp_path: Path) -> None:
+    studio = Studio(tmp_path)
+    host = plant_host(tmp_path)
+    (studio.work / FILE).unlink()
+    (studio.work / FILE).symlink_to(host / "riservato.svg")
+    _, spec = studio.open()
+    assert studio.problems(spec) == [f"{FILE}: output mancante"]
+    assert host_state(host) == {"riservato.svg": SVG.encode()}
+
+
+def test_a_changed_input_that_became_a_link_is_superseded(tmp_path: Path) -> None:
+    studio = Studio(tmp_path)
+    host = plant_host(tmp_path)
+    (studio.work / "brief.md").write_text("il brief")
+    ticket_id, spec = studio.open(inputs=["brief.md"])
+    studio.sign("svg_audit", "PASS", "identity-designer", ticket_id)
+    opened = {"brief.md": sha256(studio.work / "brief.md")}
+    (studio.work / "brief.md").unlink()
+    (studio.work / "brief.md").symlink_to(host / "riservato.svg")
+    assert studio.problems(spec, inputs=opened) == ["input superato: brief.md è cambiato dopo l'apertura"]
+
+
+def test_a_proof_is_refused_for_a_file_that_is_a_link(tmp_path: Path) -> None:
+    studio = Studio(tmp_path)
+    host = plant_host(tmp_path)
+    ticket_id, _ = studio.open()
+    (studio.work / FILE).unlink()
+    (studio.work / FILE).symlink_to(host / "riservato.svg")
+    with pytest.raises(evidence.EvidenceRefused, match=f"file inesistente: {FILE}"):
+        studio.sign("svg_audit", "PASS", "identity-designer", ticket_id)
+    assert studio.ledger.evidence("p") == []
+
+
+def test_a_proof_whose_file_or_input_became_a_link_is_missing_or_stale(tmp_path: Path) -> None:
+    studio = Studio(tmp_path)
+    host = plant_host(tmp_path)
+    (studio.work / "source").mkdir()
+    (studio.work / "source/precedente.md").write_text("v0")
+    ticket_id, _ = studio.open()
+    studio.sign("svg_audit", "PASS", "identity-designer", ticket_id, inputs=["source/precedente.md"])
+    row = evidence.latest(studio.ledger, "p")[(FILE, "svg_audit")]
+    assert evidence.freshness(row, studio.work) == "fresh"
+    (studio.work / "source/precedente.md").unlink()
+    (studio.work / "source/precedente.md").symlink_to(host / "riservato.svg")
+    assert evidence.freshness(row, studio.work) == "STALE"
+    (studio.work / FILE).unlink()
+    (studio.work / FILE).symlink_to(host / "riservato.svg")
+    assert evidence.freshness(row, studio.work) == "MISSING"
+
+
+class ProofSandbox(Sandbox):
+    """Plays the QA scripts: `optical_check` writes its `--out` image, `logo_proof` writes pngs into it."""
+
+    def __init__(self, work: Path) -> None:
+        super().__init__(work)
+        self.outs: list[str] = []
+
+    def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+        out = command[command.index("--out") + 1]
+        self.outs.append(out)
+        destination = self.work / Path(out).relative_to("/job")
+        source = command[command.index("--out") - 1]
+        if command[1].endswith("optical_check.py"):
+            destination.write_text(f"misura di {source}")
+        else:
+            for name in ("nero.png", "bianco.png"):
+                (destination / name).write_text(f"{name} di {source}")
+        return Completed(0, "ok", "")
+
+
+def proof_studio(tmp_path: Path, *files: str) -> tuple[Studio, ProofSandbox]:
+    studio = Studio(tmp_path)
+    for file in files:
+        (studio.work / file).parent.mkdir(parents=True, exist_ok=True)
+        (studio.work / file).write_text(SVG)
+    return studio, ProofSandbox(studio.work)
+
+
+SAME_STEM = ["a/mark.svg", "b/mark.svg", "mark.svg", "mark.png"]
+
+
+def test_optical_proofs_of_files_with_one_stem_are_distinct(tmp_path: Path) -> None:
+    studio, sandbox = proof_studio(tmp_path, *SAME_STEM)
+    proofs = [checks.execute(sandbox, "optical_check", file).proofs for file in SAME_STEM]
+    assert proofs == [
+        ("proofs/optical/a_mark.svg.png",),
+        ("proofs/optical/b_mark.svg.png",),
+        ("proofs/optical/mark.svg.png",),
+        ("proofs/optical/mark.png.png",),
+    ]
+    for file, (proof,) in zip(SAME_STEM, proofs, strict=True):
+        assert (studio.work / proof).read_text() == f"misura di /job/{file}"
+    assert sandbox.outs == [f"/job/{proof}" for (proof,) in proofs]
+
+
+def test_logo_proofs_of_files_with_one_stem_are_distinct(tmp_path: Path) -> None:
+    studio, sandbox = proof_studio(tmp_path, *SAME_STEM)
+    found = [checks.execute(sandbox, "logo_proof", file).proofs for file in SAME_STEM]
+    folders = [
+        "proofs/logo/a_mark.svg",
+        "proofs/logo/b_mark.svg",
+        "proofs/logo/mark.svg",
+        "proofs/logo/mark.png",
+    ]
+    assert found == [(f"{folder}/bianco.png", f"{folder}/nero.png") for folder in folders]
+    for file, folder in zip(SAME_STEM, folders, strict=True):
+        assert (studio.work / folder / "nero.png").read_text() == f"nero.png di /job/{file}"
+
+
+def test_a_proof_name_with_wildcard_characters_lists_only_its_own_folder(tmp_path: Path) -> None:
+    _, sandbox = proof_studio(tmp_path, "[a]/m*rk.svg", "a/mark.svg")
+    first = checks.execute(sandbox, "logo_proof", "[a]/m*rk.svg").proofs
+    second = checks.execute(sandbox, "logo_proof", "a/mark.svg").proofs
+    assert first == ("proofs/logo/[a]_m*rk.svg/bianco.png", "proofs/logo/[a]_m*rk.svg/nero.png")
+    assert second == ("proofs/logo/a_mark.svg/bianco.png", "proofs/logo/a_mark.svg/nero.png")
+
+
+def test_a_linked_proof_folder_is_not_created_into_or_listed(tmp_path: Path) -> None:
+    """`proofs` is a link that stays inside the work folder: `inside()` lets it by, the helper refuses it."""
+    studio, sandbox = proof_studio(tmp_path, FILE)
+    (studio.work / "altrove").mkdir()
+    (studio.work / "proofs").symlink_to(studio.work / "altrove", target_is_directory=True)
+    for check in ("optical_check", "logo_proof"):
+        with pytest.raises(OutsidePerimeter):
+            checks.execute(sandbox, check, FILE)
+    assert list((studio.work / "altrove").iterdir()) == []
+    assert sandbox.outs == []
+
+
+def test_logo_proofs_list_regular_files_only(tmp_path: Path) -> None:
+    studio, _ = proof_studio(tmp_path, FILE)
+    host = plant_host(tmp_path)
+
+    class Planting(ProofSandbox):
+        def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+            done = super().run(command, timeout, stdin)
+            out = self.work / Path(command[command.index("--out") + 1]).relative_to("/job")
+            (out / "furto.png").symlink_to(host / "riservato.svg")
+            return done
+
+    found = checks.execute(Planting(studio.work), "logo_proof", FILE).proofs
+    assert found == ("proofs/logo/exports_segno.svg/bianco.png", "proofs/logo/exports_segno.svg/nero.png")
+    assert host_state(host) == {"riservato.svg": SVG.encode()}
+
+
+def test_the_render_hash_of_a_proof_never_follows_a_link(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The file is swapped for a link after the existence check: the hash refuses it instead of reading it."""
+    studio, sandbox = proof_studio(tmp_path)
+    host = plant_host(tmp_path)
+    (studio.work / FILE).unlink()
+    (studio.work / FILE).symlink_to(host / "riservato.svg")
+    monkeypatch.setattr(checks, "is_file_under", lambda root, relative: True)
+    ticket_id, _ = studio.open()
+    with pytest.raises(OutsidePerimeter):
+        checks.run(sandbox, studio.ledger, "p", ticket_id, "identity-designer", "optical_check", FILE)
+    assert studio.ledger.evidence("p") == []
+
+
+def test_a_check_is_refused_for_a_file_that_is_a_link_inside_the_work_folder(tmp_path: Path) -> None:
+    """`inside()` lets a link that stays in the work folder by: the check must not even start on it."""
+    studio, sandbox = proof_studio(tmp_path, "exports/vero.svg")
+    ticket_id, _ = studio.open()
+    (studio.work / "exports/via.svg").symlink_to(studio.work / "exports/vero.svg")
+    with pytest.raises(evidence.EvidenceRefused, match=re.escape("file inesistente: exports/via.svg")):
+        checks.run(
+            sandbox, studio.ledger, "p", ticket_id, "identity-designer", "optical_check", "exports/via.svg"
+        )
+    assert sandbox.outs == []
+
+
+def test_an_export_that_is_a_link_is_not_checked_for_its_master(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    studio = Studio(tmp_path)
+    (studio.work / "source").mkdir()
+    (studio.work / MASTER).write_text("master")
+    spec = ticket(
+        outputs=[MASTER, FILE],
+        checks={"*.vectorcraft": ["master_open"], "*.svg": ["svg_audit"]},
+        media=[Medium.VECTOR],
+        medium_why=None,
+    )
+    asked: list[str] = []
+
+    def derivation(sandbox: Sandbox, ledger: Ledger, project: str, file: str, masters: list[str]) -> str:
+        asked.append(file)
+        return "senza master"
+
+    monkeypatch.setattr(delivery.master, "problem", lambda sandbox, file: None)
+    monkeypatch.setattr(delivery.master, "derivation_problem", derivation)
+    problems = delivery.master_problems(studio.ledger, "p", studio.sandbox, spec, [MASTER, FILE])
+    assert (problems, asked) == ([f"{FILE}: senza master"], [FILE])
+    (studio.work / FILE).unlink()
+    (studio.work / FILE).symlink_to(studio.work / MASTER)
+    asked.clear()
+    assert delivery.master_problems(studio.ledger, "p", studio.sandbox, spec, [MASTER, FILE]) == []
+    assert asked == []

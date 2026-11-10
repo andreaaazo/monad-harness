@@ -19,6 +19,7 @@ import anthropic
 from agency.artifacts import FileStore, keeping
 from agency.config import DotenvHoldsSetting, Settings
 from agency.contracts.artifact import Origin
+from agency.contracts.files import OutsidePerimeter, read_under
 from agency.contracts.gate import ConceptGate
 from agency.contracts.layout import RelativeDataRoot
 from agency.contracts.project import ProjectName, parse_project_name
@@ -36,7 +37,6 @@ from agency.ledger import Ledger, LedgerMissing, LedgerOutdated, require_registr
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 from agency.ledger.store import now
 from agency.telemetry import report
-from agency.tools.files import OutsidePerimeter, read_under
 from agency.tools.sandbox import JOB, Sandbox, SandboxUnavailable
 
 if TYPE_CHECKING:  # la sessione carica il motore: i comandi leggeri non la importano

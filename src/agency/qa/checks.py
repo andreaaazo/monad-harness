@@ -5,10 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from agency.contracts.files import inside
 from agency.ledger import Ledger
 from agency.qa import evidence
 from agency.tools import master
-from agency.tools.files import clip, inside, sha256
+from agency.tools.files import clip, sha256
 from agency.tools.sandbox import JOB, QA_MOUNT, Sandbox
 
 RUNNABLE = ("master_open", "svg_audit", "svg_parity", "logo_proof", "optical_check")

@@ -6,6 +6,7 @@ import fnmatch
 import glob
 from pathlib import Path
 
+from agency.contracts.files import inside, sha256_under
 from agency.contracts.ticket import (
     AUTHOR_TYPES,
     NO_CHECK_TYPES,
@@ -18,7 +19,6 @@ from agency.contracts.ticket import (
 from agency.ledger import Ledger
 from agency.qa import evidence
 from agency.tools import master, render
-from agency.tools.files import inside, sha256_under
 from agency.tools.sandbox import Sandbox
 
 GLOB = "*?["

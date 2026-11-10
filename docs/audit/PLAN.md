@@ -1495,7 +1495,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
   - Files: `docs/01-ARCHITECTURE.md`, section "Cruscotto e server". The table, in Italian, maps each view label to its
     page, e2e spec, API route, operationId, read model, module and pytest file.
   - Commit: `docs(architecture): map each dashboard view to its route, API and read model`.
-- [ ] **Task 4.F1: the no-follow helpers move below `tools`.** Found in Task 2.2a: `artifacts/keeping.py` now imports `agency.tools.files`, while `agency.tools` imports `agency.artifacts`, so the two packages depend on each other; and `evaluation` may not import `tools` (ADR-0027, Task 2.F23). Move `open_under` and the other `*_under` helpers (and `OutsidePerimeter`) to a module both can import, for example `agency.contracts.files` (see Task 6.10), keeping `agency.tools.files` re-exporting them. Move only; no behaviour change.
+- [x] **Task 4.F1: the no-follow helpers move below `tools`.** Found in Task 2.2a: `artifacts/keeping.py` now imports `agency.tools.files`, while `agency.tools` imports `agency.artifacts`, so the two packages depend on each other; and `evaluation` may not import `tools` (ADR-0027, Task 2.F23). Move `open_under` and the other `*_under` helpers (and `OutsidePerimeter`) to a module both can import, for example `agency.contracts.files` (see Task 6.10), keeping `agency.tools.files` re-exporting them. Move only; no behaviour change.
   - Brought forward (2026-11-10): done before the found-bug fixes, because 2.F20 and 2.F23 need the helpers in `evaluation`. Move only.
 
 ## Phase 5: developer experience

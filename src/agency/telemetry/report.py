@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from agency.contracts.run import Change, Fingerprint, changes, read_fingerprint
+from agency.contracts.text import plain
 from agency.insights.domain import Provenance
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
@@ -12,12 +13,6 @@ from agency.ledger.models import ArtifactRow, JudgmentRow, RunRow
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
 NAMED = 5  # oltre, l'elenco delle differenze si legge con agency compare
-CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")  # every control character except \n and \t
-
-
-def plain(text: str) -> str:
-    """Drop C0, C1 and DEL (not strictly C0, but terminals act on it), keeping newline and tab."""
-    return CONTROL.sub("", text)
 
 
 def _seconds(milliseconds: float | None) -> str:

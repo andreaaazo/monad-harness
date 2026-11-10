@@ -1,8 +1,8 @@
-"""Il confronto alla cieca: copie con la sola lettera nel nome, lettere estratte a ogni confronto.
+"""The blind comparison: copies named by their letter alone, with the letters drawn anew for each comparison.
 
-Chi giudica vede solo `A.svg`, `B.svg`. La corrispondenza tra lettere e file resta in memoria finché il
-giudizio non è dato: prima non è scritta da nessuna parte. Le lettere non sono stabili come quelle della
-tavola dei critici: a una persona che giudica più volte, lettere ripetute direbbero col tempo chi è chi.
+The judge sees only `A.svg`, `B.svg`. The mapping from letters to files stays in memory until the judgment
+is given: before that it is written nowhere. The letters are not stable like those of the critics' board:
+for a person who judges many times, repeated letters would in time give away which is which.
 """
 
 from __future__ import annotations
@@ -26,11 +26,13 @@ SAME = {"sì": True, "si": True, "no": False}
 
 
 class CannotCompare(Exception):
-    """I file non si possono confrontare alla pari."""
+    """The files cannot be compared on equal terms. The message says why, and the CLI prints it."""
 
 
 @dataclass(frozen=True)
 class Candidate:
+    """A file to judge: where it is read from, and the exact version the judgment records."""
+
     path: Path
     judged: Judged
     # Set for a file under the projects folder: it is read relative to `root`, never through a link.
@@ -39,6 +41,7 @@ class Candidate:
 
 
 def candidates(paths: list[Path], projects_dir: Path) -> list[Candidate]:
+    """The files, if they can be compared: all present, at most 26, of one type, and no two identical."""
     missing = [str(path) for path in paths if not path.is_file()]
     if missing:
         raise CannotCompare(f"file non trovato: {', '.join(missing)}")
@@ -101,20 +104,21 @@ def _is_project_name(text: str) -> bool:
 
 
 def comparison_id() -> str:
+    """A random id for one comparison: it names the anonymous folder and groups the judgment's rows."""
     return secrets.token_hex(4)
 
 
 def assign(found: list[Candidate], rng: random.Random) -> dict[str, Candidate]:
-    """Le lettere vanno in ordine, A, B, C: è l'ordine dei file a essere estratto."""
+    """The letters go in order, A, B, C: it is the order of the files that is drawn."""
     drawn = list(found)
     rng.shuffle(drawn)
     return dict(zip(LETTERS, drawn, strict=False))
 
 
 def lay_out(assigned: dict[str, Candidate], folder: Path) -> list[Path]:
-    """Copie nuove, senza i metadati dell'originale: nemmeno la data dice da dove viene un file.
+    """New copies, without the original's metadata: not even the date tells where a file comes from.
 
-    Ogni copia deve avere l'hash letto all'inizio: si giudica, e si conserva, esattamente quella versione.
+    Each copy must have the hash read at the start: exactly that version is judged, and kept.
     """
     folder.mkdir(parents=True)
     copies = []
@@ -140,7 +144,7 @@ def _copy(candidate: Candidate, copy: Path) -> None:
 
 
 def changed(assigned: dict[str, Candidate], copies: list[Path]) -> list[str]:
-    """Le lettere la cui copia anonima non ha più l'hash del giudizio: il giudizio può durare minuti."""
+    """The letters whose anonymous copy no longer has its hash: a judgment can take minutes."""
     pairs = zip(assigned.items(), copies, strict=True)
     return [letter for (letter, candidate), copy in pairs if _digest(copy) != candidate.judged.sha256]
 
@@ -160,6 +164,8 @@ def _reason(ask: Callable[[str], str], prompt: str) -> str:
 
 
 def interview(letters: list[str], ask: Callable[[str], str], judge: str) -> Judgment:
+    """Asks for each letter's level, substitution test and reason, then for the best; it repeats a question
+    until the answer is valid."""
     levels = {level.value: level for level in Level}
     ratings = []
     for letter in letters:
@@ -172,7 +178,7 @@ def interview(letters: list[str], ask: Callable[[str], str], judge: str) -> Judg
 
 
 def _best(ask: Callable[[str], str], ratings: list[Rating]) -> str:
-    """Una scelta che contraddice i livelli si spiega e si richiede: di solito è un tasto sbagliato."""
+    """A choice that contradicts the levels is explained and asked again: it is usually a wrong key."""
     letters = [rating.letter for rating in ratings]
     question = f"Il migliore tra {', '.join(letters)}: "
     prompt = question

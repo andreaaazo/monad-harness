@@ -1,4 +1,4 @@
-"""Compone il prefisso stabile di ogni ruolo e il pacchetto del ticket."""
+"""Builds each role's stable system prompt and the ticket packet an instance starts from."""
 
 from __future__ import annotations
 
@@ -14,20 +14,22 @@ ORG: dict[str, list[str]] = read_org(REPO_ROOT / "registry/org.json")
 
 
 def skill_names() -> list[str]:
+    """The skills `read_skill` serves: the folders under prompts/skills that hold a SKILL.md."""
     return sorted(path.parent.name for path in (PROMPTS / "skills").glob("*/SKILL.md"))
 
 
 def skills_index() -> str:
+    """The skill names as the system prompt lists them."""
     return ", ".join(skill_names())
 
 
 def has_prompt(role: str) -> bool:
-    """Un ruolo senza prompt non è ancora stato portato: non può ricevere lavoro."""
+    """A role without a prompt has not been ported yet: it cannot receive work."""
     return (PROMPTS / "roles" / f"{role}.md").is_file()
 
 
 def system_prompt(name: str) -> str:
-    """Testo identico tra istanze dello stesso ruolo: niente date né identificativi, o la cache salta."""
+    """Identical across the instances of a role: no dates or ids, or the prompt cache misses."""
     common = (PROMPTS / "common.md").read_text(encoding="utf-8")
     body = (PROMPTS / "roles" / f"{name}.md").read_text(encoding="utf-8")
     return (
@@ -37,6 +39,7 @@ def system_prompt(name: str) -> str:
 
 
 def packet(ledger: Ledger, ticket_id: str, rework_note: str = "") -> str:
+    """An instance's first message: the ticket's contract, the note of this turn, and its children's state."""
     spec = ledger.spec(ticket_id)
     lines = [
         "Scrivi note, referti e documenti in italiano.",
@@ -72,5 +75,6 @@ def _child_line(ledger: Ledger, ticket_id: str) -> str:
 
 
 def can_open(sender: str, assignee: str) -> bool:
+    """Whether `sender` may open a ticket for `assignee`, by registry/org.json (`*` allows anyone)."""
     allowed = ORG.get(sender, [])
     return "*" in allowed or assignee in allowed

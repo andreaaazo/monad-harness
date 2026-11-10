@@ -1,4 +1,4 @@
-"""Il loop di un'istanza: un ticket, una sola cronologia in aggiunta, nessuna attesa."""
+"""The loop of one agent instance: one ticket, one append-only history, no waiting."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from agency.tools.sandbox import Sandbox
 from agency.tools.surface import Toolbox, ToolContext, tools_for
 
 tracer = trace.get_tracer("agency.agents")
+# A turn's output budget. A turn cut off at it is asked again once with the API's ceiling.
 MAX_TOKENS = 32000
 API_MAX_TOKENS = 128000
 
@@ -49,6 +50,7 @@ def _after_fallback(content: list[dict]) -> list[dict]:
     return [block for i, block in enumerate(content) if i > boundary or kept(block)]
 
 
+# The tools that close an instance. The reminder names those the current phase has.
 CLOSING = (
     "deliver",
     "hand_off",
@@ -62,6 +64,10 @@ CLOSING = (
 
 
 class AgentRunner:
+    """Runs one agent instance on a ticket until a closing tool ends it or the loop blocks the ticket.
+
+    An interrupted instance resumes from its transcript."""
+
     def __init__(
         self,
         gateway: ModelGateway,
@@ -79,9 +85,9 @@ class AgentRunner:
     def run(
         self, ticket_id: str, attempt: int = 1, rework_note: str = "", mode: str = "", exploration: int = 0
     ) -> Outcome:
-        """`mode` è una fase del direttore sullo stesso ticket: plan, select o present.
+        """`mode` is a director phase on the same ticket: plan, select or present.
 
-        `exploration` è il giro di idee a cui appartiene il lavoro, se è diverso dal tentativo.
+        `exploration` is the round of ideas the work belongs to, when it differs from the attempt.
         """
         spec = self.ledger.spec(ticket_id)
         project = self.ledger.project_of(ticket_id)
@@ -90,7 +96,7 @@ class AgentRunner:
         instance = phase.instance(ticket_id, attempt, mode)
         transcript = Transcript(self.settings.layout.transcript(folder, instance))
         finished = transcript.outcome()
-        if finished is not None:  # la ripresa non rifà un lavoro già concluso
+        if finished is not None:  # a resumed run never redoes an instance that already closed
             return finished
         root = self.settings.project_dir(folder) / "work"
         root.mkdir(parents=True, exist_ok=True)
@@ -138,7 +144,7 @@ class AgentRunner:
     ) -> Outcome:
         role = spec.assignee
         config = prompts.ROLES[role]
-        choice = self.ledger.project(context.project)  # modello ed effort li sceglie il cliente
+        choice = self.ledger.project(context.project)  # the client's model and effort override the role's
         system = [
             {"type": "text", "text": prompts.system_prompt(prompt), "cache_control": {"type": "ephemeral"}}
         ]
@@ -152,7 +158,7 @@ class AgentRunner:
         paused = False
         limit = MAX_TOKENS
         while True:
-            if messages[-1]["role"] == "assistant" and not paused:  # interrotto dopo una risposta
+            if messages[-1]["role"] == "assistant" and not paused:  # interrupted after a model turn
                 content = messages[-1]["content"]
                 if any(block.get("type") == "tool_use" for block in content):
                     self._run_tools(content, toolbox, transcript, messages)
@@ -179,7 +185,7 @@ class AgentRunner:
             if response.stop_reason == "max_tokens":
                 if limit > MAX_TOKENS:
                     return self._block(context, role, "risposta troncata due volte")
-                limit = API_MAX_TOKENS  # la risposta troncata non entra in cronologia
+                limit = API_MAX_TOKENS  # the cut-off answer never enters the history: ask again, once
                 continue
             if response.stop_reason == "model_context_window_exceeded":
                 # A full window does not shrink on a retry, and the cut-off turn never enters the history.
@@ -201,9 +207,9 @@ class AgentRunner:
                 self._run_tools(content, toolbox, transcript, messages)
                 if toolbox.context.finished is not None:
                     return toolbox.context.finished
-                reminded = False  # ha ripreso a lavorare: il promemoria vale per la prossima pausa
+                reminded = False  # working again: the reminder is for the next stop
                 continue
-            if response.stop_reason == "pause_turn":  # il server riprende da solo: nessun messaggio in più
+            if response.stop_reason == "pause_turn":  # the server resumes the turn: send no new message
                 paused = True
                 continue
             if reminded:
@@ -221,14 +227,14 @@ class AgentRunner:
             if block.get("type") == "tool_use":
                 results.append(toolbox.call(block["id"], block["name"], block.get("input") or {}))
                 if toolbox.context.finished is not None:
-                    break  # dopo la chiusura il lavoro non cambia più: ciò che segue non si esegue
+                    break  # a closed instance's work must not change: later calls in the turn do not run
         reply = {"role": "user", "content": results}
         transcript.append(reply)
         messages.append(reply)
 
     @staticmethod
     def _reminder(toolbox: Toolbox) -> str:
-        """Nomina solo ciò che questa fase può usare: ogni fase si chiude in modo diverso."""
+        """Names only the closing tools this phase has: each phase closes in its own way."""
         available = [name for name in CLOSING if name in toolbox.tools]
         return f"Non hai concluso il ticket. Chiudi con uno di questi strumenti: {', '.join(available)}."
 

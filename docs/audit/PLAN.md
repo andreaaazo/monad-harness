@@ -1395,7 +1395,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
   - Content, in Italian: a "Vocabolario" section giving the rule (identifiers in English; stored and wire values in
     Italian; changing a value is a migration) and the current values, as pinned by Task 1.17.
   - Commit: `docs(data-model): record the stored and wire vocabulary`.
-- [ ] **Task 3.4: `src/agency/agents/`.** Closes CMT-009 for this package.
+- [x] **Task 3.4: `src/agency/agents/`.** Closes CMT-009 for this package.
   - Keep the reminder, the block reasons and the packet text.
   - Commit: `docs(agents): translate comments and docstrings to English`.
 - [ ] **Task 3.5: `src/agency/artifacts/`.** Closes CMT-009 for this package, and its CMT-014 items.

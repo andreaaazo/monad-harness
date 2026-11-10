@@ -1,4 +1,4 @@
-"""Trascrizione di un'istanza: solo in aggiunta, è ciò che permette di riprendere dopo un'interruzione."""
+"""An instance's transcript: append-only, and what lets an interrupted instance resume."""
 
 from __future__ import annotations
 
@@ -9,13 +9,16 @@ from agency.contracts.outcome import Outcome
 
 
 class Transcript:
+    """One JSON line per message, then the outcome when the instance closes."""
+
     def __init__(self, path: Path) -> None:
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
         self._repair()
 
     def _repair(self) -> None:
-        """Un processo ucciso può lasciare mezza riga in fondo: è l'unico punto in cui si tocca il passato."""
+        """A killed process can leave half a line at the end. This is the only rewrite of the past: a complete
+        last line gets its newline, a torn one is dropped (it was never sent)."""
         if not self.path.exists():
             return
         raw = self.path.read_bytes()
@@ -35,9 +38,11 @@ class Transcript:
         return [json.loads(line) for line in self.path.read_text(encoding="utf-8").splitlines() if line]
 
     def messages(self) -> list[dict]:
+        """The model history to resume from."""
         return [entry["message"] for entry in self.entries() if "message" in entry]
 
     def outcome(self) -> Outcome | None:
+        """The outcome recorded when the instance closed, or None while it is open."""
         recorded = next((entry["outcome"] for entry in self.entries() if "outcome" in entry), None)
         return None if recorded is None else Outcome.model_validate(recorded)
 
@@ -47,10 +52,11 @@ class Transcript:
             handle.flush()
 
     def append(self, message: dict, request_id: str | None = None, raw: list[dict] | None = None) -> None:
-        """`request_id` lega una risposta del modello alla sua riga di `usage`: lo legge il Replay. La ripresa
-        legge solo il messaggio. `raw` is the model's content before the fallback filter, kept for audit."""
+        """`request_id` ties a model answer to its `usage` row: the Replay reads it, resuming reads only the
+        message. `raw` is the model's content before the fallback filter, kept for audit."""
         entry = {"message": message} | ({"request_id": request_id} if request_id else {})
         self._write(entry | ({"raw": raw} if raw is not None else {}))
 
     def finish(self, outcome: Outcome) -> None:
+        """Records the outcome: a resumed run returns it instead of redoing the work."""
         self._write({"outcome": outcome.model_dump(mode="json")})

@@ -20,6 +20,15 @@ from agency.contracts.text import plain
 
 SETTINGS = "agency.entrypoints.server.settings"
 SECRETS = ("ANTHROPIC_API_KEY", "AGENCY_ANTHROPIC_API_KEY")
+# The help of the command is the operator's text (Italian, user-facing): it is written here, not taken
+# from the docstring.
+DESCRIPTION = (
+    "Il processo del cruscotto: `uv run agency-server`. Solo loopback, e senza chiave nell'ambiente.\n"
+    "\n"
+    "Un server WSGI della libreria standard, con un thread per richiesta: basta per un solo "
+    "operatore su questa\n"
+    "macchina (06-SECURITY.md). Come raggiungerlo da fuori lo decide un ADR in M6, non questo file.\n"
+)
 HOST, PORT = "127.0.0.1", 8000
 
 
@@ -58,7 +67,7 @@ def build(host: str, port: int) -> WSGIServer:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="agency-server", description=__doc__)
+    parser = argparse.ArgumentParser(prog="agency-server", description=DESCRIPTION)
     parser.add_argument("--host", default=HOST, help="indirizzo di loopback, di solito 127.0.0.1")
     parser.add_argument("--port", type=int, default=PORT, help="0 sceglie una porta libera")
     args = parser.parse_args(argv)

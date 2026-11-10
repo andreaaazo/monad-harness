@@ -15,6 +15,16 @@ from agency.contracts.layout import CHECKOUT, RelativeDataRoot
 
 SETTINGS = "agency.entrypoints.server.settings"
 OUTPUT = CHECKOUT / "schemas/openapi.json"  # in the checkout, whatever folder the command runs from
+# The help of the command is the operator's text (Italian, user-facing): it is written here, not taken
+# from the docstring.
+DESCRIPTION = (
+    "Lo schema OpenAPI del cruscotto, generato dai modelli di insights: `uv run agency-schemas` (ADR-0022).\n"
+    "\n"
+    "Si versiona in `schemas/openapi.json`, e da lì nascono i tipi TypeScript "
+    "dell'interfaccia. Le chiavi sono in\n"
+    "ordine e il file finisce con un a capo: due generazioni uguali danno lo stesso file, e il "
+    "diff si legge.\n"
+)
 
 
 def render() -> str:
@@ -29,7 +39,7 @@ def render() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="agency-schemas", description=__doc__)
+    parser = argparse.ArgumentParser(prog="agency-schemas", description=DESCRIPTION)
     parser.add_argument("--output", type=Path, default=OUTPUT)
     parser.add_argument("--check", action="store_true", help="non scrive: fallisce se non è allineato")
     args = parser.parse_args(argv)

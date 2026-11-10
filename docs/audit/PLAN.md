@@ -1375,7 +1375,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
   `tools/sandbox` add docstrings to their A10 items, only where a docstring says something the name does not. They
   never add one to [T], [O] or [M] items.
 
-- [ ] **Task 3.1: argparse descriptions become explicit strings.** Closes CMT-001 (the CLI-help part).
+- [x] **Task 3.1: argparse descriptions become explicit strings.** Closes CMT-001 (the CLI-help part).
   - Files: `src/agency/cli.py:297`, `src/agency/entrypoints/server/serve.py:58`,
     `src/agency/entrypoints/server/schema.py:30`.
   - Change: each `description=__doc__` becomes the exact current text, so the help is unchanged.

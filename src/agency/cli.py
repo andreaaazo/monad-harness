@@ -45,6 +45,9 @@ if TYPE_CHECKING:  # la sessione carica il motore: i comandi leggeri non la impo
 
 LOGO_OUTPUTS = ["source/segno.vectorcraft", "exports/segno.svg", "construction.md"]
 LOGO_CHECKS = {"*.vectorcraft": ["master_open"], "*.svg": ["svg_audit", "svg_parity", "critique"]}
+# The CLI help is the operator's text (Italian, user-facing): it is written here, not taken from the
+# docstring.
+DESCRIPTION = "Comandi dell'harness."
 RECORD_HELP = "registra le risposte del modello in .data/cassettes, per ripeterle nei test"
 
 
@@ -460,7 +463,7 @@ def _insights(_: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="agency", description=__doc__)
+    parser = argparse.ArgumentParser(prog="agency", description=DESCRIPTION)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor", help="controlla strumenti e configurazione").set_defaults(fn=_doctor)
     sub.add_parser("verify", help="verifica la catena di hash del registro").set_defaults(fn=_verify)

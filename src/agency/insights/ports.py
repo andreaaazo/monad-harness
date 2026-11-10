@@ -1,4 +1,4 @@
-"""I confini esterni di insights. Il caso d'uso dipende da queste porte, non da SQLite né dai file."""
+"""The outer boundaries of insights. The use cases depend on these ports, not on SQLite or on files."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from agency.insights.domain import (
 
 
 class RegistrySnapshot(BaseModel):
-    """Ciò che insights legge del registro, nella stessa transazione: una fotografia coerente."""
+    """What insights reads from the registry, in one transaction: a consistent snapshot."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -44,7 +44,7 @@ class RegistrySnapshot(BaseModel):
 
 
 class ProjectData(BaseModel):
-    """Ciò che la proiezione sa di un progetto: le viste nascono da qui."""
+    """What the projection knows about a project: the views are built from it."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -61,6 +61,8 @@ class ProjectData(BaseModel):
 
 
 class TraceReading(BaseModel):
+    """`measures` by request id; `unreadable` counts the lines that could not be read."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     measures: dict[str, TraceMeasure]
@@ -68,6 +70,8 @@ class TraceReading(BaseModel):
 
 
 class TranscriptReading(BaseModel):
+    """Every tool call in the transcripts; `unreadable` counts the lines that could not be read."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     calls: list[ToolCallRecord]
@@ -76,11 +80,11 @@ class TranscriptReading(BaseModel):
 
 class RegistryReader(Protocol):
     def stamp(self) -> list[SourceStamp]:
-        """I file del registro come sono ora: se cambiano, la proiezione è vecchia."""
+        """The registry's files as they are now: if they change, the projection is stale."""
         ...
 
     def revision(self) -> str | None:
-        """La revisione del registro, o None se è precedente alle migrazioni."""
+        """The registry's revision, or None if it predates the migrations."""
         ...
 
     def read(self) -> RegistrySnapshot: ...
@@ -94,23 +98,23 @@ class TraceReader(Protocol):
 
 class TranscriptReader(Protocol):
     def stamp(self) -> list[SourceStamp]:
-        """Una impronta per trascrizione: una che cambia, nasce o sparisce rende vecchia la proiezione."""
+        """One stamp per transcript: one that changes, appears or disappears makes the projection stale."""
         ...
 
     def read(self) -> TranscriptReading: ...
 
     def transcript(self, project: str, instance: str) -> TranscriptRecord | None:
-        """Un'istanza turno per turno, o None se non c'è o il nome non è quello di un'istanza."""
+        """An instance turn by turn, or None if it is missing or the name is not an instance's."""
         ...
 
     def image(self, project: str, instance: str, index: int) -> TranscriptImage | None:
-        """L'immagine `index` della trascrizione, solo se è di un tipo che il cruscotto serve."""
+        """Image `index` of the transcript, only if it is of a type the dashboard serves."""
         ...
 
 
 class ProjectionWriter(Protocol):
     def replace(self, projected: Projected, provenance: Provenance) -> None:
-        """Sostituisce la proiezione intera, in un colpo solo: chi legge non vede mai metà lavoro."""
+        """Replaces the whole projection at once: a reader never sees half the work."""
         ...
 
 
@@ -122,11 +126,13 @@ class ProjectionReader(Protocol):
     def projects(self) -> list[ProjectRecord]: ...
 
     def judgments(self) -> list[JudgmentRecord]:
-        """Tutti i voti: un confronto alla cieca può mettere insieme file di più progetti."""
+        """All the votes: a blind comparison can bring together files from several projects."""
         ...
 
-    def provenance(self) -> Provenance: ...
+    def provenance(self) -> Provenance:
+        """What the projection was built from; `ProjectionOutdated` if it is missing or of an old schema."""
+        ...
 
 
 class ProjectionStore(ProjectionReader, ProjectionWriter, Protocol):
-    """La proiezione che si legge e si rigenera: quella che usano il rapporto e il cruscotto."""
+    """The projection that is read and rebuilt: the one the report and the dashboard use."""

@@ -1,8 +1,8 @@
-"""La vista Modello: come ha lavorato il modello, ruolo per ruolo e turno per turno.
+"""The model view: how the model worked, role by role and turn by turn.
 
-Il contesto di un turno è ciò che il modello ha letto in quella chiamata: ingresso, cache letta e cache
-scritta. Durata, TTFT, ragionamento ed effort valgono solo sulle chiamate misurate: una chiamata di prima di
-M1.6 senza traccia non vale zero, non c'è.
+A turn's context is what the model read in that call: input, cache reads and cache writes. Duration, TTFT,
+reasoning and effort count only the measured calls: a call from before M1.6 without a trace is not a zero;
+it is absent.
 """
 
 from __future__ import annotations
@@ -16,9 +16,9 @@ from agency.insights import sums
 from agency.insights.domain import Call
 from agency.insights.ports import ProjectData
 
-# Le risposte che non arrivano intere. Il ciclo dell'agente (agents/loop.py) non mette in cronologia una
-# risposta troncata e la richiede con un limite più alto; dopo un rifiuto blocca il ticket. Anche un flusso
-# interrotto (`malformed_stream`, registrato dal gateway) non è una risposta intera.
+# The answers that do not arrive whole. The agent loop (agents/loop.py) keeps a truncated answer out of the
+# history and asks again with a higher limit; after a refusal or a full context window it blocks the ticket.
+# An interrupted stream (`malformed_stream`, recorded by the gateway) is not a whole answer either.
 INCOMPLETE = frozenset({"max_tokens", "refusal", "model_context_window_exceeded", "malformed_stream"})
 
 
@@ -85,7 +85,7 @@ class BehaviourReport(_View):
 
 
 def _stops(calls: Iterable[Call]) -> list[StopCount]:
-    """I motivi di fine, dal più frequente; a pari numero in ordine alfabetico."""
+    """The stop reasons, most frequent first; equal counts in alphabetical order."""
     counted = Counter(call.stop_reason for call in calls)
     return [
         StopCount(reason=reason, calls=n, complete=reason not in INCOMPLETE)

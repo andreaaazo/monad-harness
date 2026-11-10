@@ -1,6 +1,8 @@
-"""Il registro in sola lettura: `mode=ro` e `query_only`, mai `Ledger()`, che all'apertura scrive (ADR-0019).
+"""The registry, read-only: `mode=ro` and `query_only`, never `Ledger()`, which writes when it opens
+(ADR-0019).
 
-In WAL chi legge non ferma chi scrive, e viceversa: il cruscotto può leggere mentre il motore lavora.
+With WAL, readers do not block the writer and the writer does not block them: the dashboard can read while
+the engine works.
 """
 
 from __future__ import annotations
@@ -30,7 +32,7 @@ from agency.insights.domain import (
 from agency.insights.ports import RegistrySnapshot
 
 BUSY_SECONDS = 30
-# Le colonne nominate una per una, dal modello: una colonna nuova del registro non entra di nascosto.
+# The columns are named one by one, from the model, so a new registry column cannot slip in unseen.
 USAGE = f"SELECT {', '.join(UsageRecord.model_fields)} FROM usage ORDER BY seq"
 TICKETS = "SELECT id, project, spec_json, status, verdict, created_at FROM tickets ORDER BY rowid"
 PROJECTS = f"SELECT {', '.join(ProjectRecord.model_fields)} FROM projects ORDER BY name"
@@ -41,8 +43,8 @@ JUDGMENTS = (
     " (SELECT count(*) FROM judgments AS other WHERE other.comparison = judgments.comparison) AS compared"
     " FROM judgments ORDER BY seq"
 )
-# La storia dei ticket senza le prove, che hanno la loro tabella. La nota si legge solo per un passo indietro,
-# dove è il motivo. Il progetto viene dal ticket.
+# The tickets' history without the proofs, which have their own table. The note is read only for a step
+# back, where it is the reason. The project comes from the ticket.
 EVENTS = (
     "SELECT events.seq, events.at, tickets.project, events.ticket_id, events.actor, events.action,"
     f" CASE WHEN events.action IN ({', '.join('?' for _ in SETBACKS)}) THEN events.note END AS reason"
@@ -50,7 +52,8 @@ EVENTS = (
     f" WHERE events.action IN ({', '.join('?' for _ in Lifecycle)}) ORDER BY events.seq"
 )
 EVENT_PARAMETERS = [*sorted(item.value for item in SETBACKS), *(item.value for item in Lifecycle)]
-# Le prove, con la loro nota: per un FAIL è il motivo. Prove e file restano dove sono, qui solo l'esito.
+# The proofs, with their note: for a FAIL it is the reason. Proofs and files stay where they are; only the
+# result is read here.
 CHECKS = (
     "SELECT seq, at, project, ticket_id, file, check_name, result, signer, note AS reason"
     " FROM evidence ORDER BY seq"
@@ -61,31 +64,34 @@ HAS_REVISION = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'ale
 
 
 class _StoredSpec(BaseModel):
-    """Il contratto di un ticket com'è salvato: solo ciò che serve a chi legge, qualunque sia la sua età."""
+    """A ticket's contract as stored: only what a reader needs, whatever its age."""
 
     model_config = ConfigDict(extra="ignore")
 
     type: str
     assignee: str
     title: str
-    prompt: str = ""  # i ticket di merlo, prima di M1.5, non lo hanno
+    prompt: str = ""  # merlo's tickets, from before M1.5, lack it
 
 
 class _StoredCard(BaseModel):
-    """La scheda di un'idea com'è salvata: della scheda serve solo la frase."""
+    """An idea's card as stored: only its sentence is needed."""
 
     model_config = ConfigDict(extra="ignore")
 
-    concept: str = ""  # un'idea non ancora consegnata ha la scheda vuota
+    concept: str = ""  # an idea not delivered yet has an empty card
 
 
 class ReadOnlyRegistry:
+    """The `RegistryReader` on the SQLite file, which it never writes."""
+
     def __init__(self, path: Path) -> None:
         self.path = path
 
     def connect(self) -> sqlite3.Connection:
-        """Una connessione di sola lettura. Un registro WAL chiuso dal motore non ha -shm, e chi legge lo
-        crea: se la cartella non si scrive SQLite non lo apre, e lo si dice come un registro illeggibile."""
+        """A read-only connection. A WAL registry closed by the engine has no -shm file, and the reader
+        creates it: if the folder is not writable SQLite cannot open it, and the registry is reported as
+        unreadable."""
         if not self.path.is_file():
             raise RegistryNotReadable(f"il registro {self.path} non esiste")
         connection = sqlite3.connect(
@@ -93,7 +99,7 @@ class ReadOnlyRegistry:
         )
         try:
             connection.execute("PRAGMA query_only = ON")
-            # È alla prima lettura che SQLite apre davvero il file, e il suo -shm.
+            # SQLite really opens the file, and its -shm, on the first read.
             connection.execute("SELECT count(*) FROM sqlite_master").fetchone()
         except sqlite3.OperationalError as exc:
             connection.close()
@@ -101,10 +107,10 @@ class ReadOnlyRegistry:
         return connection
 
     def stamp(self) -> list[SourceStamp]:
-        """Il file principale e il WAL: con WAL una scrittura cambia il secondo prima del primo.
+        """The main file and the WAL: with WAL, a write changes the second before the first.
 
-        Un WAL vuoto vale come assente: non contiene dati, e la prima lettura in sola lettura lo crea. Quando
-        i dati passano dal WAL al file principale, cambia l'impronta del principale.
+        An empty WAL counts as missing: it holds no data, and the first read-only read creates it. When the
+        data moves from the WAL into the main file, the main file's stamp changes.
         """
         wal = stamp(self.path.with_name(f"{self.path.name}-wal"))
         if wal.size == 0:
@@ -121,7 +127,7 @@ class ReadOnlyRegistry:
     def read(self) -> RegistrySnapshot:
         with closing(self.connect()) as connection:
             connection.row_factory = sqlite3.Row
-            connection.execute("BEGIN")  # una sola fotografia di tutto ciò che si legge
+            connection.execute("BEGIN")  # one snapshot of everything that is read
             try:
                 return RegistrySnapshot(
                     usage=[UsageRecord.model_validate(dict(row)) for row in connection.execute(USAGE)],

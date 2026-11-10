@@ -1,9 +1,9 @@
-"""La proiezione in `.data/insights.sqlite`: si cancella e si rigenera, la verità resta nel registro.
+"""The projection in `insights.sqlite`: it can be deleted and rebuilt; the truth stays in the registry.
 
-Si scrive sempre per intero in un file accanto, che prende il posto del vecchio solo quando è completo: chi
-sta leggendo continua sulla sua versione, chi apre dopo trova la nuova. Ogni tabella nasce dal suo modello,
-colonna per colonna, e `user_version` dice lo schema: una proiezione di uno schema diverso non si legge, si
-rigenera.
+It is always written whole to a file beside it, which takes the old one's place only once complete: a reader
+goes on with its own version, and whoever opens it later finds the new one. Each table comes from its model,
+column by column, and `user_version` records the schema: a projection of another schema is not read but
+rebuilt.
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ def _column(name: str, info: FieldInfo, key: str) -> str:
     elif kind is str or (isinstance(kind, type) and issubclass(kind, StrEnum)):
         sql = "TEXT"
     else:
-        raise TypeError(f"{name}: tipo {kind!r} senza colonna SQLite")
+        raise TypeError(f"{name}: type {kind!r} has no SQLite column")
     return f"{name} {sql}{'' if nullable else ' NOT NULL'}{' PRIMARY KEY' if name == key else ''}"
 
 
@@ -60,7 +60,7 @@ class _Table[T: BaseModel]:
     name: str
     model: type[T]
     key: str
-    scope: str = "project"  # la colonna con cui si legge un progetto
+    scope: str = "project"  # the column a project is read by
     order: str | None = None  # defaults to the key; "rowid" reads in insertion order
 
     @property
@@ -99,6 +99,8 @@ RUNS = _Table("runs", RunRecord, "seq")
 
 
 class SqliteProjection:
+    """The `ProjectionStore` on SQLite. A change to a table's shape needs a new `SCHEMA`; a test asks."""
+
     SCHEMA = 6
 
     def __init__(self, path: Path) -> None:
@@ -169,7 +171,7 @@ class SqliteProjection:
 
     def project(self, name: str) -> ProjectData:
         with closing(self._connect()) as connection:
-            connection.execute("BEGIN")  # le parti di un progetto dalla stessa versione della proiezione
+            connection.execute("BEGIN")  # all of a project's parts from the same version of the projection
             projects = self._read(connection, PROJECTS, name)
             return ProjectData(
                 project=projects[0] if projects else None,

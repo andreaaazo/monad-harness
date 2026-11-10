@@ -1,7 +1,7 @@
-"""Le tracce dell'SDK, lette da `traces.jsonl`: durata, TTFT, effort e ragionamento di ogni richiesta.
+"""The SDK traces, read from `traces.jsonl`: each request's duration, TTFT, effort and reasoning.
 
-Le tracce sono sacrificabili (ADR-0010): se mancano, la proiezione ha meno misure, non un errore. Una riga
-tagliata da un processo ucciso si conta e si salta.
+Traces are expendable (ADR-0010): without them the projection has fewer measures, not an error. A line cut
+short by a killed process is counted and skipped.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from agency.insights.ports import TraceReading
 
 SPAN = "anthropic.messages.create"
 REQUEST = "anthropic.request.id"
-FIRST_CHUNK = "gen_ai.response.time_to_first_chunk"  # secondi, fino al primo content_block_delta
+FIRST_CHUNK = "gen_ai.response.time_to_first_chunk"  # seconds, up to the first content_block_delta
 EFFORT = "gen_ai.request.reasoning.level"
 REASONING = "gen_ai.usage.reasoning.output_tokens"
 

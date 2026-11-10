@@ -1,12 +1,12 @@
-"""La vista Confronto: due progetti affiancati, cosa è cambiato nell'impronta, e i giudizi alla cieca.
+"""The compare view: two projects side by side, what changed in the fingerprint, and the blind judgments.
 
-Un progetto è il lavoro su un brief, fatto da una o più esecuzioni (`run`, `resume`, `decide`), ognuna con
-la sua impronta (ADR-0026). I numeri di ogni lato vengono dalle viste Run, Fasi, Modello e Strumenti e QA:
-qui non si ricalcola niente. Le impronte confrontate sono l'ultima del progetto di prima e la prima di
-quello di dopo: le differenze dicono cosa è cambiato fra la fine dell'uno e l'inizio dell'altro.
+A project is the work on one brief, done by one or more runs (`run`, `resume`, `decide`), each with its own
+fingerprint (ADR-0026). Each side's numbers come from the run, phases, model, and tools and QA views:
+nothing is computed again here. The fingerprints compared are the last one of the earlier project and the
+first one of the later: the differences say what changed between the end of one and the start of the other.
 
-Un giudizio alla cieca conta per il confronto quando contiene file di tutti e due i progetti; si mostra con
-tutti i suoi voti, anche quelli su file di altri progetti o esterni.
+A blind judgment counts for the comparison when it holds files from both projects; it is shown with all its
+votes, including those on files from other projects or from outside.
 """
 
 from __future__ import annotations

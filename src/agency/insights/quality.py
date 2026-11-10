@@ -1,12 +1,11 @@
-"""La vista Strumenti e QA: dove sbaglia, con le parole di chi ha detto no.
+"""The tools and QA view: where the work goes wrong, in the words of whoever said no.
 
-Tre fonti dicono di no. I controlli, con le prove del registro: FAIL è l'unico esito che boccia. Gli
-strumenti, che rifiutano una richiesta e lo scrivono nella trascrizione. Le persone dello studio, che
-rimandano o bloccano un ticket con una nota. Un no non dice di chi è la colpa: un contratto sbagliato e un
-lavoro sbagliato si distinguono leggendo il motivo, e il motivo è qui per intero.
+Three sources say no. The checks, through the registry's proofs: FAIL is the only result that fails. The
+tools, which refuse a request and write so in the transcript. The studio's people, who send back or block a
+ticket with a note. A no does not say whose fault it is: a wrong contract and wrong work are told apart by
+reading the reason, and the reason is here in full.
 
-Un controllo passa al primo colpo su un file quando la sua prima prova su quel file, in quel ticket, non è
-FAIL.
+A check passes at once on a file when its first proof on that file, in that ticket, is not a FAIL.
 """
 
 from __future__ import annotations

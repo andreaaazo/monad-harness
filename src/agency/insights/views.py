@@ -1,7 +1,8 @@
-"""I modelli di lettura di un progetto: gli stessi per `agency report`, il suo JSON e l'API del cruscotto.
+"""A project's read models: the same for `agency report`, its JSON and the dashboard API.
 
-Sono modelli propri, non le tabelle della proiezione (ADR-0022): chi legge vede ciò che serve a capire, e
-la proiezione può cambiare senza cambiare loro. Il calcolo è puro: dagli stessi dati, lo stesso rapporto.
+They are models of their own, not the projection's tables (ADR-0022): a reader sees what is needed to
+understand, and the projection can change without changing them. The computation is pure: the same data
+gives the same report.
 """
 
 from __future__ import annotations
@@ -145,7 +146,7 @@ class ProjectReport(_View):
 
 
 def _peak(calls: list[Call]) -> int:
-    """Quante istanze hanno lavorato insieme nel momento di massimo: a pari istante, prima chi entra."""
+    """How many instances worked at once at the peak: at the same instant, an entry counts before an exit."""
     groups = sums.groups(calls, lambda call: call.instance).values()
     spans = [(min(call.at for call in group), max(call.at for call in group)) for group in groups]
     moments = sorted((at, step) for start, end in spans for at, step in ((start, 0), (end, 1)))
@@ -194,9 +195,9 @@ def _milestone(data: ProjectData) -> Milestone | None:
 
 
 def _waits(data: ProjectData) -> list[WaitView]:
-    """Ogni decisione ferma il run dall'ultima chiamata, o dalla decisione prima, finché arriva. Conta solo se
-    il lavoro è ripartito: una decisione dopo l'ultima chiamata non ha fermato niente. Gli istanti restano
-    quelli scritti nel registro."""
+    """Each decision stops the run from the last call, or from the decision before, until it arrives. It
+    counts only if the work started again: a decision after the last call stopped nothing. The instants stay
+    as the registry wrote them."""
     moments = sorted((datetime.fromisoformat(call.at), call.at) for call in data.calls)
     waits: list[WaitView] = []
     previous: tuple[datetime, str] | None = None
@@ -299,7 +300,7 @@ def project_report(name: str, data: ProjectData, provenance: Provenance) -> Proj
 
 
 def project_summaries(projects: list[ProjectRecord], calls: list[Call]) -> list[ProjectSummary]:
-    """Ogni progetto che il registro conosce, per nome: anche senza chiamate o senza scelte del cliente."""
+    """Every project the registry knows, by name, even without calls or client choices."""
     budgets = {project.name: project.budget_usd for project in projects}
     by_project = sums.groups(calls, lambda call: call.project)
     names = sorted(budgets.keys() | by_project.keys())

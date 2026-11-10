@@ -30,8 +30,8 @@ radice in un solo punto, `data_root()` di `agency.contracts.layout` (ADR-0045).
 ## Registro: solo in aggiunta
 
 `events` non si può modificare: lo impediscono i trigger SQLite, e la catena di hash rileva chi li
-aggira. Gli stessi trigger proteggono `usage`, `evidence`, `renders`, `derivations`, `gates`, `runs`, `judgments` e
-`artifacts`.
+aggira. Gli stessi trigger proteggono `usage`, `evidence`, `renders`, `derivations`, `gates`, `runs`, `judgments`,
+`artifacts` e, dalla revisione 0008, `operations`.
 `tickets` tiene lo stato attuale dei ticket; per stato, verdetto e consegna è una proiezione della storia degli eventi,
 che è la verità. Dalla revisione 0006 ogni evento nuovo è di
 versione 2 e lega nella catena lo stato del suo ticket dopo l'evento: stato, verdetto e hash consegnati, in
@@ -40,9 +40,12 @@ aggiunto un evento `baseline` per ticket con lo stato di quel momento (ADR-0047)
 ticket lega anche lo sha256 del suo contratto (`spec_json`) e dei suoi hash d'apertura (`inputs_json`), e ogni
 scrittura di un'idea (`concepts`) o di un gate (`gates`) aggiunge un evento con ticket `-` che lega la riga intera;
 l'evento di una prova (`evidence`) lega anche la prova. La migrazione 0007 ha legato così le righe di quel momento
-(ADR-0049). `agency verify` ricontrolla la catena e confronta ogni ticket con lo stato e il contratto legati dal suo
-ultimo evento, e ogni idea, gate e prova con l'ultimo evento che la lega: una differenza, o un ticket o una riga
-legati che mancano, è un registro alterato.
+(ADR-0049). Dalla revisione 0008 anche ogni chiamata pagata (`usage`) e ogni scrittura di un progetto (`projects`)
+aggiungono un evento che lega la riga intera: la chiamata sul suo ticket, con lo stato del ticket, il progetto con
+ticket `-`. La migrazione 0008 ha legato così le righe di quel momento, e un secondo record di ripresa con lo stesso
+id non riscrive il primo (ADR-0050). `agency verify` ricontrolla la catena e confronta ogni ticket con lo stato e il
+contratto legati dal suo ultimo evento, e ogni idea, gate, prova, chiamata pagata e progetto con l'ultimo evento che
+la lega: una differenza, o un ticket o una riga legati che mancano, è un registro alterato.
 
 ### Tabelle
 

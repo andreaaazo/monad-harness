@@ -250,8 +250,10 @@ def test_migrate_adopts_a_registry_older_than_the_migrations(tmp_path: Path) -> 
     result = migrate(path)
 
     assert result.revision == schema.head()
-    assert read(path, f"SELECT {V1_COLUMNS} FROM events ORDER BY seq") == events
-    assert read(path, "SELECT version, payload_json FROM events ORDER BY seq") == [(1, "")] * 2
+    after = read(path, f"SELECT {V1_COLUMNS} FROM events ORDER BY seq")
+    assert after[:2] == events
+    assert [(row[1], row[3], row[4]) for row in after[2:]] == [("-", "migrate", "baseline")]  # the paid call
+    assert read(path, "SELECT version, payload_json FROM events ORDER BY seq")[:2] == [(1, "")] * 2
     assert Ledger(path).verify_chain()
 
 
@@ -268,7 +270,10 @@ def test_migrate_adds_the_new_tables_to_a_registry_at_the_baseline_and_keeps_eve
 
     assert migrate(path).revision == schema.head()
 
-    assert {table: read(path, query) for table, query in selects.items()} == rows
+    after = {table: read(path, query) for table, query in selects.items()}
+    events = rows.pop("events")
+    assert after.pop("events")[: len(events)] == events  # 0008 adds the baseline of the paid call
+    assert after == rows
     added = "run, phase, effort, duration_ms, ttft_ms, reasoning_tokens"
     assert read(path, f"SELECT {added} FROM usage") == [(None,) * 6]
     for table in ("runs", "judgments", "artifacts"):
@@ -506,11 +511,13 @@ def test_migration_binds_every_contract_idea_gate_and_proof_into_the_chain(
     before = read(path, columns)
     started = datetime.now(UTC).replace(microsecond=0)
 
-    assert migrate(path).revision == "0007"
+    with monkeypatch.context() as patch:
+        patch.setattr(schema, "MIGRATIONS", migrations_up_to(tmp_path, "0007"))
+        assert migrate(path).revision == "0007"
+        ledger = Ledger(path)
 
     events = read(path, columns)
     assert events[: len(before)] == before
-    ledger = Ledger(path)
     tickets = ledger.tickets("prova")
     assert [row.id for row in tickets] == [ticket for ticket, *_ in BEFORE_0006]
     bound = [
@@ -540,3 +547,74 @@ def test_migration_binds_every_contract_idea_gate_and_proof_into_the_chain(
     assert started <= datetime.fromisoformat(stamp) <= datetime.now(UTC)
     assert ledger.verify_chain()
     assert ledger.replay_mismatches() == []
+
+
+def at_revision_0007(path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A registry at revision 0007: the rows of `at_revision_0006` bound by 0007, then two paid calls, two
+    projects and a resume record that no event binds, as the code before 0008 wrote them."""
+    at_revision_0006(path, tmp_path, monkeypatch)
+    with monkeypatch.context() as patch:
+        patch.setattr(schema, "MIGRATIONS", migrations_up_to(tmp_path, "0007"))
+        migrate(path)
+    with closing(sqlite3.connect(path)) as connection:
+        connection.execute(USAGE)  # a call from before M1.6: its measures stay empty
+        connection.execute(
+            "INSERT INTO usage (at, project, ticket_id, role, instance, model, input_tokens, output_tokens,"
+            " cache_read_tokens, cache_write_5m_tokens, cache_write_1h_tokens, cost_usd, stop_reason,"
+            " request_id, run, phase, effort, duration_ms, ttft_ms, reasoning_tokens) VALUES"
+            " ('2026-11-01T12:00:00+00:00', 'prova', 'T-0002', 'qa-inspector', 'j', 'claude-sonnet-5-5', 900,"
+            " 40, 800, 0, 100, 0.0042, 'end_turn', 'req_2', 1, 'qa', 'high', 1300, 210, 12)"
+        )
+        connection.execute("INSERT INTO projects VALUES ('zeta', 12.5, '', '')")
+        connection.execute("INSERT INTO projects VALUES ('prova', 30, 'claude-opus-5-5', 'high')")
+        connection.execute(
+            "INSERT INTO operations VALUES ('i:t1', 'i', 'view_image', '{}', '2026-11-01T12:00:00+00:00')"
+        )
+        connection.commit()
+
+
+def inserts(path: Path) -> list[str]:
+    """Every row of every table but Alembic's, as the SQL literal that restores it: the same text is the same
+    stored value."""
+    with closing(sqlite3.connect(path)) as connection:
+        lines = connection.iterdump()
+        alembic = 'INSERT INTO "alembic_version"'
+        return [line for line in lines if line.startswith("INSERT INTO") and not line.startswith(alembic)]
+
+
+def test_migration_binds_every_cost_and_budget_into_the_chain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One baseline event per paid call, in seq order, and one per project, in name order, binds the row as it
+    is, outside any ticket's history; `operations` becomes append-only. No row is rewritten (2.F65,
+    ADR-0050)."""
+    path = tmp_path / "l.sqlite"
+    at_revision_0007(path, tmp_path, monkeypatch)
+    columns = f"SELECT {V1_COLUMNS}, version, payload_json FROM events ORDER BY seq"
+    before, rows = read(path, columns), inserts(path)
+    started = datetime.now(UTC).replace(microsecond=0)
+
+    assert migrate(path).revision == "0008"
+
+    after = inserts(path)
+    assert [line for line in rows if line not in after] == []
+    new = [line for line in after if line not in rows]
+    assert [line.split(" VALUES")[0] for line in new] == ['INSERT INTO "events"'] * 4
+    events = read(path, columns)
+    assert events[: len(before)] == before
+    ledger = Ledger(path)
+    bound = [{"usage": row.model_dump()} for row in ledger.usage("prova")]
+    bound += [{"project": row.model_dump()} for row in map(ledger.project, ("prova", "zeta")) if row]
+    added = events[len(before) :]
+    assert [(row[1], row[3], row[4], row[5], row[8]) for row in added] == [
+        ("-", "migrate", "baseline", "", 2)
+    ] * 4
+    assert [row[9] for row in added] == [chain.canonical(binding) for binding in bound]
+    assert json.loads(added[0][9])["usage"]["run"] is None
+    assert json.loads(added[2][9])["project"]["budget_usd"] == 30.0
+    (stamp,) = {row[2] for row in added}
+    assert started <= datetime.fromisoformat(stamp) <= datetime.now(UTC)
+    assert ledger.verify_chain()
+    assert ledger.replay_mismatches() == []
+    triggers = read(path, "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'operations'")
+    assert sorted(triggers) == [("operations_no_delete",), ("operations_no_update",)]

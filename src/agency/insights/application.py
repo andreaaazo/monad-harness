@@ -27,7 +27,7 @@ from agency.insights.views import ProjectReport, ProjectSummary, project_report,
 
 # La revisione del registro che insights sa leggere. Un test la confronta con l'ultima migrazione:
 # una migrazione nuova obbliga a guardare se cambia qualcosa per chi legge.
-READS_REVISION = "0007"
+READS_REVISION = "0008"
 
 
 class RegistryNotReadable(Exception):

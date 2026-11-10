@@ -1346,13 +1346,20 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   text (an API or proxy body, systemd's output) still starts a new terminal line that can look like the CLI's own.
   Fix: a `one_line` variant that also folds `\n` and `\t` to a space, for messages that are one line by design.
   Found in the B6 batch. Not covered by a planned task.
-- [ ] **Task 2.F65: the tables that do not decide a delivery are outside the hash chain, some without triggers.**
+- [x] **Task 2.F65: the tables that do not decide a delivery are outside the hash chain, some without triggers.**
   As of the B10 batch (ADR-0049): `projects` (budget, model, effort) and `operations` (the resume records of the
   tools) have neither triggers nor chain; `usage` (which feeds `spent()` and the budget), `renders`, `derivations`,
   `runs`, `judgments` and `artifacts` rely on their `*_no_update`/`*_no_delete` triggers alone, which one `DROP
   TRIGGER` removes, and `agency verify` cannot see a bypass. ADR-0049 chained what decides a delivery; these decide
   money, resumption and records. Fix: needs the owner's call on scope (chain `usage` and `projects`, the two that
   change money, like ADR-0049; triggers for `operations`). Found in the B10 batch. Not covered by a planned task.
+- [x] **Task 2.F66: `renders`, `derivations` and the `view_image` records feed delivery checks but are not chained.**
+  Found in the B11 batch: `_seen_proof` and `derivation_problem` read them, comparing their hashes with the current
+  file's. After ADR-0050 they are append-only (`renders`, `derivations` by their triggers, `operations` by the new
+  ones) but not bound by the chain, so a row INSERTed by hand with the right hash would pass. Decided (2026-11-10):
+  accepted and recorded in ADR-0050. Forging one needs write access to the registry file on the operator's machine,
+  and each row must still match the current file's hash; these rows guard what the agent looked at, not what the
+  client approved, which ADR-0049/0050 chain. Revisit if the registry ever leaves the operator's machine (M7).
 
 ## Phase 3: comments and language (Q14–Q16)
 

@@ -16,7 +16,7 @@ test("la pagina dei progetti elenca il registro e dice da dove vengono i dati", 
   const row = page.getByRole("row", { name: new RegExp(PROJECT) });
   await expect(row).toContainText("10,80 $");
   await expect(row).toContainText("20,00 $");
-  await expect(page.getByLabel("Provenienza dei dati")).toContainText("revisione 0007");
+  await expect(page.getByLabel("Provenienza dei dati")).toContainText("revisione 0008");
 });
 
 test("vista Run: quanto è costato, quanto è durato, chi ha lavorato quando", async ({ page }) => {

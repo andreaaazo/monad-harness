@@ -15,7 +15,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from agency.contracts.artifact import ArtifactMissing, ArtifactStore, Origin
-from agency.contracts.files import open_under
+from agency.contracts.files import OutsidePerimeter, ensure_dir_under, open_under
 from agency.ledger import Ledger
 from agency.ledger.models import ArtifactRow
 from agency.ledger.store import now
@@ -87,7 +87,9 @@ def find(ledger: Ledger, prefix: str) -> list[ArtifactRow]:
     return rows
 
 
-def restore(store: ArtifactStore, ledger: Ledger, prefix: str, destination: Path) -> list[ArtifactRow]:
+def restore(
+    store: ArtifactStore, ledger: Ledger, prefix: str, destination: Path, *, projects_dir: Path
+) -> list[ArtifactRow]:
     """Copia la versione in un file nuovo. Non sovrascrive mai: il file che c'è potrebbe essere l'unico."""
     rows = find(ledger, prefix)
     digest = rows[0].sha256
@@ -99,7 +101,7 @@ def restore(store: ArtifactStore, ledger: Ledger, prefix: str, destination: Path
             f"la versione {digest[:12]} manca dal deposito: agency verify dice quali"
         ) from None
     with original:
-        destination.parent.mkdir(parents=True, exist_ok=True)
+        _make_parents(destination, projects_dir)
         # Creazione esclusiva: nessuna corsa con chi scrive nello stesso posto nello stesso momento.
         try:
             copy = destination.open("xb")
@@ -114,6 +116,26 @@ def restore(store: ArtifactStore, ledger: Ledger, prefix: str, destination: Path
         destination.unlink()
         raise CannotRestore(f"la versione {digest[:12]} nel deposito è danneggiata: agency verify dice quali")
     return rows
+
+
+def _make_parents(destination: Path, projects_dir: Path) -> None:
+    """Creates the folders of `destination`; a link a sandbox left below the projects folder is refused.
+
+    Elsewhere the path is the operator's own layout (a symlinked home, say) and links are followed.
+    """
+    parent = destination.absolute().parent
+    for root in (projects_dir.absolute(), projects_dir.resolve()):
+        if parent == root or root in parent.parents:
+            parts = parent.relative_to(root).parts
+            try:
+                if parts:
+                    ensure_dir_under(root, "/".join(parts))
+                else:
+                    root.mkdir(parents=True, exist_ok=True)
+            except OutsidePerimeter as exc:
+                raise CannotRestore(str(exc)) from exc
+            return
+    parent.mkdir(parents=True, exist_ok=True)
 
 
 def damaged(store: ArtifactStore, ledger: Ledger) -> list[ArtifactRow]:

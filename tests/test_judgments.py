@@ -479,3 +479,58 @@ def test_judge_board_cannot_draw_host_files(
     assert cli.main(["judge", *map(str, paths), "--judge", "andrea"]) == 1
 
     assert reds == [0]
+
+
+def linked_work(tmp_path: Path, kind: str) -> tuple[list[Path], Path]:
+    """Two projects' files, the first one reached through a link a sandbox left in its work folder."""
+    host = tmp_path / "host"
+    host.mkdir()
+    (host / "segno.svg").write_text(MERLO, encoding="utf-8")
+    other = files(tmp_path, {"projects/merlo3/work/exports/segno.svg": MERLO3})[0]
+    exports = tmp_path / "projects/merlo/work/exports"
+    exports.parent.mkdir(parents=True)
+    if kind == "file":
+        exports.mkdir()
+        (exports / "segno.svg").symlink_to(host / "segno.svg")
+    else:
+        exports.symlink_to(host, target_is_directory=True)
+    return [exports / "segno.svg", other], host
+
+
+@pytest.mark.parametrize("kind", ["file", "folder"])
+def test_a_link_in_a_projects_work_folder_is_not_read_or_hashed(tmp_path: Path, kind: str) -> None:
+    paths, _ = linked_work(tmp_path, kind)
+    with pytest.raises(blind.CannotCompare, match="fuori dalla cartella del lavoro"):
+        blind.candidates(paths, tmp_path / "projects")
+
+
+def test_a_file_swapped_for_a_link_before_the_copy_is_not_copied(tmp_path: Path) -> None:
+    found = blind.candidates(two_projects(tmp_path), tmp_path / "projects")
+    target = found[0].path
+    host = tmp_path / "host.svg"  # the same bytes: only the link differs
+    host.write_text(target.read_text(encoding="utf-8"), encoding="utf-8")
+    target.unlink()
+    target.symlink_to(host)
+    with pytest.raises(blind.CannotCompare, match="fuori dalla cartella del lavoro"):
+        blind.lay_out(blind.assign(found, random.Random(1)), tmp_path / "blind" / "s")
+
+
+@pytest.mark.parametrize("name", ["Merlo", "merlo_3", "-merlo"])
+def test_a_folder_that_is_not_a_project_name_is_no_project(tmp_path: Path, name: str) -> None:
+    (path,) = files(tmp_path, {f"projects/{name}/work/exports/segno.svg": MERLO})
+    (candidate,) = blind.candidates([path], tmp_path / "projects")
+    assert (candidate.judged.project, candidate.judged.file) == ("", str(path.resolve()))
+
+
+def test_a_file_loose_in_the_projects_folder_is_no_project(tmp_path: Path) -> None:
+    (path,) = files(tmp_path, {"projects/logo": MERLO})
+    (candidate,) = blind.candidates([path], tmp_path / "projects")
+    assert (candidate.judged.project, candidate.judged.file) == ("", str(path.resolve()))
+
+
+def test_a_projects_folder_reached_through_a_link_is_still_the_projects_folder(tmp_path: Path) -> None:
+    (path,) = files(tmp_path, {"real/merlo/work/exports/segno.svg": MERLO})
+    (tmp_path / "projects").symlink_to(tmp_path / "real", target_is_directory=True)
+    for given in (path, tmp_path / "projects/merlo/work/exports/segno.svg"):
+        (candidate,) = blind.candidates([given], tmp_path / "projects")
+        assert (candidate.judged.project, candidate.judged.file) == ("merlo", "exports/segno.svg")

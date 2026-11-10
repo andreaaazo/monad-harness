@@ -1044,10 +1044,10 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   globs in `validate_review` (:103) and `expected` (:121) list a linked host folder, and its file names reach the
   delivery messages. The `exists()` and `is_file()` checks (:82, :125, :131, :198, :222, :225) stat through links but
   read nothing, and every open after them goes through the helper.
-- [ ] **Task 2.F19: `restore` creates the destination's folders through links.** artifacts/keeping.py:96-99.
+- [x] **Task 2.F19: `restore` creates the destination's folders through links.** artifacts/keeping.py:96-99.
   `open("xb")` refuses a link as the last component, but `destination.parent.mkdir(parents=True)` follows one higher
   up when the operator restores into a work folder. Closed by Task 2.2 (named).
-- [ ] **Task 2.F20: `agency judge` copies work files through links.** evaluation/blind.py:84. `shutil.copyfile` of each
+- [x] **Task 2.F20: `agency judge` copies work files through links.** evaluation/blind.py:84. `shutil.copyfile` of each
   candidate reads through a link a sandbox left. Task 2.2's rule; evaluation/ is not on its list.
 - [ ] **Task 2.F21: a FIFO planted where the harness reads blocks the harness.** tools/files.py (`read_under`,
   `sha256_under`) and every plain read above. `os.open(..., O_RDONLY)` on a FIFO waits for a writer that never comes:
@@ -1057,7 +1057,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   2.2). `sha256(work_dir(project) / file)` reads `presentation/r<n>/presentazione.pdf` on a raw join, so a link left
   at `presentation/` or at the PDF makes the gate record the hash of a host file. Found by Task 2.2. Task 2.2's rule;
   workflow.py is not on its list.
-- [ ] **Task 2.F23: `agency judge` resolves and hashes each candidate through links.** evaluation/blind.py:44 and :52
+- [x] **Task 2.F23: `agency judge` resolves and hashes each candidate through links.** evaluation/blind.py:44 and :52
   (as of Task 2.2). `path.resolve()` follows a link a sandbox left in the work folder the operator names, so the
   comparison hashes, copies (Task 2.F20) and keeps the file the link points to. Found by Task 2.2. Task 2.2's rule;
   evaluation/ is not on its list, and it may not import `agency.tools` (ADR-0027), so the helper must be reachable
@@ -1243,7 +1243,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   validates every name at the CLI, `Session.start` and the API, but these three methods do not carry the type. Fix: take
   `ProjectName` and parse at the three call sites (`ToolContext.project` is a `str`). Related finding: COR-013. Found
   by Task 2.24. Not covered by a planned task.
-- [ ] **Task 2.F50: `agency judge` records the folder name under `projects/` as the project without the name rule.**
+- [x] **Task 2.F50: `agency judge` records the folder name under `projects/` as the project without the name rule.**
   evaluation/blind.py:55-61 (as of Task 2.24). `_judged` takes `project` from the first path part below the projects
   folder, and `keeping.keep(..., project=judged.project)` stores it. A folder such as `projects/Merlo` is therefore
   written into the registry as a project name that `parse_project_name` rejects, and the dashboard then answers 404 for

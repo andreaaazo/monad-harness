@@ -400,7 +400,7 @@ def _restore(args: argparse.Namespace) -> int:
     ledger, store = Ledger.existing(settings.ledger_path), FileStore(settings.artifacts_dir)
     destination = Path(args.destination)
     try:
-        rows = keeping.restore(store, ledger, args.hash, destination)
+        rows = keeping.restore(store, ledger, args.hash, destination, projects_dir=settings.projects_dir)
     except keeping.CannotRestore as exc:
         print(f"Ripristino non possibile: {exc}")
         return 1

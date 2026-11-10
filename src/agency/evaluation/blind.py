@@ -8,6 +8,7 @@ tavola dei critici: a una persona che giudica più volte, lettere ripetute direb
 from __future__ import annotations
 
 import hashlib
+import os
 import random
 import secrets
 import shutil
@@ -16,7 +17,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from agency.contracts.files import OutsidePerimeter, open_under, sha256_under
 from agency.contracts.judgment import Judged, Judgment, Level, Rating, below_the_top
+from agency.contracts.project import parse_project_name
 
 LETTERS = string.ascii_uppercase
 SAME = {"sì": True, "si": True, "no": False}
@@ -30,6 +33,9 @@ class CannotCompare(Exception):
 class Candidate:
     path: Path
     judged: Judged
+    # Set for a file under the projects folder: it is read relative to `root`, never through a link.
+    root: Path | None = None
+    relative: str = ""
 
 
 def candidates(paths: list[Path], projects_dir: Path) -> list[Candidate]:
@@ -41,7 +47,7 @@ def candidates(paths: list[Path], projects_dir: Path) -> list[Candidate]:
     kinds = sorted({path.suffix.lower() for path in paths})
     if len(kinds) > 1:
         raise CannotCompare(f"tipi diversi ({', '.join(kinds)}): si confrontano file dello stesso tipo")
-    found = [Candidate(path.resolve(), _judged(path.resolve(), projects_dir.resolve())) for path in paths]
+    found = [_candidate(path, projects_dir) for path in paths]
     hashes = [candidate.judged.sha256 for candidate in found]
     if len(set(hashes)) < len(hashes):
         raise CannotCompare("due file sono identici: lo stesso contenuto avrebbe due voti")
@@ -52,13 +58,46 @@ def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _judged(path: Path, projects_dir: Path) -> Judged:
-    digest = _digest(path)
-    if projects_dir not in path.parent.parents:  # un file sciolto in projects/ non è di nessun progetto
-        return Judged(project="", file=str(path), sha256=digest)
-    project, *rest = path.relative_to(projects_dir).parts
-    inside = rest[1:] if rest[:1] == ["work"] else rest
-    return Judged(project=project, file="/".join(inside), sha256=digest)
+def _below(path: Path, projects_dir: Path) -> tuple[Path, tuple[str, ...]] | None:
+    """The projects folder and the parts of `path` below it, or None for a file elsewhere.
+
+    The path is only made absolute, never resolved: the sandbox can leave a link anywhere below the folder.
+    """
+    absolute = path.absolute()
+    for root in (projects_dir.absolute(), projects_dir.resolve()):
+        if root in absolute.parents:
+            return projects_dir.resolve(), absolute.relative_to(root).parts
+    return None
+
+
+def _candidate(path: Path, projects_dir: Path) -> Candidate:
+    below = _below(path, projects_dir)
+    if below is None:  # the operator's own file
+        resolved = path.resolve()
+        return Candidate(resolved, Judged(project="", file=str(resolved), sha256=_digest(resolved)))
+    root, parts = below
+    relative = "/".join(parts)
+    try:
+        digest = sha256_under(root, relative)
+    except OutsidePerimeter as exc:
+        raise CannotCompare(str(exc)) from exc
+    # A file loose in projects/, or in a folder that is not a project name, belongs to no project.
+    if len(parts) < 2 or not _is_project_name(parts[0]):
+        return Candidate(
+            root / relative, Judged(project="", file=str(root / relative), sha256=digest), root, relative
+        )
+    inside = parts[2:] if parts[1] == "work" else parts[1:]
+    return Candidate(
+        root / relative, Judged(project=parts[0], file="/".join(inside), sha256=digest), root, relative
+    )
+
+
+def _is_project_name(text: str) -> bool:
+    try:
+        parse_project_name(text)
+    except ValueError:
+        return False
+    return True
 
 
 def comparison_id() -> str:
@@ -81,11 +120,23 @@ def lay_out(assigned: dict[str, Candidate], folder: Path) -> list[Path]:
     copies = []
     for letter, candidate in assigned.items():
         copy = folder / f"{letter}{candidate.path.suffix.lower()}"
-        shutil.copyfile(candidate.path, copy)
+        _copy(candidate, copy)
         if _digest(copy) != candidate.judged.sha256:
             raise CannotCompare(f"{candidate.path} è cambiato mentre lo copiavo: riprova quando è fermo")
         copies.append(copy)
     return copies
+
+
+def _copy(candidate: Candidate, copy: Path) -> None:
+    if candidate.root is None:
+        shutil.copyfile(candidate.path, copy)
+        return
+    try:
+        source = os.fdopen(open_under(candidate.root, candidate.relative, os.O_RDONLY), "rb")
+    except OutsidePerimeter as exc:
+        raise CannotCompare(str(exc)) from exc
+    with source, copy.open("xb") as target:
+        shutil.copyfileobj(source, target)
 
 
 def changed(assigned: dict[str, Candidate], copies: list[Path]) -> list[str]:

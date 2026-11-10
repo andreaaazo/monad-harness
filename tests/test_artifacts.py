@@ -356,3 +356,35 @@ def test_verify_finds_a_damaged_artifact(
     assert cli.main(["verify"]) == 1
     out = capsys.readouterr().out
     assert "ARTEFATTI DANNEGGIATI" in out and digest[:12] in out and "source/segno.vectorcraft" in out
+
+
+def test_restore_refuses_a_link_inside_the_projects_folder(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    (tmp_path / "projects/merlo4/work/exports").symlink_to(host, target_is_directory=True)
+    target = tmp_path / "projects/merlo4/work/exports/nuova/segno.vectorcraft"
+    assert cli.main(["restore", digest, str(target)]) == 1
+    assert list(host.iterdir()) == []
+    assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
+
+
+def test_restore_follows_a_link_outside_the_projects_folder(studio: Settings, tmp_path: Path) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    real = tmp_path / "real-home"
+    real.mkdir()
+    (tmp_path / "home").symlink_to(real, target_is_directory=True)
+    assert cli.main(["restore", digest, str(tmp_path / "home/nuova/segno.vectorcraft")]) == 0
+    assert (real / "nuova/segno.vectorcraft").read_bytes() == b"master"
+
+
+def test_restore_creates_the_missing_folders_inside_the_projects_folder(
+    studio: Settings, tmp_path: Path
+) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    assert cli.main(["restore", digest, str(tmp_path / "projects/merlo4/work/nuova/segno.vectorcraft")]) == 0
+    assert cli.main(["restore", digest, str(tmp_path / "projects/segno.vectorcraft")]) == 0
+    assert (tmp_path / "projects/merlo4/work/nuova/segno.vectorcraft").read_bytes() == b"master"
+    assert (tmp_path / "projects/segno.vectorcraft").read_bytes() == b"master"

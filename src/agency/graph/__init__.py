@@ -1,1 +1,1 @@
-"""Processo dello studio su LangGraph: chi lavora, quando ci si ferma, come si riprende."""
+"""The studio's process on LangGraph: who works, when the work stops, how it resumes."""

@@ -1,11 +1,11 @@
-"""Il processo dello studio: prima si cerca l'idea, poi si costruisce.
+"""The studio's process: first the idea is found, then it is built.
 
-dentro lo studio: esploratori che pensano disegnando, in parallelo → tavola anonima → primo sguardo del
-critico → scelta delle idee → proposte in parallelo
-davanti al cliente: presentazione → gate `concept` → rifinitura → revisioni → gate `final`
+inside the studio: explorers who think by drawing, in parallel → anonymous board → the critic's first
+look → choice of ideas → proposals in parallel
+in front of the client: presentation → `concept` gate → finishing → revisions → `final` gate
 
-Il grafo sa dove siamo; il registro sa cosa è successo. Alla ripresa un nodo si riesegue da capo: il
-lavoro già concluso non si ripete perché ogni istanza ha un nome stabile e una trascrizione propria.
+The graph knows where the work is; the registry knows what happened. On resume a node runs again from the
+start: finished work is not repeated, because each instance has a stable name and its own transcript.
 """
 
 from __future__ import annotations
@@ -48,6 +48,9 @@ SKETCH_CHECKS = {"*.vectorcraft": ["master_open"], "*.png": ["visual_review"]}
 
 
 class ProjectState(TypedDict):
+    """The graph's state, kept in the checkpoint. Any `outcome` text ends the run; `route` is a node's choice
+    of the next one."""
+
     project: str
     root: str
     round: int
@@ -80,10 +83,12 @@ def _copy(work: Path, source: str, target: str, limit: int) -> None:
 def build(
     runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer: BaseCheckpointSaver
 ) -> Graph:
+    """The compiled studio graph. `checkpointer` keeps its state, so a run stopped at a gate resumes."""
+
     def work_dir(project: str):
         return settings.project_dir(parse_project_name(project)) / "work"
 
-    # Esplorazione
+    # Exploration
 
     def plan(state: ProjectState) -> dict:
         turn = state["exploration"] + 1
@@ -108,7 +113,7 @@ def build(
         runner.run(state["ticket"], _attempt(ledger, state["ticket"]))
         return {}
 
-    # Scelta
+    # Selection
 
     def make_board(state: ProjectState) -> dict:
         project, turn = state["project"], state["exploration"]
@@ -160,7 +165,7 @@ def build(
         return {}
 
     def select(state: ProjectState) -> dict:
-        """La scelta tra gli schizzi è dello studio: il cliente non li vede mai."""
+        """The choice among the sketches is the studio's: the client never sees them."""
         project, turn = state["project"], state["exploration"]
         work = work_dir(project)
         lines = ["# Schede delle idee", ""]
@@ -199,7 +204,7 @@ def build(
             return {"route": "plan", "client_note": f"Le idee precedenti non reggono: {reasons}"}
         return {"route": END, "outcome": f"bloccato: {outcome.note[:300]}"}
 
-    # Proposte: le idee scelte diventano lavoro presentabile, nel loro contesto
+    # Proposals: the chosen ideas become presentable work, in their context
 
     def _proposal_tickets(state: ProjectState) -> list[str]:
         suffix = f"r{state['exploration']}"
@@ -297,9 +302,7 @@ def build(
         if not ready:
             return {"route": END, "outcome": "bloccato: nessuna proposta è stata sviluppata"}
         outcome = runner.run(root, turn, "\n".join(lines), mode="present")
-        if (
-            outcome.state is OutcomeState.PRESENTED
-        ):  # il PDF esiste già: il direttore ne ha guardato ogni pagina
+        if outcome.state is OutcomeState.PRESENTED:  # the PDF exists, and the director viewed every page
             return {"route": "concept_gate", "client_note": outcome.note}
         if outcome.state is OutcomeState.NO_CONCEPT:
             reasons = PresentConcepts.model_validate_json(outcome.note).reasons
@@ -309,10 +312,8 @@ def build(
     def concept_gate(state: ProjectState) -> dict:
         project, turn = state["project"], state["exploration"]
         selection = PresentConcepts.model_validate_json(state["client_note"])
-        if (
-            selection.recommended is None
-        ):  # draft_presentation non manda al cliente proposte senza raccomandazione
-            raise ValueError("presentazione senza raccomandazione: non si arriva al gate")
+        if selection.recommended is None:  # draft_presentation refuses a draft without a recommendation
+            raise ValueError("a presentation without a recommendation never reaches the gate")
         options = [item.letter for item in selection.proposals]
         file = presentation.pdf_of(turn)
         gate = ConceptGate(
@@ -346,15 +347,15 @@ def build(
     def follow_route(state: ProjectState) -> str:
         return state["route"]
 
-    # Produzione
+    # Production
 
     def start_production(state: ProjectState) -> dict:
-        """Il finisher parte dalla proposta approvata: il suo master è già quello scelto dal cliente."""
+        """The finisher starts from the approved proposal: its master is already the one the client chose."""
         project, turn, root = state["project"], state["exploration"], state["root"]
         spec = ledger.spec(root)
         row = next(item for item in ledger.concepts(project, turn) if item.anon == state["chosen"])
         ledger.update_concept(row.idea_ticket, status="scelta")
-        title = f"Rifinitura {row.anon} r{turn}"  # un concetto bocciato lascia il posto al nuovo
+        title = f"Rifinitura {row.anon} r{turn}"  # per round: a rejected concept makes way for the new one
         if any(ledger.spec(ticket).title == title for ticket in ledger.children(root)):
             return {"client_note": ""}
         letter = row.anon.lower()
@@ -390,7 +391,7 @@ def build(
         root, turn = state["root"], state["round"] + 1
         status, _ = ledger.status(root)
         if status in RUNNABLE:
-            # Ogni turno del direttore è una nuova istanza: nessuno resta fermo ad aspettare.
+            # Each of the director's turns is a new instance: nobody sits waiting.
             outcome = runner.run(root, turn, state["client_note"])
             if outcome.state is OutcomeState.BLOCKED:
                 return {"round": turn, "outcome": f"bloccato: {outcome.note}"}

@@ -1412,7 +1412,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
 - [x] **Task 3.9: `src/agency/gateway/`.** Closes CMT-009 and CMT-011 (`transport.py:70`, `client.py:167`) for this
   package, and its CMT-014 items.
   - Commit: `docs(gateway): translate comments, docstrings and internal messages to English`.
-- [ ] **Task 3.10: `src/agency/graph/`.** Closes CMT-009 and CMT-011 (`workflow.py:291`) for this package.
+- [x] **Task 3.10: `src/agency/graph/`.** Closes CMT-009 and CMT-011 (`workflow.py:291`) for this package.
   - Keep the ticket texts and outcomes.
   - Commit: `docs(graph): translate comments, docstrings and internal messages to English`.
 - [ ] **Task 3.11: `src/agency/insights/`, apart from 3.2.** Closes CMT-009 for this package, CMT-005 and CMT-019.

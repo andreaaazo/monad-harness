@@ -24,6 +24,7 @@ from agency.contracts.artifact import ArtifactStore, Origin
 from agency.contracts.concept import ConceptCard
 from agency.contracts.media import media_type, open_image
 from agency.contracts.outcome import Outcome, OutcomeState
+from agency.contracts.project import parse_project_name
 from agency.contracts.ticket import REVIEWERS, Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.ledger import ForbiddenAction, IllegalTransition, Ledger
 from agency.ledger.models import ConceptRow
@@ -419,7 +420,7 @@ def craft_run(ctx: ToolContext, a: CraftRun, operation_id: str) -> dict:
     safe = "".join(c if c.isalnum() else "_" for c in operation_id)
     if ctx.sandbox.ops is None or ctx.settings is None:
         raise Refused(NO_OPS.format(tool="craft_run"))
-    records = ctx.settings.layout.ops_records(ctx.project, ctx.instance)
+    records = ctx.settings.layout.ops_records(parse_project_name(ctx.project), ctx.instance)
     result = craft.run_steps(ctx.sandbox, ctx.index, a.document, a.steps, safe, records)
     if not result.get("ok"):
         raise Refused(result.get("error", "esecuzione fallita"))
@@ -758,7 +759,7 @@ def rate_board(ctx: ToolContext, a: RateBoard, _: str) -> dict:
     assert ctx.settings is not None
     data = json.dumps([item.model_dump() for item in a.ratings], ensure_ascii=False).encode("utf-8")
     # The harness copy is the one `select_concepts` trusts: the sandbox can write the one in the work folder.
-    kept = ctx.settings.layout.ratings(ctx.project, ctx.round)
+    kept = ctx.settings.layout.ratings(parse_project_name(ctx.project), ctx.round)
     kept.parent.mkdir(parents=True, exist_ok=True)
     replace_under(kept.parent, kept.name, data)
     ensure_dir_under(ctx.work, "reviews")
@@ -775,7 +776,7 @@ def select_concepts(ctx: ToolContext, a: SelectConcepts, _: str) -> dict:
         raise Refused("si sviluppano al massimo 3 idee: sceglierne di più significa non aver scelto")
     if a.chosen:
         assert ctx.settings is not None
-        kept = ctx.settings.layout.ratings(ctx.project, ctx.round)
+        kept = ctx.settings.layout.ratings(parse_project_name(ctx.project), ctx.round)
         if not kept.is_file():
             raise Refused(f"la tavola del giro {ctx.round} non è stata valutata con rate_board")
         passed = {item["letter"] for item in json.loads(kept.read_text(encoding="utf-8")) if item["passes"]}

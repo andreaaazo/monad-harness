@@ -832,7 +832,7 @@ def test_director_cannot_choose_what_failed_the_first_look(tmp_path: Path) -> No
         )
     box = Toolbox(ctx, [TOOLS["select_concepts"]])
     assert box.call("a", "select_concepts", {"chosen": ["X"], "reasons": "r"})["is_error"]
-    verdicts = settings(tmp_path).layout.ratings("p", 1)
+    verdicts = settings(tmp_path).layout.ratings(ProjectName("p"), 1)
     verdicts.parent.mkdir(parents=True)
     rated = [
         {"letter": "X", "first_look": "Un tasto", "passes": False},
@@ -894,7 +894,7 @@ def test_select_concepts_refuses_more_than_three(tmp_path: Path) -> None:
         ctx.ledger.add_concept(
             ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket=f"T-{letter}", anon=anon)
         )
-    verdicts = settings(tmp_path).layout.ratings("p", 1)
+    verdicts = settings(tmp_path).layout.ratings(ProjectName("p"), 1)
     verdicts.parent.mkdir(parents=True)
     passed = [{"letter": anon, "first_look": "Un segno", "passes": True} for anon in anons.values()]
     verdicts.write_text(json.dumps(passed))
@@ -1013,7 +1013,7 @@ def test_finisher_cannot_explore(tmp_path: Path) -> None:
     ticket = ledger.open(spec, "p")
     index = CommandIndex.load(tmp_path / "index")
     config = settings(tmp_path)
-    inputs = config.layout.ops_inputs("p", "i")
+    inputs = config.layout.ops_inputs(ProjectName("p"), "i")
     inputs.mkdir(parents=True)
     sandbox, store = Sandbox(tmp_path, ops=inputs), FileStore(tmp_path / "a")
     ctx = ToolContext("identity-designer", "p", ticket, "i", ledger, sandbox, index, store, settings=config)

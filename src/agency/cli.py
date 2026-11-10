@@ -23,6 +23,7 @@ from agency.contracts.files import MAX_IMAGE_FILE_BYTES, OutsidePerimeter, read_
 from agency.contracts.gate import ConceptGate
 from agency.contracts.layout import RelativeDataRoot
 from agency.contracts.project import ProjectName, parse_project_name
+from agency.contracts.text import one_line
 from agency.doctor import run_checks
 from agency.evaluation import blind, board
 from agency.gateway import BudgetExceeded
@@ -72,6 +73,25 @@ def _busy(project: str) -> str:
     return f"Un altro processo sta già lavorando sul progetto {project}: attendi che finisca e riprova"
 
 
+MIGRATING = "agency migrate sta aggiornando il registro: attendi che finisca e riprova"
+REGISTRY_BUSY = "Un altro processo sta lavorando sul registro: attendi che finisca e riprova"
+
+
+def _busy_project(settings: Settings) -> str | None:
+    """The first project some process is working on, or None when no project claim is held."""
+    from agency.runtime import ProjectBusy, ProjectLock
+
+    for lock in sorted(settings.layout.locks.glob("*.lock")):
+        if lock == settings.layout.registry_lock:
+            continue
+        try:
+            with ProjectLock(lock):
+                pass
+        except ProjectBusy:
+            return lock.stem
+    return None
+
+
 def _migrate(_: argparse.Namespace) -> int:
     settings = Settings()
     path = settings.ledger_path
@@ -81,9 +101,16 @@ def _migrate(_: argparse.Namespace) -> int:
     from agency.runtime import ProjectBusy, ProjectLock
 
     try:
-        with ExitStack() as claims:  # every project, until the migration ends: it rewrites the whole registry
+        with ExitStack() as claims:  # the whole registry, then every project: the migration rewrites it all
+            try:
+                claims.enter_context(ProjectLock(settings.layout.registry_lock))
+            except ProjectBusy:  # a command is working: say on which project when one holds its claim
+                busy = _busy_project(settings)
+                print(_busy(busy) if busy else REGISTRY_BUSY)
+                return 1
             for lock in sorted(settings.layout.locks.glob("*.lock")):
-                claims.enter_context(ProjectLock(lock))
+                if lock != settings.layout.registry_lock:
+                    claims.enter_context(ProjectLock(lock))
             result = migrate(path)
     except ProjectBusy as busy:
         print(_busy(busy.args[0]))
@@ -137,12 +164,12 @@ def _guarded(project: ProjectName, session: Session, action: Callable[[], str]) 
         return 2
     except anthropic.APIError as exc:
         # The message carries the response body of the API, or of a proxy in between.
-        print(report.plain(f"\nAPI NON DISPONIBILE: {exc}. Il lavoro è salvato."))
+        print("\n" + one_line(f"API NON DISPONIBILE: {exc}. Il lavoro è salvato."))
         print(f"Per riprendere: agency resume {project}")
         return 3
     except SandboxUnavailable as exc:  # the client's decision is kept: the gate runs again on resume
         print(report.render(_report_of(session.settings, project)))
-        print(report.plain(f"\nSANDBOX NON DISPONIBILE: {exc}. Il lavoro è salvato."))
+        print("\n" + one_line(f"SANDBOX NON DISPONIBILE: {exc}. Il lavoro è salvato."))
         print(f"Per riprendere: agency resume {project}")
         return 4
     if outcome:
@@ -170,15 +197,23 @@ def _project(text: str) -> ProjectName:
 
 
 def _locked(project: str, body: Callable[[], int]) -> int:
-    """Run a command that writes a project's state while this process alone works on it (COR-005)."""
+    """Run a command that writes a project's state while this process alone works on it (COR-005), and
+    while no migration rewrites the registry under it (2.F63)."""
     from agency.runtime import ProjectBusy, ProjectLock
 
-    try:
-        with ProjectLock(Settings().layout.lock(project)):
-            return body()
-    except ProjectBusy:
-        print(_busy(project))
-        return 1
+    layout = Settings().layout
+    with ExitStack() as claims:
+        try:
+            claims.enter_context(ProjectLock(layout.registry_lock, shared=True))
+        except ProjectBusy:
+            print(MIGRATING)
+            return 1
+        try:
+            claims.enter_context(ProjectLock(layout.lock(parse_project_name(project))))
+        except ProjectBusy:
+            print(_busy(project))
+            return 1
+        return body()
 
 
 def _scope_refused() -> bool:
@@ -187,7 +222,7 @@ def _scope_refused() -> bool:
     reason = scope_problem()
     if reason is None:
         return False
-    print(report.plain(f"SANDBOX NON DISPONIBILE: {reason}. agency doctor dice come sistemarla"))
+    print(one_line(f"SANDBOX NON DISPONIBILE: {reason}. agency doctor dice come sistemarla"))
     return True
 
 
@@ -348,7 +383,7 @@ def _judge(args: argparse.Namespace) -> int:
     try:
         found = blind.candidates([Path(path) for path in args.files], settings.projects_dir)
     except blind.CannotCompare as exc:
-        print(report.plain(f"Confronto non possibile: {exc}"))
+        print(one_line(f"Confronto non possibile: {exc}"))
         return 1
     comparison = blind.comparison_id()
     assigned = blind.assign(found, random.SystemRandom())
@@ -382,7 +417,7 @@ def _judge(args: argparse.Namespace) -> int:
                 run=None,
             )
     except blind.CannotCompare as exc:
-        print(report.plain(f"Confronto non possibile: {exc}. Nulla registrato"))
+        print(one_line(f"Confronto non possibile: {exc}. Nulla registrato"))
         return 1
     except (EOFError, KeyboardInterrupt):
         print("\nGiudizio interrotto: nulla registrato")

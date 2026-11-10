@@ -1236,7 +1236,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   `model_context_window_exceeded`, so `StopCount.complete` is true for it and the Model page does not mark it as cut.
   Fix: add `malformed_stream` to `INCOMPLETE` (and its comment). Related finding: COR-011. Found by Task 2.23. Not
   covered by a planned task.
-- [ ] **Task 2.F49: `DataLayout.lock`, `ops_inputs` and `ops_records` still take a plain `str` project.**
+- [x] **Task 2.F49: `DataLayout.lock`, `ops_inputs` and `ops_records` still take a plain `str` project.**
   contracts/layout.py:86, :93 and :97, called from cli.py:147, agents/loop.py:96 and tools/surface.py:411 (as of Task
   2.24). They build paths from the project name exactly as `transcript` does (`locks/{project}.lock`, `ops/{project}/
   {instance}`), so a `str` that did not go through `parse_project_name` can still reach the filesystem. Task 2.24
@@ -1336,12 +1336,12 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   (`design-director`, `identity-designer`, `critic`) are the graph's own structure and are not flagged. Found in Task
   2.34. Not covered by a planned task.
   - Moved to Phase 6 (2026-11-10): a rule rebuilt from names, refactor rather than bug.
-- [ ] **Task 2.F63: `agency migrate` claims only the project locks that exist.** cli.py `_migrate` (as of the B6 batch:
+- [x] **Task 2.F63: `agency migrate` claims only the project locks that exist.** cli.py `_migrate` (as of the B6 batch:
   it globs `locks/*.lock`). A project's lock file is created by its first `run`, so a first `run` of a new project
   started during a migration takes no claim the migration holds; it then waits on the registry's write lock (busy
   timeout 30 s) or finds the registry outdated. Fix: a registry-wide claim that every `run`, `resume` and `decide`
   takes shared and `migrate` takes exclusive. Found in the B6 batch. Not covered by a planned task.
-- [ ] **Task 2.F64: `plain` keeps newlines in one-line messages.** contracts/text.py (`plain`) used by cli.py for
+- [x] **Task 2.F64: `plain` keeps newlines in one-line messages.** contracts/text.py (`plain`) used by cli.py for
   `API NON DISPONIBILE`, `SANDBOX NON DISPONIBILE` and `Confronto non possibile`. A newline inside the exception
   text (an API or proxy body, systemd's output) still starts a new terminal line that can look like the CLI's own.
   Fix: a `one_line` variant that also folds `\n` and `\t` to a space, for messages that are one line by design.

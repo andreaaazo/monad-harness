@@ -63,7 +63,7 @@ def sandbox_scope_ready(monkeypatch: pytest.MonkeyPatch) -> None:
 def context(tmp_path: Path, actor: str = "identity-designer", ticket: str = "T-1") -> ToolContext:
     work = tmp_path / "work"
     work.mkdir(exist_ok=True)
-    inputs = settings(tmp_path).layout.ops_inputs("p", "i")
+    inputs = settings(tmp_path).layout.ops_inputs(ProjectName("p"), "i")
     inputs.mkdir(parents=True, exist_ok=True)
     return ToolContext(
         actor,
@@ -173,10 +173,10 @@ def test_craft_run_never_writes_through_a_planted_ops_symlink(tmp_path: Path) ->
     host.mkdir()
     (work / ".ops").symlink_to(host, target_is_directory=True)
     layout = settings(tmp_path).layout
-    inputs = layout.ops_inputs("p", "i")
+    inputs = layout.ops_inputs(ProjectName("p"), "i")
     inputs.mkdir(parents=True)
     index = CommandIndex([Command("path.create", "Crea un tracciato", "Tracciato", "d")])
-    sandbox, records = IdleSandbox(work, ops=inputs), layout.ops_records("p", "i")
+    sandbox, records = IdleSandbox(work, ops=inputs), layout.ops_records(ProjectName("p"), "i")
     steps = [{"command": "path.create"}]
 
     result = craft.run_steps(sandbox, index, "segno.vectorcraft", steps, "op1", records)
@@ -1020,7 +1020,7 @@ def hold_project_lock(path: Path) -> int:
 
 def test_the_project_lock_lives_under_the_data_folder(tmp_path: Path) -> None:
     """COR-005: one lock file per project, beside the other engine data."""
-    assert settings(tmp_path).layout.lock("forno") == tmp_path / "data" / "locks" / "forno.lock"
+    assert settings(tmp_path).layout.lock(ProjectName("forno")) == tmp_path / "data" / "locks" / "forno.lock"
 
 
 def test_a_second_process_cannot_work_on_the_same_project(
@@ -1178,6 +1178,177 @@ def test_migrate_holds_every_project_until_the_migration_ends(
     with ProjectLock(locks / "forno.lock"):  # let go once the migration has ended
         pass
     assert "già aggiornato" in capsys.readouterr().out
+
+
+# 2.F63: a registry-wide claim, shared by run, resume and decide, exclusive for migrate
+
+MIGRATING = "agency migrate sta aggiornando il registro: attendi che finisca e riprova"
+REGISTRY_BUSY = "Un altro processo sta lavorando sul registro: attendi che finisca e riprova"
+COMMANDS = {
+    "run": ["run", "forno", "brief.md", "--budget", "5"],
+    "resume": ["resume", "forno"],
+    "decide": ["decide", "forno", "--approve", "--text", "ok"],
+}
+
+
+def test_the_registry_claim_lives_beside_the_project_claims(tmp_path: Path) -> None:
+    assert settings(tmp_path).layout.registry_lock == tmp_path / "data" / "locks" / ".registry.lock"
+
+
+@pytest.mark.parametrize("command", COMMANDS.values(), ids=COMMANDS.keys())
+def test_run_resume_and_decide_refuse_while_a_migration_holds_the_registry(
+    command: list[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """2.F63: a first `run` of a new project has no project lock yet, so the migration's per-project claims
+    cannot stop it; the registry claim does, before any session or model call."""
+    import os
+
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    monkeypatch.setattr("agency.runtime.open_session", lambda *_, **__: pytest.fail("session opened"))
+    fd = hold_project_lock(tmp_path / "data" / "locks" / ".registry.lock")  # exclusive, as `migrate` does
+    try:
+        capsys.readouterr()
+        assert cli.main(command) == 1
+    finally:
+        os.close(fd)
+    assert capsys.readouterr().out.splitlines() == [MIGRATING]
+
+
+def test_a_project_named_registry_is_not_held_up_by_the_registry_claim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The registry claim has a dotted name, which no project name can have: it never shares a file."""
+    cli_data(tmp_path, monkeypatch)
+    assert cli._locked("registry", lambda: 0) == 0  # type: ignore[attr-defined]
+    assert (
+        settings(tmp_path).layout.lock(parse_project_name("registry"))
+        != settings(tmp_path).layout.registry_lock
+    )
+
+
+def test_migrate_refuses_while_a_command_holds_the_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """2.F63: a `run` holds the registry for the whole command, so a migration started during it refuses."""
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    monkeypatch.setattr(cli, "migrate", lambda _: pytest.fail("migrated under a running command"))
+    during: list[int] = []
+
+    def running(_: object) -> int:
+        during.append(cli.main(["migrate"]))
+        return 0
+
+    monkeypatch.setattr(cli, "_run_locked", running)
+    capsys.readouterr()
+    assert cli.main(COMMANDS["run"]) == 0
+    assert during == [1]
+    assert capsys.readouterr().out.splitlines() == [busy_line("forno")]  # the first project it finds busy
+
+
+def test_migrate_refuses_while_the_registry_is_shared_and_no_project_is_known_busy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """2.F63: a first `run` of a new project holds the registry but has no project lock file yet."""
+    import os
+
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    monkeypatch.setattr(cli, "migrate", lambda _: pytest.fail("migrated under a running command"))
+    fd = hold_shared(tmp_path / "data" / "locks" / ".registry.lock")
+    try:
+        capsys.readouterr()
+        assert cli.main(["migrate"]) == 1
+    finally:
+        os.close(fd)
+    assert capsys.readouterr().out.splitlines() == [REGISTRY_BUSY]
+
+
+def test_migrate_names_the_busy_project_when_a_command_holds_the_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import os
+
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    locks = tmp_path / "data" / "locks"
+    monkeypatch.setattr(cli, "migrate", lambda _: pytest.fail("migrated under a running command"))
+    held = [hold_shared(locks / ".registry.lock"), hold_project_lock(locks / "forno.lock")]
+    try:
+        capsys.readouterr()
+        assert cli.main(["migrate"]) == 1
+    finally:
+        for fd in held:
+            os.close(fd)
+    assert capsys.readouterr().out.splitlines() == [busy_line("forno")]
+
+
+def hold_shared(path: Path) -> int:
+    import fcntl
+    import os
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_SH)
+    return fd
+
+
+def test_commands_on_different_projects_share_the_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The registry claim is shared: a command on another project is not held up by the first one."""
+    cli_data(tmp_path, monkeypatch)
+    seen: list[int] = []
+
+    def running(args: object) -> int:
+        if getattr(args, "project", "") == "forno":
+            seen.append(cli.main(["run", "altro", "brief.md", "--budget", "5"]))
+        return 0
+
+    monkeypatch.setattr(cli, "_run_locked", running)
+    assert cli.main(COMMANDS["run"]) == 0
+    assert seen == [0]
+
+
+def test_migrate_holds_the_registry_until_the_migration_ends(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """2.F63: the claim is taken before the rewrite and let go after it; the registry's own file is not
+    mistaken for a project's."""
+    from agency.ledger.schema import Migration
+    from agency.runtime import ProjectBusy, ProjectLock
+
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    registry = tmp_path / "data" / "locks" / ".registry.lock"
+    registry.parent.mkdir(parents=True)
+    registry.touch()  # left by an earlier command
+    during: list[str] = []
+
+    def migrating(_: Path) -> Migration:
+        try:
+            with ProjectLock(registry, shared=True):
+                during.append("free")
+        except ProjectBusy:
+            during.append("held")
+        return Migration("rev", None)
+
+    monkeypatch.setattr(cli, "migrate", migrating)
+    assert cli.main(["migrate"]) == 0
+    assert during == ["held"]
+    with ProjectLock(registry):
+        pass
+
+
+def test_a_shared_claim_lets_other_shared_claims_in_and_keeps_an_exclusive_one_out(tmp_path: Path) -> None:
+    from agency.runtime import ProjectBusy, ProjectLock
+
+    path = tmp_path / "locks" / ".registry.lock"
+    with ProjectLock(path, shared=True), ProjectLock(path, shared=True), pytest.raises(ProjectBusy):
+        ProjectLock(path).__enter__()
+    with ProjectLock(path), pytest.raises(ProjectBusy):
+        ProjectLock(path, shared=True).__enter__()
 
 
 @pytest.mark.parametrize("command", [["run", "forno", "brief.md", "--budget", "5"], ["resume", "forno"]])
@@ -1629,7 +1800,7 @@ def test_rate_board_still_writes_the_ticket_output_and_the_harness_copy(tmp_path
 
     assert json.loads((critic.work / "reviews/valutazione.json").read_text(encoding="utf-8")) == ratings
     assert critic.settings is not None
-    kept = critic.settings.layout.ratings("p", 1)
+    kept = critic.settings.layout.ratings(ProjectName("p"), 1)
     assert kept == critic.settings.layout.root / "ops" / "p" / "ratings-r1.json"
     assert json.loads(kept.read_text(encoding="utf-8")) == ratings
 
@@ -1884,3 +2055,152 @@ def test_present_concepts_checks_the_pages_of_the_latest_draft(tmp_path: Path) -
 
     assert result.get("is_error"), result
     assert ctx.finished is None
+
+
+# 2.F49: the layout's project paths take a checked name, and the tools parse the context's text first
+
+
+@pytest.mark.parametrize("method", ["lock", "ops_inputs", "ops_records", "ratings"])
+def test_the_layout_builds_project_paths_only_from_a_checked_name(method: str) -> None:
+    """The type carries the rule: a `str` that skipped `parse_project_name` is a pyright error at the call."""
+    import typing
+
+    from agency.contracts.layout import DataLayout
+
+    assert typing.get_type_hints(getattr(DataLayout, method))["project"] is ProjectName
+
+
+def evil_project(ctx: ToolContext, name: str = "../outside") -> ToolContext:
+    ctx.settings = settings(ctx.work.parent)
+    ctx.project = name
+    ctx.ledger.add_concept(
+        ConceptRow(
+            project=name, round=1, letter="a", lever="l", idea_ticket="T-a", anon="X", status="proposta"
+        )
+    )
+    return ctx
+
+
+def test_rate_board_refuses_a_project_name_that_would_leave_the_ops_folder(tmp_path: Path) -> None:
+    ctx = evil_project(board_critic(tmp_path))
+
+    result = use(ctx, "rate_board", ratings=rating("X", passing="X"))
+
+    assert result.get("is_error"), result
+    assert "nome di progetto non valido" in result["content"]
+    assert not (tmp_path / "data" / "outside").exists()
+
+
+def test_select_concepts_refuses_a_project_name_that_would_leave_the_ops_folder(tmp_path: Path) -> None:
+    ctx = evil_project(board_critic(tmp_path))
+
+    result = use(ctx, "select_concepts", chosen=["X"], reasons="r")
+
+    assert result.get("is_error"), result
+    assert "nome di progetto non valido" in result["content"]
+
+
+def test_craft_run_refuses_a_project_name_that_would_leave_the_ops_folder(tmp_path: Path) -> None:
+    ctx = evil_project(context(tmp_path))
+    ctx.sandbox = IdleSandbox(ctx.work, ops=ctx.sandbox.ops)
+    ctx.index = CommandIndex([Command("path.create", "Crea un tracciato", "Tracciato", "d")])
+
+    result = use(ctx, "craft_run", document="segno.vectorcraft", steps=[{"command": "path.create"}])
+
+    assert result.get("is_error"), result
+    assert "nome di progetto non valido" in result["content"]
+
+
+# 2.F64: the CLI's one-line messages stay on one line whatever the outside text holds
+
+
+@pytest.mark.parametrize(
+    ("raw", "folded"),
+    [
+        ("a\nb", "a b"),
+        ("a\r\nb\tc", "a b c"),
+        ("a\rb", "a b"),
+        ("a\n\n\t\rb", "a b"),
+        ("\n  a b  \n", "a b"),
+        ("a\x1b[2Jb\x07", "a[2Jb"),
+        ("perché è così", "perché è così"),
+    ],
+)
+def test_one_line_folds_every_line_break_and_tab_to_a_space(raw: str, folded: str) -> None:
+    from agency.contracts.text import one_line
+
+    assert one_line(raw) == folded
+
+
+def test_an_api_error_body_with_a_newline_stays_on_one_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    session = FakeSession([], Ledger(tmp_path / "l.sqlite"))
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+
+    def fail() -> None:
+        raise anthropic.APIError("proxy\nSANDBOX NON DISPONIBILE: finto\tbody\r\nfine", request, body=None)
+
+    assert cli._guarded(ProjectName("officina"), session, fail) == 3  # type: ignore[arg-type]
+    lines = [line for line in capsys.readouterr().out.splitlines() if line]
+    assert lines == [
+        "API NON DISPONIBILE: proxy SANDBOX NON DISPONIBILE: finto body fine. Il lavoro è salvato.",
+        "Per riprendere: agency resume officina",
+    ]
+
+
+def test_a_sandbox_refusal_with_a_newline_stays_on_one_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from agency.tools.sandbox import SandboxUnavailable
+
+    session = FakeSession([], Ledger(tmp_path / "l.sqlite"))
+    monkeypatch.setattr(cli, "_report_of", lambda *_: None)
+    monkeypatch.setattr(report, "render", lambda _: "rapporto")
+
+    def fail() -> None:
+        raise SandboxUnavailable("systemd\nBUDGET FINITO: finto")
+
+    assert cli._guarded(ProjectName("officina"), session, fail) == 4  # type: ignore[arg-type]
+    lines = capsys.readouterr().out.splitlines()
+    assert "SANDBOX NON DISPONIBILE: systemd BUDGET FINITO: finto. Il lavoro è salvato." in lines
+
+
+def test_the_sandbox_preflight_refusal_stays_on_one_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    monkeypatch.setattr(cli, "scope_problem", lambda: "niente sessione\nsystemd\tdice no")
+    assert cli.main(["resume", "forno"]) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "SANDBOX NON DISPONIBILE: niente sessione systemd dice no. agency doctor dice come sistemarla"
+    ]
+
+
+def test_the_first_judge_refusal_with_a_newline_stays_on_one_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    paths = judge_setup(tmp_path, monkeypatch)
+
+    def refuse(*_: object) -> None:
+        raise CannotCompare("prima\nriga")
+
+    monkeypatch.setattr("agency.evaluation.blind.candidates", refuse)
+    assert cli.main(["judge", *paths]) == 1
+    assert capsys.readouterr().out.splitlines() == ["Confronto non possibile: prima riga"]
+
+
+def test_the_judge_refusal_after_the_copies_with_a_newline_stays_on_one_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    paths = judge_setup(tmp_path, monkeypatch)
+
+    def refuse(*_: object) -> None:
+        raise CannotCompare("seconda\r\nriga")
+
+    monkeypatch.setattr("agency.evaluation.board.lay_board", lambda *_: None)
+    monkeypatch.setattr("agency.evaluation.blind.interview", refuse)
+    assert cli.main(["judge", *paths]) == 1
+    last = capsys.readouterr().out.splitlines()[-1]
+    assert last == "Confronto non possibile: seconda riga. Nulla registrato"

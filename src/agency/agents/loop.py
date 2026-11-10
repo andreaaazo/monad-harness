@@ -97,7 +97,7 @@ class AgentRunner:
         if spec.workspace:
             ensure_dir_under(root, spec.workspace)  # a link at any component is refused before bwrap binds it
         work = root / spec.workspace
-        inputs = self.settings.layout.ops_inputs(project, instance)  # its parent holds the records (ADR-0044)
+        inputs = self.settings.layout.ops_inputs(folder, instance)  # its parent holds the records (ADR-0044)
         inputs.mkdir(parents=True, exist_ok=True)
         prompt = phase.of(role, spec.prompt, mode)
         toolbox = Toolbox(

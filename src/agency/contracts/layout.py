@@ -98,7 +98,13 @@ class DataLayout:
         """The folder of the project claims, one `<project>.lock` file each."""
         return self.root / "locks"
 
-    def lock(self, project: str) -> Path:
+    @property
+    def registry_lock(self) -> Path:
+        """The claim on the whole registry: shared by every command that works on a project, exclusive for
+        the migration (2.F63). A project lock is created by its first `run`, so it cannot stand for this."""
+        return self.locks / ".registry.lock"
+
+    def lock(self, project: ProjectName) -> Path:
         """The claim that lets one engine process at a time work on a project (COR-005)."""
         return self.locks / f"{project}.lock"
 
@@ -110,15 +116,15 @@ class DataLayout:
         client's materials, so it stays under the data root and is never versioned."""
         return self.root / "cassettes" / project / f"{run}.jsonl"
 
-    def ops_inputs(self, project: str, instance: str) -> Path:
+    def ops_inputs(self, project: ProjectName, instance: str) -> Path:
         """The files the harness writes for an instance's sandbox, bound read-only at /ops (ADR-0044)."""
         return self.ops_records(project, instance) / "in"
 
-    def ops_records(self, project: str, instance: str) -> Path:
+    def ops_records(self, project: ProjectName, instance: str) -> Path:
         """The harness's record of an instance's tool runs, read on resume. No sandbox sees it (ADR-0044)."""
         return self.root / "ops" / project / instance
 
-    def ratings(self, project: str, round: int) -> Path:
+    def ratings(self, project: ProjectName, round: int) -> Path:
         """The critic's first look at a round's board, as `rate_board` recorded it. Only the harness writes
         it: the copy in the work folder is the ticket's output, which the sandbox can write."""
         return self.root / "ops" / project / f"ratings-r{round}.json"

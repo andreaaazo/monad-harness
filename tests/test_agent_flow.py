@@ -513,7 +513,7 @@ def bare_context(tmp_path: Path, role: str) -> ToolContext:
     config = settings(tmp_path)
     ledger = Ledger(config.ledger_path)
     artifacts = FileStore(tmp_path / "artifacts")
-    inputs = config.layout.ops_inputs("p", "i")
+    inputs = config.layout.ops_inputs(ProjectName("p"), "i")
     inputs.mkdir(parents=True, exist_ok=True)
     sandbox = Sandbox(tmp_path, ops=inputs)
     return ToolContext(role, "p", "T-1", "i", ledger, sandbox, CommandIndex([]), artifacts)
@@ -737,9 +737,9 @@ def harness_folders(tmp_path: Path) -> tuple[Path, Path, Path]:
     layout = settings(tmp_path).layout
     work = tmp_path / "work"
     work.mkdir()
-    inputs = layout.ops_inputs("p", "i")
+    inputs = layout.ops_inputs(ProjectName("p"), "i")
     inputs.mkdir(parents=True)
-    return work, inputs, layout.ops_records("p", "i")
+    return work, inputs, layout.ops_records(ProjectName("p"), "i")
 
 
 def test_craft_run_replays_its_stored_result_on_resume(tmp_path: Path) -> None:
@@ -790,7 +790,7 @@ def test_compute_script_lives_outside_the_work_folder(tmp_path: Path) -> None:
     script, *seen = result["output"].split()
     assert seen == ["False", "EROFS", "EROFS"]
     assert PurePosixPath(script).parent == PurePosixPath("/ops")
-    inputs = config.layout.ops_inputs("p", phase.instance(ticket, 1))
+    inputs = config.layout.ops_inputs(ProjectName("p"), phase.instance(ticket, 1))
     assert (inputs / PurePosixPath(script).name).read_text(encoding="utf-8") == probe
     assert not (inputs / "x").exists()
     assert not (config.project_dir(ProjectName("p")) / "work" / ".ops").exists()
@@ -2058,7 +2058,7 @@ def test_a_replayed_select_concepts_appends_no_second_concept_event(
         project="p", round=1, letter="a", lever="il nome", idea_ticket="", anon="Z", card_json=CARD
     )
     context.ledger.open(production_spec(), "p", concept=row)
-    ratings = context.settings.layout.ratings("p", 1)
+    ratings = context.settings.layout.ratings(ProjectName("p"), 1)
     ratings.parent.mkdir(parents=True, exist_ok=True)
     ratings.write_text(json.dumps([{"letter": "Z", "passes": True}]))
     arguments = {"chosen": ["Z"], "reasons": "regge"}

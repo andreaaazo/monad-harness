@@ -55,20 +55,22 @@ class ProjectBusy(Exception):
 
 
 class ProjectLock:
-    """An exclusive, non-blocking claim on a project for as long as the `with` block runs.
+    """A non-blocking claim on a lock file for as long as the `with` block runs: exclusive, or shared with
+    the other shared claims (the registry's, 2.F63).
 
     `flock` is released by the kernel when the process ends, so a crash never leaves a stale lock.
     """
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, shared: bool = False) -> None:
         self.path = path
+        self.shared = shared
         self._fd = -1
 
     def __enter__(self) -> ProjectLock:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(fd, (fcntl.LOCK_SH if self.shared else fcntl.LOCK_EX) | fcntl.LOCK_NB)
         except BlockingIOError as error:
             os.close(fd)
             raise ProjectBusy(self.path.stem) from error

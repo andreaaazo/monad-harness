@@ -5,13 +5,12 @@ from __future__ import annotations
 import json
 
 from agency.config import REPO_ROOT
+from agency.contracts.registry import read_org, read_roles
 from agency.ledger import Ledger
 
 PROMPTS = REPO_ROOT / "prompts"
-ROLES: dict[str, dict] = json.loads((REPO_ROOT / "registry/roles.json").read_text(encoding="utf-8"))["roles"]
-ORG: dict[str, list[str]] = json.loads((REPO_ROOT / "registry/org.json").read_text(encoding="utf-8"))[
-    "can_open"
-]
+ROLES: dict[str, dict] = read_roles(REPO_ROOT / "registry/roles.json")
+ORG: dict[str, list[str]] = read_org(REPO_ROOT / "registry/org.json")
 
 
 def skill_names() -> list[str]:

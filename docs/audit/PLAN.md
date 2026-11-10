@@ -956,7 +956,7 @@ must not change behaviour. Every task starts with its failing test.
     - The request snapshots of the 11 phases are byte-identical.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(registry): declare each role's tool set and Craft apps in roles.json`.
-- [ ] **Task 2.35: `registry/*.json` is validated against typed contracts at load.** Closes STR-005 (the schema part)
+- [x] **Task 2.35: `registry/*.json` is validated against typed contracts at load.** Closes STR-005 (the schema part)
   (Q18).
   - Files: create `src/agency/contracts/registry.py`; `src/agency/agents/prompts.py` and `src/agency/qa/evidence.py`
     (their loaders validate first, and callers are unchanged); `tests/test_registry.py`.

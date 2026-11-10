@@ -1,8 +1,14 @@
 import hashlib
+import importlib
 import json
+from collections.abc import Callable
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from agency.artifacts import FileStore
+from agency.contracts.registry import read_checks, read_org, read_roles
 from agency.contracts.ticket import REVIEWERS, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.tools.craft import CommandIndex
@@ -147,3 +153,107 @@ def test_craft_tools_follow_the_role_craft_list(tmp_path: Path) -> None:
     for name, arguments in CRAFT_CALLS.items():
         result = craft_box(tmp_path, "identity-designer").call("x", name, arguments)
         assert "non lavora con" not in result["content"], name
+
+
+ROLE = {"tools": "author", "model": "m", "effort": "high", "craft": []}
+CHECK = {"kind": "measure", "independent": False}
+
+
+def write_json(tmp_path: Path, document: dict) -> Path:
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize(
+    ("reader", "document", "field"),
+    [
+        (
+            read_roles,
+            {"roles": {"x": {k: v for k, v in ROLE.items() if k != "craft"} | {"crafts": []}}},
+            "crafts",
+        ),
+        (read_checks, {"checks": {"x": CHECK | {"independant": True}}}, "independant"),
+        (read_org, {"can_opn": {"router": ["*"]}}, "can_opn"),
+    ],
+)
+def test_a_misspelt_registry_field_fails_at_load(
+    tmp_path: Path, reader: Callable[[Path], object], document: dict, field: str
+) -> None:
+    with pytest.raises(ValidationError, match=field):
+        reader(write_json(tmp_path, document))
+
+
+def test_an_unknown_check_kind_fails_at_load(tmp_path: Path) -> None:
+    with pytest.raises(ValidationError, match="kind"):
+        read_checks(write_json(tmp_path, {"checks": {"x": CHECK | {"kind": "judgment"}}}))
+
+
+@pytest.mark.parametrize(
+    ("role", "field"),
+    [(ROLE | {"craft": ["vectorcarft"]}, "craft"), (ROLE | {"tools": "boss"}, "tools")],
+)
+def test_a_role_with_an_unknown_craft_app_or_tools_kind_fails_at_load(
+    tmp_path: Path, role: dict, field: str
+) -> None:
+    with pytest.raises(ValidationError, match=field):
+        read_roles(write_json(tmp_path, {"roles": {"x": role}}))
+
+
+def test_the_registry_files_validate_and_load_unchanged() -> None:
+    for name, reader, key in (
+        ("roles", read_roles, "roles"),
+        ("checks", read_checks, "checks"),
+        ("org", read_org, "can_open"),
+    ):
+        path = ROOT / f"registry/{name}.json"
+        document = json.loads(path.read_text(encoding="utf-8"))
+        assert "$comment" in document, name
+        assert reader(path) == document[key], name
+
+
+def test_a_comment_is_accepted_and_any_other_unknown_key_is_refused(tmp_path: Path) -> None:
+    read_roles(write_json(tmp_path, {"$comment": "ok", "roles": {"x": ROLE | {"$comment": "ok"}}}))
+    with pytest.raises(ValidationError, match="note"):
+        read_roles(write_json(tmp_path, {"roles": {"x": ROLE}, "note": "no"}))
+
+
+@pytest.mark.parametrize(
+    ("reader", "document"),
+    [
+        (read_roles, {"roles": {"x": ROLE | {"extra": 1}}}),
+        (read_checks, {"checks": {"x": CHECK | {"extra": 1}}}),
+        (read_org, {"can_open": {"router": ["*"]}, "extra": 1}),
+    ],
+)
+def test_an_unknown_key_beside_valid_ones_fails_at_load(
+    tmp_path: Path, reader: Callable[[Path], object], document: dict
+) -> None:
+    with pytest.raises(ValidationError, match="extra"):
+        reader(write_json(tmp_path, document))
+
+
+@pytest.mark.parametrize(
+    ("module", "name", "document"),
+    [
+        ("agency.agents.prompts", "roles", {"roles": {"x": ROLE | {"extra": 1}}}),
+        ("agency.agents.prompts", "org", {"can_open": {}, "extra": 1}),
+        ("agency.qa.evidence", "checks", {"checks": {"x": CHECK | {"kind": "judgment"}}}),
+    ],
+)
+def test_the_modules_that_load_the_rules_validate_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: str, name: str, document: dict
+) -> None:
+    for file in ("roles", "checks", "org"):
+        (tmp_path / "registry").mkdir(exist_ok=True)
+        source = ROOT / f"registry/{file}.json"
+        (tmp_path / f"registry/{file}.json").write_bytes(source.read_bytes())
+    (tmp_path / f"registry/{name}.json").write_text(json.dumps(document), encoding="utf-8")
+    loaded = importlib.import_module(module)
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr("agency.config.REPO_ROOT", tmp_path)
+            with pytest.raises(ValidationError):
+                importlib.reload(loaded)
+    finally:
+        importlib.reload(loaded)

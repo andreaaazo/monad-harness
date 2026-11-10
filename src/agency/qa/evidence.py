@@ -7,16 +7,15 @@ import json
 from pathlib import Path
 
 from agency.config import REPO_ROOT
+from agency.contracts.registry import read_checks, read_roles
 from agency.contracts.ticket import AUTHOR_TYPES
 from agency.ledger import Ledger
 from agency.ledger.models import EvidenceRow
 from agency.ledger.store import now
 from agency.tools.files import inside, sha256_under
 
-CHECKS: dict[str, dict] = json.loads((REPO_ROOT / "registry/checks.json").read_text(encoding="utf-8"))[
-    "checks"
-]
-ROLES: dict[str, dict] = json.loads((REPO_ROOT / "registry/roles.json").read_text(encoding="utf-8"))["roles"]
+CHECKS: dict[str, dict] = read_checks(REPO_ROOT / "registry/checks.json")
+ROLES: dict[str, dict] = read_roles(REPO_ROOT / "registry/roles.json")
 MEASUREMENTS = {name for name, spec in CHECKS.items() if spec["kind"] == "measure"}
 
 

@@ -10,7 +10,7 @@ import shutil
 import sys
 import tempfile
 from collections.abc import Callable
-from contextlib import ExitStack, suppress
+from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -19,7 +19,7 @@ import anthropic
 from agency.artifacts import FileStore, keeping
 from agency.config import DotenvHoldsSetting, Settings
 from agency.contracts.artifact import Origin
-from agency.contracts.files import OutsidePerimeter, read_under
+from agency.contracts.files import MAX_IMAGE_FILE_BYTES, OutsidePerimeter, read_under
 from agency.contracts.gate import ConceptGate
 from agency.contracts.layout import RelativeDataRoot
 from agency.contracts.project import ProjectName, parse_project_name
@@ -324,12 +324,17 @@ def _board_renderer() -> board.Render | None:
             if done.code == 124:
                 raise blind.CannotCompare(f"{source.name} non si rende in {board.TIMEOUT} secondi")
             data = None
+            refusal = ""
             if done.code == 0:
-                with suppress(OSError, OutsidePerimeter):  # a link planted as the output is refused
-                    data = read_under(Path(job), produced)
+                try:  # a link planted as the output, or one over the limit, is refused
+                    data = read_under(Path(job), produced, MAX_IMAGE_FILE_BYTES)
+                except OutsidePerimeter as exc:
+                    refusal = str(exc)
+                except OSError:
+                    pass
             if data is None:
                 said = (done.stderr or done.stdout).strip().splitlines()
-                detail = said[-1] if said else f"uscita {done.code}"
+                detail = refusal or (said[-1] if said else f"uscita {done.code}")
                 raise blind.CannotCompare(f"{source.name} non si rende con vectorcraft-cli: {detail}")
             target.write_bytes(data)
 

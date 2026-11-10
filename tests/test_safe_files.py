@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import io
 import json
 import os
 import shutil
+import stat
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
@@ -20,6 +23,7 @@ from agency import runtime
 from agency.agents.loop import AgentRunner
 from agency.artifacts import FileStore
 from agency.config import Settings
+from agency.contracts import files as contract_files
 from agency.contracts.artifact import Origin
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import Decision
@@ -32,10 +36,10 @@ from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
 from agency.qa import delivery
 from agency.runtime import Session
-from agency.tools import board, files, presentation, render, surface
-from agency.tools.craft import CommandIndex
+from agency.tools import board, craft, files, presentation, render, surface
+from agency.tools.craft import Command, CommandIndex
 from agency.tools.files import OutsidePerimeter
-from agency.tools.sandbox import Sandbox
+from agency.tools.sandbox import JOB, Completed, Sandbox
 from agency.tools.surface import PresentConcepts, ProposalText
 
 Use = Callable[[Path, str], object]
@@ -811,3 +815,388 @@ def test_start_refuses_a_brief_swapped_for_a_link_before_it_is_hashed(
 
     assert studio.untouched()
     assert [t.id for t in studio.ledger.tickets(PROJECT)] == ["T-0001"]
+
+
+# A FIFO planted where the harness reads (Task 2.F21): the open must not wait for a writer.
+
+
+def returns_within(seconds: float, call: Callable[[], object], fifo: Path) -> object:
+    """Runs the call in a thread and returns what it raised, or fails (instead of hanging) if it is stuck."""
+    outcome: list[BaseException | None] = []
+
+    def target() -> None:
+        try:
+            call()
+            outcome.append(None)
+        except BaseException as error:
+            outcome.append(error)
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(seconds)
+    if thread.is_alive():
+        # Release the reader that waits for a writer, so a regression leaves no thread behind.
+        with contextlib.suppress(OSError):
+            os.close(os.open(fifo, os.O_WRONLY | os.O_NONBLOCK))
+        thread.join(1)
+        pytest.fail(f"the call was still blocked after {seconds} s")
+    return outcome[0]
+
+
+@pytest.fixture
+def fifo_tree(tmp_path: Path) -> tuple[Path, Path]:
+    work = tmp_path / "work"
+    (work / "real").mkdir(parents=True)
+    fifo = work / "real" / "trappola.png"
+    os.mkfifo(fifo)
+    return work, fifo
+
+
+FIFO_READERS: dict[str, Callable[[Path, str], object]] = {
+    "read_under": files.read_under,
+    "read_under with a limit": lambda root, relative: files.read_under(root, relative, 2**20),
+    "sha256_under": files.sha256_under,
+    "open_under": lambda root, relative: os.close(files.open_under(root, relative, os.O_RDONLY)),
+}
+
+
+@pytest.mark.parametrize("reader", FIFO_READERS)
+def test_a_planted_fifo_is_refused_at_once(fifo_tree: tuple[Path, Path], reader: str) -> None:
+    work, fifo = fifo_tree
+    error = returns_within(5, lambda: FIFO_READERS[reader](work, "real/trappola.png"), fifo)
+    assert isinstance(error, OutsidePerimeter)
+    assert str(error) == "real/trappola.png non è un file"
+
+
+def test_render_does_not_wait_for_a_planted_fifo(fifo_tree: tuple[Path, Path]) -> None:
+    work, fifo = fifo_tree
+    ledger = Ledger(work.parent / "l.sqlite")
+    error = returns_within(
+        5, lambda: render.render_one(Sandbox(work), ledger, "p", "real/trappola.png"), fifo
+    )
+    assert isinstance(error, OutsidePerimeter)
+
+
+def test_a_folder_is_not_a_file_to_read(tree: tuple[Path, Path]) -> None:
+    root, _ = tree
+    with pytest.raises(OutsidePerimeter, match="real non è un file"):
+        files.read_under(root, "real")
+
+
+def test_open_under_hands_back_a_blocking_descriptor_of_the_file(tree: tuple[Path, Path]) -> None:
+    """O_NONBLOCK is for the open only: a read of a regular file, or a write, goes on as it always did."""
+    root, _ = tree
+    descriptor = files.open_under(root, "real.txt", os.O_RDONLY)
+    try:
+        assert os.get_blocking(descriptor)
+    finally:
+        os.close(descriptor)
+    descriptor = files.open_under(root, "new.txt", os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+    try:
+        assert os.get_blocking(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def test_open_under_still_opens_a_folder_with_o_directory(tree: tuple[Path, Path]) -> None:
+    root, _ = tree
+    descriptor = files.open_under(root, "real", os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        assert stat.S_ISDIR(os.fstat(descriptor).st_mode)
+    finally:
+        os.close(descriptor)
+
+
+# A bound on what the harness reads whole (Tasks 2.F41, 2.F42). A sparse file stands for what the sandbox
+# can write: it has the size and none of the cost.
+
+
+def sparse(path: Path, size: int) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as handle:
+        handle.truncate(size)
+    return path
+
+
+class ReadSpy:
+    """Records the size asked of every `read` on the files `read_under` opens."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.sizes: list[int] = []
+        real = os.fdopen
+
+        def fdopen(descriptor: int, *args: object, **kwargs: object) -> object:
+            handle = real(descriptor, *args, **kwargs)  # type: ignore[call-overload]
+            spy = self
+
+            class Spied:
+                def __enter__(self) -> Spied:
+                    handle.__enter__()
+                    return self
+
+                def __exit__(self, *exc: object) -> None:
+                    handle.__exit__(*exc)
+
+                def read(self, size: int = -1) -> bytes:
+                    spy.sizes.append(size)
+                    return handle.read(size)  # type: ignore[no-any-return]
+
+            return Spied()
+
+        monkeypatch.setattr(os, "fdopen", fdopen)
+
+
+def test_read_under_without_a_limit_reads_the_whole_file(tree: tuple[Path, Path]) -> None:
+    root, _ = tree
+    assert files.read_under(root, "real.txt") == b"dentro"
+
+
+def test_read_under_with_a_limit_returns_a_file_of_exactly_that_size(tree: tuple[Path, Path]) -> None:
+    root, _ = tree
+    (root / "limit.bin").write_bytes(b"x" * 2**20)
+    assert files.read_under(root, "limit.bin", 2**20) == b"x" * 2**20
+
+
+def test_read_under_with_a_limit_refuses_a_file_one_byte_over_it(tree: tuple[Path, Path]) -> None:
+    root, _ = tree
+    (root / "limit.bin").write_bytes(b"x" * (2**20 + 1))
+    with pytest.raises(OutsidePerimeter) as refusal:
+        files.read_under(root, "limit.bin", 2**20)
+    assert str(refusal.value) == "limit.bin: supera il limite di 1 MiB"
+
+
+def test_read_under_with_a_limit_reads_one_byte_past_it_and_no_more(
+    tree: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, _ = tree
+    sparse(root / "big.bin", 256 * 2**20)
+    spy = ReadSpy(monkeypatch)
+    with pytest.raises(OutsidePerimeter):
+        files.read_under(root, "big.bin", 2**20)
+    assert spy.sizes == [2**20 + 1]
+
+
+def test_the_named_limits() -> None:
+    assert files.MAX_TEXT_FILE_BYTES == 8 * 2**20
+    assert files.MAX_IMAGE_FILE_BYTES == 64 * 2**20 == surface.MAX_IMAGE_FILE_BYTES
+    assert files.MAX_DOCUMENT_BYTES == 256 * 2**20
+    for name in ("MAX_TEXT_FILE_BYTES", "MAX_IMAGE_FILE_BYTES", "MAX_DOCUMENT_BYTES"):
+        assert getattr(contract_files, name) == getattr(files, name)  # the tools module re-exports them
+
+
+def over(limit: int) -> int:
+    return limit + 1
+
+
+TEXT_REFUSAL = "supera il limite di 8 MiB"
+DOCUMENT_REFUSAL = "supera il limite di 256 MiB"
+IMAGE_REFUSAL = "supera il limite di 64 MiB"
+
+
+def test_read_file_refuses_a_text_file_over_the_limit(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    ctx = tool_context(work)
+    sparse(work / "note.txt", over(files.MAX_TEXT_FILE_BYTES))
+    with pytest.raises(OutsidePerimeter, match=TEXT_REFUSAL):
+        surface.read_file(ctx, surface.ReadFile(path="note.txt"), "op1")
+
+
+def test_read_file_reads_a_text_file_of_exactly_the_limit(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    ctx = tool_context(work)
+    sparse(work / "note.txt", files.MAX_TEXT_FILE_BYTES)
+    assert surface.read_file(ctx, surface.ReadFile(path="note.txt"), "op1")["lines"] == 1
+    (work / "piccolo.txt").write_text("uno\ndue\n", encoding="utf-8")
+    assert surface.read_file(ctx, surface.ReadFile(path="piccolo.txt"), "op1")["text"] == "uno\ndue"
+
+
+def drafted(work: Path) -> surface.ToolContext:
+    """A context whose last draft made one page, that this instance has looked at."""
+    ctx = tool_context(work)
+    page = f"{presentation.folder_of(1)}/pagina-1.png"
+    (work / page).parent.mkdir(parents=True)
+    (work / page).write_bytes(png((20, 20, 20)))
+    (work / presentation.pdf_of(1)).write_bytes(b"%PDF")
+    key = f"{page}:{hashlib.sha256((work / page).read_bytes()).hexdigest()}"
+    ctx.ledger.record_operation("op1", "i", "draft_presentation", json.dumps({"pagine": [page]}))
+    ctx.ledger.record_operation("op2", "i", "view_image", json.dumps({"key": key}))
+    return ctx
+
+
+def test_present_concepts_refuses_a_draft_over_the_limit(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    ctx = drafted(work)
+    sparse(work / presentation.folder_of(1) / "testi.json", over(files.MAX_TEXT_FILE_BYTES))
+    with pytest.raises(OutsidePerimeter, match=TEXT_REFUSAL):
+        surface.present_concepts(ctx, surface.ConfirmPresentation(), "op3")
+    assert ctx.finished is None
+
+
+def test_present_concepts_reads_a_small_draft(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    ctx = drafted(work)
+    (work / presentation.folder_of(1) / "testi.json").write_text('{"proposals": []}', encoding="utf-8")
+    assert surface.present_concepts(ctx, surface.ConfirmPresentation(), "op3") == {"proposals": []}
+
+
+class ExportingSandbox(Sandbox):
+    """Plays `vectorcraft-cli run`: writes an exported document of the size it is given."""
+
+    def __init__(self, work: Path, ops: Path, size: int) -> None:
+        super().__init__(work, ops=ops)
+        self.size = size
+
+    def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+        export = Path(command[command.index("--export") + 1]).relative_to(JOB)
+        sparse(self.work / export, self.size)
+        return Completed(0, json.dumps({"step": "cmd", "result": {"id": 2}}), "")
+
+
+def craft_folders(tmp_path: Path) -> tuple[Path, Path, Path]:
+    work, inputs, records = tmp_path / "work", tmp_path / "inputs", tmp_path / "records"
+    for folder in (work, inputs, records):
+        folder.mkdir()
+    return work, inputs, records
+
+
+INDEX = CommandIndex([Command("path.create", "Crea un tracciato", "Tracciato", "d")])
+STEPS = [{"command": "path.create"}]
+
+
+def test_craft_refuses_an_exported_document_over_the_limit(tmp_path: Path) -> None:
+    work, inputs, records = craft_folders(tmp_path)
+    sandbox = ExportingSandbox(work, inputs, over(files.MAX_DOCUMENT_BYTES))
+    with pytest.raises(OutsidePerimeter, match=DOCUMENT_REFUSAL):
+        craft.run_steps(sandbox, INDEX, "segno.vectorcraft", STEPS, "op1", records)
+    assert not (work / "segno.vectorcraft").exists()
+    assert not any(records.iterdir())
+
+
+def test_craft_copies_an_exported_document_over_the_text_limit(tmp_path: Path) -> None:
+    """A document can hold images: it has a limit of its own, far over the one for text."""
+    work, inputs, records = craft_folders(tmp_path)
+    sandbox = ExportingSandbox(work, inputs, over(files.MAX_TEXT_FILE_BYTES))
+    result = craft.run_steps(sandbox, INDEX, "segno.vectorcraft", STEPS, "op1", records)
+    assert result["ok"]
+    assert (work / "segno.vectorcraft").stat().st_size == over(files.MAX_TEXT_FILE_BYTES)
+
+
+@pytest.mark.parametrize(
+    ("oversize", "limit", "refusal"),
+    [
+        ("op1.vectorcraft", files.MAX_DOCUMENT_BYTES, DOCUMENT_REFUSAL),
+        ("op1.result.json", files.MAX_TEXT_FILE_BYTES, TEXT_REFUSAL),
+    ],
+)
+def test_craft_refuses_a_stored_record_over_the_limit(
+    tmp_path: Path, oversize: str, limit: int, refusal: str
+) -> None:
+    work, inputs, records = craft_folders(tmp_path)
+    (records / "op1.vectorcraft").write_text("documento", encoding="utf-8")
+    (records / "op1.result.json").write_text("[]", encoding="utf-8")
+    sparse(records / oversize, over(limit))
+    sandbox = ExportingSandbox(work, inputs, 0)
+    with pytest.raises(OutsidePerimeter, match=refusal):
+        craft.run_steps(sandbox, INDEX, "segno.vectorcraft", STEPS, "op1", records)
+
+
+def test_craft_resumes_from_small_stored_records(tmp_path: Path) -> None:
+    work, inputs, records = craft_folders(tmp_path)
+    (records / "op1.vectorcraft").write_text("documento", encoding="utf-8")
+    (records / "op1.result.json").write_text('[{"id": 2}]', encoding="utf-8")
+    result = craft.run_steps(
+        ExportingSandbox(work, inputs, 0), INDEX, "segno.vectorcraft", STEPS, "op1", records
+    )
+    assert result == {"ok": True, "document": "segno.vectorcraft", "results": [{"id": 2}]}
+    assert (work / "segno.vectorcraft").read_text(encoding="utf-8") == "documento"
+
+
+def test_render_refuses_an_image_over_the_limit(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    sparse(work / "grande.png", over(files.MAX_IMAGE_FILE_BYTES))
+    ledger = Ledger(tmp_path / "l.sqlite")
+    with pytest.raises(OutsidePerimeter, match=IMAGE_REFUSAL):
+        render.render_one(Sandbox(work), ledger, "p", "grande.png")
+
+
+def test_the_board_refuses_a_sketch_over_the_limit(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    sketch = sparse(work / "explorations/r1/a/schizzo-a.png", over(files.MAX_IMAGE_FILE_BYTES))
+    with pytest.raises(OutsidePerimeter, match=IMAGE_REFUSAL):
+        board.build([("V", sketch)], work / "board/r1/tavola.png")
+    assert not (work / "board").exists()
+
+
+def test_the_presentation_refuses_a_mark_over_the_limit(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    mark = sparse(work / "proposals/r1/v/proposta-v.png", over(files.MAX_IMAGE_FILE_BYTES))
+    item = presentation.Proposal("V", "Il merlo", "L'idea", "Perché", "Il limite", mark, ())
+    with pytest.raises(OutsidePerimeter, match=IMAGE_REFUSAL):
+        presentation.build([item], "V", "Regge meglio", work / "presentation/r1")
+    assert not list((work / "presentation/r1").glob("*.pdf"))
+
+
+def test_a_refused_open_leaks_no_descriptor(fifo_tree: tuple[Path, Path]) -> None:
+    work, fifo = fifo_tree
+    before = len(os.listdir("/proc/self/fd"))
+    for _ in range(5):
+        error = returns_within(5, lambda: files.read_under(work, "real/trappola.png"), fifo)
+        assert isinstance(error, OutsidePerimeter)
+    assert len(os.listdir("/proc/self/fd")) == before
+
+
+# The graph nodes read what the sandbox wrote under a limit of its own kind (Task 2.F41, 2.F42, same pattern).
+
+
+def test_the_board_node_refuses_a_brief_over_the_limit(tmp_path: Path) -> None:
+    studio = board_studio(tmp_path)
+    sparse(studio.work / "brief.md", over(files.MAX_TEXT_FILE_BYTES))
+    with pytest.raises(OutsidePerimeter, match=TEXT_REFUSAL):
+        studio.node("make_board")(studio.state())
+
+
+def test_the_select_node_refuses_a_sheet_over_the_limit(tmp_path: Path) -> None:
+    studio = select_studio(tmp_path)
+    sparse(studio.work / at("foglio-a.png"), over(files.MAX_IMAGE_FILE_BYTES))
+    with pytest.raises(OutsidePerimeter, match=IMAGE_REFUSAL):
+        studio.node("select")(studio.state())
+    assert not (studio.work / "board/r1/fogli/Z.png").exists()
+
+
+@pytest.mark.parametrize(
+    ("planted", "limit", "refusal"),
+    [
+        ("explorations/r1/applicazioni.json", files.MAX_TEXT_FILE_BYTES, TEXT_REFUSAL),
+        ("brief.md", files.MAX_TEXT_FILE_BYTES, TEXT_REFUSAL),
+        (at("scheda.json"), files.MAX_TEXT_FILE_BYTES, TEXT_REFUSAL),
+        (at("schizzo-a.png"), files.MAX_IMAGE_FILE_BYTES, IMAGE_REFUSAL),
+    ],
+)
+def test_the_proposals_node_refuses_a_file_over_the_limit(
+    tmp_path: Path, planted: str, limit: int, refusal: str
+) -> None:
+    studio = proposals_studio(tmp_path)
+    sparse(studio.work / planted, over(limit))
+    with pytest.raises(OutsidePerimeter, match=refusal):
+        studio.node("prepare_proposals")(studio.state())
+    assert studio.ledger.children(studio.root) == []
+
+
+def test_the_production_node_refuses_a_master_over_the_limit(tmp_path: Path) -> None:
+    studio = production_studio(tmp_path)
+    sparse(studio.work / "proposals/r1/z/proposta-z.vectorcraft", over(files.MAX_DOCUMENT_BYTES))
+    with pytest.raises(OutsidePerimeter, match=DOCUMENT_REFUSAL):
+        studio.node("start_production")(studio.state())
+    assert studio.ledger.children(studio.root) == []
+
+
+def test_the_production_node_copies_a_master_over_the_text_limit(tmp_path: Path) -> None:
+    studio = production_studio(tmp_path)
+    sparse(studio.work / "proposals/r1/z/proposta-z.vectorcraft", over(files.MAX_TEXT_FILE_BYTES))
+    studio.node("start_production")(studio.state())
+    assert (studio.work / TARGET).stat().st_size == over(files.MAX_TEXT_FILE_BYTES)

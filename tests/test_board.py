@@ -15,6 +15,7 @@ import pytest
 from PIL import Image
 
 from agency import cli
+from agency.contracts.files import MAX_IMAGE_FILE_BYTES
 from agency.evaluation import board
 from agency.evaluation.blind import CannotCompare
 from agency.tools import sandbox
@@ -233,3 +234,34 @@ def test_with_the_real_renderer_both_canvases_give_the_same_drawing(tmp_path: Pa
         drawn = board.drawn(write(tmp_path / name, body), render, tmp_path)
         for size, image in drawn.items():
             assert abs(longest(image) - size) <= 1, (name, size, image.size)
+
+
+def sparse(path: Path, size: int) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as handle:
+        handle.truncate(size)
+    return path
+
+
+def test_a_raster_copy_over_the_image_limit_is_refused_without_reading_it(tmp_path: Path) -> None:
+    copy = sparse(tmp_path / "A.png", MAX_IMAGE_FILE_BYTES + 1)
+    with pytest.raises(
+        CannotCompare, match=r"A\.png non si apre come immagine: A\.png: supera il limite di 64 MiB"
+    ):
+        board.drawn(copy, None, tmp_path)
+
+
+def test_a_render_over_the_image_limit_is_refused_as_a_failed_render(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/vectorcraft-cli")
+    monkeypatch.setattr(
+        Sandbox, "run", sandboxed_output(lambda output: sparse(output, MAX_IMAGE_FILE_BYTES + 1), 0, "")
+    )
+    render = cli._board_renderer()
+    assert render is not None
+    with pytest.raises(
+        CannotCompare, match=r"A\.svg non si rende con vectorcraft-cli: .*supera il limite di 64 MiB"
+    ):
+        render(write(tmp_path / "A.svg", TIGHT), 1.0, tmp_path / "out.png")
+    assert not (tmp_path / "out.png").exists()

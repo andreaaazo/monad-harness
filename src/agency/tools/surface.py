@@ -31,6 +31,8 @@ from agency.qa import checks as qa
 from agency.qa import delivery, evidence
 from agency.tools import board, craft, master, presentation, render
 from agency.tools.files import (
+    MAX_IMAGE_FILE_BYTES,
+    MAX_TEXT_FILE_BYTES,
     OutsidePerimeter,
     clip,
     ensure_dir_under,
@@ -48,7 +50,6 @@ TEXT_FILES = (".md", ".txt", ".json")
 EXPORT_OPTIONS = {"--artboard", "--range", "--scale", "--outline-text", "--decimals"}
 IMAGE_SIDE = 1600
 IMAGE_BYTES = 3_500_000
-MAX_IMAGE_FILE_BYTES = 64 * 2**20
 IMAGE_MEDIA = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
 # The harness's folders in /job, which list_files does not show. `.ops` held its files before ADR-0044 and can
 # still be in an older work folder.
@@ -296,7 +297,7 @@ def read_file(ctx: ToolContext, a: ReadFile, _: str) -> dict:
     target = inside(ctx.work, a.path)
     if not target.is_file():
         raise Refused(f"{a.path}: non esiste")
-    lines = read_under(ctx.work, a.path).decode("utf-8", errors="replace").splitlines()
+    lines = read_under(ctx.work, a.path, MAX_TEXT_FILE_BYTES).decode("utf-8", errors="replace").splitlines()
     return {"lines": len(lines), "text": clip("\n".join(lines[a.offset : a.offset + a.limit]), 12000)}
 
 
@@ -812,7 +813,7 @@ def present_concepts(ctx: ToolContext, _a: ConfirmPresentation, __: str) -> dict
     missing = [page for page in pages if f"{page}:{sha256_under(ctx.work, page)}" not in seen]
     if missing:
         raise Refused(f"guarda queste pagine, così come sono ora, prima di mandarle al cliente: {missing}")
-    text = read_under(ctx.work, draft).decode("utf-8")
+    text = read_under(ctx.work, draft, MAX_TEXT_FILE_BYTES).decode("utf-8")
     ctx.keep([presentation.pdf_of(ctx.round)], Origin.PRESENTATION)
     ctx.finished = Outcome(state=OutcomeState.PRESENTED, note=text)
     return json.loads(text)

@@ -1049,7 +1049,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   up when the operator restores into a work folder. Closed by Task 2.2 (named).
 - [x] **Task 2.F20: `agency judge` copies work files through links.** evaluation/blind.py:84. `shutil.copyfile` of each
   candidate reads through a link a sandbox left. Task 2.2's rule; evaluation/ is not on its list.
-- [ ] **Task 2.F21: a FIFO planted where the harness reads blocks the harness.** tools/files.py (`read_under`,
+- [x] **Task 2.F21: a FIFO planted where the harness reads blocks the harness.** tools/files.py (`read_under`,
   `sha256_under`) and every plain read above. `os.open(..., O_RDONLY)` on a FIFO waits for a writer that never comes:
   a probe on `read_under` was still blocked when `timeout 3` killed it (exit 124). Not the same bug, but the readers
   Task 2.2 routes through the helper should refuse anything that is not a regular file (`O_NONBLOCK`, then `fstat`).
@@ -1180,13 +1180,13 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   or the timeout fires, so a command that prints at full speed for 120 s fills the harness's RAM; the cgroup of Task
   2.19 wraps bwrap, but the pipes are read by the harness outside it. Fix: read the pipes with a byte cap and kill the
   command past it. Found by Task 2.18. Not covered by a planned task.
-- [ ] **Task 2.F41: the harness reads whole sandbox-written text and JSON files with no size bound.**
+- [x] **Task 2.F41: the harness reads whole sandbox-written text and JSON files with no size bound.**
   tools/surface.py:300 (`read_file`), :706 (`valutazione.json`), :776 (`draft`), tools/craft.py:138,143-144 (the
   partial document, the stored document and the result record) (as of Task 2.18). The sandbox can now write a file of up
   to 2 GiB, and each of these reads it whole into memory (`read_under`, `read_text`) and, for `read_file` and the
   JSON ones, decodes and parses it. Fix: a limit in `read_under` for these callers, or a refusal by size before the
   read. Found by Task 2.18. Not covered by a planned task.
-- [ ] **Task 2.F42: the harness reads whole image files before decoding in the render and board paths.**
+- [x] **Task 2.F42: the harness reads whole image files before decoding in the render and board paths.**
   tools/render.py:27, tools/board.py:43, tools/presentation.py:71 (as of Task 2.18). `view_image` now refuses a file
   over `MAX_IMAGE_FILE_BYTES`, but these three call `read_under` on a proof or a page the sandbox wrote and decode it,
   with no size check. Fix: share the bounded read of `view_image` (a helper beside `read_under`), after the owner decides

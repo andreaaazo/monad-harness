@@ -16,6 +16,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from agency.contracts.files import MAX_IMAGE_FILE_BYTES, OutsidePerimeter, read_under
 from agency.contracts.media import open_image
 from agency.evaluation.blind import CannotCompare
 
@@ -90,9 +91,9 @@ def _vector(copy: Path, render: Render, scratch: Path) -> dict[int, Image.Image]
 
 def _raster(copy: Path) -> dict[int, Image.Image]:
     try:
-        with open_image(copy.read_bytes()) as opened:
+        with open_image(read_under(copy.parent, copy.name, MAX_IMAGE_FILE_BYTES)) as opened:
             image = opened.convert("RGBA")
-    except (OSError, Image.DecompressionBombError) as exc:
+    except (OSError, OutsidePerimeter, Image.DecompressionBombError) as exc:
         raise CannotCompare(f"{copy.name} non si apre come immagine: {exc}") from exc
     if _box(image) is None:
         raise CannotCompare(f"{copy.name} non ha niente di disegnato")

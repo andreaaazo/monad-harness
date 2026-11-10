@@ -17,6 +17,13 @@ class OutsidePerimeter(Exception):
     """Il percorso esce dalla cartella del lavoro."""
 
 
+# What the harness reads whole from a file the sandbox wrote (it can write a file of up to 2 GiB), for the
+# callers that pass a `limit` to `read_under`: text and JSON it parses, an image it decodes, a Craft document.
+MAX_TEXT_FILE_BYTES = 8 * 2**20
+MAX_IMAGE_FILE_BYTES = 64 * 2**20
+MAX_DOCUMENT_BYTES = 256 * 2**20
+
+
 # The helpers below never follow a symlink under `root`, which the caller trusts. The sandbox can write the
 # work folder, so it can swap any folder there for a link to a host folder. Each helper therefore opens
 # `root`, then every component of `relative` through the descriptor of the one before, with O_NOFOLLOW.
@@ -66,12 +73,27 @@ def _parent(root: Path, relative: str, create: bool = False) -> Iterator[tuple[i
 
 
 def open_under(root: Path, relative: str, flags: int, mode: int = 0o600) -> int:
+    """Opens the file without following a link and without waiting on a FIFO or a device.
+
+    The last component is opened with O_NONBLOCK, so a FIFO the sandbox planted opens at once; a file opened
+    for reading is then refused unless it is a regular file. O_NONBLOCK is cleared before the descriptor
+    goes back, so the caller reads and writes as it always did. A folder opened with O_DIRECTORY is fine.
+    """
     with _parent(root, relative) as (directory, name):
         try:
-            return os.open(name, flags | os.O_NOFOLLOW, mode, dir_fd=directory)
+            descriptor = os.open(name, flags | os.O_NOFOLLOW | os.O_NONBLOCK, mode, dir_fd=directory)
         except OSError as error:
             _refuse_a_link(directory, name, relative, error)
             raise
+    try:
+        reads = flags & os.O_ACCMODE != os.O_WRONLY and not flags & os.O_DIRECTORY
+        if reads and not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise OutsidePerimeter(f"{relative} non è un file")
+        os.set_blocking(descriptor, True)
+    except BaseException:
+        os.close(descriptor)
+        raise
+    return descriptor
 
 
 def ensure_dir_under(root: Path, relative: str) -> None:
@@ -82,9 +104,13 @@ def ensure_dir_under(root: Path, relative: str) -> None:
         os.close(_enter(directory, name, relative))
 
 
-def read_under(root: Path, relative: str) -> bytes:
+def read_under(root: Path, relative: str, limit: int | None = None) -> bytes:
+    """The file's bytes. With a `limit`, it reads at most one byte past it and refuses a larger file."""
     with os.fdopen(open_under(root, relative, os.O_RDONLY), "rb") as handle:
-        return handle.read()
+        data = handle.read() if limit is None else handle.read(limit + 1)
+    if limit is not None and len(data) > limit:
+        raise OutsidePerimeter(f"{relative}: supera il limite di {limit // 2**20} MiB")
+    return data
 
 
 def write_new_under(root: Path, relative: str, data: bytes) -> None:

@@ -6,6 +6,9 @@ import hashlib
 from pathlib import Path
 
 from agency.contracts.files import (
+    MAX_DOCUMENT_BYTES,
+    MAX_IMAGE_FILE_BYTES,
+    MAX_TEXT_FILE_BYTES,
     OutsidePerimeter,
     ensure_dir_under,
     glob_under,
@@ -19,6 +22,9 @@ from agency.contracts.files import (
 )
 
 __all__ = [
+    "MAX_DOCUMENT_BYTES",
+    "MAX_IMAGE_FILE_BYTES",
+    "MAX_TEXT_FILE_BYTES",
     "OutsidePerimeter",
     "clip",
     "ensure_dir_under",

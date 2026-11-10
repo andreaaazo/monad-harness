@@ -10,7 +10,15 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from agency.tools.files import ensure_dir_under, inside, is_file_under, read_under, replace_under
+from agency.tools.files import (
+    MAX_DOCUMENT_BYTES,
+    MAX_TEXT_FILE_BYTES,
+    ensure_dir_under,
+    inside,
+    is_file_under,
+    read_under,
+    replace_under,
+)
 from agency.tools.sandbox import JOB, OPS, Sandbox
 
 TOKEN = re.compile(r"[a-zA-Z0-9]+")
@@ -135,10 +143,14 @@ def run_steps(
                 continue
             if entry.get("step") == "cmd":
                 results.append(entry.get("result"))
-        replace_under(records, built_name, read_under(sandbox.work, partial))
+        replace_under(records, built_name, read_under(sandbox.work, partial, MAX_DOCUMENT_BYTES))
         replace_under(records, result_name, json.dumps(results).encode("utf-8"))
     folder = PurePosixPath(document).parent
     if folder.parts:
         ensure_dir_under(sandbox.work, str(folder))
-    replace_under(sandbox.work, document, read_under(records, built_name))
-    return {"ok": True, "document": document, "results": json.loads(read_under(records, result_name))}
+    replace_under(sandbox.work, document, read_under(records, built_name, MAX_DOCUMENT_BYTES))
+    return {
+        "ok": True,
+        "document": document,
+        "results": json.loads(read_under(records, result_name, MAX_TEXT_FILE_BYTES)),
+    }

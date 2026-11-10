@@ -31,7 +31,15 @@ from agency.ledger.models import GateRow
 from agency.ledger.store import now
 from agency.qa import delivery
 from agency.tools import board, presentation
-from agency.tools.files import ensure_dir_under, read_under, replace_under, sha256_under
+from agency.tools.files import (
+    MAX_DOCUMENT_BYTES,
+    MAX_IMAGE_FILE_BYTES,
+    MAX_TEXT_FILE_BYTES,
+    ensure_dir_under,
+    read_under,
+    replace_under,
+    sha256_under,
+)
 from agency.tools.sandbox import Sandbox
 from agency.tools.surface import PresentConcepts, SelectConcepts
 
@@ -62,9 +70,11 @@ def _rework_note(ledger: Ledger, ticket: str) -> str:
 type Graph = CompiledStateGraph[ProjectState, None, ProjectState, ProjectState]
 
 
-def _copy(work: Path, source: str, target: str) -> None:
-    """A copy inside the work folder: a sandbox may leave a link at either end, and none is followed."""
-    replace_under(work, target, read_under(work, source))
+def _copy(work: Path, source: str, target: str, limit: int) -> None:
+    """A copy inside the work folder: a sandbox may leave a link at either end, and none is followed.
+
+    The source is read whole, so a file over `limit` is refused."""
+    replace_under(work, target, read_under(work, source, limit))
 
 
 def build(
@@ -117,7 +127,7 @@ def build(
                 ledger.apply(row.idea_ticket, Action.ACCEPT, "design-director", "passa alla tavola")
         folder = f"board/r{turn}"
         board.build(items, work / folder / "tavola.png")
-        _copy(work, "brief.md", f"{folder}/brief.md")
+        _copy(work, "brief.md", f"{folder}/brief.md", MAX_TEXT_FILE_BYTES)
         return {}
 
     def after_board(state: ProjectState) -> str:
@@ -166,7 +176,9 @@ def build(
             if not row.anon:
                 continue
             try:  # a missing sheet is skipped; a link is refused, not followed
-                sheet = read_under(work, f"explorations/r{turn}/{row.letter}/foglio-{row.letter}.png")
+                sheet = read_under(
+                    work, f"explorations/r{turn}/{row.letter}/foglio-{row.letter}.png", MAX_IMAGE_FILE_BYTES
+                )
             except FileNotFoundError:
                 continue
             replace_under(work, f"{folder}/fogli/{row.anon}.png", sheet)
@@ -201,7 +213,9 @@ def build(
         project, turn, root = state["project"], state["exploration"], state["root"]
         work = work_dir(project)
         existing = {ledger.spec(ticket).title for ticket in _proposal_tickets(state)}
-        applications = json.loads(read_under(work, f"explorations/r{turn}/applicazioni.json").decode("utf-8"))
+        applications = json.loads(
+            read_under(work, f"explorations/r{turn}/applicazioni.json", MAX_TEXT_FILE_BYTES).decode("utf-8")
+        )
         chosen = [row for row in ledger.concepts(project, turn) if row.status == "selezionata"]
         for row in sorted(chosen, key=lambda item: item.anon):
             title = f"Proposta {row.anon} r{turn}"
@@ -211,9 +225,9 @@ def build(
             workspace = f"proposals/r{turn}/{letter}"
             ensure_dir_under(work, workspace)
             source = f"explorations/r{turn}/{row.letter}"
-            _copy(work, "brief.md", f"{workspace}/brief.md")
-            _copy(work, f"{source}/scheda.json", f"{workspace}/scheda.json")
-            _copy(work, row.sketch_file, f"{workspace}/schizzo.png")
+            _copy(work, "brief.md", f"{workspace}/brief.md", MAX_TEXT_FILE_BYTES)
+            _copy(work, f"{source}/scheda.json", f"{workspace}/scheda.json", MAX_TEXT_FILE_BYTES)
+            _copy(work, row.sketch_file, f"{workspace}/schizzo.png", MAX_IMAGE_FILE_BYTES)
             names = "\n".join(f"- {item['name']}: {item['size']}" for item in applications)
             spec = TicketSpec(
                 title=title,
@@ -348,7 +362,7 @@ def build(
         target = next(path for path in spec.outputs if path.endswith(".vectorcraft"))
         if PurePosixPath(target).parent.parts:
             ensure_dir_under(work, str(PurePosixPath(target).parent))
-        _copy(work, f"{folder}/proposta-{letter}.vectorcraft", target)
+        _copy(work, f"{folder}/proposta-{letter}.vectorcraft", target, MAX_DOCUMENT_BYTES)
         production = TicketSpec(
             title=title,
             request=f"{spec.request}\n\nCONCETTO SCELTO DAL CLIENTE\n{row.card_json}\n\n"

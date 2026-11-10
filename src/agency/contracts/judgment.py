@@ -1,4 +1,4 @@
-"""Il giudizio alla cieca: una persona vota file anonimi, senza sapere da quale esecuzione vengono."""
+"""The blind judgment: a person rates anonymous files without knowing which run they come from."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Level(StrEnum):
-    """I riferimenti di `docs/07-EVALS.md`."""
+    """The reference levels of `docs/07-EVALS.md`."""
 
     ORDINARY = "ordinario"
     GOOD = "buono"
@@ -16,21 +16,23 @@ class Level(StrEnum):
 
     @property
     def rank(self) -> int:
-        """Ordinario, buono, eccellente: l'ordine in cui sono scritti."""
+        """Ordinary, good, excellent: the order they are declared in."""
         return list(Level).index(self)
 
 
 class Rating(BaseModel):
+    """The judge's rating of one letter: its level, whether it passes the substitution test, and why."""
+
     model_config = ConfigDict(frozen=True, extra="forbid", str_strip_whitespace=True)
 
     letter: str = Field(min_length=1)
     level: Level
-    specific: bool = Field(description="Test di sostituzione: con un altro nome non reggerebbe")
+    specific: bool = Field(description="Substitution test: it would not hold up under another name")
     why: str = Field(min_length=1)
 
 
 class Judgment(BaseModel):
-    """Un confronto: un voto per ogni lettera e, se le lettere sono più d'una, la migliore."""
+    """One comparison: a rating for each letter and, when there is more than one letter, the best."""
 
     model_config = ConfigDict(frozen=True, extra="forbid", str_strip_whitespace=True)
 
@@ -53,9 +55,9 @@ class Judgment(BaseModel):
 
 
 def below_the_top(ratings: list[Rating], best: str) -> str | None:
-    """Perché `best` non può essere il migliore, o None se può: un eccellente non perde da un buono.
+    """Why `best` cannot be the best, or None if it can: an excellent never loses to a good.
 
-    Altrimenti il giudizio non direbbe quale segno vince. A pari livello decide la scelta (ADR-0041).
+    Otherwise the judgment would not say which mark wins. At the same level, the choice decides (ADR-0041).
     """
     top = max(ratings, key=lambda rating: rating.level.rank).level
     chosen = next(rating for rating in ratings if rating.letter == best)
@@ -66,10 +68,10 @@ def below_the_top(ratings: list[Rating], best: str) -> str | None:
 
 
 class Judged(BaseModel):
-    """La versione precisa del file dietro una lettera. `project` è vuoto per un file fuori dai progetti."""
+    """The exact version of the file behind a letter. `project` is empty for a file outside the projects."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     project: str
-    file: str = Field(description="Relativo a work/ del progetto, oppure il percorso intero")
+    file: str = Field(description="Relative to the project's work/, or the full path")
     sha256: str

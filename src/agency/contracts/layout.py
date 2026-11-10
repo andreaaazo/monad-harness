@@ -1,6 +1,6 @@
-"""Dove stanno i dati in `.data/`: un solo proprietario, per il motore che scrive e per chi legge.
+"""Where the data lives in `.data/`: one owner, for the engine that writes it and for whoever reads it.
 
-Il server del cruscotto lo usa senza passare da `agency.config`, che legge `.env` e quindi la chiave API.
+The dashboard server uses it without going through `agency.config`, which reads `.env` and so the API key.
 """
 
 from __future__ import annotations
@@ -62,8 +62,8 @@ def _anchored[Default: (Path, None)](
 
 @dataclass(frozen=True)
 class DataLayout:
-    """`projection` è dove sta la proiezione di insights, se non accanto al registro. In Docker sta in
-    memoria, e il container non aggiunge file al registro (ADR-0040)."""
+    """`projection` is where the insights projection lives, if not beside the registry. In Docker it lives
+    in memory, and the container adds no file to the registry (ADR-0040)."""
 
     root: Path
     projection: Path | None = None
@@ -90,7 +90,7 @@ class DataLayout:
 
     @property
     def transcripts(self) -> Path:
-        """Le trascrizioni delle istanze, una cartella per progetto."""
+        """The instances' transcripts, one folder per project."""
         return self.root / "runs"
 
     @property

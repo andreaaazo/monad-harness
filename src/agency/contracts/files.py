@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 
 
 class OutsidePerimeter(Exception):
-    """Il percorso esce dalla cartella del lavoro."""
+    """A path the harness refuses: outside the work folder, through a link, not a regular file, or too big."""
 
 
 # What the harness reads whole from a file the sandbox wrote (it can write a file of up to 2 GiB), for the
@@ -233,6 +233,7 @@ def glob_under(root: Path, pattern: str) -> list[str]:
 
 
 def inside(work: Path, relative: str) -> Path:
+    """`work / relative` with every link resolved, or `OutsidePerimeter` when that lands outside `work`."""
     target = (work / relative).resolve()
     root = work.resolve()
     if target != root and root not in target.parents:

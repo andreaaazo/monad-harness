@@ -1,10 +1,12 @@
-"""La scheda dell'idea: ciò che si giudica prima di disegnare."""
+"""The idea card: what is judged before anything is drawn."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
+# The input of the `submit_concept` tool: the Field descriptions are model-facing, and a class docstring
+# would join the tool schema.
 class ConceptCard(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

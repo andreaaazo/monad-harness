@@ -1400,7 +1400,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
   - Commit: `docs(agents): translate comments and docstrings to English`.
 - [x] **Task 3.5: `src/agency/artifacts/`.** Closes CMT-009 for this package, and its CMT-014 items.
   - Commit: `docs(artifacts): translate comments and docstrings to English`.
-- [ ] **Task 3.6: `src/agency/contracts/`.** Closes CMT-009 for this package, CMT-018, and its CMT-014 items.
+- [x] **Task 3.6: `src/agency/contracts/`.** Closes CMT-009 for this package, CMT-018, and its CMT-014 items.
   - Keep the model-facing `Field` descriptions and every enum value.
   - Commit: `docs(contracts): translate comments and docstrings to English`.
 - [ ] **Task 3.7: `src/agency/entrypoints/server/`.** Closes CMT-009 for this package.

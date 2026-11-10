@@ -1,8 +1,8 @@
-"""I gate del cliente: cosa gli si mostra quando il lavoro si ferma, e cosa risponde.
+"""The client's gates: what the client is shown when the work stops, and what they answer.
 
-Il campo `gate` fa da discriminante e ha il nome di sempre: un checkpoint salvato prima di questi tipi si
-legge ancora. Nel checkpoint il gate resta un dict semplice (`GATE.dump_python(..., mode="json")`): il tipo
-vive nel codice, e il formato salvato non dipende dal serializzatore di LangGraph.
+The `gate` field is the discriminator and keeps the name it always had, so a checkpoint saved before these
+types still reads. In the checkpoint the gate stays a plain dict (`GATE.dump_python(..., mode="json")`): the
+type lives in the code, and the saved format does not depend on LangGraph's serializer.
 """
 
 from __future__ import annotations
@@ -14,12 +14,14 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 
 class GateKind(StrEnum):
+    """Where the work waits for the client: the choice among concepts, or the finished work."""
+
     CONCEPT = "concept"
     FINAL = "final"
 
 
 class ConceptGate(BaseModel):
-    """Le proposte sviluppate, nel PDF che il cliente riceve, e quella che lo studio raccomanda."""
+    """The developed proposals, in the PDF the client receives, and the one the studio recommends."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -32,7 +34,7 @@ class ConceptGate(BaseModel):
 
 
 class FinalGate(BaseModel):
-    """Il lavoro finito: le consegne del ticket principale."""
+    """The finished work: the deliveries of the main ticket."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -46,7 +48,7 @@ GATE: TypeAdapter[Gate] = TypeAdapter(Gate)
 
 
 class Decision(BaseModel):
-    """La risposta del cliente a un gate. `choice` è la lettera della proposta, solo al gate `concept`."""
+    """The client's answer to a gate. `choice` is the proposal's letter, only at the `concept` gate."""
 
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 

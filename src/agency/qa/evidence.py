@@ -76,7 +76,9 @@ def record(
     proof: str = "",
     note: str = "",
     inputs: list[str] | None = None,
+    operation: tuple[str, str, str, str] | None = None,
 ) -> EvidenceRow:
+    """`operation` is the resume record of the tool call behind this proof: it is written with the proof."""
     guard(ledger, project, file, check, actor)
     if not is_file_under(work, file):
         raise EvidenceRefused(f"file inesistente: {file}")
@@ -95,7 +97,7 @@ def record(
         note=note,
         inputs_json=json.dumps({path: sha256_under(work, path) for path in inputs or []}),
     )
-    ledger.add_evidence(row)
+    ledger.add_evidence(row, operation)
     return row
 
 

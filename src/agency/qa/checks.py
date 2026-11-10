@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import glob
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from agency.contracts.files import ensure_dir_under, glob_under, is_file_under, sha256_under
@@ -57,8 +58,16 @@ def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
 
 
 def run(
-    sandbox: Sandbox, ledger: Ledger, project: str, ticket_id: str, actor: str, check: str, file: str
+    sandbox: Sandbox,
+    ledger: Ledger,
+    project: str,
+    ticket_id: str,
+    actor: str,
+    check: str,
+    file: str,
+    resume: Callable[[CheckOutcome], tuple[str, str, str, str]] | None = None,
 ) -> CheckOutcome:
+    """`resume` makes the tool call's resume record from the outcome; it is written with the evidence row."""
     if check not in RUNNABLE:
         raise evidence.EvidenceRefused(f"{check} non si esegue: usa observe, judge o record_requirement")
     evidence.guard(ledger, project, file, check, actor)
@@ -79,5 +88,6 @@ def run(
             ticket_id,
             proof=outcome.proofs[0] if outcome.proofs else "",
             note=outcome.detail[:400],
+            operation=resume(outcome) if resume else None,
         )
     return outcome

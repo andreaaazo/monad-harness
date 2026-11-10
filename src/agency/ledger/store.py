@@ -431,13 +431,20 @@ class Ledger:
 
     # Prove
 
-    def add_evidence(self, row: EvidenceRow) -> None:
+    def add_evidence(self, row: EvidenceRow, operation: tuple[str, str, str, str] | None = None) -> None:
+        """`operation` (id, instance, tool, result) makes the proof and its resume record one transaction, as
+        in `open`: a replay after a crash finds the record and does not add the proof twice."""
         with self._writing() as session:
             session.add(row)
             session.flush()
             note = f"{row.file}:{row.check_name}:{row.result}:{row.sha256[:16]}"
             ticket = session.get(TicketRow, row.ticket_id) if row.ticket_id else None
             self._append(session, row.ticket_id or NO_TICKET, row.signer, "evidence", note, ticket, row)
+            if operation:
+                operation_id, instance, tool, result = operation
+                session.add(
+                    OperationRow(id=operation_id, instance=instance, tool=tool, result_json=result, at=now())
+                )
             session.commit()
 
     def evidence(self, project: str) -> list[EvidenceRow]:
@@ -446,11 +453,21 @@ class Ledger:
             return list(session.exec(query).all())
 
     def add_render(self, project: str, source: str, source_sha: str, proofs: Iterable[str]) -> None:
-        with Session(self.engine) as session:
+        """A proof already stored for this source version is not stored again: a replay adds nothing."""
+        with self._writing() as session:
             for proof in proofs:
-                session.add(
-                    RenderRow(at=now(), project=project, source=source, source_sha=source_sha, proof=proof)
+                same = select(RenderRow).where(
+                    RenderRow.project == project,
+                    RenderRow.source == source,
+                    RenderRow.source_sha == source_sha,
+                    RenderRow.proof == proof,
                 )
+                if session.exec(same).first() is None:
+                    session.add(
+                        RenderRow(
+                            at=now(), project=project, source=source, source_sha=source_sha, proof=proof
+                        )
+                    )
             session.commit()
 
     def render_of(self, project: str, source: str, source_sha: str) -> str | None:
@@ -477,9 +494,19 @@ class Ledger:
             return [row.proof for row in session.exec(query).all()]
 
     def add_derivation(self, row: DerivationRow) -> None:
-        with Session(self.engine) as session:
-            session.add(row)
-            session.commit()
+        """A link identical to a stored one (every column but `seq` and `at`) is not stored again."""
+        with self._writing() as session:
+            same = select(DerivationRow).where(
+                DerivationRow.project == row.project,
+                DerivationRow.master == row.master,
+                DerivationRow.master_sha == row.master_sha,
+                DerivationRow.export == row.export,
+                DerivationRow.export_sha == row.export_sha,
+                DerivationRow.how == row.how,
+            )
+            if session.exec(same).first() is None:
+                session.add(row)
+                session.commit()
 
     def derivations(self, project: str, export: str) -> list[DerivationRow]:
         with Session(self.engine) as session:
@@ -505,8 +532,12 @@ class Ledger:
             return list(session.exec(query.order_by(col(ConceptRow.seq))).all())
 
     def update_concept(self, idea_ticket: str, **fields: object) -> None:
+        """A write that changes nothing (every field already holds the value) is skipped, with its chain
+        event: a replay after a crash does not repeat it."""
         with self._writing() as session:
             row = session.exec(select(ConceptRow).where(ConceptRow.idea_ticket == idea_ticket)).one()
+            if all(getattr(row, name) == value for name, value in fields.items()):
+                return
             for name, value in fields.items():
                 setattr(row, name, value)
             session.add(row)

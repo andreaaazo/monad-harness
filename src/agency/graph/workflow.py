@@ -219,7 +219,8 @@ def build(
         chosen = [row for row in ledger.concepts(project, turn) if row.status == "selezionata"]
         for row in sorted(chosen, key=lambda item: item.anon):
             title = f"Proposta {row.anon} r{turn}"
-            if title in existing:
+            if title in existing:  # a replay: the ticket was opened, the status may not have been set
+                ledger.update_concept(row.idea_ticket, status="in-sviluppo")
                 continue
             letter = row.anon.lower()
             workspace = f"proposals/r{turn}/{letter}"

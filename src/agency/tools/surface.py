@@ -445,9 +445,26 @@ def export_master(ctx: ToolContext, a: ExportMaster, _: str) -> dict:
     return {"ok": True, "output": a.output}
 
 
-def run_check(ctx: ToolContext, a: RunCheck, _: str) -> dict:
-    outcome = qa.run(ctx.sandbox, ctx.ledger, ctx.project, ctx.ticket_id, ctx.actor, a.check, a.file)
+def result_text(value: dict) -> str:
+    """The text of a tool result, as the model reads it and as the resume record keeps it."""
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _recorded(ctx: ToolContext, operation_id: str, name: str, value: dict) -> tuple[str, str, str, str]:
+    """The resume record of a call whose result is `value`, to be written in the transaction of its proof."""
+    return (operation_id, ctx.instance, name, result_text(value))
+
+
+def _check_result(outcome: qa.CheckOutcome) -> dict:
     return {"result": outcome.result, "detail": outcome.detail, "proofs": list(outcome.proofs)}
+
+
+def run_check(ctx: ToolContext, a: RunCheck, operation_id: str) -> dict:
+    def resume(outcome: qa.CheckOutcome) -> tuple[str, str, str, str]:
+        return _recorded(ctx, operation_id, "run_check", _check_result(outcome))
+
+    outcome = qa.run(ctx.sandbox, ctx.ledger, ctx.project, ctx.ticket_id, ctx.actor, a.check, a.file, resume)
+    return _check_result(outcome)
 
 
 def _seen_proof(ctx: ToolContext, file: str) -> str:
@@ -462,19 +479,30 @@ def _seen_proof(ctx: ToolContext, file: str) -> str:
     raise Refused(f"{file}: non hai guardato un render della versione attuale. render, poi view_image.")
 
 
-def observe(ctx: ToolContext, a: Observe, _: str) -> dict:
+def observe(ctx: ToolContext, a: Observe, operation_id: str) -> dict:
     if len(a.seen.strip()) < 40:
         raise Refused("descrivi cosa hai visto, con almeno una frase concreta")
     if evidence.CHECKS.get(a.check, {}).get("kind") != "observation":
         raise Refused(f"{a.check} non è un controllo di osservazione")
     proof = _seen_proof(ctx, a.file)
+    value = {"ok": True, "check": a.check, "result": a.result, "proof": proof}
     evidence.record(
-        ctx.ledger, ctx.work, ctx.project, a.file, a.check, a.result, ctx.actor, ctx.ticket_id, proof, a.seen
+        ctx.ledger,
+        ctx.work,
+        ctx.project,
+        a.file,
+        a.check,
+        a.result,
+        ctx.actor,
+        ctx.ticket_id,
+        proof,
+        a.seen,
+        operation=_recorded(ctx, operation_id, "observe", value),
     )
-    return {"ok": True, "check": a.check, "result": a.result, "proof": proof}
+    return value
 
 
-def judge(ctx: ToolContext, a: Judge, _: str) -> dict:
+def judge(ctx: ToolContext, a: Judge, operation_id: str) -> dict:
     if evidence.CHECKS.get(a.check, {}).get("kind") != "judgement":
         raise Refused(f"{a.check} non è un giudizio")
     if len(a.why.strip()) < 60:
@@ -486,6 +514,7 @@ def judge(ctx: ToolContext, a: Judge, _: str) -> dict:
         raise Refused("un file non si confronta con se stesso")
     proof = _seen_proof(ctx, a.file)
     note = f"confronto con {', '.join(a.compare)}: {a.why.strip()}"
+    value = {"ok": True, "check": a.check, "result": a.result}
     evidence.record(
         ctx.ledger,
         ctx.work,
@@ -498,18 +527,29 @@ def judge(ctx: ToolContext, a: Judge, _: str) -> dict:
         proof,
         note,
         a.compare,
+        operation=_recorded(ctx, operation_id, "judge", value),
     )
-    return {"ok": True, "check": a.check, "result": a.result}
+    return value
 
 
-def record_requirement(ctx: ToolContext, a: RecordRequirement, _: str) -> dict:
+def record_requirement(ctx: ToolContext, a: RecordRequirement, operation_id: str) -> dict:
     kind = evidence.CHECKS.get(a.check, {}).get("kind")
     if kind in ("observation", "judgement", "measure") or a.check in qa.RUNNABLE:
         raise Refused(f"{a.check} ha il suo strumento: run_check, observe o judge")
+    value = {"ok": True}
     evidence.record(
-        ctx.ledger, ctx.work, ctx.project, a.file, a.check, a.result, ctx.actor, ctx.ticket_id, note=a.note
+        ctx.ledger,
+        ctx.work,
+        ctx.project,
+        a.file,
+        a.check,
+        a.result,
+        ctx.actor,
+        ctx.ticket_id,
+        note=a.note,
+        operation=_recorded(ctx, operation_id, "record_requirement", value),
     )
-    return {"ok": True}
+    return value
 
 
 def _coming(ctx: ToolContext) -> set[str]:
@@ -560,6 +600,8 @@ def _own_child(ctx: ToolContext, ticket: str) -> None:
 
 def accept_ticket(ctx: ToolContext, a: TicketRef, _: str) -> dict:
     _own_child(ctx, a.ticket)
+    if _replayed(ctx, Status.ACCEPTED, Action.ACCEPT, a.ticket):
+        return {"ok": True, "status": "accepted"}
     problems = delivery.acceptance_problems(ctx.ledger, ctx.project, ctx.sandbox, a.ticket)
     if problems:
         raise Refused("accettazione rifiutata:\n" + "\n".join(problems[:12]))
@@ -569,6 +611,8 @@ def accept_ticket(ctx: ToolContext, a: TicketRef, _: str) -> dict:
 
 def rework_ticket(ctx: ToolContext, a: TicketRef, _: str) -> dict:
     _own_child(ctx, a.ticket)
+    if _replayed(ctx, Status.REWORK, Action.REWORK, a.ticket):
+        return {"ok": True, "status": "rework"}
     if len(a.note.strip()) < 10:
         raise Refused("scrivi cosa va cambiato")
     ctx.ledger.apply(a.ticket, Action.REWORK, ctx.actor, a.note)
@@ -587,12 +631,13 @@ def hand_off(ctx: ToolContext, a: HandOff, _: str) -> dict:
     return {"ok": True, "waiting": waiting}
 
 
-def _replayed(ctx: ToolContext, target: Status, action: Action) -> bool:
-    """True when this ticket is already in `target` because this actor just did `action`: a replay after a
-    crash between the ledger transition and its resume record (COR-003)."""
-    if ctx.ledger.status(ctx.ticket_id)[0] is not target:
+def _replayed(ctx: ToolContext, target: Status, action: Action, ticket: str | None = None) -> bool:
+    """True when the ticket (this instance's own by default) is already in `target` because this actor just
+    did `action`: a replay after a crash between the ledger transition and its resume record (COR-003)."""
+    ticket = ticket or ctx.ticket_id
+    if ctx.ledger.status(ticket)[0] is not target:
         return False
-    history = ctx.ledger.history(ctx.ticket_id)
+    history = ctx.ledger.history(ticket)
     return bool(history) and history[-1].action == action.value and history[-1].actor == ctx.actor
 
 
@@ -1037,8 +1082,8 @@ class Toolbox:
                 return self._result(tool_use_id, f"{name} non è riuscito: {detail}", True)
         if isinstance(value, list):
             return {"type": "tool_result", "tool_use_id": tool_use_id, "content": value}
-        text = json.dumps(value, ensure_ascii=False)
-        if tool.effect:
+        text = result_text(value)
+        if tool.effect and ctx.ledger.operation(operation_id) is None:  # else the handler recorded it already
             ctx.ledger.record_operation(operation_id, ctx.instance, name, text)
         return self._result(tool_use_id, text, False)
 

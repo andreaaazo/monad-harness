@@ -11,8 +11,11 @@ import threading
 import time
 import tracemalloc
 from pathlib import Path, PurePosixPath
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
+from langgraph.checkpoint.memory import InMemorySaver
 from PIL import Image
 
 from agency.agents.loop import AgentRunner, _after_fallback
@@ -20,15 +23,20 @@ from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
 from agency.contracts import phase
+from agency.contracts.concept import ConceptCard
 from agency.contracts.outcome import Outcome, OutcomeState
-from agency.contracts.project import ProjectName
-from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType, Verdict
+from agency.contracts.project import ProjectName, parse_project_name
+from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.gateway import BudgetExceeded, ModelGateway, ScriptedTransport
+from agency.graph import workflow
 from agency.ledger import Ledger
-from agency.ledger.models import ConceptRow
+from agency.ledger.models import ConceptRow, DerivationRow, EvidenceRow
+from agency.qa import checks
+from agency.qa.checks import CheckOutcome
 from agency.runtime import open_session
 from agency.tools import craft, master
 from agency.tools.craft import Command, CommandIndex
+from agency.tools.files import sha256_under
 from agency.tools.sandbox import (
     JOB,
     MEMORY_MAX_BYTES,
@@ -1638,6 +1646,464 @@ def test_an_interrupted_plan_never_loses_a_direction(tmp_path: Path, monkeypatch
     rows = context.ledger.concepts("p", 1)
     assert sorted(row.idea_ticket for row in rows) == sorted(tickets)
     assert [row.letter for row in rows] == ["a", "b", "c"]
+
+
+def delivered_note_box(tmp_path: Path) -> tuple[Toolbox, ToolContext, str]:
+    """A delivered ticket the director opened, and the director's toolbox with accept and rework."""
+    spec = TicketSpec(
+        title="Nota",
+        request="r",
+        type=TicketType.PRODUCTION,
+        sender="design-director",
+        assignee="copywriter",
+        outputs=["nota.md"],
+        checks={"*.md": ["req:letta"]},
+        media=[Medium.NONE],
+        medium_why="solo un testo di prova",
+    )
+    box, context, ticket = closing_box(tmp_path, spec, "design-director", "accept_ticket", "rework_ticket")
+    context.ticket_id = context.ledger.open(
+        DIRECTOR, "p"
+    )  # the director works on its own ticket, not the child
+    work = tmp_path / "work"
+    (work / "nota.md").write_text("v1")
+    digest = sha256_under(work, "nota.md")
+    context.ledger.add_evidence(
+        EvidenceRow(
+            at="2026-01-01T00:00:00+00:00",
+            project="p",
+            file="nota.md",
+            sha256=digest,
+            check_name="req:letta",
+            result="PASS",
+            signer="copywriter",
+            ticket_id=ticket,
+        )
+    )
+    context.ledger.apply(ticket, Action.DELIVER, "copywriter", "fatto", None, {"nota.md": digest})
+    return box, context, ticket
+
+
+def intact(ledger: Ledger) -> None:
+    assert ledger.verify_chain()
+    assert ledger.replay_mismatches() == []
+
+
+@pytest.mark.parametrize(
+    ("name", "note", "status", "action"),
+    [
+        ("accept_ticket", "ok", Status.ACCEPTED, "accept"),
+        ("rework_ticket", "cambia il titolo", Status.REWORK, "rework"),
+    ],
+)
+def test_a_replayed_accept_or_rework_returns_its_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, note: str, status: Status, action: str
+) -> None:
+    box, context, ticket = delivered_note_box(tmp_path)
+    arguments = {"ticket": ticket, "note": note}
+    crash_after_the_transition(box, context, monkeypatch, name, arguments)
+    assert context.ledger.status(ticket)[0] is status
+
+    result = box.call("t1", name, arguments)
+
+    assert not result.get("is_error"), result["content"]
+    assert json.loads(result["content"]) == {"ok": True, "status": status.value}
+    assert [event.action for event in context.ledger.history(ticket)].count(action) == 1
+    intact(context.ledger)
+
+
+def test_a_ticket_in_the_target_state_replays_only_its_own_last_action(tmp_path: Path) -> None:
+    """The ledger's rule still holds when the ticket is in the target state for another reason."""
+    box, context, ticket = delivered_note_box(tmp_path)
+    assert not box.call("t1", "accept_ticket", {"ticket": ticket, "note": "ok"}).get("is_error")
+    context.ledger.apply(ticket, Action.REWORK, "design-director", "cambia")  # last event: a rework
+
+    result = box.call("t2", "rework_ticket", {"ticket": ticket, "note": "ancora una volta"})
+    assert not result.get("is_error"), result["content"]  # the same actor repeating its last action
+    result = box.call("t3", "accept_ticket", {"ticket": ticket, "note": "ok"})
+    assert result.get("is_error")  # a rework state is not accepted
+    assert "non è ammesso" in result["content"]
+
+
+def resume_record_dies(
+    box: Toolbox,
+    context: ToolContext,
+    monkeypatch: pytest.MonkeyPatch,
+    tool_use_id: str,
+    name: str,
+    arguments: dict,
+) -> bool:
+    """Calls the tool while writing a resume record kills the process. True if the call was killed: a call
+    whose effect and resume record are one transaction never reaches the separate write."""
+
+    def die(*_: object) -> None:
+        raise KeyboardInterrupt
+
+    killed = False
+    with monkeypatch.context() as patch:
+        patch.setattr(context.ledger, "record_operation", die)
+        try:
+            box.call(tool_use_id, name, arguments)
+        except KeyboardInterrupt:
+            killed = True
+    context.finished = None  # the process restarts: nothing of the old context survives
+    return killed
+
+
+def evidence_events(ledger: Ledger) -> int:
+    return sum(event.action == "evidence" for row in ledger.tickets("p") for event in ledger.history(row.id))
+
+
+def test_a_replayed_record_requirement_adds_one_proof(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    box, context, _ = closing_box(tmp_path, production_spec(), "identity-designer", "record_requirement")
+    (tmp_path / "work" / "nota.md").write_text("v1")
+    arguments = {"file": "nota.md", "check": "req:letta", "result": "PASS", "note": "ok"}
+
+    killed = resume_record_dies(box, context, monkeypatch, "t1", "record_requirement", arguments)
+    result = box.call("t1", "record_requirement", arguments)
+
+    assert len(context.ledger.evidence("p")) == 1
+    assert evidence_events(context.ledger) == 1
+    assert json.loads(result["content"]) == {"ok": True}
+    assert context.ledger.operation("i:t1") == '{"ok": true}'
+    assert [op.tool for op in context.ledger.operations("i")] == ["record_requirement"]
+    assert not killed  # the proof and its resume record are one transaction: no window between them
+    intact(context.ledger)
+
+
+def test_a_replayed_observe_and_judge_add_one_proof_each(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    box, context, _ = closing_box(
+        tmp_path, production_spec(), "critic", "render", "view_image", "observe", "judge"
+    )
+    work = tmp_path / "work"
+    Image.new("RGB", (100, 100), (200, 30, 30)).save(work / "a.png")
+    Image.new("RGB", (100, 100), (30, 30, 200)).save(work / "b.png")
+    (proof,) = json.loads(box.call("r1", "render", {"path": "a.png"})["content"])["proofs"]
+    box.call("v1", "view_image", {"path": proof})
+    observed = {"file": "a.png", "seen": SEEN_RED}
+    why = "Il rosso pieno regge meglio del blu: bordi netti, contrasto alto, nessun elemento in più."
+    judged = {"file": "a.png", "compare": ["b.png"], "why": why, "result": "PASS"}
+
+    killed = [
+        resume_record_dies(box, context, monkeypatch, "o1", "observe", observed),
+        resume_record_dies(box, context, monkeypatch, "j1", "judge", judged),
+    ]
+    results = [box.call("o1", "observe", observed), box.call("j1", "judge", judged)]
+
+    assert [row.check_name for row in context.ledger.evidence("p")] == ["visual_review", "critique"]
+    assert evidence_events(context.ledger) == 2
+    assert not any(result.get("is_error") for result in results), results
+    assert json.loads(results[0]["content"]) == {
+        "ok": True,
+        "check": "visual_review",
+        "result": "PASS",
+        "proof": proof,
+    }
+    assert json.loads(results[1]["content"]) == {"ok": True, "check": "critique", "result": "PASS"}
+    assert killed == [False, False]
+    assert sorted(op.tool for op in context.ledger.operations("i") if op.id in ("i:o1", "i:j1")) == [
+        "judge",
+        "observe",
+    ]
+    intact(context.ledger)
+
+
+def test_a_replayed_run_check_neither_reruns_nor_duplicates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    box, context, _ = closing_box(tmp_path, production_spec(), "identity-designer", "run_check")
+    (tmp_path / "work" / "a.png").write_bytes(b"x")
+    runs: list[str] = []
+
+    def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
+        runs.append(check)
+        return CheckOutcome("MEASURED", "misurato", ("proofs/optical/a.png",))
+
+    monkeypatch.setattr(checks, "execute", execute)
+    arguments = {"check": "optical_check", "file": "a.png"}
+
+    killed = resume_record_dies(box, context, monkeypatch, "t1", "run_check", arguments)
+    result = box.call("t1", "run_check", arguments)
+
+    assert runs == ["optical_check"]  # the replay returned the recorded result
+    assert json.loads(result["content"]) == {
+        "result": "MEASURED",
+        "detail": "misurato",
+        "proofs": ["proofs/optical/a.png"],
+    }
+    assert len(context.ledger.evidence("p")) == 1
+    assert evidence_events(context.ledger) == 1
+    digest = sha256_under(tmp_path / "work", "a.png")
+    assert context.ledger.renders_of("p", "a.png", digest) == ["proofs/optical/a.png"]
+    assert not killed
+    assert [op.tool for op in context.ledger.operations("i")] == ["run_check"]
+    intact(context.ledger)
+
+
+def test_a_run_check_that_makes_no_evidence_is_recorded_by_the_toolbox(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A PROOF outcome writes no evidence row: the toolbox records the operation, as for any other effect."""
+    box, context, _ = closing_box(tmp_path, production_spec(), "identity-designer", "run_check")
+    (tmp_path / "work" / "a.png").write_bytes(b"x")
+    monkeypatch.setattr(
+        checks, "execute", lambda *_: CheckOutcome("PROOF", "fogli", ("proofs/logo/a/1.png",))
+    )
+
+    result = box.call("t1", "run_check", {"check": "logo_proof", "file": "a.png"})
+
+    assert context.ledger.operation("i:t1") == result["content"]
+    assert context.ledger.evidence("p") == []
+
+
+def test_a_replayed_render_adds_no_second_render_row(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    box, context, _ = closing_box(tmp_path, production_spec(), "critic", "render")
+    work = tmp_path / "work"
+    Image.new("RGB", (100, 100), (200, 30, 30)).save(work / "a.png")
+    arguments = {"path": "a.png", "zooms": [[0.1, 0.1, 0.5, 0.5]]}
+    crash_after_the_transition(box, context, monkeypatch, "render", arguments)
+
+    result = box.call("t1", "render", arguments)
+
+    proofs = json.loads(result["content"])["proofs"]
+    assert len(proofs) == 2
+    assert sorted(context.ledger.renders_of("p", "a.png", sha256_under(work, "a.png"))) == sorted(proofs)
+
+
+def test_add_render_keeps_a_new_source_version_and_a_new_proof(tmp_path: Path) -> None:
+    ledger = Ledger(settings(tmp_path).ledger_path)
+    ledger.add_render("p", "a.png", "s1", ["x.png", "y.png"])
+    ledger.add_render("p", "a.png", "s1", ["x.png", "y.png"])
+    ledger.add_render("p", "a.png", "s2", ["x.png"])
+    ledger.add_render("q", "a.png", "s1", ["x.png"])
+    ledger.add_render("p", "b.png", "s1", ["x.png"])  # the same proof name for another source
+    ledger.add_render("p", "a.png", "s1", ["z.png", "x.png"])  # only the new proof is added
+    ledger.add_render("p", "d.png", "s1", ["w.png", "w.png"])  # one call, one proof twice
+    assert ledger.renders_of("p", "d.png", "s1") == ["w.png"]
+
+    assert ledger.renders_of("p", "a.png", "s1") == ["x.png", "y.png", "z.png"]
+    assert ledger.renders_of("p", "a.png", "s2") == ["x.png"]
+    assert ledger.renders_of("q", "a.png", "s1") == ["x.png"]
+    assert ledger.renders_of("p", "b.png", "s1") == ["x.png"]
+
+
+def derivation(**changes: str) -> DerivationRow:
+    fields: dict[str, Any] = {
+        "at": "2026-01-01T00:00:00+00:00",
+        "project": "p",
+        "master": "m.vectorcraft",
+        "master_sha": "m1",
+        "export": "e.svg",
+        "export_sha": "e1",
+        "how": "vectorcraft-cli convert",
+    }
+    return DerivationRow(**{**fields, **changes})
+
+
+def test_add_derivation_skips_only_an_identical_row(tmp_path: Path) -> None:
+    ledger = Ledger(settings(tmp_path).ledger_path)
+    ledger.add_derivation(derivation())
+    ledger.add_derivation(derivation(at="2026-02-02T00:00:00+00:00"))  # same link, written again later
+    assert len(ledger.derivations("p", "e.svg")) == 1
+    for change in (
+        {"master": "n.vectorcraft"},
+        {"master_sha": "m2"},
+        {"export_sha": "e2"},
+        {"how": "altro"},
+        {"project": "q"},
+    ):
+        before = len(ledger.derivations(change.get("project", "p"), "e.svg"))
+        ledger.add_derivation(derivation(**change))
+        assert len(ledger.derivations(change.get("project", "p"), "e.svg")) == before + 1, change
+    ledger.add_derivation(derivation(export="f.svg"))
+    assert len(ledger.derivations("p", "f.svg")) == 1
+
+
+def test_a_replayed_export_master_adds_no_second_derivation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    box, context, _ = closing_box(tmp_path, production_spec(), "identity-designer", "export_master")
+    work = tmp_path / "work"
+    (work / "source").mkdir()
+    (work / "source" / "segno.vectorcraft").write_bytes(b"master")
+    monkeypatch.setattr(master, "problem", lambda *_: None)
+
+    def convert(command: list[str], **_: object) -> Completed:
+        (work / "exports").mkdir(exist_ok=True)
+        (work / "exports" / "segno.svg").write_bytes(b"<svg/>")
+        return Completed(0, "", "")
+
+    monkeypatch.setattr(context.sandbox, "run", convert)
+    arguments = {"master": "source/segno.vectorcraft", "output": "exports/segno.svg"}
+    crash_after_the_transition(box, context, monkeypatch, "export_master", arguments)
+    assert len(context.ledger.derivations("p", "exports/segno.svg")) == 1
+
+    result = box.call("t1", "export_master", arguments)
+
+    assert not result.get("is_error"), result["content"]
+    assert len(context.ledger.derivations("p", "exports/segno.svg")) == 1
+
+
+CARD = ConceptCard(
+    concept="Il merlo",
+    client_fact="Fatto",
+    why_not_obvious="Non ovvia",
+    drawing="Un merlo",
+    substitution="Solo lui",
+).model_dump_json()
+
+
+class Proposals:
+    """A project at the proposals node: one selected idea, its sketch, the brief and the applications."""
+
+    def __init__(self, tmp_path: Path) -> None:
+        self.settings = settings(tmp_path)
+        self.ledger = Ledger(tmp_path / "l.sqlite")
+        self.runner = MagicMock()
+        self.runner.run.return_value = Outcome(state=OutcomeState.BLOCKED, note="fermo")
+        self.graph = workflow.build(self.runner, self.ledger, self.settings, InMemorySaver())
+        self.work = self.settings.project_dir(parse_project_name("p")) / "work"
+        folder = self.work / "explorations/r1"
+        (folder / "a").mkdir(parents=True)
+        (self.work / "brief.md").write_text("brief")
+        (folder / "a/scheda.json").write_text("{}")
+        Image.new("RGB", (8, 8), (20, 20, 20)).save(folder / "a/schizzo-a.png")
+        (folder / "applicazioni.json").write_text(json.dumps([{"name": "timbro", "size": "16 mm"}]))
+        self.root = self.ledger.open(production_spec(), "p")
+        idea = production_spec().model_copy(update={"title": "Idea", "assignee": "direction-a"})
+        row = ConceptRow(
+            project="p",
+            round=1,
+            letter="a",
+            lever="il nome",
+            idea_ticket="",
+            anon="Z",
+            card_json=CARD,
+            status="selezionata",
+            sketch_file="explorations/r1/a/schizzo-a.png",
+        )
+        self.idea = self.ledger.open(idea, "p", concept=row)
+
+    def run(self, node: str) -> None:
+        state = {"project": "p", "root": self.root, "exploration": 1, "client_note": "", "chosen": "Z"}
+        self.graph.nodes[node].bound.func(state)  # type: ignore[attr-defined]
+
+    def prepare(self) -> None:
+        self.run("prepare_proposals")
+
+    def concept_events(self) -> int:
+        return sum(event.action == "concept" for event in self.ledger.history("-"))
+
+    def status(self) -> str:
+        (row,) = self.ledger.concepts("p", 1)
+        return row.status
+
+    def proposals(self) -> list[str]:
+        return [t for t in self.ledger.children(self.root) if "Proposta" in self.ledger.spec(t).title]
+
+
+def test_a_replayed_proposals_node_still_sets_the_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    studio = Proposals(tmp_path)
+
+    def die(*_: object, **__: object) -> None:
+        raise KeyboardInterrupt
+
+    with monkeypatch.context() as patch:
+        patch.setattr(studio.ledger, "update_concept", die)
+        with pytest.raises(KeyboardInterrupt):
+            studio.prepare()
+    assert len(studio.proposals()) == 1
+    assert studio.status() == "selezionata"  # the process died between the ticket and the status
+
+    studio.prepare()
+
+    assert len(studio.proposals()) == 1  # the ticket is not opened twice
+    assert studio.status() == "in-sviluppo"
+    intact(studio.ledger)
+
+
+def test_a_replayed_present_node_appends_no_second_concept_event(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    studio = Proposals(tmp_path)
+    studio.prepare()
+    (proposal,) = studio.proposals()
+    studio.ledger.apply(proposal, Action.DELIVER, "identity-designer", "fatto", None, {})
+    monkeypatch.setattr(workflow.presentation, "proposal_files", lambda *_: (Path("mark.png"), ()))
+    monkeypatch.setattr(workflow.presentation, "sheet", lambda *_: None)
+    studio.run("present")
+    assert studio.status() == "proposta"
+    events = studio.concept_events()
+
+    studio.run("present")  # the node ran again after a crash
+
+    assert studio.status() == "proposta"
+    assert studio.concept_events() == events
+    intact(studio.ledger)
+
+
+def test_a_replayed_select_concepts_appends_no_second_concept_event(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    box, context, _ = closing_box(tmp_path, DIRECTOR, "design-director", "select_concepts")
+    context.settings = settings(tmp_path)
+    context.round = 1
+    row = ConceptRow(
+        project="p", round=1, letter="a", lever="il nome", idea_ticket="", anon="Z", card_json=CARD
+    )
+    context.ledger.open(production_spec(), "p", concept=row)
+    ratings = context.settings.layout.ratings("p", 1)
+    ratings.parent.mkdir(parents=True, exist_ok=True)
+    ratings.write_text(json.dumps([{"letter": "Z", "passes": True}]))
+    arguments = {"chosen": ["Z"], "reasons": "regge"}
+    crash_after_the_transition(box, context, monkeypatch, "select_concepts", arguments)
+    events = sum(event.action == "concept" for event in context.ledger.history("-"))
+
+    result = box.call("t1", "select_concepts", arguments)
+
+    assert not result.get("is_error"), result["content"]
+    assert [r.status for r in context.ledger.concepts("p", 1)] == ["selezionata"]
+    assert sum(event.action == "concept" for event in context.ledger.history("-")) == events
+    intact(context.ledger)
+
+
+def test_update_concept_writes_only_a_change(tmp_path: Path) -> None:
+    ledger = Ledger(settings(tmp_path).ledger_path)
+    row = ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="Z", card_json=CARD)
+    ticket = ledger.open(production_spec(), "p", concept=row)
+
+    def events() -> int:
+        return len(ledger.history("-"))
+
+    before = events()
+
+    ledger.update_concept(ticket, status="schizzo", lever="l")  # one field changes: a write
+    assert events() == before + 1
+    ledger.update_concept(ticket, status="schizzo", lever="l")
+    ledger.update_concept(ticket, lever="l")
+    assert events() == before + 1
+    ledger.update_concept(ticket, status="schizzo", lever="altra")  # the second field changes: a write
+    assert events() == before + 2
+    assert ledger.concepts("p", 1)[0].lever == "altra"
+    intact(ledger)
+
+
+def test_a_node_run_once_sets_the_status_and_a_rerun_writes_nothing(tmp_path: Path) -> None:
+    studio = Proposals(tmp_path)
+    studio.prepare()
+    assert studio.status() == "in-sviluppo"
+    events = len(studio.ledger.history("-"))
+
+    studio.prepare()
+
+    assert len(studio.ledger.history("-")) == events  # an idea already in development writes no chain event
+    assert len(studio.proposals()) == 1
 
 
 def test_cli_lists_new_commands() -> None:

@@ -413,7 +413,9 @@ def test_migration_binds_every_ticket_state_into_the_chain(
     before = read(path, f"SELECT {V1_COLUMNS} FROM events ORDER BY seq")
     started = datetime.now(UTC).replace(microsecond=0)
 
-    assert migrate(path).revision == schema.head()
+    with monkeypatch.context() as patch:
+        patch.setattr(schema, "MIGRATIONS", migrations_up_to(tmp_path, "0006"))
+        assert migrate(path).revision == "0006"
 
     events = read(path, f"SELECT {V1_COLUMNS}, version, payload_json FROM events ORDER BY seq")
     old, added = events[: len(before)], events[len(before) :]
@@ -427,13 +429,17 @@ def test_migration_binds_every_ticket_state_into_the_chain(
         {"status": status, "verdict": verdict, "delivered": delivered}
         for status, verdict, delivered in states
     ]
-    assert [row[9] for row in added] == [chain.ticket_state(*state) for state in states]
+    assert [row[9] for row in added] == [
+        chain.canonical({"delivered": delivered, "status": status, "verdict": verdict})
+        for status, verdict, delivered in states
+    ]
     (stamp,) = {row[2] for row in added}
     assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+00:00", stamp)
     assert started <= datetime.fromisoformat(stamp) <= datetime.now(UTC)
-    ledger = Ledger(path)
-    assert ledger.verify_chain()
-    assert ledger.replay_mismatches() == []
+    engine = create_engine(f"sqlite:///{path}")
+    with engine.connect() as connection:
+        assert chain.intact(connection.exec_driver_sql(schema.EVENTS))
+    engine.dispose()
 
 
 def test_v1_events_still_verify(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -443,9 +449,10 @@ def test_v1_events_still_verify(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     migrate(path)
     ledger = Ledger(path)
     ledger.apply("T-0001", Action.BLOCK, "identity-designer", "manca il brief")
+    # 9 version-1 events, a baseline per ticket from 0006 and from 0007, and the block
     assert [version for (version,) in read(path, "SELECT version FROM events ORDER BY seq")] == [1] * 9 + [
         2
-    ] * 5
+    ] * 9
     assert ledger.verify_chain()
 
     def intact_after(statement: str) -> bool:
@@ -460,3 +467,76 @@ def test_v1_events_still_verify(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert not intact_after(verdict.format("READY", "REVISE"))
     assert intact_after(verdict.format("REVISE", "READY"))
     assert not intact_after("UPDATE events SET version = 3 WHERE seq = 14")
+
+
+def at_revision_0006(path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A registry at revision 0006: the tickets of `at_revision_0005` with their state bound by 0006, and an
+    idea, a gate and a proof that no event binds yet."""
+    at_revision_0005(path, tmp_path, monkeypatch)
+    with monkeypatch.context() as patch:
+        patch.setattr(schema, "MIGRATIONS", migrations_up_to(tmp_path, "0006"))
+        migrate(path)
+    with closing(sqlite3.connect(path)) as connection:
+        connection.execute(
+            "INSERT INTO concepts (project, round, letter, lever, anon, card_json, idea_ticket,"
+            " sketch_ticket, sketch_file, status) VALUES ('prova', 1, 'A', 'forma', 'B', '{}', 'T-0001', '',"
+            " 'a.png', 'proposta')"
+        )
+        connection.execute(
+            "INSERT INTO gates (at, project, gate, approved, choice, text, files_json) VALUES"
+            " ('2026-11-01T11:00:00+00:00', 'prova', 'concept', 1, 'B', 'La B', '{\"p.pdf\": \"a1b2\"}')"
+        )
+        connection.execute(
+            "INSERT INTO evidence (at, project, file, sha256, check_name, result, signer, ticket_id, proof,"
+            " note, inputs_json) VALUES ('2026-11-01T11:00:00+00:00', 'prova', 'segno.svg', 'a1b2',"
+            " 'svg_audit', 'PASS', 'qa-inspector', 'T-0002', '', '', '{}')"
+        )
+        connection.commit()
+
+
+def test_migration_binds_every_contract_idea_gate_and_proof_into_the_chain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One baseline event per ticket binds its state and the sha256 of its contract and opening hashes; one
+    per idea, gate and proof binds the row, outside any ticket's history. The events written before stay as
+    they were (2.F56-2.F58, ADR-0049)."""
+    path = tmp_path / "l.sqlite"
+    at_revision_0006(path, tmp_path, monkeypatch)
+    columns = f"SELECT {V1_COLUMNS}, version, payload_json FROM events ORDER BY seq"
+    before = read(path, columns)
+    started = datetime.now(UTC).replace(microsecond=0)
+
+    assert migrate(path).revision == "0007"
+
+    events = read(path, columns)
+    assert events[: len(before)] == before
+    ledger = Ledger(path)
+    tickets = ledger.tickets("prova")
+    assert [row.id for row in tickets] == [ticket for ticket, *_ in BEFORE_0006]
+    bound = [
+        (
+            ticket.id,
+            chain.ticket_binding(
+                ticket.status,
+                ticket.verdict,
+                json.loads(ticket.delivered_json),
+                ticket.spec_json,
+                ticket.inputs_json,
+            ),
+        )
+        for ticket in tickets
+    ]
+    bound += [("-", {"concept": row.model_dump()}) for row in ledger.concepts("prova")]
+    bound += [("-", {"gate": row.model_dump()}) for row in ledger.gates("prova")]
+    bound += [("-", {"evidence": row.model_dump()}) for row in ledger.evidence("prova")]
+    added = events[len(before) :]
+    assert [(row[1], row[3], row[4], row[5], row[8]) for row in added] == [
+        (ticket, "migrate", "baseline", "", 2) for ticket, _ in bound
+    ]
+    assert [row[9] for row in added] == [chain.canonical(binding) for _, binding in bound]
+    assert json.loads(added[len(tickets)][9])["concept"]["status"] == "proposta"
+    assert json.loads(added[-2][9])["gate"]["approved"] is True
+    (stamp,) = {row[2] for row in added}
+    assert started <= datetime.fromisoformat(stamp) <= datetime.now(UTC)
+    assert ledger.verify_chain()
+    assert ledger.replay_mismatches() == []

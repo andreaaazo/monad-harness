@@ -36,17 +36,21 @@ aggira. Gli stessi trigger proteggono `usage`, `evidence`, `renders`, `derivatio
 che è la verità. Dalla revisione 0006 ogni evento nuovo è di
 versione 2 e lega nella catena lo stato del suo ticket dopo l'evento: stato, verdetto e hash consegnati, in
 `payload_json`. Gli eventi precedenti restano di versione 1 e si verificano con la loro formula, e la migrazione ha
-aggiunto un evento `baseline` per ticket con lo stato di quel momento (ADR-0047). `agency verify` ricontrolla la catena
-e confronta ogni ticket con lo stato legato dal suo ultimo evento: una differenza è un registro alterato. Restano fuori
-dalla catena il contratto del ticket (`spec_json`, `inputs_json`) e le idee (`concepts`).
+aggiunto un evento `baseline` per ticket con lo stato di quel momento (ADR-0047). Dalla revisione 0007 l'evento di un
+ticket lega anche lo sha256 del suo contratto (`spec_json`) e dei suoi hash d'apertura (`inputs_json`), e ogni
+scrittura di un'idea (`concepts`) o di un gate (`gates`) aggiunge un evento con ticket `-` che lega la riga intera;
+l'evento di una prova (`evidence`) lega anche la prova. La migrazione 0007 ha legato così le righe di quel momento
+(ADR-0049). `agency verify` ricontrolla la catena e confronta ogni ticket con lo stato e il contratto legati dal suo
+ultimo evento, e ogni idea, gate e prova con l'ultimo evento che la lega: una differenza, o un ticket o una riga
+legati che mancano, è un registro alterato.
 
 ### Tabelle
 
 | Tabella | Traguardo | Contenuto |
 |---|---|---|
 | `projects` | M1.5 | Budget, modello ed effort scelti dal cliente |
-| `tickets` | M0 | Contratto, stato, verdetto, hash consegnati: per stato, verdetto e consegna è una proiezione degli eventi (ADR-0047) |
-| `events` | M0 | Chi ha fatto cosa, quando, con quale hash precedente. Dalla versione 2 anche lo stato del ticket dopo l'evento (ADR-0047) |
+| `tickets` | M0 | Contratto, stato, verdetto, hash consegnati: per stato, verdetto, consegna e contratto è una proiezione degli eventi (ADR-0047, ADR-0049) |
+| `events` | M0 | Chi ha fatto cosa, quando, con quale hash precedente. Dalla versione 2 anche lo stato del ticket dopo l'evento (ADR-0047), lo sha256 del suo contratto e l'idea, il gate o la prova scritti (ADR-0049) |
 | `evidence` | M1 | File, hash, controllo, esito, firma, prova, input confrontati |
 | `artifacts` | M1.6 | Versione conservata: hash, progetto, percorso, ticket, esecuzione, motivo, tipo MIME, dimensione (ADR-0028) |
 | `renders` | M1 | Prova di render di una versione precisa di un file |

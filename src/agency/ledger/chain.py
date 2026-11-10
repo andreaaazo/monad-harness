@@ -23,10 +23,27 @@ def digest_v2(
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def ticket_state(status: str, verdict: str | None, delivered: dict[str, str]) -> str:
-    """The canonical JSON of a ticket's mutable state, as a version-2 event binds it (ADR-0047)."""
-    state = {"delivered": delivered, "status": status, "verdict": verdict}
-    return json.dumps(state, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+def canonical(binding: dict[str, Any]) -> str:
+    """The canonical JSON a version-2 event carries in `payload_json`: sorted keys, no spaces (ADR-0047)."""
+    return json.dumps(binding, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def text_sha256(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def ticket_binding(
+    status: str, verdict: str | None, delivered: dict[str, str], spec_json: str, inputs_json: str
+) -> dict[str, Any]:
+    """What a version-2 event binds of its ticket: the state the event leaves (ADR-0047), and the sha256 of
+    the contract and of the opening hashes as stored, which no code changes after `open` (ADR-0049)."""
+    return {
+        "delivered": delivered,
+        "inputs_sha256": text_sha256(inputs_json),
+        "spec_sha256": text_sha256(spec_json),
+        "status": status,
+        "verdict": verdict,
+    }
 
 
 def _expected(prev: str, row: Any) -> str | None:

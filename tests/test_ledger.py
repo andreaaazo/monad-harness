@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -8,7 +9,7 @@ from sqlmodel import Session
 from agency import cli
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.ledger import ForbiddenAction, IllegalTransition, Ledger, chain
-from agency.ledger.models import EvidenceRow, TicketRow
+from agency.ledger.models import ConceptRow, EvidenceRow, GateRow, TicketRow
 
 
 def production(**extra: object) -> TicketSpec:
@@ -155,6 +156,7 @@ def review() -> TicketSpec:
 
 
 DELIVERED = {"segno.svg": "a1b2"}
+EMPTY_SHA256 = "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"  # sha256 of the text {}
 
 
 @pytest.mark.parametrize(
@@ -206,18 +208,23 @@ def test_every_new_event_binds_the_state_it_leaves(ledger: Ledger) -> None:
     )
     ledger.apply(ticket, Action.REWORK, "design-director", "rifai la verifica")
 
-    delivered = '{"delivered":{"segno.svg":"a1b2"},"status":"delivered","verdict":"READY"}'
-    assert [(event.action, event.version, event.payload_json) for event in ledger.history(ticket)] == [
-        ("open", 2, '{"delivered":{},"status":"open","verdict":null}'),
+    (row,) = ledger.tickets("default")
+    contract = {"inputs_sha256": EMPTY_SHA256, "spec_sha256": chain.text_sha256(row.spec_json)}
+    delivered = {"delivered": DELIVERED, "status": "delivered", "verdict": "READY"} | contract
+    (proof_row,) = ledger.evidence("default")
+    events = ledger.history(ticket)
+    assert [(event.action, event.version, json.loads(event.payload_json)) for event in events] == [
+        ("open", 2, {"delivered": {}, "status": "open", "verdict": None} | contract),
         ("deliver", 2, delivered),
-        ("evidence", 2, delivered),
-        ("rework", 2, '{"delivered":{"segno.svg":"a1b2"},"status":"rework","verdict":null}'),
+        ("evidence", 2, delivered | {"evidence": proof_row.model_dump()}),
+        ("rework", 2, {"delivered": DELIVERED, "status": "rework", "verdict": None} | contract),
     ]
+    assert all(event.payload_json == chain.canonical(json.loads(event.payload_json)) for event in events)
     assert ledger.verify_chain()
     assert ledger.replay_mismatches() == []
 
 
-def test_an_event_without_a_ticket_binds_no_state(ledger: Ledger) -> None:
+def test_an_event_without_a_ticket_binds_only_its_row(ledger: Ledger) -> None:
     ledger.add_evidence(
         EvidenceRow(
             at="2026-11-09T10:00:00+00:00",
@@ -229,9 +236,10 @@ def test_an_event_without_a_ticket_binds_no_state(ledger: Ledger) -> None:
             signer="qa-inspector",
         )
     )
-    assert [(event.action, event.version, event.payload_json) for event in ledger.history("-")] == [
-        ("evidence", 2, "")
-    ]
+    (row,) = ledger.evidence("default")
+    assert [
+        (event.action, event.version, json.loads(event.payload_json)) for event in ledger.history("-")
+    ] == [("evidence", 2, {"evidence": row.model_dump()})]
     assert ledger.verify_chain()
 
 
@@ -281,8 +289,10 @@ def test_a_version_1_event_binds_no_state_whatever_its_payload_says(ledger: Ledg
     """A version-1 digest does not cover `payload_json`, so a payload written into a v1 row afterwards proves
     nothing, even when it matches the ticket row exactly."""
     ticket = ledger.open(production())
-    status, verdict = ledger.status(ticket)
-    forged = chain.ticket_state(status.value, verdict, ledger.delivered(ticket))
+    (row,) = ledger.tickets("default")
+    forged = chain.canonical(
+        chain.ticket_binding(row.status, row.verdict, {}, row.spec_json, row.inputs_json)
+    )
     with ledger.engine.begin() as conn:
         prev = conn.execute(text("SELECT hash FROM events ORDER BY seq DESC LIMIT 1")).scalar_one()
         at = "2026-11-09T10:00:00+00:00"
@@ -304,6 +314,256 @@ def test_a_version_1_event_binds_no_state_whatever_its_payload_says(ledger: Ledg
     assert (last.version, last.payload_json) == (1, forged)
     assert ledger.verify_chain()
     assert ledger.replay_mismatches() == [f"{ticket}: stato non legato alla catena"]
+
+
+def test_a_version_1_event_binds_no_row_whatever_its_payload_says(ledger: Ledger) -> None:
+    """A row written afterwards into the payload of a version-1 event vouches for nothing, since that digest
+    does not cover `payload_json`: a gate inserted directly stays unbound (ADR-0049)."""
+    ticket = ledger.open(production())
+    forged = decision().model_dump() | {"seq": 1}
+    with ledger.engine.begin() as conn:
+        prev = conn.execute(text("SELECT hash FROM events ORDER BY seq DESC LIMIT 1")).scalar_one()
+        at = "2026-11-10T10:00:00+00:00"
+        digest = chain.digest(prev, ticket, at, "identity-designer", "block", "")
+        conn.execute(
+            text(
+                "INSERT INTO events (ticket_id, at, actor, action, note, prev_hash, hash)"
+                " VALUES (:ticket, :at, 'identity-designer', 'block', '', :prev, :hash)"
+            ),
+            {"ticket": ticket, "at": at, "prev": prev, "hash": digest},
+        )
+        conn.execute(text("DROP TRIGGER events_no_update"))
+        conn.execute(
+            text("UPDATE events SET payload_json = :forged WHERE hash = :hash"),
+            {"forged": chain.canonical({"gate": forged}), "hash": digest},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO gates (seq, at, project, gate, approved, choice, text, files_json)"
+                " VALUES (:seq, :at, :project, :gate, :approved, :choice, :text, :files_json)"
+            ),
+            forged,
+        )
+
+    assert ledger.verify_chain()
+    assert "gate 1: riga non legata alla catena" in ledger.replay_mismatches()
+
+
+@pytest.mark.parametrize(
+    ("statement", "line"),
+    [
+        (
+            "UPDATE tickets SET spec_json = replace(spec_json, 'master_open', 'svg_audit')",
+            "T-0001: contratto diverso dalla catena",
+        ),
+        (
+            """UPDATE tickets SET inputs_json = '{"brief.md": "c3d4"}'""",
+            "T-0001: hash d'apertura diversi dalla catena",
+        ),
+    ],
+)
+def test_changing_a_ticket_contract_breaks_verify(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    statement: str,
+    line: str,
+) -> None:
+    """The contract decides who delivers and what a delivery needs, the opening hashes what is stale. Nothing
+    changes them after `open`, and the chain binds their sha256 (2.F56, ADR-0049)."""
+    ledger = Ledger(use_data_dir(tmp_path, monkeypatch))
+    ledger.open(production(), inputs={"brief.md": "a1b2"})
+    assert cli.main(["verify"]) == 0
+    capsys.readouterr()
+
+    with ledger.engine.begin() as conn:
+        conn.execute(text(statement))
+
+    assert ledger.verify_chain()  # the events are untouched: the replay finds the change
+    assert cli.main(["verify"]) == 1
+    assert capsys.readouterr().out.splitlines()[:2] == ["REGISTRO ALTERATO", f"  {line}"]
+
+
+def idea(**extra: object) -> ConceptRow:
+    return ConceptRow.model_validate(
+        {"project": "default", "round": 1, "letter": "A", "lever": "forma", "idea_ticket": ""} | extra
+    )
+
+
+def decision() -> GateRow:
+    return GateRow(
+        at="2026-11-10T10:00:00+00:00",
+        project="default",
+        gate="concept",
+        approved=True,
+        choice="B",
+        text="Va bene la B",
+        files_json='{"presentazione.pdf": "a1b2"}',
+    )
+
+
+def proof(ticket: str) -> EvidenceRow:
+    return EvidenceRow(
+        at="2026-11-10T10:00:00+00:00",
+        project="default",
+        file="segno.svg",
+        sha256="a1b2",
+        check_name="svg_audit",
+        result="FAIL",
+        signer="qa-inspector",
+        ticket_id=ticket,
+    )
+
+
+def with_rows(ledger: Ledger) -> str:
+    """An idea, the client's decision and a proof, written as the studio writes them."""
+    ticket = ledger.open(production(), concept=idea())
+    ledger.update_concept(ticket, status="selezionata", anon="B")
+    ledger.add_gate(decision())
+    ledger.add_evidence(proof(ticket))
+    return ticket
+
+
+@pytest.mark.parametrize(
+    ("statements", "line"),
+    [
+        (["UPDATE concepts SET status = 'proposta'"], "idea 1: riga diversa dalla catena"),
+        (["DELETE FROM concepts"], "idea 1: mancante nel registro"),
+        (
+            [
+                "INSERT INTO concepts (project, round, letter, lever, anon, card_json, idea_ticket,"
+                " sketch_ticket, sketch_file, status) VALUES ('default', 1, 'B', 'colore', 'A', '{}',"
+                " 'T-0001', '', '', 'proposta')"
+            ],
+            "idea 2: riga non legata alla catena",
+        ),
+        (
+            ["DROP TRIGGER gates_no_update", "UPDATE gates SET choice = 'A'"],
+            "gate 1: riga diversa dalla catena",
+        ),
+        # the model reads 'no' back as True, the bound value: verify compares what is stored
+        (
+            ["DROP TRIGGER gates_no_update", "UPDATE gates SET approved = 'no'"],
+            "gate 1: riga diversa dalla catena",
+        ),
+        (["DROP TRIGGER gates_no_delete", "DELETE FROM gates"], "gate 1: mancante nel registro"),
+        (
+            [
+                "INSERT INTO gates (at, project, gate, approved, choice, text, files_json)"
+                " VALUES ('2026-11-10T11:00:00+00:00', 'default', 'concept', 1, 'A', 'La A', '{}')"
+            ],
+            "gate 2: riga non legata alla catena",
+        ),
+        (
+            ["DROP TRIGGER evidence_no_update", "UPDATE evidence SET result = 'PASS'"],
+            "prova 1: riga diversa dalla catena",
+        ),
+        (["DROP TRIGGER evidence_no_delete", "DELETE FROM evidence"], "prova 1: mancante nel registro"),
+        (
+            [
+                "INSERT INTO evidence (at, project, file, sha256, check_name, result, signer, ticket_id,"
+                " proof, note, inputs_json) VALUES ('2026-11-10T11:00:00+00:00', 'default', 'segno.svg',"
+                " 'a1b2', 'svg_parity', 'PASS', 'qa-inspector', 'T-0001', '', '', '{}')"
+            ],
+            "prova 2: riga non legata alla catena",
+        ),
+    ],
+)
+def test_changing_an_idea_a_gate_or_a_proof_breaks_verify(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    statements: list[str],
+    line: str,
+) -> None:
+    """Ideas decide what is developed and presented, gates hold the client's decisions, proofs decide whether
+    a delivery passes. The triggers of gates and evidence are one DROP TRIGGER away, and concepts have none:
+    each row is bound into the chain, and verify compares the table with it (2.F57, 2.F58, ADR-0049)."""
+    ledger = Ledger(use_data_dir(tmp_path, monkeypatch))
+    with_rows(ledger)
+    assert cli.main(["verify"]) == 0
+    capsys.readouterr()
+
+    with ledger.engine.begin() as conn:
+        for statement in statements:
+            conn.execute(text(statement))
+
+    assert ledger.verify_chain()  # the events are untouched: the replay finds the change
+    assert cli.main(["verify"]) == 1
+    assert capsys.readouterr().out.splitlines()[:2] == ["REGISTRO ALTERATO", f"  {line}"]
+
+
+def test_deleting_a_ticket_breaks_verify(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`tickets` has no triggers: a row deleted outright leaves the events that bind its state in the chain,
+    and verify reports the ticket as missing."""
+    ledger = Ledger(use_data_dir(tmp_path, monkeypatch))
+    with_rows(ledger)
+    ledger.open(production())
+    assert cli.main(["verify"]) == 0
+    capsys.readouterr()
+
+    with ledger.engine.begin() as conn:
+        conn.execute(text("DELETE FROM tickets WHERE id = 'T-0001'"))
+
+    assert ledger.verify_chain()
+    assert cli.main(["verify"]) == 1
+    assert capsys.readouterr().out.splitlines()[:3] == [
+        "REGISTRO ALTERATO",
+        "  T-0001: ticket mancante nel registro",
+        "artefatti integri: 0",
+    ]
+
+
+def test_a_proof_for_an_id_without_a_ticket_is_no_missing_ticket(ledger: Ledger) -> None:
+    """Only an event that binds a ticket's state vouches that the ticket existed: a proof recorded for an id
+    with no ticket row binds no state, and is not a deleted ticket."""
+    ledger.add_evidence(proof("T-0042"))
+    assert ledger.history("T-0042")[0].action == "evidence"
+    assert ledger.replay_mismatches() == []
+
+
+def test_a_version_1_payload_vouches_for_no_ticket(ledger: Ledger) -> None:
+    """A state written afterwards into the payload of a version-1 event is not covered by its digest: the
+    ticket it names never had to exist, so it is not reported as missing."""
+    ledger.open(production())
+    forged = chain.canonical({"delivered": {}, "status": "open", "verdict": None})
+    with ledger.engine.begin() as conn:
+        prev = conn.execute(text("SELECT hash FROM events ORDER BY seq DESC LIMIT 1")).scalar_one()
+        at = "2026-11-10T10:00:00+00:00"
+        digest = chain.digest(prev, "T-0099", at, "identity-designer", "block", "")
+        conn.execute(
+            text(
+                "INSERT INTO events (ticket_id, at, actor, action, note, prev_hash, hash, payload_json)"
+                " VALUES ('T-0099', :at, 'identity-designer', 'block', '', :prev, :hash, :forged)"
+            ),
+            {"at": at, "prev": prev, "hash": digest, "forged": forged},
+        )
+
+    assert ledger.verify_chain()
+    assert ledger.replay_mismatches() == []
+
+
+def test_every_idea_and_gate_write_binds_the_row(ledger: Ledger) -> None:
+    """Each write of an idea or a gate appends an event that binds the whole row as it leaves it, outside the
+    history of any ticket (ADR-0049)."""
+    ticket = with_rows(ledger)
+    ledger.add_concept(idea(letter="B", idea_ticket=ticket))
+
+    first = idea(seq=1, idea_ticket=ticket).model_dump()
+    chosen = first | {"status": "selezionata", "anon": "B"}
+    second = first | {"seq": 2, "letter": "B"}
+    gate = decision().model_dump() | {"seq": 1}
+    assert [(e.actor, e.action, e.version, json.loads(e.payload_json)) for e in ledger.history("-")] == [
+        ("harness", "concept", 2, {"concept": first}),
+        ("harness", "concept", 2, {"concept": chosen}),
+        ("harness", "gate", 2, {"gate": gate}),
+        ("harness", "concept", 2, {"concept": second}),
+    ]
+    assert [event.action for event in ledger.history(ticket)] == ["open", "evidence"]
+    assert ledger.verify_chain()
+    assert ledger.replay_mismatches() == []
 
 
 def test_verify_on_a_missing_registry_exits_1_with_its_path_and_creates_nothing(

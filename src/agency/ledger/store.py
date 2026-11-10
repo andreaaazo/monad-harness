@@ -6,10 +6,11 @@ import json
 import sqlite3
 import threading
 import time
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import event as sa_event
 from sqlalchemy import func, literal_column
@@ -44,6 +45,15 @@ from agency.ledger.models import (
 )
 
 BUSY_SECONDS = schema.BUSY_SECONDS
+NO_TICKET = "-"  # the ticket of an event that belongs to none
+HARNESS = "harness"  # the actor of the events that bind an idea or a gate: the harness writes those rows
+# The rows an event binds whole besides its ticket: their key in `payload_json` and how verify names them
+# (ADR-0049).
+BOUND_ROWS: dict[type[ConceptRow | GateRow | EvidenceRow], tuple[str, str]] = {
+    ConceptRow: ("concept", "idea"),
+    GateRow: ("gate", "gate"),
+    EvidenceRow: ("evidence", "prova"),
+}
 
 
 class IllegalTransition(Exception):
@@ -77,6 +87,53 @@ def _parsed(text: str) -> object:
         return json.loads(text)
     except ValueError:
         return None
+
+
+def _bound_rows(events: Iterable[EventRow]) -> dict[str, dict[int, object]]:
+    """Each idea, gate and proof, by key and seq, as the last version-2 event that binds it left it."""
+    bound: dict[str, dict[int, object]] = {key: {} for key, _ in BOUND_ROWS.values()}
+    for event in events:  # in chain order: a later binding of the same row wins
+        payload = _parsed(event.payload_json) if event.version == 2 else None
+        if not isinstance(payload, dict):
+            continue
+        for key, rows in bound.items():
+            row = payload.get(key)
+            if isinstance(row, dict) and isinstance(row.get("seq"), int):
+                rows[row["seq"]] = row
+    return bound
+
+
+def _bound_tickets(events: Iterable[EventRow]) -> list[str]:
+    """The tickets whose state a version-2 event binds, in chain order: each had a row when that event was
+    written."""
+    found: dict[str, None] = {}
+    for event in events:
+        payload = _parsed(event.payload_json) if event.version == 2 else None
+        if isinstance(payload, dict) and "status" in payload:
+            found.setdefault(event.ticket_id, None)
+    return list(found)
+
+
+def _stored(session: Session, model: type[ConceptRow | GateRow | EvidenceRow]) -> list[dict[str, Any]]:
+    """The rows of `model`'s table as SQLite stores them, without the models' conversions: `approved = 'no'`
+    reads back through the model as True, the value a gate binds, yet it is not what was written."""
+    columns = list(model.model_fields)
+    query = f"SELECT {', '.join(columns)} FROM {model.__tablename__} ORDER BY seq"
+    return [dict(zip(columns, values, strict=True)) for values in session.connection().exec_driver_sql(query)]
+
+
+def _row_mismatches(label: str, rows: Sequence[dict[str, Any]], bound: dict[int, object]) -> list[str]:
+    """One line per row the chain does not bind or binds differently, and per bound row the table lost. A
+    stored 0 or 1 equals the False or True a binding holds."""
+    found: list[str] = []
+    for row in rows:
+        if row["seq"] not in bound:
+            found.append(f"{label} {row['seq']}: riga non legata alla catena")
+        elif bound[row["seq"]] != row:
+            found.append(f"{label} {row['seq']}: riga diversa dalla catena")
+    present = {row["seq"] for row in rows}
+    found += [f"{label} {seq}: mancante nel registro" for seq in sorted(bound.keys() - present)]
+    return found
 
 
 class Ledger:
@@ -116,18 +173,33 @@ class Ledger:
             yield session
 
     def _append(
-        self, session: Session, ticket_id: str, actor: str, action: str, note: str, ticket: TicketRow | None
+        self,
+        session: Session,
+        ticket_id: str,
+        actor: str,
+        action: str,
+        note: str,
+        ticket: TicketRow | None,
+        row: ConceptRow | GateRow | EvidenceRow | None = None,
     ) -> None:
-        """`ticket` is the row as this event leaves it: the event binds its state into the chain (ADR-0047).
-        An event that belongs to no ticket binds an empty state."""
+        """`ticket` is the row as this event leaves it: the event binds its state and the sha256 of its
+        contract into the chain (ADR-0047, ADR-0049). `row` is an idea, a gate or a proof just written and
+        flushed: the event binds it whole (ADR-0049). An event with neither binds an empty payload."""
         last = session.exec(select(EventRow).order_by(col(EventRow.seq).desc())).first()
         prev = last.hash if last else chain.GENESIS
         at = now()
-        payload_json = (
-            ""
-            if ticket is None
-            else chain.ticket_state(ticket.status, ticket.verdict, json.loads(ticket.delivered_json))
-        )
+        binding: dict[str, object] = {}
+        if ticket is not None:
+            binding |= chain.ticket_binding(
+                ticket.status,
+                ticket.verdict,
+                json.loads(ticket.delivered_json),
+                ticket.spec_json,
+                ticket.inputs_json,
+            )
+        if row is not None:
+            binding[BOUND_ROWS[type(row)][0]] = row.model_dump()
+        payload_json = chain.canonical(binding) if binding else ""
         session.add(
             EventRow(
                 ticket_id=ticket_id,
@@ -200,6 +272,8 @@ class Ledger:
             if concept is not None:
                 concept.idea_ticket = ticket_id
                 session.add(concept)
+                session.flush()
+                self._append(session, NO_TICKET, HARNESS, "concept", "", None, concept)
             session.commit()
         return ticket_id
 
@@ -299,14 +373,15 @@ class Ledger:
             return chain.intact(session.exec(select(EventRow).order_by(col(EventRow.seq))).all())
 
     def replay_mismatches(self) -> list[str]:
-        """Each ticket against the state its last event binds: `tickets` is a projection of the chain, and a
-        difference is tampering (ADR-0047). One line per ticket the chain does not bind, and per field that
-        differs."""
+        """Each ticket against the state and contract its last event binds, and each idea, gate and proof
+        against the last event that binds it: those tables are projections of the chain, and a difference is
+        tampering (ADR-0047, ADR-0049). One line per row the chain does not bind, per field that differs, and
+        per bound ticket or row that is gone."""
         with Session(self.engine) as session:
-            last = {
-                event.ticket_id: event for event in session.exec(select(EventRow).order_by(col(EventRow.seq)))
-            }
+            events = session.exec(select(EventRow).order_by(col(EventRow.seq))).all()
             tickets = session.exec(select(TicketRow).order_by(literal_column("rowid"))).all()
+            rows = {model: _stored(session, model) for model in BOUND_ROWS}
+        last = {event.ticket_id: event for event in events}
         found: list[str] = []
         for ticket in tickets:
             event = last.get(ticket.id)
@@ -320,6 +395,19 @@ class Ledger:
                 found.append(f"{ticket.id}: verdetto diverso dalla catena")
             if bound.get("delivered") != _parsed(ticket.delivered_json):
                 found.append(f"{ticket.id}: consegna diversa dalla catena")
+            if bound.get("spec_sha256") != chain.text_sha256(ticket.spec_json):
+                found.append(f"{ticket.id}: contratto diverso dalla catena")
+            if bound.get("inputs_sha256") != chain.text_sha256(ticket.inputs_json):
+                found.append(f"{ticket.id}: hash d'apertura diversi dalla catena")
+        present = {ticket.id for ticket in tickets}
+        found += [
+            f"{ticket_id}: ticket mancante nel registro"
+            for ticket_id in _bound_tickets(events)
+            if ticket_id not in present
+        ]
+        bound_rows = _bound_rows(events)
+        for model, (key, label) in BOUND_ROWS.items():
+            found += _row_mismatches(label, rows[model], bound_rows[key])
         return found
 
     # Consumi
@@ -346,9 +434,10 @@ class Ledger:
     def add_evidence(self, row: EvidenceRow) -> None:
         with self._writing() as session:
             session.add(row)
+            session.flush()
             note = f"{row.file}:{row.check_name}:{row.result}:{row.sha256[:16]}"
             ticket = session.get(TicketRow, row.ticket_id) if row.ticket_id else None
-            self._append(session, row.ticket_id or "-", row.signer, "evidence", note, ticket)
+            self._append(session, row.ticket_id or NO_TICKET, row.signer, "evidence", note, ticket, row)
             session.commit()
 
     def evidence(self, project: str) -> list[EvidenceRow]:
@@ -402,8 +491,10 @@ class Ledger:
     # Idee e gate
 
     def add_concept(self, row: ConceptRow) -> None:
-        with Session(self.engine) as session:
+        with self._writing() as session:
             session.add(row)
+            session.flush()
+            self._append(session, NO_TICKET, HARNESS, "concept", "", None, row)
             session.commit()
 
     def concepts(self, project: str, round_: int | None = None) -> list[ConceptRow]:
@@ -414,16 +505,20 @@ class Ledger:
             return list(session.exec(query.order_by(col(ConceptRow.seq))).all())
 
     def update_concept(self, idea_ticket: str, **fields: object) -> None:
-        with Session(self.engine) as session:
+        with self._writing() as session:
             row = session.exec(select(ConceptRow).where(ConceptRow.idea_ticket == idea_ticket)).one()
             for name, value in fields.items():
                 setattr(row, name, value)
             session.add(row)
+            session.flush()
+            self._append(session, NO_TICKET, HARNESS, "concept", "", None, row)
             session.commit()
 
     def add_gate(self, row: GateRow) -> None:
-        with Session(self.engine) as session:
+        with self._writing() as session:
             session.add(row)
+            session.flush()
+            self._append(session, NO_TICKET, HARNESS, "gate", "", None, row)
             session.commit()
 
     def gates(self, project: str) -> list[GateRow]:

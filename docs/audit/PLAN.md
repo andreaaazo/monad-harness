@@ -1276,7 +1276,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   at :117 carries harness text only). `anthropic.APIError` messages include the response body from the API or from a
   proxy in between, which the harness does not control. Fix: wrap the line with `report.plain`. Found in Task 2.30. Not
   covered by a planned task.
-- [ ] **Task 2.F56: a ticket's contract and opening hashes are outside the hash chain.** ledger/store.py:206-230
+- [x] **Task 2.F56: a ticket's contract and opening hashes are outside the hash chain.** ledger/store.py:206-230
   (`inputs`, `spec`) and :266 (`apply` takes the parties and the type from `spec_json`), tools/surface.py:592-600 and
   qa/delivery.py:205-229 (as of Task 2.31). `tickets.spec_json` decides who may deliver and accept, whether a delivery
   needs a verdict, and which outputs and checks `delivery_problems` requires; `tickets.inputs_json` holds the hashes its
@@ -1287,7 +1287,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   (a new field of the version-2 payload, which needs its own ADR) and compare them in `replay_mismatches`. Same bug as
   CMT-007 (Q17). Found in Task 2.31. Not covered by a planned task.
   - Decided (2026-11-10): with 2.F57 and 2.F58, one ADR (expected ADR-0049, «La catena copre ciò che decide la consegna») and one migration 0007. The version-2 ticket payload gains the sha256 of the ticket's contract (`spec_json`, `inputs_json`), and `agency verify` compares it.
-- [ ] **Task 2.F57: the concept rows that decide what is developed and presented are outside the hash chain.**
+- [x] **Task 2.F57: the concept rows that decide what is developed and presented are outside the hash chain.**
   ledger/store.py:416-422 (`update_concept`), graph/workflow.py:109, :198, :261 and :275, tools/surface.py:730 and :748
   (as of Task 2.31). `concepts` is updated in place by design and has no triggers. Its `status` decides which ideas are
   developed into proposals (`selezionata`, workflow.py:198) and which proposals the director may put in the client
@@ -1297,7 +1297,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   chain event that binds the concept row, as Task 2.31 does for tickets, and replay it in `agency verify`. Same bug as
   CMT-007 (Q17). Found in Task 2.31. Not covered by a planned task.
   - Decided (2026-11-10): with 2.F56 (ADR-0049, migration 0007). Every concept write appends a version-2 event that binds the concept row; the migration binds today's rows; `agency verify` replays them.
-- [ ] **Task 2.F58: the append-only tables other than `events` rely on triggers alone, and `agency verify` cannot see
+- [x] **Task 2.F58: the append-only tables other than `events` rely on triggers alone, and `agency verify` cannot see
   a bypass.** migrations/versions/0001_baseline.py:222-236 (the `*_no_update` triggers), ledger/store.py:346-350
   (`add_evidence`) and qa/delivery.py:151 (as of Task 2.31). `gates` holds the client's decisions with the hashes of
   the files they were taken on, and `evidence` the QA results that decide whether a delivery passes
@@ -1346,6 +1346,13 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   text (an API or proxy body, systemd's output) still starts a new terminal line that can look like the CLI's own.
   Fix: a `one_line` variant that also folds `\n` and `\t` to a space, for messages that are one line by design.
   Found in the B6 batch. Not covered by a planned task.
+- [ ] **Task 2.F65: the tables that do not decide a delivery are outside the hash chain, some without triggers.**
+  As of the B10 batch (ADR-0049): `projects` (budget, model, effort) and `operations` (the resume records of the
+  tools) have neither triggers nor chain; `usage` (which feeds `spent()` and the budget), `renders`, `derivations`,
+  `runs`, `judgments` and `artifacts` rely on their `*_no_update`/`*_no_delete` triggers alone, which one `DROP
+  TRIGGER` removes, and `agency verify` cannot see a bypass. ADR-0049 chained what decides a delivery; these decide
+  money, resumption and records. Fix: needs the owner's call on scope (chain `usage` and `projects`, the two that
+  change money, like ADR-0049; triggers for `operations`). Found in the B10 batch. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

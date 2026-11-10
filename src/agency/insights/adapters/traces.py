@@ -48,12 +48,12 @@ class JsonlTraces:
         unreadable = 0
         if not self.path.is_file():
             return TraceReading(measures={}, unreadable=0)
-        with self.path.open(encoding="utf-8") as lines:
-            for line in lines:
-                if not line.strip():
+        with self.path.open("rb") as lines:
+            for raw in lines:
+                if not raw.strip():
                     continue
                 try:
-                    measure = _measure(json.loads(line))
+                    measure = _measure(json.loads(raw.decode("utf-8", errors="strict")))
                 except (ValueError, TypeError):
                     unreadable += 1
                     continue

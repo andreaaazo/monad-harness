@@ -95,6 +95,15 @@ def digest(path: Path) -> str:
 # Cosa risponde
 
 
+def test_the_request_log_line_loses_control_characters(capsys: pytest.CaptureFixture[str]) -> None:
+    handler = serve._Handler.__new__(serve._Handler)
+    handler.client_address = ("127.0.0.1", 1)
+    handler.log_message("%s", "GET /\x1b]0;forged\x07 HTTP/1.1")
+    err = capsys.readouterr().err
+    assert "\x1b" not in err and "\x07" not in err
+    assert err.endswith("\n")
+
+
 def test_projects_lists_what_the_registry_knows(client: Client) -> None:
     response = client.get("/api/projects")
     assert response.status_code == 200

@@ -51,7 +51,7 @@ dalla catena il contratto del ticket (`spec_json`, `inputs_json`) e le idee (`co
 | `artifacts` | M1.6 | Versione conservata: hash, progetto, percorso, ticket, esecuzione, motivo, tipo MIME, dimensione (ADR-0028) |
 | `renders` | M1 | Prova di render di una versione precisa di un file |
 | `derivations` | M1 | Master → export, con entrambi gli hash |
-| `usage` | M1 | Chiamata, ticket, ruolo, modello, token per tipo, costo. Da M1.6 anche esecuzione, fase, effort, durata, TTFT, ragionamento |
+| `usage` | M1 | Chiamata, ticket, ruolo, modello, token per tipo, costo. Da M1.6 anche esecuzione, fase, effort, durata, TTFT, ragionamento. Una riga per chiamata: le colonne dei token sono l'uso del tentativo che ha dato la risposta (il contesto che la corsa ha usato davvero), mentre `cost_usd` copre tutti i tentativi |
 | `operations` | M1 | `operation_id` degli effetti, per la ripresa senza duplicati |
 | `concepts` | M1.5 | Scheda dell'idea, leva, schizzo, lettera anonima, esito della selezione |
 | `gates` | M1.5 | Decisione del cliente: parole testuali, scelta, hash dei file |

@@ -207,6 +207,16 @@ def test_setbacks_are_every_step_back_in_order_with_how_many_deliveries_came_bef
     assert report.setbacks[0].title == "Titolo T-0005"
 
 
+def test_tickets_and_unfinished_keep_the_incoming_order_past_ten_thousand() -> None:
+    tickets = [
+        ticket("T-9999", "qa", "critic", "open", 1),
+        ticket("T-10000", "qa", "critic", "open", 2),
+    ]
+    report = flow.flow_report("officina", data(tickets=tickets, calls=[], events=[]))
+    assert [item.id for item in report.tickets] == ["T-9999", "T-10000"]
+    assert report.outcome.unfinished == ["T-9999", "T-10000"]
+
+
 def test_the_outcome_says_where_the_project_stopped() -> None:
     """La consegna al cliente è aperta; restano il QA appena aperto. Consegnato e accettato è finito, come
     bloccato: il blocco sta fra i passi indietro."""

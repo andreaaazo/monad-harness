@@ -1098,7 +1098,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   folders, such as `a/mark.svg` and `b/mark.svg` or `mark.svg` and `mark.png`, share one proof file or folder, and
   the second run replaces the first. Same shape as COR-007. Found by Task 2.8. Not covered by a planned task.
 
-- [ ] **Task 2.F28: the trace reader decodes in text mode, so one undecodable byte fails the whole read.**
+- [x] **Task 2.F28: the trace reader decodes in text mode, so one undecodable byte fails the whole read.**
   insights/adapters/traces.py:51. `self.path.open(encoding="utf-8")` is iterated line by line, but the decode error
   is raised by the `for` and not inside the per-line `try` (:55-58, which catches `ValueError` and `TypeError` only
   around `json.loads`). The exporter (telemetry/setup.py:25) writes `json.dumps(record, default=str)` with
@@ -1117,7 +1117,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   ledger/schema.py `migrate`. It takes no claim on any project, and the per-project lock of Task 2.12 cannot cover it
   (it is a whole-registry operation). It needs its own exclusive claim. Found by Task 2.12. Not covered by a planned
   task.
-- [ ] **Task 2.F31: the usage row's token columns still count only the serving attempt of a fallback call.**
+- [x] **Task 2.F31: the usage row's token columns still count only the serving attempt of a fallback call.**
   gateway/client.py:199-205 (`_record`) and insights/sums.py:18 (`context`), insights/behaviour.py:110 and :126
   (output tokens). After Task 2.13 the recorded `cost_usd` is the sum over `usage.iterations`, but `input_tokens`,
   `output_tokens` and the cache columns stay the top-level `usage`, so for a fallback call the cost no longer matches
@@ -1230,7 +1230,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   and `scelta` are read), so the effect is a wrong status shown in the concept table. Fix: pass the status through
   `Ledger.open(..., concept=...)`-style atomic write, or set it for the existing ticket too. Found by Task 2.20.
   Not covered by a planned task.
-- [ ] **Task 2.F48: the behaviour view shows a `malformed_stream` call as a complete answer.**
+- [x] **Task 2.F48: the behaviour view shows a `malformed_stream` call as a complete answer.**
   insights/behaviour.py:21 and :89, gateway/client.py:202 (as of Task 2.23). The gateway records a usage row with
   `stop_reason="malformed_stream"` when a stream breaks, and `INCOMPLETE` lists only `max_tokens`, `refusal` and
   `model_context_window_exceeded`, so `StopCount.complete` is true for it and the Model page does not mark it as cut.
@@ -1249,7 +1249,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   written into the registry as a project name that `parse_project_name` rejects, and the dashboard then answers 404 for
   it. Fix: treat a first path part that fails `parse_project_name` like a file outside the projects (`project=""`), or
   refuse the comparison with a message. Related finding: COR-013. Found by Task 2.24. Not covered by a planned task.
-- [ ] **Task 2.F51: the insights flow report sorts tickets by their text id.**
+- [x] **Task 2.F51: the insights flow report sorts tickets by their text id.**
   insights/flow.py:204 (as of Task 2.25). `flow_report` builds the ticket list with
   `sorted(data.tickets, key=lambda ticket: ticket.id)`, and `_outcome` at insights/flow.py:186 sorts the unfinished
   ids with `sorted(ticket.id ...)`. Both compare `T-{n:04d}` as text, so from the 10,000th ticket `T-10000` is listed
@@ -1267,7 +1267,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   the `style` declaration wins over the presentation attribute, so `<path stroke="none" style="stroke:#000">` is drawn
   stroked but audited as unstroked (and the reverse). Fix: read `style` first, then the attribute. Found in Task 2.26.
   Not covered by a planned task.
-- [ ] **Task 2.F54: the dashboard server logs the raw HTTP request line to stderr.** entrypoints/server/serve.py:30-31
+- [x] **Task 2.F54: the dashboard server logs the raw HTTP request line to stderr.** entrypoints/server/serve.py:30-31
   (`_Handler.log_message`: `format % args` carries the request line and path). The text is written by the HTTP client,
   not the model, and no control characters are removed, so a request with ESC or OSC bytes in its path forges lines of
   the operator's terminal (Task 2.30's bug, on the server side). Fix: pass the line through `report.plain` (or an

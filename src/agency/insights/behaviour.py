@@ -17,8 +17,9 @@ from agency.insights.domain import Call
 from agency.insights.ports import ProjectData
 
 # Le risposte che non arrivano intere. Il ciclo dell'agente (agents/loop.py) non mette in cronologia una
-# risposta troncata e la richiede con un limite più alto; dopo un rifiuto blocca il ticket.
-INCOMPLETE = frozenset({"max_tokens", "refusal", "model_context_window_exceeded"})
+# risposta troncata e la richiede con un limite più alto; dopo un rifiuto blocca il ticket. Anche un flusso
+# interrotto (`malformed_stream`, registrato dal gateway) non è una risposta intera.
+INCOMPLETE = frozenset({"max_tokens", "refusal", "model_context_window_exceeded", "malformed_stream"})
 
 
 class _View(BaseModel):

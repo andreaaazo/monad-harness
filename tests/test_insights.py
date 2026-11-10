@@ -216,6 +216,34 @@ def test_traces_give_duration_ttft_effort_and_reasoning_by_request(tmp_path: Pat
     assert reading.unreadable == 1
 
 
+def test_a_stray_non_utf8_byte_costs_one_line_not_the_whole_trace_file(tmp_path: Path) -> None:
+    path = tmp_path / "traces.jsonl"
+    path.write_bytes(
+        span("anthropic.messages.create", "req_1").encode()
+        + b"\n"
+        + b'{"name": "\xff"}\n'
+        + span("anthropic.messages.create", "req_2").encode()
+        + b"\n"
+    )
+
+    reading = JsonlTraces(path).read()
+
+    assert set(reading.measures) == {"req_1", "req_2"}
+    assert reading.unreadable == 1
+
+
+def test_a_broken_stream_is_not_a_complete_answer() -> None:
+    from agency.insights import behaviour
+
+    stops = behaviour._stops([call(1), call(2)])
+    assert [(stop.reason, stop.complete) for stop in stops] == [("tool_use", True)]
+    (projected,) = project_calls(
+        [usage(seq=3, request_id="req_3", stop_reason="malformed_stream")], TICKETS, {}
+    )
+    (broken,) = behaviour._stops([projected])
+    assert (broken.reason, broken.complete) == ("malformed_stream", False)
+
+
 def test_missing_traces_are_not_an_error(tmp_path: Path) -> None:
     reading = JsonlTraces(tmp_path / "traces.jsonl").read()
     assert (reading.measures, reading.unreadable) == ({}, 0)

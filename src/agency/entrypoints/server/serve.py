@@ -16,6 +16,7 @@ from socketserver import ThreadingMixIn
 from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
 
 from agency.contracts.layout import RelativeDataRoot
+from agency.contracts.text import plain
 
 SETTINGS = "agency.entrypoints.server.settings"
 SECRETS = ("ANTHROPIC_API_KEY", "AGENCY_ANTHROPIC_API_KEY")
@@ -28,7 +29,7 @@ class _Server(ThreadingMixIn, WSGIServer):
 
 class _Handler(WSGIRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
-        sys.stderr.write(f"{self.address_string()} {format % args}\n")
+        sys.stderr.write(plain(f"{self.address_string()} {format % args}") + "\n")
 
 
 def loopback(host: str) -> bool:

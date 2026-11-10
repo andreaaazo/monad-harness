@@ -183,11 +183,11 @@ def _outcome(tickets: list[TicketRecord], events: list[EventRecord]) -> Outcome:
     return Outcome(
         delivery_id=delivery.id if delivery else None,
         delivery_status=delivery.status if delivery else None,
-        unfinished=sorted(
+        unfinished=[
             ticket.id
             for ticket in tickets
             if ticket.type != TicketType.DELIVERY and ticket.status in UNFINISHED
-        ),
+        ],
         last_at=last.at if last else None,
         last_action=last.action if last else None,
         last_ticket_id=last.ticket_id if last else None,
@@ -201,7 +201,7 @@ def flow_report(name: str, data: ProjectData) -> FlowReport:
     )
     tickets = [
         _ticket(ticket, calls_by_ticket.get(ticket.id, []), events_by_ticket.get(ticket.id, []))
-        for ticket in sorted(data.tickets, key=lambda ticket: ticket.id)
+        for ticket in data.tickets
     ]
     calls_by_phase = sums.groups(data.calls, lambda call: call.phase)
     # La consegna al cliente è il progetto, non una fase: il suo stato sta nell'esito.

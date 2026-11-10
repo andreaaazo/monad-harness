@@ -57,3 +57,38 @@ def test_svg_audit_follows_inherit_to_the_parent_stroke(tmp_path: Path) -> None:
 def test_svg_audit_stops_an_inherited_stroke_at_a_nested_none(tmp_path: Path) -> None:
     group = f'<g stroke="#000"><g stroke="none">{PATH.format(attrs="")}</g></g>'
     assert audit(tmp_path, svg(group)) == (0, [])
+
+
+def test_svg_audit_lets_the_inline_style_stroke_beat_the_attribute(tmp_path: Path) -> None:
+    code, warnings = audit(tmp_path, svg(PATH.format(attrs=' stroke="none" style="stroke:#000"')))
+    assert code == 1
+    assert warnings == ["tratto non espanso su <path id=p> (stroke=#000)"]
+
+
+def test_svg_audit_lets_an_inline_style_none_beat_the_stroke_attribute(tmp_path: Path) -> None:
+    assert audit(tmp_path, svg(PATH.format(attrs=' stroke="#000" style="stroke:none"'))) == (0, [])
+
+
+def test_svg_audit_takes_the_last_style_declaration_of_a_property(tmp_path: Path) -> None:
+    assert audit(tmp_path, svg(PATH.format(attrs=' style="stroke:#000; stroke:none"'))) == (0, [])
+    code, _ = audit(tmp_path, svg(PATH.format(attrs=' style="stroke:none; stroke : #000"')))
+    assert code == 1
+
+
+def test_svg_audit_flags_the_five_properties_written_in_the_inline_style(tmp_path: Path) -> None:
+    cases = {
+        "transform": ("transform:rotate(5)", "transform non applicato"),
+        "opacity": ("opacity:.5", "opacità"),
+        "mask": ("mask:url(#m)", "maschera"),
+        "filter": ("filter:url(#f)", "filtro"),
+        "clip-path": ("clip-path:url(#c)", "clip-path"),
+    }
+    for declaration, message in cases.values():
+        code, warnings = audit(tmp_path, svg(PATH.format(attrs=f' style="fill:#000;{declaration}"')))
+        assert code == 1, declaration
+        assert warnings == [f"{message} su <path id=p>"], declaration
+
+
+def test_svg_audit_does_not_confuse_similar_style_properties(tmp_path: Path) -> None:
+    style = "fill-opacity:.5; stroke-width:4; stroke-opacity:1; -x-filter:1"
+    assert audit(tmp_path, svg(PATH.format(attrs=f' style="{style}"'))) == (0, [])

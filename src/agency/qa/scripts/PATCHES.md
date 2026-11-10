@@ -12,3 +12,7 @@ qui, con il motivo; `tests/fixtures/qa_scripts.json` ne tiene gli hash.
 - Perché: COR-016. Prima un gruppo con `stroke` passava il controllo e il tratto non espanso arrivava alla consegna.
   Decisione Q4 (docs/audit/SUMMARY.md), Task 2.26: un controllo corretto può trasformare un vecchio PASS in un FAIL,
   ed è giusto così.
+- Le proprietà `stroke`, `transform`, `opacity`, `mask`, `filter` e `clip-path` ora si leggono come in CSS: prima la
+  dichiarazione nello `style` inline (vince l'ultima della stessa proprietà), poi l'attributo di presentazione.
+  Perché: Task 2.F52 (le ultime cinque scritte nello `style`, es. `style="opacity:.5"`, passavano) e Task 2.F53
+  (`stroke="none" style="stroke:#000"` è disegnato con il tratto ma risultava senza, e viceversa).

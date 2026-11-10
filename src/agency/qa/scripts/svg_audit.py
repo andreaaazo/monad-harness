@@ -105,8 +105,17 @@ def shape_points(el):
 GRAPHICS = ("path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text", "tspan", "textPath", "use")
 
 
+def css_prop(el, prop):
+    """Reads a property the CSS way: the last inline-style declaration wins over the presentation attribute."""
+    # The lookbehind keeps "opacity" from matching inside "fill-opacity".
+    found = re.findall(r"(?<![\w-])" + re.escape(prop) + r"\s*:\s*([^;]+)", el.get("style", ""))
+    if found:
+        return found[-1]
+    return el.get(prop)
+
+
 def own_stroke(el):
-    stroke = el.get("stroke") or (re.search(r"stroke\s*:\s*([^;]+)", el.get("style", "")) or [None, None])[1]
+    stroke = css_prop(el, "stroke")
     return stroke.strip() if stroke else None
 
 
@@ -163,7 +172,7 @@ def main():
         tag = local(el.tag)
         for attr, msg in (("transform", "transform non applicato"), ("opacity", "opacità"),
                           ("mask", "maschera"), ("filter", "filtro"), ("clip-path", "clip-path")):
-            if el.get(attr) is not None:
+            if css_prop(el, attr) is not None:
                 flagged.add(f"{msg} su <{tag} id={el.get('id', '?')}>")
         stroke = own_stroke(el)
         if stroke == "inherit":

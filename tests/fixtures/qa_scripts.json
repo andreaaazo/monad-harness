@@ -14,7 +14,7 @@
     "svg_audit.py": {
       "legacy": "legacy/claude-code-v1/src/.claude/skills/logo-design/scripts/svg_audit.py",
       "legacy_sha256": "2fdbffa59a8a996b5c86ba5c744861cf10a57016cab379b6fb2e24783b2b330e",
-      "sha256": "c9209b7b20e746434cda299c28d43b6fd814110e53ee26da86bdae88e496970a"
+      "sha256": "ba789479ec0cbb19c38f8d81afc77b016acba4c4c7fba66750b465869644b91d"
     },
     "svg_parity.py": {
       "legacy": "legacy/claude-code-v1/src/.claude/skills/visual-qa/scripts/svg_parity.py",

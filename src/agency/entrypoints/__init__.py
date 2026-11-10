@@ -1,1 +1,1 @@
-"""Gli ingressi: ricevono una richiesta e la passano a un caso d'uso (ADR-0021), senza regole dello studio."""
+"""The entry points: each takes a request and hands it to a use case (ADR-0021), with no studio rules."""

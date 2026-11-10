@@ -1,7 +1,7 @@
-"""Il processo del cruscotto: `uv run agency-server`. Solo loopback, e senza chiave nell'ambiente.
+"""The dashboard process: `uv run agency-server`. Loopback only, and no key in the environment.
 
-Un server WSGI della libreria standard, con un thread per richiesta: basta per un solo operatore su questa
-macchina (06-SECURITY.md). Come raggiungerlo da fuori lo decide un ADR in M6, non questo file.
+A standard-library WSGI server with one thread per request: enough for a single operator on this machine
+(06-SECURITY.md). How to reach it from outside is for an ADR in M6 to decide, not for this file.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ class _Handler(WSGIRequestHandler):
 
 
 def loopback(host: str) -> bool:
-    """Solo indirizzi IPv4 di loopback, scritti come indirizzi: un nome si potrebbe risolvere altrove."""
+    """Only IPv4 loopback addresses, written as addresses: a name could resolve elsewhere."""
     try:
         return ipaddress.IPv4Address(host).is_loopback
     except ValueError:
@@ -50,23 +50,25 @@ def loopback(host: str) -> bool:
 
 
 def scrub(environment: MutableMapping[str, str]) -> None:
-    """La chiave API vive nel gateway: il processo del cruscotto non la eredita."""
+    """The API key lives in the gateway: the dashboard process does not inherit it."""
     for name in SECRETS:
         environment.pop(name, None)
 
 
 def build(host: str, port: int) -> WSGIServer:
+    """The server on a loopback `host`, with the key scrubbed from the environment before Django loads."""
     if not loopback(host):
         raise ValueError(f"{host} non è un indirizzo di loopback: il cruscotto resta su questa macchina")
     scrub(os.environ)
-    os.environ["DJANGO_SETTINGS_MODULE"] = SETTINGS  # sempre queste: le difese stanno lì
-    # Import qui dentro: Django legge le impostazioni quando si carica, e la chiave deve essere già tolta.
+    os.environ["DJANGO_SETTINGS_MODULE"] = SETTINGS  # always these settings: the defences live there
+    # Imported here: Django reads the settings when it loads, and the key must already be gone.
     from django.core.wsgi import get_wsgi_application
 
     return make_server(host, port, get_wsgi_application(), server_class=_Server, handler_class=_Handler)
 
 
 def main(argv: list[str] | None = None) -> int:
+    """`agency-server`, until interrupted. Exits 2 for a host that is not loopback, 1 if it cannot start."""
     parser = argparse.ArgumentParser(prog="agency-server", description=DESCRIPTION)
     parser.add_argument("--host", default=HOST, help="indirizzo di loopback, di solito 127.0.0.1")
     parser.add_argument("--port", type=int, default=PORT, help="0 sceglie una porta libera")

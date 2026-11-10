@@ -1,4 +1,4 @@
-"""Le route del cruscotto: solo GET, ognuna chiama un caso d'uso di insights e restituisce i suoi modelli."""
+"""The dashboard routes: GET only; each one calls an insights use case and returns its models."""
 
 from __future__ import annotations
 
@@ -24,14 +24,14 @@ from agency.insights.quality import QualityReport
 from agency.insights.replay import ReplayReport
 from agency.insights.views import ProjectReport, ProjectSummary
 
-# Niente pagina di documentazione: caricherebbe script da una CDN. Lo schema resta in /api/openapi.json.
+# No documentation page: it would load scripts from a CDN. The schema stays at /api/openapi.json.
 api = NinjaAPI(
     title="Design agency: cruscotto",
     version="1",
     description="The read-only dashboard: the registry and the traces, through insights (ADR-0019).",
     docs_url=None,
 )
-_refresh = threading.Lock()  # una rigenerazione per volta: chi arriva dopo trova la proiezione già fatta
+_refresh = threading.Lock()  # one rebuild at a time: whoever comes next finds it done
 
 
 class Problem(Schema):
@@ -47,7 +47,7 @@ def _transcripts() -> JsonlTranscripts:
 
 
 def _projection() -> SqliteProjection:
-    """La proiezione aggiornata: si rifà solo se registro, tracce o trascrizioni sono cambiati."""
+    """The up-to-date projection: rebuilt only if the registry, the traces or the transcripts changed."""
     layout = _layout()
     projection = SqliteProjection(layout.insights)
     registry, traces = ReadOnlyRegistry(layout.ledger), JsonlTraces(layout.traces)
@@ -60,11 +60,13 @@ def _projection() -> SqliteProjection:
 
 @api.exception_handler(application.RegistryNotReadable)
 def registry_not_readable(request: HttpRequest, exc: application.RegistryNotReadable) -> HttpResponse:
+    """An unreadable registry is a 503 with a `Problem`, the shape every route declares for it."""
     return api.create_response(request, Problem(detail=str(exc)), status=503)
 
 
-# Ogni route dichiara anche il 503: l'interfaccia sa che forma ha la risposta quando il registro non si legge.
-# I nomi delle operazioni sono espliciti, così i tipi TypeScript non dipendono da dove sta il codice Python.
+# Every route also declares the 503, so the interface knows the response's shape when the registry cannot
+# be read. The operation names are explicit, so the TypeScript types do not depend on where the Python code
+# lives.
 @api.get("/provenance", response={200: Provenance, 503: Problem}, operation_id="provenance")
 def provenance(request: HttpRequest) -> Provenance:
     return _projection().provenance()
@@ -76,7 +78,7 @@ def projects(request: HttpRequest) -> list[ProjectSummary]:
 
 
 def _unknown(projection: SqliteProjection, name: str) -> Status | None:
-    """Un progetto che il registro non conosce è un 404, non una vista vuota."""
+    """A project the registry does not know is a 404, not an empty view."""
     try:
         parse_project_name(name)
     except ValueError:  # a registry from before the name rule may still hold such a name (COR-013)
@@ -163,7 +165,7 @@ def replay(request: HttpRequest, name: str, instance: str) -> Status:
     return Status(200, report)
 
 
-# Un'immagine è byte, non JSON: lo schema dice i tipi che può avere.
+# An image is bytes, not JSON: the schema lists the media types it can have.
 _PICTURE = {
     200: {
         "description": "The image returned to the instance, in its own media type",

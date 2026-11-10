@@ -1,7 +1,8 @@
-"""Lo schema OpenAPI del cruscotto, generato dai modelli di insights: `uv run agency-schemas` (ADR-0022).
+"""The dashboard's OpenAPI schema, generated from the insights models: `uv run agency-schemas` (ADR-0022).
 
-Si versiona in `schemas/openapi.json`, e da lì nascono i tipi TypeScript dell'interfaccia. Le chiavi sono in
-ordine e il file finisce con un a capo: due generazioni uguali danno lo stesso file, e il diff si legge.
+It is versioned in `schemas/openapi.json`, and the interface's TypeScript types are generated from it. The
+keys are sorted and the file ends with a newline: two equal generations give the same file, and the diff
+reads well.
 """
 
 from __future__ import annotations
@@ -28,8 +29,9 @@ DESCRIPTION = (
 
 
 def render() -> str:
-    os.environ["DJANGO_SETTINGS_MODULE"] = SETTINGS  # sempre queste: lo schema è quello del server vero
-    # Import qui dentro: Django Ninja legge le impostazioni già all'import, quindi viene dopo django.setup().
+    """The schema, exactly as `schemas/openapi.json` stores it."""
+    os.environ["DJANGO_SETTINGS_MODULE"] = SETTINGS  # always these settings: the schema is the real server's
+    # Imported here: Django Ninja reads the settings on import, so it comes after django.setup().
     import django
 
     django.setup()
@@ -39,6 +41,7 @@ def render() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """`agency-schemas`: writes the schema, or with `--check` exits 1 if the stored one differs."""
     parser = argparse.ArgumentParser(prog="agency-schemas", description=DESCRIPTION)
     parser.add_argument("--output", type=Path, default=OUTPUT)
     parser.add_argument("--check", action="store_true", help="non scrive: fallisce se non è allineato")

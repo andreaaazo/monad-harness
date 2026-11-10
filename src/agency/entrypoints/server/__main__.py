@@ -1,4 +1,4 @@
-"""`python -m agency.entrypoints.server`: lo stesso di `agency-server`."""
+"""`python -m agency.entrypoints.server`: the same as `agency-server`."""
 
 from agency.entrypoints.server.serve import main
 

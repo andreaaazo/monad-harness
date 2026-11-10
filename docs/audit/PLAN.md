@@ -1390,7 +1390,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
   - Verify: the generated diffs change only `description` strings; `pnpm --dir web run api:check` passes; standard gate,
     without the schema line.
   - Commit: `docs(api): write the OpenAPI descriptions in English`.
-- [ ] **Task 3.3: the domain vocabulary is documented.** Closes CMT-008 (Q16).
+- [x] **Task 3.3: the domain vocabulary is documented.** Closes CMT-008 (Q16).
   - Files: `docs/03-DATA-MODEL.md`.
   - Content, in Italian: a "Vocabolario" section giving the rule (identifiers in English; stored and wire values in
     Italian; changing a value is a migration) and the current values, as pinned by Task 1.17.

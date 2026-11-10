@@ -87,6 +87,31 @@ proiezione: la vista Replay legge quella di un'istanza quando la si apre, e ogni
 Django non possiede il registro (ADR-0020). Quando nasceranno utenti e organizzazioni avrà un database proprio, con le sue
 migrazioni. `checkpoints.sqlite` lo gestisce LangGraph.
 
+## Vocabolario
+
+Gli identificatori sono in inglese; i valori salvati e quelli che viaggiano sono parole italiane, o le sigle di
+sempre. Stanno nelle righe del registro, nelle trascrizioni, nei record di ripresa e nella proiezione, arrivano al
+modello negli schemi degli strumenti e all'interfaccia come enum di `schemas/openapi.json`. Sembrano da tradurre e
+non lo sono: un valore salvato cambia solo con una migrazione, mai con una rinomina, e `tests/test_vocabulary.py`
+li tiene fermi (CMT-008, Task 1.17).
+
+| Tipo | Valori |
+|---|---|
+| `TicketType` | `produzione`, `consulenza`, `revisione`, `ricerca`, `qa`, `consegna`, `disaccordo`, `idea`, `schizzo`, `proposta` |
+| `Medium` | `vettoriale`, `motion`, `immagine`, `interfaccia`, `3d`, `nessuno` |
+| `Verdict` | `READY`, `REVISE`, `NOT_VERIFIED` |
+| `Status` | `open`, `delivered`, `accepted`, `rework`, `blocked`, `cancelled` |
+| `Action` | `deliver`, `accept`, `rework`, `block`, `resume`, `cancel` |
+| `Level` | `ordinario`, `buono`, `eccellente` |
+| `RunCommand` | `run`, `resume`, `decide` |
+| `OutcomeState` | `delivered`, `handed_off`, `selected`, `no_concept`, `presented`, `concept_rejected`, `blocked` |
+| `Compared` (API) | `entrambe`, `manca prima`, `manca dopo`, `nessuna` |
+| `Alignment` (API) | `per richiesta`, `per ordine`, `nessuna` |
+| `Lifecycle` (API) | `open`, `deliver`, `accept`, `rework`, `block`, `resume`, `cancel` |
+
+Oltre alle azioni del ciclo di vita, il registro scrive in `events.action` anche `evidence`, `baseline` (le
+migrazioni 0006-0008), `concept`, `gate`, `usage` e `project` (ADR-0047, ADR-0049, ADR-0050).
+
 ## Ticket
 
 Contratto in `agency.contracts.ticket`. Regole principali:

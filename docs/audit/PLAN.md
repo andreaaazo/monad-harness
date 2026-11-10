@@ -1009,14 +1009,14 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   target, then hashes the inputs. Task 2.2's rule; workflow.py is not on its list.
 - [x] **Task 2.F8: `write_file` writes after `inside()`.** tools/surface.py:302-304. A check, then a use: a link
   swapped in between, or one that points elsewhere inside the work folder, is followed. Closed by Task 2.2 (named).
-- [ ] **Task 2.F9: `plan_exploration` writes the plan and the explorer folders after `inside()`.**
+- [x] **Task 2.F9: `plan_exploration` writes the plan and the explorer folders after `inside()`.**
   tools/surface.py:582-584 and :593-595. Task 2.2's rule; only `read_file`, `write_file` and `view_image` of
   surface.py are on its list.
-- [ ] **Task 2.F10: the closing tools write their records after `inside()`.** tools/surface.py:630-631
+- [x] **Task 2.F10: the closing tools write their records after `inside()`.** tools/surface.py:630-631
   (`submit_concept`, `scheda.json`), :655-657 (`rate_board`, `reviews/valutazione.json`) and :715
   (`draft_presentation`, `testi.json`). Their readers follow links too: :636, :670 and :724-730. Task 2.2's rule;
   these surface.py functions are not on its list.
-- [ ] **Task 2.F11: the hash and existence checks in the tools follow links.** tools/surface.py:413 (`_seen_proof`),
+- [x] **Task 2.F11: the hash and existence checks in the tools follow links.** tools/surface.py:413 (`_seen_proof`),
   :440-443 (`judge`), :486 and :509 (`open_ticket`), :560 (`deliver`), and :78 (`ToolContext.keep`), whose open is
   artifacts/files.py:55 (`FileStore.put`, `source.open("rb")`). Task 2.2's rule; keeping.py is on its list, but these
   surface.py functions and artifacts/files.py are not. Its `FileStore.put` part is closed by Task 2.2a.
@@ -1062,7 +1062,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   comparison hashes, copies (Task 2.F20) and keeps the file the link points to. Found by Task 2.2. Task 2.2's rule;
   evaluation/ is not on its list, and it may not import `agency.tools` (ADR-0027), so the helper must be reachable
   from `contracts` first.
-- [ ] **Task 2.F24: the critic's first look is a file in the work folder, and `select_concepts` trusts it.**
+- [x] **Task 2.F24: the critic's first look is a file in the work folder, and `select_concepts` trusts it.**
   tools/surface.py:673 (`rate_board` writes `reviews/valutazione.json`) and :688-694 (`select_concepts` reads
   `board/r<n>/reviews/valutazione.json` and lets only the letters marked `passes` through). Line numbers are as of
   Task 2.3. This is SEC-001's class, not its links: the harness keeps a record it later trusts in a folder the agent
@@ -1086,7 +1086,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   file the model wrote, in the harness's process tree and with the operator's `HOME`. `tools/craft.py` and
   `tools/render.py` run it through `Sandbox`, so only this path is unconfined. Closed by Task 2.27 (SEC-006), which
   adds a `render` callable backed by `Sandbox` that `cli.py` supplies.
-- [ ] **Task 2.F26: `present_concepts` lists the pages to check by globbing the folder.** tools/surface.py:765
+- [x] **Task 2.F26: `present_concepts` lists the pages to check by globbing the folder.** tools/surface.py:765
   (`folder.glob("pagina-*.png")`). The pages the director must have viewed are whatever `pagina-*.png` files sit in
   `presentation/r<n>/`, not the list `draft_presentation` returned, so a page planted there is checked and kept as if
   it were part of the draft, and a page missing from the draft is not noticed. Only the PDF is sent, and `build`

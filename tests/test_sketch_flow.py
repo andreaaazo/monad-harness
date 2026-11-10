@@ -832,7 +832,7 @@ def test_director_cannot_choose_what_failed_the_first_look(tmp_path: Path) -> No
         )
     box = Toolbox(ctx, [TOOLS["select_concepts"]])
     assert box.call("a", "select_concepts", {"chosen": ["X"], "reasons": "r"})["is_error"]
-    verdicts = tmp_path / "board/r1/reviews/valutazione.json"
+    verdicts = settings(tmp_path).layout.ratings("p", 1)
     verdicts.parent.mkdir(parents=True)
     rated = [
         {"letter": "X", "first_look": "Un tasto", "passes": False},
@@ -894,7 +894,7 @@ def test_select_concepts_refuses_more_than_three(tmp_path: Path) -> None:
         ctx.ledger.add_concept(
             ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket=f"T-{letter}", anon=anon)
         )
-    verdicts = tmp_path / "board/r1/reviews/valutazione.json"
+    verdicts = settings(tmp_path).layout.ratings("p", 1)
     verdicts.parent.mkdir(parents=True)
     passed = [{"letter": anon, "first_look": "Un segno", "passes": True} for anon in anons.values()]
     verdicts.write_text(json.dumps(passed))

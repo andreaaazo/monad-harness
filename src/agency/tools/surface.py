@@ -7,7 +7,6 @@ import hashlib
 import io
 import json
 import os
-import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
@@ -36,10 +35,10 @@ from agency.tools.files import (
     clip,
     ensure_dir_under,
     inside,
+    is_file_under,
     open_under,
     read_under,
     replace_under,
-    sha256,
     sha256_under,
 )
 from agency.tools.sandbox import OPS, Sandbox
@@ -452,7 +451,7 @@ def run_check(ctx: ToolContext, a: RunCheck, _: str) -> dict:
 
 def _seen_proof(ctx: ToolContext, file: str) -> str:
     """Una prova della versione attuale che questa istanza ha davvero aperto."""
-    digest = sha256(inside(ctx.work, file))
+    digest = sha256_under(ctx.work, file)
     if f"{file}:{digest}" in _viewed(ctx):  # l'immagine stessa, già aperta in questa versione
         return file
     viewed = _viewed(ctx)
@@ -479,10 +478,10 @@ def judge(ctx: ToolContext, a: Judge, _: str) -> dict:
         raise Refused(f"{a.check} non è un giudizio")
     if len(a.why.strip()) < 60:
         raise Refused("motiva con elementi visibili del confronto")
-    missing = [path for path in a.compare if not inside(ctx.work, path).exists()]
+    missing = [path for path in a.compare if not is_file_under(ctx.work, path)]
     if missing:
         raise Refused(f"termini di confronto inesistenti: {missing}")
-    if inside(ctx.work, a.file).resolve() in {inside(ctx.work, path).resolve() for path in a.compare}:
+    if os.path.normpath(a.file) in {os.path.normpath(path) for path in a.compare}:
         raise Refused("un file non si confronta con se stesso")
     proof = _seen_proof(ctx, a.file)
     note = f"confronto con {', '.join(a.compare)}: {a.why.strip()}"
@@ -525,7 +524,7 @@ def open_ticket(ctx: ToolContext, a: OpenTicket, operation_id: str) -> dict:
         raise Refused(f"ruolo inesistente: {a.assignee}")
     if not prompts.has_prompt(a.assignee):
         raise Refused(f"{a.assignee} non è ancora attivo nello studio: affida il lavoro a un altro ruolo")
-    missing = [path for path in a.inputs if not inside(ctx.work, path).exists()]
+    missing = [path for path in a.inputs if not is_file_under(ctx.work, path)]
     if missing:
         raise Refused(f"input inesistenti: {missing}")
     try:
@@ -548,7 +547,7 @@ def open_ticket(ctx: ToolContext, a: OpenTicket, operation_id: str) -> dict:
         delivery.validate_review(spec, ctx.work, _coming(ctx))
     except (ValueError, delivery.ContractRefused) as exc:
         raise Refused(str(exc)) from exc
-    hashes = {path: sha256(inside(ctx.work, path)) for path in a.inputs}
+    hashes = {path: sha256_under(ctx.work, path) for path in a.inputs}
     ticket = ctx.ledger.open(spec, ctx.project, hashes, (operation_id, ctx.instance, "open_ticket"))
     return {"ok": True, "ticket": ticket}
 
@@ -611,7 +610,7 @@ def deliver(ctx: ToolContext, a: Deliver, _: str) -> dict:
     )
     if problems:
         raise Refused("consegna rifiutata:\n" + "\n".join(problems[:20]))
-    hashes = {path: sha256(inside(ctx.work, path)) for path in present}
+    hashes = {path: sha256_under(ctx.work, path) for path in present}
     reworked = any(event.action == "rework" for event in ctx.ledger.history(ctx.ticket_id))
     if spec.type is TicketType.PRODUCTION and reworked and hashes == ctx.ledger.delivered(ctx.ticket_id):
         raise Refused("consegna rifiutata: gli output sono identici alla versione rimandata indietro")
@@ -633,9 +632,12 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
     root = ctx.ledger.spec(ctx.ticket_id)
     excluded = "\n".join(f"- {item}" for item in a.excluded)
     assets = ", ".join(a.assets)
-    plan_file = inside(ctx.work, f"explorations/r{ctx.round}/applicazioni.json")
-    plan_file.parent.mkdir(parents=True, exist_ok=True)
-    plan_file.write_text(json.dumps([item.model_dump() for item in a.applications]), encoding="utf-8")
+    ensure_dir_under(ctx.work, f"explorations/r{ctx.round}")
+    replace_under(
+        ctx.work,
+        f"explorations/r{ctx.round}/applicazioni.json",
+        json.dumps([item.model_dump() for item in a.applications]).encode("utf-8"),
+    )
     opened = []
     for letter, lever in zip("abcde", a.levers[: ctx.settings.explorers], strict=False):
         operation = f"{operation_id}:{letter}"
@@ -644,9 +646,8 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
             opened.append(json.loads(stored)["ticket"])
             continue
         workspace = f"explorations/r{ctx.round}/{letter}"
-        folder = inside(ctx.work, workspace)
-        folder.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(inside(ctx.work, "brief.md"), folder / "brief.md")
+        ensure_dir_under(ctx.work, workspace)
+        replace_under(ctx.work, f"{workspace}/brief.md", read_under(ctx.work, "brief.md"))
         spec = TicketSpec(
             title=f"Esplorazione {letter.upper()}",
             request=f"{root.request}\n\nLEVA: {lever.lever}\n\nRISORSE DEL CLIENTE: {assets}\n\n"
@@ -684,15 +685,14 @@ def submit_concept(ctx: ToolContext, a: ConceptCard, _: str) -> dict:
     if _replayed(ctx, Status.DELIVERED, Action.DELIVER):
         ctx.finished = Outcome(state=OutcomeState.DELIVERED, note=a.concept)
         return {"ok": True}
-    target = inside(ctx.work, "scheda.json")
-    target.write_text(a.model_dump_json(indent=2), encoding="utf-8")
+    replace_under(ctx.work, "scheda.json", a.model_dump_json(indent=2).encode("utf-8"))
     spec = ctx.ledger.spec(ctx.ticket_id)
     present, problems = delivery.delivery_problems(ctx.ledger, ctx.project, ctx.sandbox, spec, None)
     if problems:
         raise Refused("consegna rifiutata:\n" + "\n".join(problems[:20]))
-    sketch = inside(ctx.work, next(path for path in spec.outputs if path.startswith("schizzo-")))
-    digest = sha256(sketch)
-    warning = board.mark_problem(sketch)
+    sketch = next(path for path in spec.outputs if path.startswith("schizzo-"))
+    digest = sha256_under(ctx.work, sketch)
+    warning = board.mark_problem(ctx.work.resolve() / sketch)
     if warning and ctx.warned_sketch != digest:
         ctx.warned_sketch = digest
         raise Refused(warning)
@@ -709,11 +709,14 @@ def rate_board(ctx: ToolContext, a: RateBoard, _: str) -> dict:
     rated = {item.letter for item in a.ratings}
     if rated != letters:
         raise Refused(f"valuta tutte e sole le lettere della tavola: {sorted(letters)}")
-    target = inside(ctx.work, "reviews/valutazione.json")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(
-        json.dumps([item.model_dump() for item in a.ratings], ensure_ascii=False), encoding="utf-8"
-    )
+    assert ctx.settings is not None
+    data = json.dumps([item.model_dump() for item in a.ratings], ensure_ascii=False).encode("utf-8")
+    # The harness copy is the one `select_concepts` trusts: the sandbox can write the one in the work folder.
+    kept = ctx.settings.layout.ratings(ctx.project, ctx.round)
+    kept.parent.mkdir(parents=True, exist_ok=True)
+    replace_under(kept.parent, kept.name, data)
+    ensure_dir_under(ctx.work, "reviews")
+    replace_under(ctx.work, "reviews/valutazione.json", data)
     return {"ok": True, "passano": sorted(item.letter for item in a.ratings if item.passes)}
 
 
@@ -724,13 +727,12 @@ def select_concepts(ctx: ToolContext, a: SelectConcepts, _: str) -> dict:
         raise Refused(f"lettere inesistenti: {unknown}. Disponibili: {sorted(available)}")
     if len(a.chosen) > 3:
         raise Refused("si sviluppano al massimo 3 idee: sceglierne di più significa non aver scelto")
-    verdicts = inside(ctx.work, f"board/r{ctx.round}/reviews/valutazione.json")
     if a.chosen:
-        if not verdicts.exists():
-            raise Refused("manca il primo sguardo del critico: non si sceglie senza")
-        passed = {
-            item["letter"] for item in json.loads(verdicts.read_text(encoding="utf-8")) if item["passes"]
-        }
+        assert ctx.settings is not None
+        kept = ctx.settings.layout.ratings(ctx.project, ctx.round)
+        if not kept.is_file():
+            raise Refused(f"la tavola del giro {ctx.round} non è stata valutata con rate_board")
+        passed = {item["letter"] for item in json.loads(kept.read_text(encoding="utf-8")) if item["passes"]}
         failed = sorted(set(a.chosen) - passed)
         if failed:
             raise Refused(
@@ -779,27 +781,38 @@ def draft_presentation(ctx: ToolContext, a: PresentConcepts, _: str) -> dict:
         )
         for item in a.proposals
     ]
-    folder = inside(ctx.work, presentation.folder_of(ctx.round))
+    folder = ctx.work.resolve() / presentation.folder_of(ctx.round)
     pages = presentation.build(items, str(a.recommended), a.reasons, folder)
-    (folder / "testi.json").write_text(a.model_dump_json(), encoding="utf-8")
+    replace_under(ctx.work, f"{presentation.folder_of(ctx.round)}/testi.json", a.model_dump_json().encode())
     return {
         "pagine": [str(page.relative_to(ctx.work.resolve())) for page in pages],
         "poi": "Guarda ogni pagina con view_image. Se serve, rifai la bozza. Poi present_concepts.",
     }
 
 
+def _drafted_pages(ctx: ToolContext) -> list[str]:
+    """The pages the last draft of this instance made, as the ledger recorded them, not as the folder has."""
+    drafts = [row for row in ctx.ledger.operations(ctx.instance) if row.tool == "draft_presentation"]
+    if not drafts:
+        return []
+    latest = max(enumerate(drafts), key=lambda item: (item[1].at, item[0]))[1]
+    return list(json.loads(latest.result_json).get("pagine", []))
+
+
 def present_concepts(ctx: ToolContext, _a: ConfirmPresentation, __: str) -> dict:
     """Manda al cliente l'ultima bozza, solo se è esattamente quella guardata."""
-    folder = inside(ctx.work, presentation.folder_of(ctx.round))
-    draft = folder / "testi.json"
-    if not draft.is_file():
+    draft = f"{presentation.folder_of(ctx.round)}/testi.json"
+    pages = _drafted_pages(ctx)
+    if not pages or not is_file_under(ctx.work, draft):
         raise Refused("non c'è ancora una bozza: prima draft_presentation")
+    gone = [page for page in pages if not is_file_under(ctx.work, page)]
+    if gone:
+        raise Refused(f"mancano pagine della bozza: {gone}. Rifai la bozza con draft_presentation.")
     seen = _viewed(ctx)
-    pages = [str(path.relative_to(ctx.work.resolve())) for path in sorted(folder.glob("pagina-*.png"))]
-    missing = [page for page in pages if f"{page}:{sha256(inside(ctx.work, page))}" not in seen]
+    missing = [page for page in pages if f"{page}:{sha256_under(ctx.work, page)}" not in seen]
     if missing:
         raise Refused(f"guarda queste pagine, così come sono ora, prima di mandarle al cliente: {missing}")
-    text = draft.read_text(encoding="utf-8")
+    text = read_under(ctx.work, draft).decode("utf-8")
     ctx.keep([presentation.pdf_of(ctx.round)], Origin.PRESENTATION)
     ctx.finished = Outcome(state=OutcomeState.PRESENTED, note=text)
     return json.loads(text)

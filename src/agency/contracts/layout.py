@@ -117,3 +117,8 @@ class DataLayout:
     def ops_records(self, project: str, instance: str) -> Path:
         """The harness's record of an instance's tool runs, read on resume. No sandbox sees it (ADR-0044)."""
         return self.root / "ops" / project / instance
+
+    def ratings(self, project: str, round: int) -> Path:
+        """The critic's first look at a round's board, as `rate_board` recorded it. Only the harness writes
+        it: the copy in the work folder is the ticket's output, which the sandbox can write."""
+        return self.root / "ops" / project / f"ratings-r{round}.json"

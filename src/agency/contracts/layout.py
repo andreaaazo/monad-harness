@@ -41,7 +41,17 @@ def projects_root(environ: Mapping[str, str] = os.environ) -> Path:
     return _anchored(environ, "AGENCY_PROJECTS_DIR", CHECKOUT / "projects")
 
 
-def _anchored(environ: Mapping[str, str], name: str, default: Path) -> Path:
+def projection_root(environ: Mapping[str, str] = os.environ) -> Path | None:
+    """Where the projection lives if not beside the registry: `AGENCY_PROJECTION_DIR`, which must be absolute.
+
+    None without the variable: the projection then follows whatever the registry's folder is when it is used.
+    """
+    return _anchored(environ, "AGENCY_PROJECTION_DIR", None)
+
+
+def _anchored[Default: (Path, None)](
+    environ: Mapping[str, str], name: str, default: Default
+) -> Path | Default:
     value = environ.get(name)
     if value is None:
         return default
@@ -83,9 +93,14 @@ class DataLayout:
         """Le trascrizioni delle istanze, una cartella per progetto."""
         return self.root / "runs"
 
+    @property
+    def locks(self) -> Path:
+        """The folder of the project claims, one `<project>.lock` file each."""
+        return self.root / "locks"
+
     def lock(self, project: str) -> Path:
         """The claim that lets one engine process at a time work on a project (COR-005)."""
-        return self.root / "locks" / f"{project}.lock"
+        return self.locks / f"{project}.lock"
 
     def transcript(self, project: ProjectName, instance: str) -> Path:
         return self.transcripts / project / f"{instance}.jsonl"

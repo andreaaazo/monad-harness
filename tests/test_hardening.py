@@ -21,6 +21,7 @@ from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.gate import ConceptGate, Gate
+from agency.contracts.layout import RelativeDataRoot
 from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.run import Fingerprint
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
@@ -47,6 +48,12 @@ def settings(tmp_path: Path) -> Settings:
 def own_data_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A CLI command locks its project under the data folder first: keep that out of `.data`."""
     monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
+
+
+@pytest.fixture(autouse=True)
+def sandbox_scope_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`run`, `resume` and `decide` probe the sandbox scope first: no test of this file spawns systemd-run."""
+    monkeypatch.setattr(cli, "scope_problem", lambda: None)
 
 
 def context(tmp_path: Path, actor: str = "identity-designer", ticket: str = "T-1") -> ToolContext:
@@ -846,6 +853,22 @@ def test_network_failure_keeps_the_work_and_says_how_to_resume(
     assert "agency resume officina" in capsys.readouterr().out
 
 
+def test_api_error_text_reaches_the_terminal_without_control_sequences(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The message of an `APIError` carries the response body of the API or of a proxy in between (2.F55)."""
+    session = FakeSession([], Ledger(tmp_path / "l.sqlite"))
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+
+    def fail() -> None:
+        raise anthropic.APIError("proxy\x1b]52;c;ZWNobyBwd25lZA==\x07 giù", request, body=None)
+
+    assert cli._guarded("officina", session, fail) == 3  # type: ignore[attr-defined]
+    out = capsys.readouterr().out
+    assert "API NON DISPONIBILE: proxy]52;c;ZWNobyBwd25lZA== giù" in out
+    assert "\x1b" not in out and "\x07" not in out
+
+
 def test_blocked_outcome_is_shown(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1058,6 +1081,8 @@ def test_run_takes_the_lock_before_it_checks_that_the_project_exists(
         ["budget", "forno", "5"],
         ["resume", "forno"],
         ["decide", "forno", "--approve", "--text", "ok"],
+        ["restore", "0123abcd", "copia.svg"],
+        ["judge", "a.svg", "b.svg"],
     ],
     ids=lambda command: command[0],
 )
@@ -1069,6 +1094,146 @@ def test_read_only_commands_never_create_a_registry(
     assert cli.main(command) == 1
     assert capsys.readouterr().out.splitlines() == [f"REGISTRO: nessun registro in {path.absolute()}"]
     assert not path.exists()
+
+
+def busy_line(project: str) -> str:
+    return f"Un altro processo sta già lavorando sul progetto {project}: attendi che finisca e riprova"
+
+
+def test_budget_changes_the_cap_while_a_worker_holds_the_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """2.F29, by design: raising the cap is how a running project is let finish, and the gateway reads the cap
+    on every call, so `agency budget` takes no claim on the project."""
+    import os
+
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    fd = hold_project_lock(tmp_path / "data" / "locks" / "forno.lock")
+    try:
+        assert cli.main(["budget", "forno", "40"]) == 0
+    finally:
+        os.close(fd)
+    row = Ledger(path).project("forno")
+    assert row is not None and row.budget_usd == 40.0
+    assert capsys.readouterr().out.startswith("forno: budget portato a 40.00 $")
+
+
+def test_migrate_refuses_while_a_worker_holds_a_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """2.F30: the registry is rewritten only when no project is being worked on; the claims taken so far are
+    let go again, and nothing is migrated or backed up."""
+    import os
+
+    from agency.runtime import ProjectLock
+
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    locks = tmp_path / "data" / "locks"
+    locks.mkdir(parents=True)
+    (locks / "aaa.lock").touch()  # claimed first, in name order, then let go on the refusal
+    monkeypatch.setattr(cli, "migrate", lambda _: pytest.fail("migrated under a running worker"))
+    fd = hold_project_lock(locks / "forno.lock")
+    try:
+        capsys.readouterr()
+        assert cli.main(["migrate"]) == 1
+    finally:
+        os.close(fd)
+    assert capsys.readouterr().out.splitlines() == [busy_line("forno")]
+    assert not (tmp_path / "data" / "backups").exists()
+    with ProjectLock(locks / "aaa.lock"), ProjectLock(locks / "forno.lock"):
+        pass
+
+
+def test_migrate_holds_every_project_until_the_migration_ends(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from agency.ledger.schema import Migration
+    from agency.runtime import ProjectBusy, ProjectLock
+
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    locks = tmp_path / "data" / "locks"
+    locks.mkdir(parents=True)
+    (locks / "forno.lock").touch()
+    (locks / "notes.txt").touch()  # not a project lock
+    during: list[str] = []
+
+    def migrating(_: Path) -> Migration:
+        try:
+            with ProjectLock(locks / "forno.lock"):
+                during.append("free")
+        except ProjectBusy:
+            during.append("held")
+        return Migration("rev", None)
+
+    monkeypatch.setattr(cli, "migrate", migrating)
+    assert cli.main(["migrate"]) == 0
+    assert during == ["held"]
+    with ProjectLock(locks / "forno.lock"):  # let go once the migration has ended
+        pass
+    assert "già aggiornato" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("command", [["run", "forno", "brief.md", "--budget", "5"], ["resume", "forno"]])
+def test_run_and_resume_stop_before_the_session_when_the_sandbox_has_no_scope(
+    command: list[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """2.F43: without a capped scope every tool call would be refused; stop before any model call."""
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    monkeypatch.setattr(cli, "scope_problem", lambda: "niente sessione systemd")
+    monkeypatch.setattr("agency.runtime.open_session", lambda *_, **__: pytest.fail("session opened"))
+    assert cli.main(command) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "SANDBOX NON DISPONIBILE: niente sessione systemd. agency doctor dice come sistemarla"
+    ]
+
+
+def test_decide_stops_before_the_session_when_the_sandbox_has_no_scope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = cli_data(tmp_path, monkeypatch)
+    Ledger(path).set_project("forno", 12.0)
+    monkeypatch.setattr(cli, "scope_problem", lambda: "niente sessione \x1b[2Jsystemd")
+    monkeypatch.setattr("agency.runtime.open_session", lambda *_, **__: pytest.fail("session opened"))
+    assert cli.main(["decide", "forno", "--approve", "--text", "ok"]) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "SANDBOX NON DISPONIBILE: niente sessione [2Jsystemd. agency doctor dice come sistemarla"
+    ]
+
+
+def test_run_with_no_sandbox_scope_creates_no_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = cli_data(tmp_path, monkeypatch)
+    monkeypatch.setattr(cli, "scope_problem", lambda: "niente")
+    transport = scripted_run(monkeypatch, [BLOCK_AT_ONCE])
+    assert cli.main(["run", "forno", str(tmp_path / "brief.md"), "--budget", "5"]) == 1
+    assert transport.requests == []
+    assert not path.exists()
+
+
+def test_a_relative_toolchain_dir_is_refused_like_the_data_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """2.F36: the sandbox binds the toolchain folder as given, so a relative one would name a different folder
+    from each current folder."""
+    line = (
+        "AGENCY_TOOLCHAIN_DIR deve essere un percorso assoluto, non 'toolchain': uno relativo dipende dalla"
+        " cartella da cui parte il comando"
+    )
+    monkeypatch.setenv("AGENCY_TOOLCHAIN_DIR", "toolchain")
+    with pytest.raises(RelativeDataRoot) as refused:
+        Settings(_env_file=None)  # type: ignore[call-arg]
+    assert str(refused.value) == line
+    assert cli.main(["verify"]) == 1
+    assert capsys.readouterr().out == line + "\n"
+    monkeypatch.setenv("AGENCY_TOOLCHAIN_DIR", str(tmp_path))
+    assert Settings(_env_file=None).toolchain_dir == tmp_path  # type: ignore[call-arg]
+    monkeypatch.delenv("AGENCY_TOOLCHAIN_DIR")
+    assert Settings(_env_file=None).toolchain_dir.is_absolute()  # type: ignore[call-arg]
 
 
 # Testo del modello: arriva al terminale dell'operatore senza sequenze di controllo (SEC-009)
@@ -1229,6 +1394,7 @@ def judge_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
     monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "projects"))
     monkeypatch.chdir(tmp_path)
+    Ledger(tmp_path / "data" / "ledger.sqlite")  # `judge` needs a registry to exist
     first, second = tmp_path / "a.svg", tmp_path / "b.svg"
     first.write_text("<svg>1</svg>", encoding="utf-8")
     second.write_text("<svg>2</svg>", encoding="utf-8")

@@ -141,3 +141,35 @@ def test_docker_up_gives_compose_the_host_data_root_as_agency_data_dir(tmp_path:
     assert default["AGENCY_DATA_DIR"] == str(REPO_ROOT / ".data")
     assert "AGENCY_DATA" not in default
     assert host_side(AGENCY_DATA_DIR=str(tmp_path))["AGENCY_DATA_DIR"] == str(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("variables", "message"),
+    [
+        ({"AGENCY_DATA": "/vecchio/registro"}, "AGENCY_DATA non si usa più"),
+        ({"AGENCY_DATA": ""}, "AGENCY_DATA non si usa più"),
+        ({"AGENCY_DATA_DIR": ".data"}, "AGENCY_DATA_DIR deve essere un percorso assoluto"),
+        ({"AGENCY_DATA_DIR": "dati/registro"}, "AGENCY_DATA_DIR deve essere un percorso assoluto"),
+    ],
+)
+def test_docker_up_stops_on_an_old_or_relative_data_root(
+    tmp_path: Path, variables: dict[str, str], message: str
+) -> None:
+    """The engine and the server refuse a relative data root (ADR-0045), and Compose would resolve it against
+    docker/. An old AGENCY_DATA would be ignored silently. Neither reaches docker."""
+    stub = tmp_path / "bin" / "docker"
+    stub.parent.mkdir()
+    seen = tmp_path / "docker-ran"
+    stub.write_text(f'#!/bin/sh\ntouch "{seen}"\n', encoding="utf-8")
+    stub.chmod(0o755)
+    binary = shutil.which("task")
+    if binary is None:
+        pytest.fail("Task is not on PATH: it comes from mise.toml, run it with mise active or `mise exec --`")
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("AGENCY_DATA")}
+    environment |= {"PATH": f"{stub.parent}{os.pathsep}{os.environ['PATH']}"} | variables
+    done = subprocess.run(
+        [binary, "docker:up"], cwd=REPO_ROOT, env=environment, capture_output=True, text=True
+    )
+    assert done.returncode != 0
+    assert message in done.stdout + done.stderr
+    assert not seen.exists()

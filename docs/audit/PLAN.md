@@ -1107,13 +1107,13 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   agents/transcript.py:17). Same shape as COR-006. Found by Task 2.9. Not covered by a planned task. The engine's
   own reader (agents/transcript.py:35, `read_text` plus `json.loads` per line) is not listed: `Transcript.__init__`
   repairs a torn tail first, and a mid-file bad line is outside COR-006.
-- [ ] **Task 2.F29: `agency budget` changes a project's cap with no claim on the project.** cli.py:216-222
+- [x] **Task 2.F29: `agency budget` changes a project's cap with no claim on the project.** cli.py:216-222
   (`_budget`, `ledger.set_budget`). Task 2.12 locks `run`, `resume` and `decide` only, so a cap can change under a
   worker that is running (the gateway reads it per call). Whether that is wanted is a decision: raising the cap of a
   stopped project is the documented use, and refusing it while a worker runs may be right or may be too strict.
   Found by Task 2.12. Not covered by a planned task.
   - Decided (2026-11-10): by design. Raising the cap of a running project is the way to let it finish, and the gateway reads the cap per call, so `agency budget` takes no claim on the project; a test pins it and `docs/05-COSTS.md` says it.
-- [ ] **Task 2.F30: `agency migrate` rewrites the registry while a worker may be using it.** cli.py:61-70 and
+- [x] **Task 2.F30: `agency migrate` rewrites the registry while a worker may be using it.** cli.py:61-70 and
   ledger/schema.py `migrate`. It takes no claim on any project, and the per-project lock of Task 2.12 cannot cover it
   (it is a whole-registry operation). It needs its own exclusive claim. Found by Task 2.12. Not covered by a planned
   task.
@@ -1127,40 +1127,40 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   Not covered by a planned task.
   - Decided (2026-11-10): one row per call. The token columns stay the serving attempt's usage, the context the run actually used; `cost_usd` covers every attempt, as Task 2.13 made it. `docs/03-DATA-MODEL.md` says so beside the `usage` table.
 
-- [ ] **Task 2.F32: `agency restore` creates an empty registry when run from the wrong folder.** cli.py:310
+- [x] **Task 2.F32: `agency restore` creates an empty registry when run from the wrong folder.** cli.py:310
   (`_restore`: `Ledger(settings.ledger_path)`). It only reads a kept version out of the registry, yet on a missing
   registry it creates an empty one and then says no version has that hash. Task 2.14 left it out because its list
   (SUMMARY.md, Q3) does not name it. The fix is `Ledger.existing`, the same message. Found by Task 2.14.
-- [ ] **Task 2.F33: `agency judge` creates a registry on a missing data root.** cli.py:252 (`_judge`:
+- [x] **Task 2.F33: `agency judge` creates a registry on a missing data root.** cli.py:252 (`_judge`:
   `Ledger(settings.ledger_path)`). It writes judgments, so creating the registry may be intended, but a wrong data
   root makes a fresh one that holds only that judgment. Needs the owner to say whether `judge` may create it. Found
   by Task 2.14.
   - Decided (2026-11-10): `agency judge` never creates a registry, like every command but `agency run` (DX-003): `Ledger.existing`, the same message.
 
-- [ ] **Task 2.F34: `agency-schemas` writes and checks the schema relative to the current folder.**
+- [x] **Task 2.F34: `agency-schemas` writes and checks the schema relative to the current folder.**
   entrypoints/server/schema.py:15 (`OUTPUT = Path("schemas/openapi.json")`). `task schemas` runs it from the root,
   but `uv run agency-schemas` from `web/` writes `web/schemas/openapi.json`, and `--check` from there reports a
   missing file as "non allineato". The anchor is `CHECKOUT / "schemas/openapi.json"`. Also, since Task 2.15
   `render()` loads the server settings, so a relative `AGENCY_DATA_DIR` in the shell stops `agency-schemas` with a
   traceback that ends in the refusal line: `main` does not catch `RelativeDataRoot`. Found by Task 2.15. Not covered
   by a planned task.
-- [ ] **Task 2.F35: a relative `AGENCY_PROJECTION_DIR` follows the server's current folder.**
+- [x] **Task 2.F35: a relative `AGENCY_PROJECTION_DIR` follows the server's current folder.**
   entrypoints/server/settings.py:37-38 (as of Task 2.15). `Path(_PROJECTION).resolve()` accepts a relative value and
   resolves it against the folder the server starts from, the case of Review focus 2. Only Compose sets it today, to
   `/projection`. The fix is the rule of `data_root`: absolute, or refused with the same kind of line. Found by Task
   2.15. Not covered by a planned task.
-- [ ] **Task 2.F36: a relative `AGENCY_TOOLCHAIN_DIR` follows the engine's current folder.** config.py:24
+- [x] **Task 2.F36: a relative `AGENCY_TOOLCHAIN_DIR` follows the engine's current folder.** config.py:24
   (`toolchain_dir`; its default under `~/.local/share` is absolute) takes any value from the environment or `.env`,
   and tools/sandbox.py:77-78 binds it as given (`--ro-bind <value> <value>`), so a relative value names a different
   folder from each current folder. Task 2.16 stops it in `.env`, not in the process environment. The fix is the
   rule of `data_root`. Found by Task 2.15. Not covered by a planned task.
-- [ ] **Task 2.F37: an old `AGENCY_DATA` in the operator's shell is now ignored silently.** Taskfile.yml:124 and
+- [x] **Task 2.F37: an old `AGENCY_DATA` in the operator's shell is now ignored silently.** Taskfile.yml:124 and
   docker/compose.yaml:32 (as of Task 2.17). Until Task 2.17 `task docker:up` read `AGENCY_DATA`; now it reads only
   `AGENCY_DATA_DIR`, so an operator who still exports the old name gets the default `<root>/.data` with no message,
   and the dashboard can show a registry other than the one intended. Needs the owner's decision (a refusal when the
   old name is set, a note in the Taskfile, or nothing). Found by Task 2.17. Not covered by a planned task.
   - Decided (2026-11-10): refuse. `task docker:up` stops when `AGENCY_DATA` is set, with one line naming `AGENCY_DATA_DIR`.
-- [ ] **Task 2.F38: a relative `AGENCY_DATA_DIR` given to `task docker:up` is resolved against `docker/`.**
+- [x] **Task 2.F38: a relative `AGENCY_DATA_DIR` given to `task docker:up` is resolved against `docker/`.**
   Taskfile.yml:124 and docker/compose.yaml:32 (as of Task 2.17). Compose resolves a relative bind source against the
   folder of the Compose file, not the folder the operator is in, whereas the engine and the server refuse a relative
   data root (ADR-0045). Needs the owner's decision (refuse it in the Taskfile like the others, or accept it). Found by
@@ -1272,7 +1272,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   not the model, and no control characters are removed, so a request with ESC or OSC bytes in its path forges lines of
   the operator's terminal (Task 2.30's bug, on the server side). Fix: pass the line through `report.plain` (or an
   equivalent shared helper that the server may import) before writing it. Found in Task 2.30. Not covered by a planned task.
-- [ ] **Task 2.F55: the API error text is printed raw.** cli.py:121 (`API NON DISPONIBILE: {exc}`; `BUDGET FINITO: {exc}`
+- [x] **Task 2.F55: the API error text is printed raw.** cli.py:121 (`API NON DISPONIBILE: {exc}`; `BUDGET FINITO: {exc}`
   at :117 carries harness text only). `anthropic.APIError` messages include the response body from the API or from a
   proxy in between, which the harness does not control. Fix: wrap the line with `report.plain`. Found in Task 2.30. Not
   covered by a planned task.
@@ -1336,6 +1336,16 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   (`design-director`, `identity-designer`, `critic`) are the graph's own structure and are not flagged. Found in Task
   2.34. Not covered by a planned task.
   - Moved to Phase 6 (2026-11-10): a rule rebuilt from names, refactor rather than bug.
+- [ ] **Task 2.F63: `agency migrate` claims only the project locks that exist.** cli.py `_migrate` (as of the B6 batch:
+  it globs `locks/*.lock`). A project's lock file is created by its first `run`, so a first `run` of a new project
+  started during a migration takes no claim the migration holds; it then waits on the registry's write lock (busy
+  timeout 30 s) or finds the registry outdated. Fix: a registry-wide claim that every `run`, `resume` and `decide`
+  takes shared and `migrate` takes exclusive. Found in the B6 batch. Not covered by a planned task.
+- [ ] **Task 2.F64: `plain` keeps newlines in one-line messages.** contracts/text.py (`plain`) used by cli.py for
+  `API NON DISPONIBILE`, `SANDBOX NON DISPONIBILE` and `Confronto non possibile`. A newline inside the exception
+  text (an API or proxy body, systemd's output) still starts a new terminal line that can look like the CLI's own.
+  Fix: a `one_line` variant that also folds `\n` and `\t` to a space, for messages that are one line by design.
+  Found in the B6 batch. Not covered by a planned task.
 
 ## Phase 3: comments and language (Q14–Q16)
 

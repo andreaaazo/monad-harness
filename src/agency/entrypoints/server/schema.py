@@ -11,8 +11,10 @@ import json
 import os
 from pathlib import Path
 
+from agency.contracts.layout import CHECKOUT, RelativeDataRoot
+
 SETTINGS = "agency.entrypoints.server.settings"
-OUTPUT = Path("schemas/openapi.json")  # rispetto alla radice del repository, da cui si lancia il comando
+OUTPUT = CHECKOUT / "schemas/openapi.json"  # in the checkout, whatever folder the command runs from
 
 
 def render() -> str:
@@ -31,7 +33,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, default=OUTPUT)
     parser.add_argument("--check", action="store_true", help="non scrive: fallisce se non è allineato")
     args = parser.parse_args(argv)
-    current = render()
+    try:
+        current = render()
+    except RelativeDataRoot as exc:  # the server settings load here; the engine prints the same line
+        print(exc)
+        return 1
     if args.check:
         if args.output.is_file() and args.output.read_text(encoding="utf-8") == current:
             print(f"schema allineato: {args.output}")

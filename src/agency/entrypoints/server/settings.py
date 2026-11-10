@@ -6,11 +6,9 @@ Si leggono una volta, all'avvio, da due sole variabili d'ambiente: `AGENCY_DATA_
 
 from __future__ import annotations
 
-import os
 import secrets
-from pathlib import Path
 
-from agency.contracts.layout import data_root
+from agency.contracts.layout import data_root, projection_root
 
 DEBUG = False
 # Nessuna sessione, nessun utente, niente da firmare: una chiave nuova a ogni avvio, mai scritta.
@@ -34,5 +32,4 @@ TIME_ZONE = "UTC"
 AGENCY_DATA_DIR = data_root()
 # Senza la variabile la proiezione sta accanto al registro, qualunque esso sia quando la si usa: None, non una
 # cartella fissata all'avvio.
-_PROJECTION = os.environ.get("AGENCY_PROJECTION_DIR")
-AGENCY_PROJECTION_DIR = Path(_PROJECTION).resolve() if _PROJECTION else None
+AGENCY_PROJECTION_DIR = projection_root()

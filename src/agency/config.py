@@ -13,7 +13,7 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 
-from agency.contracts.layout import CHECKOUT, DataLayout, data_root, projects_root
+from agency.contracts.layout import CHECKOUT, DataLayout, RelativeDataRoot, data_root, projects_root
 from agency.contracts.project import ProjectName
 
 REPO_ROOT = CHECKOUT
@@ -79,6 +79,14 @@ class Settings(BaseSettings):
     @classmethod
     def _absolute_projects_dir(cls, value: object) -> Path:
         return projects_root({"AGENCY_PROJECTS_DIR": str(value)})
+
+    @field_validator("toolchain_dir", mode="before")
+    @classmethod
+    def _absolute_toolchain_dir(cls, value: object) -> Path:
+        """The sandbox binds this folder as given: a relative one would name a different folder per start."""
+        if not Path(str(value)).is_absolute():
+            raise RelativeDataRoot("AGENCY_TOOLCHAIN_DIR", str(value))
+        return Path(str(value))
 
     @property
     def layout(self) -> DataLayout:

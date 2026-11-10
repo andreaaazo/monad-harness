@@ -120,6 +120,13 @@ tasks:
 
   docker:up:
     desc: "Il cruscotto in Docker su http://127.0.0.1:3000; il registro è .data, o AGENCY_DATA_DIR se lo dai"
+    # Le stesse regole del motore e del server (ADR-0045): Compose risolverebbe un percorso relativo rispetto a
+    # docker/, e il vecchio nome verrebbe ignorato in silenzio.
+    preconditions:
+      - sh: test -z "${AGENCY_DATA+x}"
+        msg: "AGENCY_DATA non si usa più: il registro si indica con AGENCY_DATA_DIR, un percorso assoluto"
+      - sh: 'case "${AGENCY_DATA_DIR:-/}" in /*) ;; *) exit 1 ;; esac'
+        msg: "AGENCY_DATA_DIR deve essere un percorso assoluto"
     env: &compose
       AGENCY_DATA_DIR: '{{.AGENCY_DATA_DIR | default (printf "%s/.data" .ROOT_DIR)}}'
       AGENCY_UID:

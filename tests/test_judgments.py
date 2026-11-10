@@ -280,7 +280,9 @@ def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "projects"))
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(cli, "_board_renderer", FakeVectorcraft)  # la tavola senza dipendere dalla macchina
-    return Settings(_env_file=None)  # type: ignore[call-arg]
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    Ledger(settings.ledger_path)  # `judge` needs a registry to exist
+    return settings
 
 
 @pytest.fixture
@@ -289,7 +291,9 @@ def unfaked_studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "projects"))
     monkeypatch.chdir(tmp_path)
-    return Settings(_env_file=None)  # type: ignore[call-arg]
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    Ledger(settings.ledger_path)  # `judge` needs a registry to exist
+    return settings
 
 
 def answer(monkeypatch: pytest.MonkeyPatch, answers: list[str], seen: list[list[str]]) -> None:

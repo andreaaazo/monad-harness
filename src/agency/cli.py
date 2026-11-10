@@ -10,7 +10,7 @@ import shutil
 import sys
 import tempfile
 from collections.abc import Callable
-from contextlib import suppress
+from contextlib import ExitStack, suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -37,7 +37,7 @@ from agency.ledger import Ledger, LedgerMissing, LedgerOutdated, require_registr
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 from agency.ledger.store import now
 from agency.telemetry import report
-from agency.tools.sandbox import JOB, Sandbox, SandboxUnavailable
+from agency.tools.sandbox import JOB, Sandbox, SandboxUnavailable, scope_problem
 
 if TYPE_CHECKING:  # la sessione carica il motore: i comandi leggeri non la importano
     from agency.runtime import Session
@@ -68,12 +68,26 @@ def _verify(_: argparse.Namespace) -> int:
     return 0 if ok and not broken else 1
 
 
+def _busy(project: str) -> str:
+    return f"Un altro processo sta già lavorando sul progetto {project}: attendi che finisca e riprova"
+
+
 def _migrate(_: argparse.Namespace) -> int:
-    path = Settings().ledger_path
+    settings = Settings()
+    path = settings.ledger_path
     if not path.is_file():
         print("Nessun registro da aggiornare: si crea da solo alla prima apertura")
         return 0
-    result = migrate(path)
+    from agency.runtime import ProjectBusy, ProjectLock
+
+    try:
+        with ExitStack() as claims:  # every project, until the migration ends: it rewrites the whole registry
+            for lock in sorted(settings.layout.locks.glob("*.lock")):
+                claims.enter_context(ProjectLock(lock))
+            result = migrate(path)
+    except ProjectBusy as busy:
+        print(_busy(busy.args[0]))
+        return 1
     if result.backup is None:
         print(f"registro già aggiornato, revisione {result.revision}")
     else:
@@ -122,7 +136,8 @@ def _guarded(project: ProjectName, session: Session, action: Callable[[], str]) 
         print(f"Per continuare: agency budget {project} <nuovo tetto>, poi agency resume {project}")
         return 2
     except anthropic.APIError as exc:
-        print(f"\nAPI NON DISPONIBILE: {exc}. Il lavoro è salvato.")
+        # The message carries the response body of the API, or of a proxy in between.
+        print(report.plain(f"\nAPI NON DISPONIBILE: {exc}. Il lavoro è salvato."))
         print(f"Per riprendere: agency resume {project}")
         return 3
     if outcome:
@@ -157,8 +172,18 @@ def _locked(project: str, body: Callable[[], int]) -> int:
         with ProjectLock(Settings().layout.lock(project)):
             return body()
     except ProjectBusy:
-        print(f"Un altro processo sta già lavorando sul progetto {project}: attendi che finisca e riprova")
+        print(_busy(project))
         return 1
+
+
+def _scope_refused() -> bool:
+    """Without a capped scope every tool call is refused: stop before the session opens and before any model
+    call (2.F43). The reason comes from systemd's output, so it passes through `plain`."""
+    reason = scope_problem()
+    if reason is None:
+        return False
+    print(report.plain(f"SANDBOX NON DISPONIBILE: {reason}. agency doctor dice come sistemarla"))
+    return True
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -168,6 +193,8 @@ def _run(args: argparse.Namespace) -> int:
 def _run_locked(args: argparse.Namespace) -> int:
     from agency.runtime import BriefNotUtf8, open_session
 
+    if _scope_refused():
+        return 1
     session = open_session(Settings(), record=args.record)
     if session.ledger.project(args.project):
         print(f"Il progetto {args.project} esiste già: agency resume {args.project}, o scegli un altro nome")
@@ -202,6 +229,8 @@ def _resume_locked(args: argparse.Namespace) -> int:
     if Ledger.existing(Settings().ledger_path).project(args.project) is None:
         print(f"Progetto sconosciuto: {args.project}")
         return 1
+    if _scope_refused():
+        return 1
     session = open_session(Settings(), record=args.record)
     try:
         return _guarded(args.project, session, lambda: session.resume(args.project))
@@ -218,6 +247,8 @@ def _decide_locked(args: argparse.Namespace) -> int:
     from agency.runtime import open_session
 
     Ledger.existing(Settings().ledger_path)
+    if _scope_refused():
+        return 1
     session = open_session(Settings(), record=args.record)
     waiting = session.pending(args.project)
     if not waiting:
@@ -302,7 +333,7 @@ def _board_renderer() -> board.Render | None:
 
 def _judge(args: argparse.Namespace) -> int:
     settings = Settings()
-    ledger = Ledger(settings.ledger_path)
+    ledger = Ledger.existing(settings.ledger_path)
     store = FileStore(settings.artifacts_dir)
     try:
         found = blind.candidates([Path(path) for path in args.files], settings.projects_dir)
@@ -361,7 +392,7 @@ def _artifacts(args: argparse.Namespace) -> int:
 
 def _restore(args: argparse.Namespace) -> int:
     settings = Settings()
-    ledger, store = Ledger(settings.ledger_path), FileStore(settings.artifacts_dir)
+    ledger, store = Ledger.existing(settings.ledger_path), FileStore(settings.artifacts_dir)
     destination = Path(args.destination)
     try:
         rows = keeping.restore(store, ledger, args.hash, destination)

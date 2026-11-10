@@ -470,6 +470,65 @@ def test_a_relative_data_root_is_refused_by_engine_and_server(
     assert not (tmp_path / ".data").exists()
 
 
+def clean_environment(**variables: str) -> dict[str, str]:
+    """The process environment without any AGENCY_* variable of the machine, plus the given ones."""
+    return {key: value for key, value in os.environ.items() if not key.startswith("AGENCY_")} | variables
+
+
+def test_a_relative_projection_dir_is_refused_by_the_server(tmp_path: Path) -> None:
+    """2.F35: `AGENCY_PROJECTION_DIR` follows the rule of the data root, not the server's current folder."""
+    server = subprocess.run(
+        [sys.executable, "-m", "agency.entrypoints.server", "--port", "0"],
+        cwd=tmp_path,
+        env=clean_environment(AGENCY_DATA_DIR=str(tmp_path), AGENCY_PROJECTION_DIR="projection"),
+        capture_output=True,
+        text=True,
+        timeout=30,  # a server that accepts the folder serves until this kills it
+    )
+    line = RELATIVE.format(name="AGENCY_PROJECTION_DIR", value="projection") + "\n"
+    assert (server.returncode, server.stderr) == (1, line)
+    assert not (tmp_path / "projection").exists()
+
+
+def test_an_absolute_projection_dir_is_taken_as_given(tmp_path: Path) -> None:
+    from agency.contracts.layout import projection_root
+
+    assert projection_root({}) is None
+    assert projection_root({"AGENCY_PROJECTION_DIR": str(tmp_path)}) == tmp_path
+
+
+SCHEMAS = "import sys; from agency.entrypoints.server import schema; sys.exit(schema.main(sys.argv[1:]))"
+
+
+def run_schemas(folder: Path, *arguments: str, **variables: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-c", SCHEMAS, *arguments],
+        cwd=folder,
+        env=clean_environment(**({"AGENCY_DATA_DIR": str(folder)} | variables)),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+
+def test_agency_schemas_checks_the_schema_of_the_checkout_from_any_folder(tmp_path: Path) -> None:
+    """2.F34: `uv run agency-schemas` from `web/` must not look for, or write, `web/schemas/openapi.json`."""
+    done = run_schemas(tmp_path, "--check")
+    assert (done.returncode, done.stdout) == (0, f"schema allineato: {REPO_ROOT / 'schemas/openapi.json'}\n")
+    assert not (tmp_path / "schemas").exists()
+
+
+@pytest.mark.parametrize("name", ["AGENCY_DATA_DIR", "AGENCY_PROJECTION_DIR"])
+def test_agency_schemas_prints_the_refusal_of_a_relative_folder(tmp_path: Path, name: str) -> None:
+    """2.F34: the settings load while the schema renders; the refusal is one line, not a traceback."""
+    done = run_schemas(tmp_path, "--check", **{name: "relativo"})
+    assert (done.returncode, done.stdout, done.stderr) == (
+        1,
+        RELATIVE.format(name=name, value="relativo") + "\n",
+        "",
+    )
+
+
 # I confini
 
 

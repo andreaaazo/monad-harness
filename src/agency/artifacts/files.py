@@ -1,8 +1,8 @@
-"""Il deposito su disco: `<radice>/<ab>/<sha256>`, un file in sola lettura per ogni contenuto.
+"""The store on disk: `<root>/<ab>/<sha256>`, one read-only file per content.
 
-Un file entra prima in `.incoming/`, con l'hash calcolato mentre lo si copia, e prende il suo nome solo
-quando è completo e scritto su disco: chi legge non vede mai un contenuto a metà. Le due cifre iniziali
-dividono i file in cartelle più piccole.
+A file first lands in `.incoming/`, hashed while it is copied, and takes its name only once it is complete
+and on disk: a reader never sees half a content. The first two hex digits split the files into smaller
+folders.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ def _digest(path: Path) -> str:
 
 
 def _sync(folder: Path) -> None:
-    """Il nome nuovo resta anche se la macchina si spegne subito dopo."""
+    """Makes a rename in `folder` durable: the new name survives a power loss right after it."""
     descriptor = os.open(folder, os.O_RDONLY)
     try:
         os.fsync(descriptor)
@@ -37,15 +37,19 @@ def _sync(folder: Path) -> None:
 
 
 class FileStore:
+    """Content-addressed: each content is one read-only file named by its sha256, written atomically."""
+
     def __init__(self, root: Path) -> None:
         self.root = root
 
     def location(self, sha256: str) -> Path:
+        """Where a content lives; anything but a sha256 is refused before it reaches a path."""
         if not SHA256.fullmatch(sha256):
-            raise ValueError(f"non è uno sha256: {sha256!r}")
+            raise ValueError(f"not a sha256: {sha256!r}")
         return self.root / sha256[:2] / sha256
 
     def put(self, source: BinaryIO) -> Blob:
+        """Stores what `source` holds and returns its sha256 and size."""
         incoming = self.root / ".incoming"
         incoming.mkdir(parents=True, exist_ok=True)
         descriptor, name = tempfile.mkstemp(dir=incoming)
@@ -60,7 +64,7 @@ class FileStore:
                 copy.flush()
                 os.fsync(copy.fileno())
             blob = Blob(sha256=digest.hexdigest(), size=size)
-            # Nuovo, oppure danneggiato: in tutti e due i casi la copia appena fatta prende il suo posto.
+            # New, or damaged in the store: either way the fresh copy takes its place.
             if not self.intact(blob.sha256):
                 target = self.location(blob.sha256)
                 target.parent.mkdir(exist_ok=True)
@@ -72,6 +76,7 @@ class FileStore:
             temporary.unlink(missing_ok=True)
 
     def open(self, sha256: str) -> BinaryIO:
+        """The stored content, or ArtifactMissing when the store has lost it."""
         target = self.location(sha256)
         if not target.is_file():
             raise ArtifactMissing(sha256)
@@ -81,5 +86,6 @@ class FileStore:
         return self.location(sha256).is_file()
 
     def intact(self, sha256: str) -> bool:
+        """Whether the stored file exists and still hashes to its name: a full read."""
         target = self.location(sha256)
         return target.is_file() and _digest(target) == sha256

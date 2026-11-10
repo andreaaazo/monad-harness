@@ -1,8 +1,8 @@
-"""Conservare una versione e dire da dove viene; ritrovarla; accorgersi se si è guastata.
+"""Keeping a version and saying where it comes from; finding it again; noticing when it is damaged.
 
-L'ordine è sempre lo stesso: prima il contenuto nel deposito, poi la riga nel registro, poi l'evento che
-la usa (consegna, presentazione, giudizio). Così una riga dice sempre la verità su un contenuto che esiste,
-e una ripresa a metà ripete il passo senza duplicare nulla.
+The order never changes: the content into the store first, then its row in the registry, then the event that
+uses it (delivery, presentation, judgment). So a row always tells the truth about a content that exists, and
+a step interrupted halfway repeats on resume without duplicating anything.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from agency.ledger import Ledger
 from agency.ledger.models import ArtifactRow
 from agency.ledger.store import now
 
-# Solo la tabella interna di Python: quella del sistema cambia da macchina a macchina.
+# Python's built-in table only: the system's own table differs from machine to machine.
 TYPES = mimetypes.MimeTypes()
 UNKNOWN = "application/octet-stream"
 MIN_PREFIX = 8
@@ -29,10 +29,11 @@ HEX = re.compile(r"[0-9a-f]+")
 
 
 class CannotRestore(Exception):
-    """La versione chiesta non si può ripristinare: il motivo è nel messaggio."""
+    """The requested version cannot be restored; the message, shown to the operator, says why."""
 
 
 def media_type(path: str) -> str:
+    """The MIME type a path's extension gives, the same on every machine."""
     return TYPES.guess_type(path, strict=True)[0] or UNKNOWN
 
 
@@ -47,7 +48,7 @@ def keep(
     ticket_id: str,
     run: int | None,
 ) -> dict[str, str]:
-    """`files` va dal percorso da registrare al file da conservare. Restituisce gli hash conservati."""
+    """`files` maps the path to record to the file to keep. Returns the kept hashes, by recorded path."""
     rows: list[ArtifactRow] = []
     # Each source is a path relative to `root`. It is opened without following links, because the
     # sandbox may have swapped the file for one.
@@ -72,7 +73,7 @@ def keep(
 
 
 def find(ledger: Ledger, prefix: str) -> list[ArtifactRow]:
-    """Le righe della sola versione che inizia così. Un prefisso corto o ambiguo non vale."""
+    """The rows of the one version whose hash starts with `prefix`. A short or ambiguous prefix is refused."""
     prefix = prefix.strip().lower()
     if not HEX.fullmatch(prefix):
         raise CannotRestore("l'hash è esadecimale: solo cifre e lettere da a a f")
@@ -90,10 +91,11 @@ def find(ledger: Ledger, prefix: str) -> list[ArtifactRow]:
 def restore(
     store: ArtifactStore, ledger: Ledger, prefix: str, destination: Path, *, projects_dir: Path
 ) -> list[ArtifactRow]:
-    """Copia la versione in un file nuovo. Non sovrascrive mai: il file che c'è potrebbe essere l'unico."""
+    """Copies the version into a new file. It never overwrites: a file already there may be the only copy
+    of its content."""
     rows = find(ledger, prefix)
     digest = rows[0].sha256
-    # Prima la versione, poi la destinazione: se la versione manca, non resta un file vuoto.
+    # The version first, then the destination: a missing version leaves no empty file behind.
     try:
         original = store.open(digest)
     except ArtifactMissing:
@@ -102,7 +104,7 @@ def restore(
         ) from None
     with original:
         _make_parents(destination, projects_dir)
-        # Creazione esclusiva: nessuna corsa con chi scrive nello stesso posto nello stesso momento.
+        # Exclusive creation: no race with anyone writing the same path at the same moment.
         try:
             copy = destination.open("xb")
         except FileExistsError:
@@ -139,11 +141,12 @@ def _make_parents(destination: Path, projects_dir: Path) -> None:
 
 
 def damaged(store: ArtifactStore, ledger: Ledger) -> list[ArtifactRow]:
-    """Le righe le cui versioni mancano dal deposito o non hanno più il loro hash."""
+    """The rows whose versions are missing from the store or no longer hash to their name."""
     rows = ledger.all_artifacts()
     broken = {digest for digest in {row.sha256 for row in rows} if not store.intact(digest)}
     return [row for row in rows if row.sha256 in broken]
 
 
 def versions(ledger: Ledger) -> int:
+    """How many distinct contents the registry keeps."""
     return len({row.sha256 for row in ledger.all_artifacts()})

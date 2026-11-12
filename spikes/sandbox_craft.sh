@@ -1,26 +1,59 @@
 #!/usr/bin/env bash
-# ADR-0005 acceptance test: Craft and Blender in bwrap, with no network and a single writable folder.
-# It does not use the API and writes nothing outside the temporary folder.
+# ADR-0005 acceptance test: Craft and Blender run in the engine's own sandbox, with no network and a single
+# writable folder. Run it from anywhere in the checkout: bash spikes/sandbox_craft.sh. It does not use the API and
+# writes nothing outside its temporary folder. It stays out of `task check`: the Craft CLIs are licensed tools.
 set -u
+cd "$(dirname "$0")/.."
+
+missing=()
+for tool in uv bwrap systemd-run blender vectorcraft-cli figcraft-cli photocraft-cli effectcraft-cli; do
+  command -v "$tool" >/dev/null || missing+=("$tool")
+done
+if ((${#missing[@]})); then
+  echo "FAIL missing: ${missing[*]}. Install them as docs/04-TOOLS.md says, then run this again." >&2
+  exit 1
+fi
+
 S="$(mktemp -d)"; trap 'rm -rf "$S"' EXIT
-mkdir -p "$S/job" "$S/other"; echo riservato > "$S/other/altro.txt"
+mkdir -p "$S/job" "$S/other"; echo reserved > "$S/other/other.txt"
 echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>' > "$S/job/a.svg"
 echo '[]' > "$S/job/e.json"
-BW=(bwrap --ro-bind /usr /usr --ro-bind /etc /etc --symlink usr/bin /bin --symlink usr/lib /lib
-    --symlink usr/lib64 /lib64 --symlink usr/sbin /sbin --proc /proc --dev /dev --tmpfs /tmp
-    --bind "$S/job" /job --chdir /job --unshare-net --unshare-pid --die-with-parent)
-"${BW[@]}" vectorcraft-cli convert a.svg a.vectorcraft >/dev/null
-"${BW[@]}" figcraft-cli run e.json --out f.figcraft >/dev/null
-"${BW[@]}" photocraft-cli run --new '{"width":40,"height":40}' --out p.pcraft >/dev/null
-"${BW[@]}" effectcraft-cli run file.saveAs '{"path":"/job/e.ecproj"}' >/dev/null
 BLENDER="$(readlink -f "$(command -v blender)")"
-"${BW[@]}" --ro-bind "$(dirname "$BLENDER")" "$(dirname "$BLENDER")" "$BLENDER" -b \
-  --python-expr "import bpy;bpy.ops.wm.save_as_mainfile(filepath='/job/s.blend')" >/dev/null 2>&1
+
+# The prefix of the engine's own sandbox (agency.tools.sandbox): the same cgroup scope, mounts and namespaces, not
+# a copy of them. Blender's folder is bound read-only on top, as the engine binds its toolchain folder.
+if ! mapfile -d '' -t BW < <(uv run --locked python -c '
+import sys
+from pathlib import Path
+from agency.tools.sandbox import Sandbox
+print("\0".join(Sandbox(Path(sys.argv[1]), read_only=(Path(sys.argv[2]),)).argv([])), end="")
+' "$S/job" "$(dirname "$BLENDER")") || ((${#BW[@]} == 0)); then
+  echo "FAIL the engine's sandbox command could not be built: run task setup first." >&2
+  exit 1
+fi
+
 fail=0
-for f in a.vectorcraft f.figcraft p.pcraft e.ecproj s.blend; do
-  if [[ -s "$S/job/$f" ]]; then echo "ok   $f"; else echo "FAIL $f"; fail=1; fi
-done
-"${BW[@]}" sh -c "test ! -e '$S/other'" && echo "ok   other folders invisible" || { echo "FAIL isolation"; fail=1; }
-"${BW[@]}" sh -c "getent hosts anthropic.com >/dev/null" && { echo "FAIL network present"; fail=1; } || echo "ok   no network"
-"${BW[@]}" sh -c "touch /usr/x 2>/dev/null" && { echo "FAIL /usr writable"; fail=1; } || echo "ok   /usr read-only"
+step() {  # step <file it must create> <command...>: the tool's output is kept and shown if it fails
+  local file="$1"; shift
+  "${BW[@]}" "$@" >"$S/$file.log" 2>&1
+  if [[ -s "$S/job/$file" ]]; then
+    echo "ok   $file"
+  else
+    echo "FAIL $file"; tail -n 5 "$S/$file.log" | sed 's/^/     /'; fail=1
+  fi
+}
+step a.vectorcraft vectorcraft-cli convert a.svg a.vectorcraft
+step f.figcraft figcraft-cli run e.json --out f.figcraft
+step p.pcraft photocraft-cli run --new '{"width":40,"height":40}' --out p.pcraft
+step e.ecproj effectcraft-cli run file.saveAs '{"path":"/job/e.ecproj"}'
+step s.blend "$BLENDER" -b --python-expr "import bpy;bpy.ops.wm.save_as_mainfile(filepath='/job/s.blend')"
+
+# Each probe prints its word only when its own condition holds inside the sandbox, so a sandbox that never
+# started can never pass as isolated.
+probe() {  # probe <label> <word> <shell command that prints the word when the condition holds>
+  if [[ "$("${BW[@]}" sh -c "$3" 2>/dev/null)" == "$2" ]]; then echo "ok   $1"; else echo "FAIL $1"; fail=1; fi
+}
+probe "other folders invisible" hidden "test -e '$S/other' || echo hidden"
+probe "no network" offline "getent hosts anthropic.com >/dev/null || echo offline"
+probe "/usr read-only" readonly "touch /usr/x 2>/dev/null || echo readonly"
 exit "$fail"

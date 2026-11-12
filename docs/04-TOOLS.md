@@ -14,7 +14,8 @@ Docker 29.9, `bwrap`.
 | Blender | 5.2.3 LTS | 3D | `.blend` | `blender -b`, bpy | API Python |
 
 Per EffectCraft e PhotoCraft il numero viene dalle righe del catalogo: è un ordine di grandezza. Tutti
-e cinque girano in `bwrap` senza rete (`spikes/sandbox_craft.sh`).
+e cinque girano nella sandbox del motore, in `bwrap` e senza rete: lo prova `bash spikes/sandbox_craft.sh`, che
+usa lo stesso comando di `agency.tools.sandbox` (verificato il 2026-11-12).
 
 Girano in uno scope cgroup dell'utente con 8 GiB di memoria e 512 task (ADR-0046): serve `systemd-run --user`, cioè una
 sessione utente di systemd con i controller `memory` e `pids`. `agency doctor` lo controlla nella riga `limiti sandbox`.

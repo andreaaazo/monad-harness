@@ -1617,7 +1617,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Files: `.python-version` (`3.13.15`), `tests/test_docker.py:116-119` (compares the full version).
   - Verify: `uv run python -V` prints `3.13.15`; standard gate.
   - Commit: `build(python): pin Python to 3.13.15 everywhere`.
-- [ ] **Task 5.10 [APPROVAL]: the sandbox spike tests the real sandbox.** Closes DX-007, STR-012, and SEC-008 (the
+- [x] **Task 5.10 [APPROVAL]: the sandbox spike tests the real sandbox.** Closes DX-007, STR-012, and SEC-008 (the
   spike part).
   - Files: `spikes/sandbox_craft.sh`.
   - Changes:

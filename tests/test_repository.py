@@ -1,8 +1,7 @@
-"""Ciò che serve a costruire e provare il progetto è versionato: un clone pulito ha tutto il codice.
+"""What is needed to build and test the project is versioned: a clean clone has all the code.
 
-Il 2026-11-03 la regola `projects/` di .gitignore, scritta per i materiali del cliente, nascondeva le pagine
-del cruscotto in `web/src/app/projects/`: le prove passavano perché i file erano sul disco, ma il commit non
-li aveva.
+On 2026-11-03 the `projects/` rule in .gitignore, written for the client's materials, hid the dashboard pages
+in `web/src/app/projects/`: the tests passed because the files were on disk, but the commit did not have them.
 """
 
 from __future__ import annotations
@@ -15,7 +14,7 @@ import pytest
 from agency.config import REPO_ROOT
 
 SOURCES = ["src", "tests", "web/src", "web/e2e", "web/scripts", "docs", "registry", "schemas", "prompts"]
-# Ciò che le prove e gli strumenti scrivono accanto ai sorgenti, e che si rigenera.
+# What the tests and the tools write beside the sources, and that is regenerated.
 GENERATED = ("__pycache__/", ".pyc", "web/e2e/.data/", "web/e2e/.results/")
 
 
@@ -41,7 +40,7 @@ def test_no_source_file_is_hidden_by_gitignore() -> None:
     shutil.which("git") is None or not (REPO_ROOT / ".git").exists(), reason="serve un clone git"
 )
 def test_the_client_materials_stay_out_of_git() -> None:
-    """L'eccezione per le pagine non apre la cartella dei progetti del cliente."""
+    """The exception for the pages does not open the folder of the client's projects."""
     result = subprocess.run(
         ["git", "check-ignore", "projects/merlo/brief.md", "web/projects/x.svg", "src/projects/x.svg"],
         cwd=REPO_ROOT,

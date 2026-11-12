@@ -1,4 +1,4 @@
-"""Il giudizio alla cieca di una persona, legato allo sha256 del file giudicato (M1.6, punto 5)."""
+"""A person's blind judgment, bound to the sha256 of the judged file (M1.6, item 5)."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def scripted(answers: list[str]) -> Callable[[str], str]:
     return lambda _prompt: pending.pop(0)
 
 
-# Le regole del giudizio
+# The rules of the judgment
 
 
 def test_comparison_needs_the_best_among_its_letters() -> None:
@@ -45,7 +45,7 @@ def test_comparison_needs_the_best_among_its_letters() -> None:
 
 
 def test_the_best_cannot_have_a_lower_level_than_another_letter() -> None:
-    """Un eccellente non perde da un buono: altrimenti il giudizio non dice quale segno vince."""
+    """An excellent never loses to a good: otherwise the judgment does not say which mark wins."""
     with pytest.raises(ValidationError, match="livello più alto è eccellente"):
         Judgment(judge="andrea", ratings=[rating("A"), rating("B", Level.EXCELLENT)], best="A")
     tied = [rating("A", Level.EXCELLENT), rating("B", Level.EXCELLENT), rating("C")]
@@ -74,7 +74,7 @@ def test_judgment_needs_someone_who_gives_it() -> None:
         Judgment(judge=" ", ratings=[rating("A")])
 
 
-# Le lettere
+# The letters
 
 
 def files(tmp_path: Path, contents: dict[str, str]) -> list[Path]:
@@ -87,7 +87,7 @@ def files(tmp_path: Path, contents: dict[str, str]) -> list[Path]:
     return paths
 
 
-# Le tele dei due segno.svg reali: 98 × 118,5 px e 800 × 600 px, con il disegno al 91% e al 76%.
+# The canvases of the two real segno.svg files: 98 × 118.5 px and 800 × 600 px, the drawing at 91% and 76%.
 MERLO = svg((98, 118.5), (6, 6, 86, 108))
 MERLO3 = svg((800, 600), (99, 115, 609, 355))
 
@@ -154,7 +154,7 @@ def test_blind_copies_do_not_keep_the_date_of_the_original(tmp_path: Path) -> No
     assert all(copy.stat().st_mtime > 946684800 for copy in copies)
 
 
-# Le domande
+# The questions
 
 
 def test_interview_asks_level_substitution_and_reason_for_each_letter_then_the_best() -> None:
@@ -181,7 +181,7 @@ def test_interview_asks_again_until_the_answer_is_one_of_the_options() -> None:
 
 
 def test_a_best_below_the_highest_level_is_explained_and_asked_again() -> None:
-    """La prova generale del punto 16: eccellente A, ordinario B, e B scelto per sbaglio."""
+    """The dress rehearsal of item 16: A excellent, B ordinary, and B chosen by mistake."""
     answers = ["eccellente", "no", "Unico", "ordinario", "si", "Generico", "b", "a"]
     prompts: list[str] = []
 
@@ -205,7 +205,7 @@ def test_single_file_interview_does_not_ask_for_the_best() -> None:
     assert judgment.best is None
 
 
-# Il registro
+# The registry
 
 
 def judged(project: str, body: str) -> Judged:
@@ -271,7 +271,7 @@ def test_report_of_a_project_shows_its_judgments(
     assert "exports/segno.svg [B] eccellente, specifico, il migliore di 2" in text
 
 
-# Il comando
+# The command
 
 
 @pytest.fixture
@@ -279,7 +279,9 @@ def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("AGENCY_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "projects"))
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cli, "_board_renderer", FakeVectorcraft)  # la tavola senza dipendere dalla macchina
+    monkeypatch.setattr(
+        cli, "_board_renderer", FakeVectorcraft
+    )  # the board, without depending on the machine
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
     Ledger(settings.ledger_path)  # `judge` needs a registry to exist
     return settings
@@ -297,7 +299,7 @@ def unfaked_studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
 
 
 def answer(monkeypatch: pytest.MonkeyPatch, answers: list[str], seen: list[list[str]]) -> None:
-    """Risponde come farebbe Andrea, e annota quali file vedeva nella cartella anonima mentre rispondeva."""
+    """Answers as Andrea would, and notes which files the anonymous folder held while it answered."""
     pending = list(answers)
 
     def fake_input(prompt: str) -> str:
@@ -338,7 +340,7 @@ def test_judged_files_are_kept_under_their_hash(
     paths = two_projects(Path.cwd())
     answer(monkeypatch, ["buono", "no", "Regge", "ordinario", "si", "Generico", "A"], [])
     assert cli.main(["judge", *map(str, paths), "--judge", "andrea"]) == 0
-    for path in paths:  # il file nel progetto può cambiare: la versione giudicata resta
+    for path in paths:  # the file in the project can change: the judged version stays
         path.write_text("sovrascritto", encoding="utf-8")
 
     ledger, store = Ledger(studio.ledger_path), FileStore(studio.artifacts_dir)
@@ -362,7 +364,7 @@ def test_a_blind_copy_changed_during_the_judgment_records_nothing(
     pending = ["buono", "no", "Regge", "ordinario", "si", "Generico", "A"]
 
     def tampering_input(_prompt: str) -> str:
-        if len(pending) == 1:  # mentre si sceglie il migliore, qualcuno cambia una copia
+        if len(pending) == 1:  # while the best is being chosen, someone changes a copy
             (copy,) = Path("data/blind").glob("*/A.svg")
             copy.write_text("<svg>altro</svg>", encoding="utf-8")
         return pending.pop(0)
@@ -416,7 +418,8 @@ def test_judge_refuses_an_unfair_comparison_before_showing_anything(
 def test_a_file_that_cannot_be_drawn_is_refused_before_any_question(
     studio: Settings, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Un disegno vuoto non si mette alla pari con un altro: si rifiuta, e la cartella anonima se ne va."""
+    """An empty drawing is not put on equal terms with another: it is refused, and the anonymous folder is
+    removed."""
     paths = files(
         Path.cwd(),
         {
@@ -431,7 +434,7 @@ def test_a_file_that_cannot_be_drawn_is_refused_before_any_question(
 
     out = capsys.readouterr().out
     assert "non ha niente di disegnato. Nulla registrato" in out
-    assert "vuoto" not in out  # il rifiuto dice la lettera, non il progetto
+    assert "vuoto" not in out  # the refusal names the letter, not the project
     assert seen == []
     assert Ledger(studio.ledger_path).judgments("merlo") == []
     assert list(Path("data/blind").iterdir()) == []

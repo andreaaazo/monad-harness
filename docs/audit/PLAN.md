@@ -1445,7 +1445,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
   - `test_agent_flow.py`, `test_sketch_flow.py`, `test_hardening.py`, `test_gateway.py`;
   - `test_request_snapshots.py`, `test_board.py`, `drawings.py`.
   - Commit: `docs(tests): translate the engine tests' comments and docstrings to English`.
-- [ ] **Task 3.19: tests, part 3 of 3.** Closes CMT-010 and CMT-011 for the remaining test files and `conftest.py`.
+- [x] **Task 3.19: tests, part 3 of 3.** Closes CMT-010 and CMT-011 for the remaining test files and `conftest.py`.
   - Includes the Python-owner sentence of `test_toolchain.py`, for STR-011.
   - Commit: `docs(tests): translate the remaining tests' comments and docstrings to English`.
 - [ ] **Task 3.20: web comments and JSDoc.** Closes CMT-012, CMT-002, CMT-003 and CMT-015.

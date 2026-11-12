@@ -1,7 +1,7 @@
-"""L'ingresso unico dei comandi è Taskfile.yml, e `make` ne è l'alias (ADR-0020, ADR-0039).
+"""The single entry point for commands is Taskfile.yml, and `make` is its alias (ADR-0020, ADR-0039).
 
-Le prove leggono il Taskfile con Task stesso, che viene da mise.toml: `--list-all --json` per i nomi,
-`--dry` per i comandi, senza eseguirne nessuno.
+The tests read the Taskfile with Task itself, which comes from mise.toml: `--list-all --json` for the names,
+`--dry` for the commands, without running any of them.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import pytest
 from agency.config import REPO_ROOT
 
 TASKFILE = (REPO_ROOT / "Taskfile.yml").read_text(encoding="utf-8")
-# I comandi del Makefile di prima, nel loro ordine: `task check` deve fare esattamente questo.
+# The commands of the old Makefile, in their order: `task check` must do exactly this.
 CHECK = [
     "uv run ruff check .",
     "uv run ruff format --check .",
@@ -38,14 +38,16 @@ ALIASES = ["check", "lint", "imports", "types", "test", "web", "e2e", "schemas",
 def task(*arguments: str) -> str:
     binary = shutil.which("task")
     if binary is None:
-        pytest.fail("Task manca dal PATH: viene da mise.toml, si esegue con mise attivo o con `mise exec --`")
+        pytest.fail(
+            "Task is not on PATH: it comes from mise.toml, so run with mise active or through `mise exec --`"
+        )
     done = subprocess.run([binary, *arguments], cwd=REPO_ROOT, capture_output=True, text=True, check=True)
     return done.stdout + done.stderr
 
 
 def commands(name: str, *options: str) -> list[str]:
-    """I comandi che `task <name>` eseguirebbe, in ordine, come li stampa `--dry`. Con `--force` anche quelli
-    di un task già aggiornato, come la build."""
+    """The commands `task <name>` would run, in order, as `--dry` prints them. With `--force`, also those of a
+    task already up to date, such as the build."""
     dry = task("--dry", *options, name)
     return [match[1].strip() for match in re.finditer(r"^task: \[[^\]]+\] (.+)$", dry, re.MULTILINE)]
 
@@ -70,7 +72,7 @@ def test_check_runs_every_control_in_order() -> None:
 
 
 def make(name: str) -> str:
-    """Cosa farebbe `make <name>`, anche quando la prova gira dentro un altro make (come `make check`)."""
+    """What `make <name>` would do, even when the test runs inside another make (such as `make check`)."""
     outer = {"MAKEFLAGS", "MAKELEVEL", "MFLAGS", "MAKEOVERRIDES"}
     environment = {key: value for key, value in os.environ.items() if key not in outer}
     dry = subprocess.run(
@@ -85,14 +87,14 @@ def make(name: str) -> str:
 
 
 def test_make_is_only_an_alias_of_task() -> None:
-    """Con mise exec, make funziona anche senza mise attivo nella shell."""
+    """Through mise exec, make works even without mise active in the shell."""
     for name in ALIASES:
         assert make(name).strip() == f"mise exec -- task {name}", name
     assert make("setup").split() == ["mise", "install", "mise", "exec", "--", "task", "setup"]
 
 
 def test_the_taskfile_never_loads_dotenv_and_keeps_next_telemetry_off() -> None:
-    """La chiave sta in .env e la legge solo il gateway: un dotenv la darebbe a ogni comando."""
+    """The key is in .env and only the gateway reads it: a dotenv would hand it to every command."""
     assert not re.search(r"^\s*dotenv:", TASKFILE, re.MULTILINE)
     assert re.search(r'^env:\n  NEXT_TELEMETRY_DISABLED: "1"$', TASKFILE, re.MULTILINE)
 
@@ -103,8 +105,8 @@ def test_the_dashboard_starts_api_and_interface_together_and_stops_both_if_one_s
     for name in ("dashboard", "dashboard:dev"):
         block = re.search(rf"^  {re.escape(name)}:\n((?:    .*\n|\n)+)", TASKFILE, re.MULTILINE)
         assert block is not None and "    failfast: true\n" in block[1], name
-    # L'interfaccia di produzione parte dalla sua build, rifatta solo se cambiano le fonti. Task ne tiene
-    # l'impronta in .task/, che non si versiona.
+    # The production interface starts from its build, redone only when the sources change. Task keeps
+    # its fingerprint in .task/, which is not versioned.
     ignored = subprocess.run(
         ["git", "check-ignore", ".task/checksum/x"], cwd=REPO_ROOT, capture_output=True, text=True
     )

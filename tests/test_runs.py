@@ -1,4 +1,4 @@
-"""Ogni esecuzione registra la propria impronta, e due esecuzioni dicono cosa è cambiato (M1.6, punto 4)."""
+"""Each run records its own fingerprint, and two runs say what changed (M1.6, item 4)."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ def plain() -> Settings:
     return Settings(_env_file=None)  # type: ignore[call-arg]
 
 
-# Le regole: pure, senza file né processi
+# The rules: pure, with no files or processes
 
 
 def test_read_fingerprint_returns_none_for_what_it_cannot_read() -> None:
@@ -121,7 +121,7 @@ def test_every_part_of_the_fingerprint_can_show_a_change(part: str) -> None:
     assert [change.part for change in found] == [part]
 
 
-# L'impronta presa dai file e dalle CLI
+# The fingerprint taken from the files and the CLIs
 
 
 def repository(tmp_path: Path) -> Path:
@@ -220,7 +220,7 @@ def test_real_fingerprint_names_every_role_and_the_production_tools() -> None:
     }
 
 
-# Il registro
+# The registry
 
 
 def test_runs_are_recorded_in_order_with_their_fingerprint(tmp_path: Path) -> None:
@@ -250,7 +250,7 @@ def test_runs_are_append_only(tmp_path: Path, statement: str) -> None:
         connection.exec_driver_sql(statement)
 
 
-# I comandi
+# The commands
 
 
 @pytest.fixture

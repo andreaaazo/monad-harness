@@ -1,4 +1,4 @@
-"""Artefatti per hash: ogni versione consegnata, presentata o giudicata resta recuperabile (M1.6, punto 7)."""
+"""Artifacts by hash: every delivered, presented or judged version stays recoverable (M1.6, item 7)."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def put(store: FileStore, source: Path) -> Blob:
         return store.put(handle)
 
 
-# Il deposito
+# The store
 
 
 def test_a_kept_file_lives_under_its_hash_and_cannot_be_changed(tmp_path: Path) -> None:
@@ -57,7 +57,7 @@ def test_the_same_content_is_kept_once(tmp_path: Path) -> None:
 
 
 def test_a_large_file_is_hashed_as_a_whole_and_leaves_nothing_half_written(tmp_path: Path) -> None:
-    data = bytes(range(256)) * 20_000  # 5 MB: più blocchi di lettura
+    data = bytes(range(256)) * 20_000  # 5 MB: several read blocks
     store = FileStore(tmp_path / "artifacts")
     blob = put(store, write(tmp_path / "scena.blend", data))
     assert blob.sha256 == sha(data) and blob.size == len(data)
@@ -97,7 +97,7 @@ def test_keeping_again_repairs_a_damaged_blob(tmp_path: Path) -> None:
     assert store.intact(blob.sha256)
 
 
-# Conservare e registrare
+# Keeping and recording
 
 
 def test_keep_stores_and_records_where_each_version_came_from(tmp_path: Path) -> None:
@@ -130,7 +130,7 @@ def test_keeping_the_same_version_twice_records_it_once(tmp_path: Path) -> None:
     store, ledger = FileStore(tmp_path / "artifacts"), Ledger(tmp_path / "l.sqlite")
     write(tmp_path / "segno.svg", b"<svg/>")
     files = {"segno.svg": "segno.svg"}
-    for _ in range(2):  # la ripresa ripete il passo
+    for _ in range(2):  # the resume repeats the step
         keeping.keep(
             store, ledger, tmp_path, files, project="p", origin=Origin.DELIVERY, ticket_id="T-1", run=None
         )
@@ -163,7 +163,7 @@ def test_artifacts_are_append_only(tmp_path: Path, statement: str) -> None:
         connection.exec_driver_sql(statement)
 
 
-# Le consegne
+# The deliveries
 
 
 def note_ticket(tmp_path: Path) -> tuple[Toolbox, ToolContext, Ledger, Path, str]:
@@ -221,7 +221,7 @@ def test_a_refused_delivery_keeps_nothing(tmp_path: Path) -> None:
     assert not (tmp_path / "artifacts").exists()
 
 
-# I comandi
+# The commands
 
 
 @pytest.fixture
@@ -268,7 +268,7 @@ def test_restore_brings_back_an_overwritten_master(
     assert cli.main(["restore", digest[:12], str(target)]) == 0
 
     assert target.read_bytes() == b"master buono"
-    assert target.stat().st_mode & stat.S_IWUSR  # la copia ripristinata si può lavorare
+    assert target.stat().st_mode & stat.S_IWUSR  # the restored copy can be worked on
     assert "consegna di T-0008, merlo4: source/segno.vectorcraft" in capsys.readouterr().out
 
 
@@ -298,14 +298,15 @@ def test_restore_explains_an_unknown_or_malformed_hash(
 
 
 def sharing_the_first_digit() -> tuple[bytes, bytes]:
-    """Due contenuti con la stessa prima cifra dell'hash: tra 17 ce ne sono per forza, le cifre sono 16."""
+    """Two contents whose hashes share the first hex digit: 17 contents always hold such a pair, as there are
+    only 16 digits."""
     seen: dict[str, bytes] = {}
     for number in range(17):
         data = f"versione {number}".encode()
         if (digit := sha(data)[0]) in seen:
             return seen[digit], data
         seen[digit] = data
-    raise AssertionError("diciassette hash in sedici cifre: due coincidono sempre")
+    raise AssertionError("seventeen hashes over sixteen digits: two always share one")
 
 
 def test_restore_refuses_an_ambiguous_prefix(

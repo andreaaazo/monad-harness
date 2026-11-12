@@ -847,7 +847,7 @@ def test_past_projects_stay_readable() -> None:
         "sender": "design-director",
         "assignee": "direction-a",
         "outputs": ["scheda.json"],
-        "max_tools": 16,  # campo di una versione precedente
+        "max_tools": 16,  # a field from an earlier version
     }
     assert TicketSpec.model_validate(old).type is TicketType.IDEA
 

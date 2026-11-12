@@ -1,4 +1,6 @@
-"""Il registro nasce dalle migrazioni e si aggiorna solo su richiesta, senza perdere nulla (ADR-0022)."""
+"""The registry comes from the migrations and is updated only on request, without losing anything
+(ADR-0022, ADR-0025).
+"""
 
 from __future__ import annotations
 
@@ -37,7 +39,7 @@ def read(path: Path, query: str) -> list[tuple]:
 
 
 def filled(path: Path) -> None:
-    """Un registro con una storia: un ticket e i suoi eventi concatenati."""
+    """A registry with a history: a ticket and its chained events."""
     ledger = Ledger(path)
     spec = TicketSpec(
         title="Logo",
@@ -66,7 +68,7 @@ EVENT = (
 
 
 def before_migrations(path: Path) -> None:
-    """Un registro com'era prima di Alembic: lo schema reale di allora, una storia concatenata."""
+    """A registry as it was before Alembic: the real schema of that time, and a chained history."""
     with closing(sqlite3.connect(path)) as connection:
         connection.executescript(REAL_SCHEMA.read_text(encoding="utf-8"))
         connection.execute(USAGE)
@@ -79,7 +81,7 @@ def before_migrations(path: Path) -> None:
 
 
 def at_baseline(path: Path) -> None:
-    """Un registro già adottato da `agency migrate` alla prima revisione, prima che esistesse `runs`."""
+    """A registry already adopted by `agency migrate` at the first revision, before `runs` existed."""
     before_migrations(path)
     with closing(sqlite3.connect(path)) as connection:
         connection.execute(
@@ -91,7 +93,7 @@ def at_baseline(path: Path) -> None:
 
 
 def add_migration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, body: str) -> None:
-    """Aggiunge una migrazione alle reali, su una copia: quelle del progetto non si toccano."""
+    """Adds a migration to the real ones, on a copy: the project's own are not touched."""
     folder = tmp_path / "migrations"
     shutil.copytree(schema.MIGRATIONS, folder, ignore=shutil.ignore_patterns("__pycache__"))
     previous = schema.head()

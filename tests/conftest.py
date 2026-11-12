@@ -1,4 +1,4 @@
-"""Aiuti comuni ai test."""
+"""Shared test helpers, and the guard that no test writes into the real registry."""
 
 from __future__ import annotations
 
@@ -16,7 +16,8 @@ from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.views import ProjectReport
 
-# Il registro vero: nessuna prova lo scrive. I -shm cambiano anche a leggerlo, e restano fuori dal confronto.
+# The real registry: no test writes it. The -shm files change even on a read, so they stay out of
+# the comparison.
 REAL_DATA = REPO_ROOT / ".data"
 _REAL_DATA_KEY = pytest.StashKey[dict[str, tuple[int, int]]]()
 
@@ -36,11 +37,11 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    """Una prova che scrive nel .data vero fa fallire tutta la sessione, e dice quale file ha toccato."""
+    """A test that writes into the real .data fails the whole session, and says which file it touched."""
     before, after = session.config.stash[_REAL_DATA_KEY], _real_data()
     touched = sorted(name for name in before.keys() | after.keys() if before.get(name) != after.get(name))
     if touched:
-        print(f"\nLe prove hanno scritto nel registro vero {REAL_DATA}: {', '.join(touched)}")
+        print(f"\nTests wrote into the real registry {REAL_DATA}: {', '.join(touched)}")
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
 
 
@@ -55,7 +56,7 @@ def _no_dotenv(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def report_of(tmp_path: Path) -> Callable[[Path, str], ProjectReport]:
-    """Il rapporto di un progetto dal registro dato, attraverso insights: come lo fa la CLI."""
+    """A project's report from the given registry, through insights, as the CLI does it."""
 
     def read(ledger: Path, project: str) -> ProjectReport:
         projection = SqliteProjection(tmp_path / "insights.sqlite")

@@ -368,7 +368,7 @@ kills. Unless a task says otherwise, the mutants come from `docs/audit/30-tests.
     - Mutant: one byte appended to a script in the copy is killed.
     - Standard gate.
   - Commit: `test(qa): pin the vendored QA scripts against a manifest`.
-- [ ] **Task 1.19: the import-linter contract lists stay complete.** Closes STR-002.
+- [x] **Task 1.19: the import-linter contract lists stay complete.** Closes STR-002.
   - Files: `tests/test_server.py:417`, and `pyproject.toml`: the forbidden lists of the insights, server and evaluation
     contracts gain the packages that are missing today.
   - Tests:
@@ -400,7 +400,7 @@ Deviations from the tasks above:
 - Task 1.19 is half done, so its box stays empty. Its test exists and pins today's gaps as STR-002: `SLICE_GAPS` in
   `tests/test_server.py` lists `config`, `context` and `doctor` for insights, and `context` and `doctor` for the
   server. The `pyproject.toml` half is not done, and no other task closes STR-002. Andrea decides where it goes. When
-  it lands, `SLICE_GAPS` empties.
+  it lands, `SLICE_GAPS` empties. Done in D8 of the Phase 3 follow-up: the lists are complete and `SLICE_GAPS` is gone.
 
 Known bugs pinned as they behave today. Each pin has a comment that names the task that flips it:
 
@@ -419,7 +419,7 @@ Known bugs pinned as they behave today. Each pin has a comment that names the ta
 | DX-003 | `tests/test_ledger.py::test_verify_on_a_missing_registry_creates_one_and_calls_it_intact` | 2.14 |
 | STR-001 | `tests/test_layout.py::test_engine_and_server_take_the_data_root_from_different_places` | 2.15–2.16 |
 | COR-013 | `tests/test_layout.py::test_project_names_become_folders_unchecked` | 2.24 |
-| STR-002 | `tests/test_server.py::test_every_slice_contract_forbids_every_engine_package` | open, see Task 1.19 |
+| STR-002 | `tests/test_server.py::test_every_slice_contract_forbids_every_engine_package` | D8 (Phase 3 follow-up) |
 
 Coverage, measured as in `00-baseline.md` §3: the static scan of `tests/*.py`, the `sys.modules` recorder of §5,
 and the same nine other-path modules. The scan gives the baseline's by-name count for all 90 modules when it runs on
@@ -1488,8 +1488,9 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
 - [x] **D6.** The Phase 3 language check becomes a test in `make check`: comments through `tokenize`, docstrings through
   `ast`, so a string never matches (`tests/test_language.py`). D5 and D6: `test: fingerprint the stored shape and guard
   the language of comments`.
-- [ ] **D7 (CMT-016).** Ruff keeps RUF001-RUF003 on and allows `×` through `allowed-confusables`.
-- [ ] **D8 (STR-002, the pyproject half).** Every slice contract forbids every engine package the slice does not use.
+- [x] **D7 (CMT-016).** Ruff keeps RUF001-RUF003 on and allows `×` through `allowed-confusables`.
+- [x] **D8 (STR-002, the pyproject half).** Every slice contract forbids every engine package the slice does not use.
+  D7 and D8: `build: allow the multiplication sign and complete the slice contracts`.
 
 ## Phase 4: file structure
 

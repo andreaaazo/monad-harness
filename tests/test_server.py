@@ -562,13 +562,6 @@ SLICE_ALLOWED = {
     "agency.entrypoints.server": {"contracts", "insights"},
     "agency.evaluation": {"contracts"},
 }
-# Pins current behavior of STR-002: these packages are missing from the contracts today. Adding them to
-# pyproject.toml, the rest of Task 1.19, empties these sets.
-SLICE_GAPS = {
-    "agency.insights": {"config", "context", "doctor"},
-    "agency.entrypoints.server": {"context", "doctor"},
-    "agency.evaluation": set(),
-}
 
 
 def test_every_slice_contract_forbids_every_engine_package() -> None:
@@ -583,7 +576,7 @@ def test_every_slice_contract_forbids_every_engine_package() -> None:
         (contract,) = [contract for contract in contracts if contract["source_modules"] == [slice_]]
         forbidden = {module.removeprefix("agency.") for module in contract["forbidden_modules"]}
         unforbidden = present - forbidden - allowed - {slice_.removeprefix("agency.")}
-        assert unforbidden == SLICE_GAPS[slice_], f"{slice_} does not forbid {sorted(unforbidden)}"
+        assert not unforbidden, f"{slice_} does not forbid {sorted(unforbidden)}"
 
 
 def test_the_projection_can_live_away_from_the_registry(client: Client, tmp_path: Path) -> None:

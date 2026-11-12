@@ -56,7 +56,8 @@ extend-exclude = ["legacy", "src/agency/qa/scripts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
-ignore = ["RUF001", "RUF002", "RUF003"]  # × and – in Italian strings, and × in sizes in comments and docstrings
+# The multiplication sign of sizes ("98 × 118.5 px") is meant; every other look-alike character still fails.
+allowed-confusables = ["×"]
 
 [tool.pyright]
 include = ["src", "tests"]
@@ -79,6 +80,9 @@ forbidden_modules = [
   "agency.agents",
   "agency.artifacts",
   "agency.cli",
+  "agency.config",
+  "agency.context",
+  "agency.doctor",
   "agency.evaluation",
   "agency.gateway",
   "agency.graph",
@@ -127,6 +131,8 @@ forbidden_modules = [
   "agency.artifacts",
   "agency.cli",
   "agency.config",
+  "agency.context",
+  "agency.doctor",
   "agency.evaluation",
   "agency.gateway",
   "agency.graph",

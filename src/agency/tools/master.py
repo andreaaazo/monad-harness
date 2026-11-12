@@ -1,4 +1,4 @@
-"""Master di produzione: ogni mezzo ha il suo file, e le consegne derivano da lì."""
+"""Production masters: each medium has its own file, and the deliveries derive from it."""
 
 from __future__ import annotations
 
@@ -17,6 +17,8 @@ from agency.tools.sandbox import JOB, Sandbox
 
 @dataclass(frozen=True)
 class MediumSpec:
+    """A medium's master extension, the tool that edits it, and the exports that must derive from it."""
+
     master: str
     tool: str
     exports: tuple[str, ...]
@@ -34,7 +36,7 @@ MEDIA: dict[Medium, MediumSpec] = {
 
 
 def problem(sandbox: Sandbox, relative: str) -> str | None:
-    """None se il master si apre e contiene lavoro; altrimenti il motivo."""
+    """None if the master opens and holds work; otherwise the reason."""
     path = inside(sandbox.work, relative)
     if not path.exists():
         return "non esiste"
@@ -73,7 +75,7 @@ def problem(sandbox: Sandbox, relative: str) -> str | None:
 def export(
     sandbox: Sandbox, ledger: Ledger, project: str, master: str, output: str, options: list[str]
 ) -> str | None:
-    """Esporta dal master e registra il legame. Restituisce l'errore, se c'è."""
+    """Exports from the master and records the link. Returns the error, if any."""
     why = problem(sandbox, master)
     if why:
         return f"{master}: {why}"
@@ -103,6 +105,7 @@ def export(
 def derivation_problem(
     sandbox: Sandbox, ledger: Ledger, project: str, export_path: str, masters: list[str]
 ) -> str | None:
+    """Why the export, as it is now, does not derive from one of `masters` as they are now, or None."""
     current = sha256_under(sandbox.work, export_path)
     links = [
         row

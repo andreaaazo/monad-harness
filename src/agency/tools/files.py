@@ -1,4 +1,6 @@
-"""Percorsi e hash dentro il perimetro del lavoro."""
+"""Paths and hashes inside the work's perimeter: the no-follow helpers of `agency.contracts.files`,
+re-exported for the tools, plus `sha256` and `clip`.
+"""
 
 from __future__ import annotations
 
@@ -41,6 +43,8 @@ __all__ = [
 
 
 def sha256(path: Path) -> str:
+    """The file's sha256, read in 1 MiB chunks. It follows links: on a path the sandbox can write, use
+    `sha256_under`."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
@@ -49,7 +53,7 @@ def sha256(path: Path) -> str:
 
 
 def clip(text: str, limit: int = 4000) -> str:
-    """I risultati degli strumenti restano brevi: il dettaglio sta nei file."""
+    """Tool results stay short, since the detail is in the files: a long text keeps its start and its end."""
     if len(text) <= limit:
         return text
     head = limit * 3 // 4

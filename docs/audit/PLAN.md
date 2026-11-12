@@ -1426,7 +1426,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
 - [x] **Task 3.14: `src/agency/telemetry/`.** Closes CMT-009 for this package.
   - Keep the report texts.
   - Commit: `docs(telemetry): translate comments and docstrings to English`.
-- [ ] **Task 3.15: `src/agency/tools/`.** Closes CMT-009 for this package, CMT-004, and its CMT-014 items for
+- [x] **Task 3.15: `src/agency/tools/`.** Closes CMT-009 for this package, CMT-004, and its CMT-014 items for
   `sandbox.py`.
   - No class docstring on any tool-input model: use `#` comments.
   - Commit: `docs(tools): translate comments and docstrings to English`.

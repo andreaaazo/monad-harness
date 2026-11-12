@@ -1,4 +1,4 @@
-"""Ciò che il modello può fare: strumenti tipizzati, firmati dall'harness, mai una shell."""
+"""What the model can do: typed tools, signed by the harness, never a shell."""
 
 from __future__ import annotations
 
@@ -59,11 +59,14 @@ NO_OPS = "{tool} non è disponibile in questa sandbox: manca la cartella /ops"
 
 
 class Refused(Exception):
-    """Azione rifiutata: il motivo torna al modello, che può correggersi."""
+    """A refused action: the reason goes back to the model, which can correct itself."""
 
 
 @dataclass
 class ToolContext:
+    """What a tool call runs with: who calls, for which ticket and instance, with which ledger, sandbox and
+    store. A closing tool sets `finished`."""
+
     actor: str
     project: str
     ticket_id: str
@@ -73,11 +76,11 @@ class ToolContext:
     index: craft.CommandIndex
     artifacts: ArtifactStore
     finished: Outcome | None = None
-    warned_sketch: str = ""  # sha256 dello schizzo già avvisato: l'avviso vale una volta per versione
+    warned_sketch: str = ""  # sha256 of the sketch already warned about: one warning per version
     mode: str = ""
     round: int = 1
     settings: Settings | None = None
-    run: int | None = None  # l'esecuzione in corso: None fuori da una sessione
+    run: int | None = None  # the run in progress: None outside a session
 
     @property
     def work(self) -> Path:
@@ -85,7 +88,7 @@ class ToolContext:
 
     @cached_property
     def finisher_outputs(self) -> tuple[str, ...]:
-        """I master di un rifinitore: il concetto è scelto, e lavora solo su quelli. Vuoto per gli altri."""
+        """A finisher's masters: the concept is chosen, so it works only on those. Empty for other roles."""
         try:
             spec = self.ledger.spec(self.ticket_id)
         except KeyError:
@@ -93,7 +96,7 @@ class ToolContext:
         return tuple(spec.outputs) if spec.prompt == "finisher" else ()
 
     def keep(self, paths: list[str], origin: Origin) -> dict[str, str]:
-        """Conserva la versione attuale dei file prima dell'evento che la usa. Restituisce gli hash."""
+        """Keeps the files' current version before the event that uses it. Returns the hashes."""
         return keeping.keep(
             self.artifacts,
             self.ledger,
@@ -336,7 +339,7 @@ def read_skill(_: ToolContext, a: ReadSkill, __: str) -> dict:
 
 
 def _viewed(ctx: ToolContext) -> dict[str, int]:
-    """Immagini davvero guardate da questa istanza, per versione: lo sa il sistema, non l'agente."""
+    """The images this instance really looked at, by version: the system knows it, not the agent."""
     seen: dict[str, int] = {}
     for row in ctx.ledger.operations(ctx.instance):
         if row.tool == "view_image":
@@ -365,7 +368,7 @@ def view_image(ctx: ToolContext, a: ViewImage, operation_id: str) -> list[dict]:
         media = media_type(image)
         size = image.size
         reduce = max(size) > IMAGE_SIDE or len(raw) > IMAGE_BYTES
-        if reduce:  # le immagini grandi si riducono da sole: non si rifiutano
+        if reduce:  # a large image is scaled down, not refused
             small = image.convert("RGB")
             small.thumbnail((IMAGE_SIDE, IMAGE_SIDE), Image.Resampling.LANCZOS)
             buffer = io.BytesIO()
@@ -469,9 +472,9 @@ def run_check(ctx: ToolContext, a: RunCheck, operation_id: str) -> dict:
 
 
 def _seen_proof(ctx: ToolContext, file: str) -> str:
-    """Una prova della versione attuale che questa istanza ha davvero aperto."""
+    """A proof of the current version that this instance really opened."""
     digest = sha256_under(ctx.work, file)
-    if f"{file}:{digest}" in _viewed(ctx):  # l'immagine stessa, già aperta in questa versione
+    if f"{file}:{digest}" in _viewed(ctx):  # the image itself, already opened at this version
         return file
     viewed = _viewed(ctx)
     for proof in ctx.ledger.renders_of(ctx.project, file, digest):
@@ -554,7 +557,7 @@ def record_requirement(ctx: ToolContext, a: RecordRequirement, operation_id: str
 
 
 def _coming(ctx: ToolContext) -> set[str]:
-    """I file che questo lavoro prevede di produrre: non contano quelli chiesti ai revisori."""
+    """The files this work plans to produce; those asked of reviewers do not count."""
     specs = [ctx.ledger.spec(ticket) for ticket in (ctx.ticket_id, *ctx.ledger.children(ctx.ticket_id))]
     return {output for spec in specs if spec.assignee not in REVIEWERS for output in spec.outputs}
 
@@ -728,7 +731,7 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
 
 
 def submit_concept(ctx: ToolContext, a: ConceptCard, _: str) -> dict:
-    """Chiude l'esplorazione: la scheda vale solo insieme agli schizzi guardati."""
+    """Closes the exploration: the card counts only together with the sketches looked at."""
     if _replayed(ctx, Status.DELIVERED, Action.DELIVER):
         ctx.finished = Outcome(state=OutcomeState.DELIVERED, note=a.concept)
         return {"ok": True}
@@ -751,7 +754,7 @@ def submit_concept(ctx: ToolContext, a: ConceptCard, _: str) -> dict:
 
 
 def rate_board(ctx: ToolContext, a: RateBoard, _: str) -> dict:
-    """Il primo sguardo del critico, che non conosce le motivazioni: decide chi può andare avanti."""
+    """The critic's first look, without the reasoning behind the ideas: it decides who can go ahead."""
     letters = {row.anon for row in ctx.ledger.concepts(ctx.project, ctx.round) if row.anon}
     rated = {item.letter for item in a.ratings}
     if rated != letters:
@@ -804,7 +807,7 @@ def _delivered_proposal(ctx: ToolContext, letter: str) -> dict[str, str]:
 
 
 def draft_presentation(ctx: ToolContext, a: PresentConcepts, _: str) -> dict:
-    """Compone le pagine vere: il direttore vede ciò che vedrà il cliente, non i testi che ha scritto."""
+    """Builds the real pages: the director sees what the client will see, not the texts the director wrote."""
     available = {row.anon for row in ctx.ledger.concepts(ctx.project, ctx.round) if row.status == "proposta"}
     letters = [item.letter for item in a.proposals]
     unknown = sorted(set(letters) - available)
@@ -847,7 +850,7 @@ def _drafted_pages(ctx: ToolContext) -> list[str]:
 
 
 def present_concepts(ctx: ToolContext, _a: ConfirmPresentation, __: str) -> dict:
-    """Manda al cliente l'ultima bozza, solo se è esattamente quella guardata."""
+    """Sends the client the last draft, only if it is exactly the one looked at."""
     draft = f"{presentation.folder_of(ctx.round)}/testi.json"
     pages = _drafted_pages(ctx)
     if not pages or not is_file_under(ctx.work, draft):
@@ -889,7 +892,7 @@ def block(ctx: ToolContext, a: Block, _: str) -> dict:
     return {"ok": True, "status": "blocked"}
 
 
-# Gli strumenti che chiudono sempre, e sempre con lo stesso esito.
+# The tools that always close, and always with the same outcome.
 CLOSE_ALWAYS: dict[str, OutcomeState] = {
     "deliver": OutcomeState.DELIVERED,
     "block": OutcomeState.BLOCKED,
@@ -1011,7 +1014,7 @@ def role_tools(role: str) -> list[Tool]:
 
 
 def tools_for(role: str, spec: TicketSpec, mode: str = "") -> list[Tool]:
-    """Il set dipende dalla fase: chi cerca l'idea non può disegnare, chi disegna non può rifinire."""
+    """The set depends on the phase: who looks for the idea cannot draw, and who draws cannot finish."""
     names = {"plan": PLAN, "select": SELECT, "present": PRESENT}.get(mode)
     if names is None and spec.prompt == "critic-board":
         names = BOARD
@@ -1036,9 +1039,12 @@ def definition(tool: Tool) -> dict:
 
 
 class Toolbox:
+    """One instance's tools. `call` runs one: an effect already recorded is replayed, not repeated, and a
+    failure goes back to the model as a refused result instead of ending work already paid for."""
+
     def __init__(self, context: ToolContext, tools: list[Tool] | None = None) -> None:
         self.context = context
-        # Il set non cambia durante l'istanza: cambiarlo invaliderebbe la cache.
+        # The set does not change during the instance: changing it would invalidate the prompt cache.
         chosen = tools if tools is not None else role_tools(context.actor)
         self.tools = {tool.name: tool for tool in chosen}
         self._definitions = [definition(tool) for tool in self.tools.values()]
@@ -1054,7 +1060,7 @@ class Toolbox:
             return self._result(tool_use_id, f"strumento non disponibile per {ctx.actor}: {name}", True)
         if tool.effect:
             stored = ctx.ledger.operation(operation_id)
-            if stored is not None:  # alla ripresa un effetto già avvenuto non si ripete
+            if stored is not None:  # on resume, an effect that already happened is not repeated
                 self._restore(name, stored)
                 return self._result(tool_use_id, stored, False)
         with tracer.start_as_current_span("tool.call") as span:
@@ -1077,7 +1083,7 @@ class Toolbox:
             ) as exc:
                 span.set_attribute("agency.refused", True)
                 return self._result(tool_use_id, str(exc), True)
-            except Exception as exc:  # un guasto di uno strumento non deve far cadere un lavoro già pagato
+            except Exception as exc:  # a tool failure must not bring down work already paid for
                 span.record_exception(exc)
                 detail = clip(f"{type(exc).__name__}: {exc}", 500)
                 return self._result(tool_use_id, f"{name} non è riuscito: {detail}", True)
@@ -1089,14 +1095,14 @@ class Toolbox:
         return self._result(tool_use_id, text, False)
 
     def _restore(self, name: str, stored: str) -> None:
-        """Alla ripresa, uno strumento di chiusura già eseguito chiude di nuovo con lo stesso esito."""
+        """On resume, a closing tool that already ran closes again with the same outcome."""
         if name in CLOSE_ALWAYS:
             self.context.finished = Outcome(state=CLOSE_ALWAYS[name], note="ripreso dopo un'interruzione")
         elif name == "select_concepts":
             chosen = SelectConcepts.model_validate_json(stored).chosen
             state = OutcomeState.SELECTED if chosen else OutcomeState.NO_CONCEPT
             self.context.finished = Outcome(state=state, note=stored)
-        elif name == "draft_presentation" and "pagine" not in json.loads(stored):  # nessuna proposta regge
+        elif name == "draft_presentation" and "pagine" not in json.loads(stored):  # no proposal holds up
             self.context.finished = Outcome(state=OutcomeState.NO_CONCEPT, note=stored)
         elif name == "present_concepts":
             proposals = PresentConcepts.model_validate_json(stored).proposals

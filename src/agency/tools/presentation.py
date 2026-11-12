@@ -1,8 +1,9 @@
-"""La presentazione al cliente: ogni proposta in più pagine, poi la raccomandazione.
+"""The presentation to the client: each proposal over several pages, then the recommendation.
 
-È un documento da leggere senza lo studio accanto. Il cliente non vede mai schizzi: vede proposte pulite,
-nel contesto in cui vivranno, con il ragionamento e la raccomandazione. Il testo scorre sulle pagine che
-servono: nessuna riga può uscire dal foglio, e il direttore guarda le pagine prima che arrivino al cliente.
+It is a document to read without the studio beside it. The client never sees sketches: they see clean
+proposals, in the context they will live in, with the reasoning and the recommendation. The text flows over
+as many pages as it needs: no line can run off the page, and the director looks at the pages before they
+reach the client.
 """
 
 from __future__ import annotations
@@ -33,15 +34,15 @@ SOFT = (110, 110, 110)
 PAPER = (255, 255, 255)
 LEADING = 1.4
 LABEL, TITLE, BODY = 24, 44, 28
-TOP = 150  # dove comincia il contenuto, sotto etichetta e titolo
+TOP = 150  # where the content starts, below the label and the title
 MARK_WIDTH = 760
-COLUMN = 660  # testo accanto al segno
-MEASURE = 1100  # testo a piena pagina: oltre questa misura le righe si leggono male
+COLUMN = 660  # text beside the mark
+MEASURE = 1100  # full-page text: past this width the lines read badly
 
 
 @lru_cache
 def _font_file() -> str:
-    """Un font di sistema con gli accenti: quello predefinito di Pillow non ha è, ì, ù."""
+    """A system font that has the Italian accented letters, which Pillow's default font lacks."""
     for family in ("Noto Sans", "DejaVu Sans"):
         found = subprocess.run(
             ["fc-match", "-f", "%{file}", family], capture_output=True, text=True, timeout=10, check=True
@@ -53,11 +54,14 @@ def _font_file() -> str:
 
 @lru_cache
 def font(size: int) -> ImageFont.FreeTypeFont:
+    """The presentation's font at `size` px."""
     return ImageFont.truetype(_font_file(), size)
 
 
 @dataclass(frozen=True)
 class Proposal:
+    """One proposal as its pages show it: its texts, its mark and its applications."""
+
     letter: str
     title: str
     idea: str
@@ -77,7 +81,7 @@ def _fit(path: Path, box: tuple[int, int]) -> Image.Image:
 
 
 def wrap(text: str, size: int, width: int) -> list[str]:
-    """A capo sulla larghezza reale: una parola troppo lunga si spezza invece di uscire dal foglio."""
+    """Wraps at the real width: a word that is too long is broken instead of running off the page."""
     measure = font(size).getlength
     lines: list[str] = []
     for paragraph in text.split("\n"):
@@ -104,6 +108,8 @@ def wrap(text: str, size: int, width: int) -> list[str]:
 
 @dataclass(frozen=True)
 class Block:
+    """A paragraph for `flow`, with an optional heading above it."""
+
     text: str
     heading: str = ""
     size: int = BODY
@@ -111,6 +117,8 @@ class Block:
 
 @dataclass(frozen=True)
 class Line:
+    """A placed line: its text, its offset from the column's top, its size and its colour."""
+
     text: str
     y: int
     size: int
@@ -118,7 +126,7 @@ class Line:
 
 
 def flow(blocks: list[Block], width: int, height: int, first: int = 0) -> list[list[Line]]:
-    """Distribuisce il testo in colonne alte `height` (la prima alta `first`): non si perde nessuna parola."""
+    """Spreads the text over columns `height` tall (the first one `first` tall): no word is lost."""
     columns: list[list[Line]] = [[]]
     y = 0
     limit = first or height
@@ -126,7 +134,7 @@ def flow(blocks: list[Block], width: int, height: int, first: int = 0) -> list[l
     def place(text: str, size: int, fill: tuple[int, int, int], keep: int = 1) -> None:
         nonlocal y, limit
         step = int(size * LEADING)
-        if y + step * keep > limit and columns[-1]:  # un titolo non resta solo in fondo alla colonna
+        if y + step * keep > limit and columns[-1]:  # a heading never stays alone at the foot of a column
             columns.append([])
             y = 0
             limit = height
@@ -161,7 +169,7 @@ def _grid(page: Image.Image, images: tuple[Path, ...], left: int, top: int, widt
 
 
 def sheet(mark: Path, applications: tuple[Path, ...], output: Path) -> None:
-    """La proposta a colpo d'occhio, per il direttore: una sola immagine da guardare."""
+    """The proposal at a glance, for the director: a single image to look at."""
     page = Image.new("RGB", (WIDTH, HEIGHT), PAPER)
     picture = _fit(mark, (640, 760))
     page.paste(picture, (MARGIN + (640 - picture.width) // 2, 120 + (760 - picture.height) // 2))
@@ -171,7 +179,7 @@ def sheet(mark: Path, applications: tuple[Path, ...], output: Path) -> None:
 
 
 def _page(label: str, title: str = "") -> tuple[Image.Image, ImageDraw.ImageDraw, int]:
-    """Una pagina con etichetta e titolo: restituisce dove comincia il contenuto."""
+    """A page with its label and title; returns where the content starts."""
     page = Image.new("RGB", (WIDTH, HEIGHT), PAPER)
     draw = ImageDraw.Draw(page)
     draw.text((MARGIN, 44), label, fill=SOFT, font=font(LABEL))
@@ -220,12 +228,12 @@ PDF = "presentazione.pdf"
 
 
 def folder_of(turn: int) -> str:
-    """La cartella della presentazione di un giro, relativa a work/."""
+    """The presentation folder of a round, relative to work/."""
     return f"presentation/r{turn}"
 
 
 def pdf_of(turn: int) -> str:
-    """Il file che il cliente riceve, relativo a work/."""
+    """The file the client receives, relative to work/."""
     return f"{folder_of(turn)}/{PDF}"
 
 
@@ -251,12 +259,12 @@ def _encoded(page: Image.Image, kind: str, **options: object) -> bytes:
 
 
 def build(proposals: list[Proposal], recommended: str, reasons: str, folder: Path) -> list[Path]:
-    """Scrive il PDF e un'immagine per ogni pagina: sono quelle che il direttore deve guardare."""
+    """Writes the PDF and one image per page: those images are what the director must look at."""
     relative = str(folder.relative_to(ROOT))
     ensure_dir_under(ROOT, relative)
     directory = open_under(ROOT, relative, os.O_RDONLY | os.O_DIRECTORY)
     try:
-        # una bozza più corta non lascia pagine vecchie
+        # a shorter draft leaves no old pages behind
         for old in fnmatch.filter(os.listdir(directory), "pagina-*.png"):
             os.unlink(old, dir_fd=directory)
     finally:

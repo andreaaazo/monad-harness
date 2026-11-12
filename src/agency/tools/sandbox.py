@@ -1,4 +1,4 @@
-"""Esecuzione isolata con bubblewrap: una cartella scrivibile, nessuna rete, nessun segreto."""
+"""Isolated execution with bubblewrap: one writable host folder, no network, no secrets."""
 
 from __future__ import annotations
 
@@ -35,12 +35,15 @@ PIPE_BUF = 4096  # a write of at most this many bytes to a pipe that select() re
 
 @dataclass(frozen=True)
 class Completed:
+    """A finished command: its exit code and its two streams, as text."""
+
     code: int
     stdout: str
     stderr: str
 
     @property
     def output(self) -> str:
+        """Both streams, stdout first."""
         return self.stdout + self.stderr
 
 
@@ -82,6 +85,9 @@ def scope_problem() -> str | None:
 
 
 class Sandbox:
+    """Runs commands under bubblewrap, in a capped cgroup scope: the work folder is /job and the only host
+    folder it can write; no network, and an environment with nothing from the host's."""
+
     def __init__(
         self,
         work: Path,
@@ -98,6 +104,7 @@ class Sandbox:
         self._scope_checked = False
 
     def argv(self, command: list[str]) -> list[str]:
+        """The whole command line: the cgroup scope, bwrap's mounts and namespaces, then `prlimit`."""
         args = [
             *scope_prefix(),
             "bwrap",
@@ -142,6 +149,7 @@ class Sandbox:
         return [*args, "prlimit", f"--fsize={FILE_BYTES}", "--", *command]
 
     def python(self) -> str:
+        """The toolchain's Python if it is installed, else the sandbox's `python3`."""
         if self.toolchain:
             candidate = self.toolchain / "venv/bin/python"
             if candidate.exists():
@@ -149,6 +157,8 @@ class Sandbox:
         return "python3"
 
     def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+        """Runs `command` in the sandbox. A timeout answers 124, and a stream past `OUTPUT_BYTES` answers 125.
+        The first run checks that a capped scope can start, and raises `SandboxUnavailable` if not."""
         if not self._scope_checked:
             why = scope_problem()
             if why:

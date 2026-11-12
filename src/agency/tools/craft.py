@@ -1,4 +1,4 @@
-"""Comandi Craft come dati: indice di ricerca, schema a richiesta, esecuzione validata (ADR-0004)."""
+"""Craft commands as data: a search index, a schema on request, validated execution (ADR-0004)."""
 
 from __future__ import annotations
 
@@ -33,6 +33,8 @@ def _tokens(text: str) -> list[str]:
 
 @dataclass(frozen=True)
 class Command:
+    """One command of a Craft CLI's catalogue, as its `commands` subcommand lists it."""
+
     id: str
     label: str
     menu: str
@@ -40,7 +42,7 @@ class Command:
 
 
 class CommandIndex:
-    """BM25 sul catalogo della CLI, rigenerato quando cambia la versione."""
+    """BM25 over the CLI's command catalogue, fetched again when the CLI's version changes."""
 
     def __init__(self, commands: list[Command]) -> None:
         self.commands = {command.id: command for command in commands}

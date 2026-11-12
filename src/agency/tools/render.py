@@ -1,4 +1,4 @@
-"""Rende un output in un'immagine da guardare e registra quale versione è stata resa."""
+"""Renders an output into an image to look at, and records which version was rendered."""
 
 from __future__ import annotations
 
@@ -48,6 +48,8 @@ def render_one(
     relative: str,
     zooms: list[tuple[float, float, float, float]] | None = None,
 ) -> list[str]:
+    """Renders the file to a PNG proof, plus one crop per zoom box (fractions of the width and height), and
+    records which version of the file they show. Returns the proofs' paths."""
     source = inside(sandbox.work, relative)
     if not source.exists():
         raise FileNotFoundError(relative)
@@ -67,7 +69,7 @@ def render_one(
         raise ValueError(f"{extension}: render non disponibile in M1")
     with _open(sandbox.work, proof) as image:
         full = image.convert("RGBA")
-    # Fondo bianco: un segno nero su trasparenza altrimenti non si vede.
+    # A white ground: otherwise a black mark on transparency cannot be seen.
     canvas = Image.new("RGBA", full.size, (255, 255, 255, 255))
     canvas.alpha_composite(full)
     flat = canvas.convert("RGB")
@@ -91,6 +93,7 @@ def render_one(
 
 
 def contact_sheet(sandbox: Sandbox, images: list[str], output: str, cell: int = 300) -> str:
+    """The images on one sheet, four per row, each labelled with its file name. Returns `output`."""
     columns = 4
     rows = (len(images) + columns - 1) // columns
     board = Image.new("RGB", (columns * cell, rows * (cell + 22)), (240, 240, 240))

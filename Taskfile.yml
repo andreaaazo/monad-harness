@@ -137,6 +137,9 @@ tasks:
         msg: "AGENCY_DATA non si usa più: il registro si indica con AGENCY_DATA_DIR, un percorso assoluto"
       - sh: 'case "${AGENCY_DATA_DIR:-/}" in /*) ;; *) exit 1 ;; esac'
         msg: "AGENCY_DATA_DIR deve essere un percorso assoluto"
+      # A bind mount of a missing folder fails only after both images are built (DX-010).
+      - sh: test -d '{{.AGENCY_DATA_DIR | default (printf "%s/.data" .ROOT_DIR)}}'
+        msg: 'Il registro {{.AGENCY_DATA_DIR | default (printf "%s/.data" .ROOT_DIR)}} non esiste: avvia prima un progetto con agency run, o indica la cartella con AGENCY_DATA_DIR'
     env: &compose
       AGENCY_DATA_DIR: '{{.AGENCY_DATA_DIR | default (printf "%s/.data" .ROOT_DIR)}}'
       AGENCY_UID:

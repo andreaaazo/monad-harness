@@ -1608,7 +1608,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Files: `Makefile` (a first target, `help`, that runs `mise exec -- task`), `tests/test_taskfile.py`.
   - Verify: `make -n` prints `mise exec -- task`; standard gate.
   - Commit: `build(make): list the commands on a bare make`.
-- [ ] **Task 5.8 [APPROVAL]: `docker:up` checks that the registry folder exists.** Closes DX-010.
+- [x] **Task 5.8 [APPROVAL]: `docker:up` checks that the registry folder exists.** Closes DX-010.
   - Files: `Taskfile.yml` (`docker:up` gets a precondition on `AGENCY_DATA_DIR`, with one Italian line),
     `tests/test_taskfile.py`.
   - Verify: `task --dry docker:up` with a missing folder prints the line; standard gate.

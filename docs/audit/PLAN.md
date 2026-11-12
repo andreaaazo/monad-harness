@@ -1469,6 +1469,24 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
     - `web/tsconfig.json`, `web/pnpm-workspace.yaml`, and the description in `web/package.json`.
   - Commit: `docs(config): translate configuration comments to English`.
 
+### Phase 3 follow-up: decisions on the open items
+
+Andrea delegated the items Phase 3 left open (2026-11-12). Each decision applies a rule already taken (Q15,
+ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
+
+- [x] **D1 (CMT-004, the model-facing half).** The sketch warning says what it measures: "del lato più lungo del
+  disegno", not "della larghezza".
+- [x] **D2 (the doctor.py owner note).** `agency doctor` gives Docker's reason as "cruscotto (ADR-0040); da M4 Langfuse
+  e ComfyUI". D1 and D2: `fix: say what the sketch warning measures and what Docker serves`.
+- [ ] **D3 (Task 3.2 follow-up).** The OpenAPI `info.title` is English, "Design agency: dashboard" (Q15).
+- [ ] **D4 (CMT-011).** `qa/checks.py` `execute` raises its internal error in English: `run`, its only caller, refuses any
+  check outside RUNNABLE first, so the model never sees it.
+- [ ] **D5.** The projection's schema fingerprint covers the stored shape, not the models' descriptions.
+- [ ] **D6.** The Phase 3 language check becomes a test in `make check`: comments through `tokenize`, docstrings through
+  `ast`, so a string never matches.
+- [ ] **D7 (CMT-016).** Ruff keeps RUF001-RUF003 on and allows `×` through `allowed-confusables`.
+- [ ] **D8 (STR-002, the pyproject half).** Every slice contract forbids every engine package the slice does not use.
+
 ## Phase 4: file structure
 
 - [ ] **Task 4.1: the insights ledger reader gets the name ledger.** Closes STR-009 (Q18).

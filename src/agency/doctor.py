@@ -21,7 +21,7 @@ BINARIES: tuple[tuple[str, bool, str], ...] = (
     ("gs", True, "preflight PDF"),
     ("bwrap", True, "sandbox degli strumenti"),
     ("fc-match", True, "font della presentazione"),
-    ("docker", True, "Langfuse e ComfyUI"),
+    ("docker", True, "cruscotto (ADR-0040); da M4 Langfuse e ComfyUI"),
     ("nvidia-smi", False, "GPU per Blender, SigLIP e ComfyUI"),
 )
 

@@ -124,9 +124,10 @@ def mark_problem(path: Path) -> str | None:
         return None
     return (
         f"il file sembra contenere {len(sides)} segni separati, e il maggiore occupa solo il "
-        f"{max(sides) / GRID:.0%} della larghezza. La tavola lo rimpicciolisce tutto insieme, quindi "
-        "verrebbe giudicato più piccolo degli altri. Lascia un solo segno, senza varianti né riduzioni: "
-        "quelle stanno nel foglio. Se è davvero un solo segno in più parti, consegnalo di nuovo così com'è."
+        f"{max(sides) / GRID:.0%} del lato più lungo del disegno. La tavola lo rimpicciolisce tutto "
+        "insieme, quindi verrebbe giudicato più piccolo degli altri. Lascia un solo segno, senza varianti "
+        "né riduzioni: quelle stanno nel foglio. Se è davvero un solo segno in più parti, consegnalo di "
+        "nuovo così com'è."
     )
 
 

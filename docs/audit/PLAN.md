@@ -1599,7 +1599,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     - The new strings are Italian.
   - Verify: the tests pass; standard gate.
   - Commit: `fix(doctor): make Docker optional and check Playwright's Chromium`.
-- [ ] **Task 5.6 [APPROVAL]: `task format` fixes and formats.** Closes DX-008.
+- [x] **Task 5.6 [APPROVAL]: `task format` fixes and formats.** Closes DX-008.
   - Files: `Taskfile.yml` (`format`: `uv run ruff check --fix .`, then `uv run ruff format .`), `Makefile` (`format`
     joins `TASKS`), `tests/test_taskfile.py` (`ALIASES`).
   - Verify: `mise exec -- task --list` shows `format`; `make -n format` prints `mise exec -- task format`; standard gate.

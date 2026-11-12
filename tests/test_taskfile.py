@@ -33,7 +33,19 @@ CHECK = [
     "pnpm --dir web run build:e2e",
     "pnpm --dir web exec playwright test",
 ]
-ALIASES = ["check", "lint", "imports", "types", "test", "web", "e2e", "schemas", "doctor", "dashboard"]
+ALIASES = [
+    "check",
+    "lint",
+    "format",
+    "imports",
+    "types",
+    "test",
+    "web",
+    "e2e",
+    "schemas",
+    "doctor",
+    "dashboard",
+]
 
 
 def task(*arguments: str) -> str:
@@ -70,6 +82,11 @@ def test_every_command_the_studio_uses_has_its_task() -> None:
 
 def test_check_runs_every_control_in_order() -> None:
     assert commands("check") == CHECK
+
+
+def test_format_fixes_what_ruff_can_and_then_formats() -> None:
+    """`lint` only reports; `format` writes the fixes, then the formatting that `lint` checks."""
+    assert commands("format") == ["uv run ruff check --fix .", "uv run ruff format ."]
 
 
 def make(name: str) -> str:

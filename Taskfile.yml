@@ -41,6 +41,12 @@ tasks:
       - uv run ruff check .
       - uv run ruff format --check .
 
+  format:
+    desc: "Corregge e formatta il Python con Ruff: ciò che lint segnala e si sistema da solo"
+    cmds:
+      - uv run ruff check --fix .
+      - uv run ruff format .
+
   imports:
     desc: I confini tra moduli, con import-linter
     cmds:

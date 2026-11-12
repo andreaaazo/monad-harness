@@ -1712,9 +1712,12 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
 
 ## Phase 6: sanity refactor and simplification
 
-- [ ] **Task 6.1: remove the unused OTLP exporter.** Closes SIM-002 (Q5).
+- [x] **Task 6.1: remove the unused OTLP exporter.** Closes SIM-002 (Q5).
   - Files: `pyproject.toml`, `uv.lock` (`uv remove opentelemetry-exporter-otlp-proto-http`).
   - Verify: the lock diff removes 7 packages; standard gate.
+  - Done: the default install loses the 7 packages (`uv export --no-dev`: 68 → 61), and so does the API image.
+    The lock keeps their entries, because `langfuse` in the `telemetry` extra still requires the exporter. They
+    leave the lock with that extra in Task 6.2. No locked version changed.
   - Commit: `build(deps): drop the unused OTLP exporter`.
 - [ ] **Task 6.2 [APPROVAL]: drop the unused extras.** Closes SIM-003 (Q6).
   - Files: `pyproject.toml`, `uv.lock` (`context`, `qa` and `telemetry` removed), and `docs/04-TOOLS.md`, which notes

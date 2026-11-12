@@ -1417,7 +1417,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
   - Commit: `docs(graph): translate comments, docstrings and internal messages to English`.
 - [x] **Task 3.11: `src/agency/insights/`, apart from 3.2.** Closes CMT-009 for this package, CMT-005 and CMT-019.
   - Commit: `docs(insights): translate comments and docstrings to English`.
-- [ ] **Task 3.12: `src/agency/ledger/`, apart from the migrations.** Closes CMT-009 and CMT-011 (`store.py:415`) for
+- [x] **Task 3.12: `src/agency/ledger/`, apart from the migrations.** Closes CMT-009 and CMT-011 (`store.py:415`) for
   this package, CMT-006, CMT-007 (describe the chain as Task 2.31 left it), and its CMT-014 items.
   - Commit: `docs(ledger): translate comments, docstrings and internal messages to English`.
 - [ ] **Task 3.13: `src/agency/qa/`, apart from the scripts.** Closes CMT-009 for this package.

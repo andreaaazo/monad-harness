@@ -1,4 +1,4 @@
-"""Unico punto di scrittura dei registri. L'attore lo fornisce l'harness, mai l'agente."""
+"""The only place that writes the registry. The harness supplies the actor, never the agent."""
 
 from __future__ import annotations
 
@@ -60,11 +60,11 @@ BOUND_ROWS: dict[type[BoundRow], tuple[str, str, str, type[int] | type[str]]] = 
 
 
 class IllegalTransition(Exception):
-    """L'azione non è prevista dallo stato attuale."""
+    """The action is not allowed from the ticket's current status."""
 
 
 class ForbiddenAction(Exception):
-    """L'attore non ha il diritto di compiere l'azione."""
+    """The actor has no right to take the action."""
 
 
 class LedgerMissing(Exception):
@@ -76,11 +76,13 @@ class LedgerMissing(Exception):
 
 
 def require_registry(path: Path) -> None:
+    """Raises `LedgerMissing` when there is no registry file at `path`."""
     if not path.is_file():
         raise LedgerMissing(path)
 
 
 def now() -> str:
+    """The registry's timestamps: UTC, ISO 8601, to the second."""
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
@@ -144,10 +146,14 @@ def _row_mismatches(
 
 
 class Ledger:
+    """The registry's only writer. A ticket change, and every idea, gate, proof, paid call and project it
+    writes, appends a chain event in the same transaction. Renders, derivations, operations, runs, judgments
+    and artifacts are rows outside the chain."""
+
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.engine = create_engine(f"sqlite:///{path}", connect_args={"timeout": BUSY_SECONDS})
-        self._chain = threading.RLock()  # la catena di hash ha un solo scrittore per volta
+        self._chain = threading.RLock()  # the hash chain has one writer at a time
         sa_event.listen(self.engine, "connect", self._configure)
         schema.ensure_current(self.engine)
 
@@ -161,7 +167,7 @@ class Ledger:
     def _configure(dbapi_connection: object, _record: object) -> None:
         cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
         deadline = time.monotonic() + BUSY_SECONDS
-        while True:  # il passaggio a WAL non rispetta il timeout: chi arriva secondo riprova
+        while True:  # switching to WAL ignores the timeout: whoever comes second retries
             try:
                 cursor.execute("PRAGMA journal_mode=WAL")
                 break
@@ -174,7 +180,7 @@ class Ledger:
 
     @contextmanager
     def _writing(self) -> Iterator[Session]:
-        """Scrittura sulla catena di hash: il lucchetto del database vale anche tra processi diversi."""
+        """A write on the hash chain: the database lock also holds between processes."""
         with self._chain, Session(self.engine) as session:
             session.connection().exec_driver_sql("BEGIN IMMEDIATE")
             yield session
@@ -222,7 +228,7 @@ class Ledger:
             )
         )
 
-    # Progetti
+    # Projects
 
     def project(self, name: str) -> ProjectRow | None:
         with Session(self.engine) as session:
@@ -247,7 +253,7 @@ class Ledger:
             self._append(session, NO_TICKET, HARNESS, "project", "", None, row)
             session.commit()
 
-    # Ticket
+    # Tickets
 
     def open(
         self,
@@ -257,8 +263,8 @@ class Ledger:
         operation: tuple[str, str, str] | None = None,
         concept: ConceptRow | None = None,
     ) -> str:
-        """`inputs` sono gli hash all'apertura. `operation` (id, istanza, strumento) rende l'apertura
-        e la sua registrazione un solo passo: alla ripresa il ticket non si duplica.
+        """`inputs` are the hashes at opening. `operation` (id, instance, tool) makes the opening and its
+        record one step: on resume the ticket is not opened twice.
 
         `concept` is written in the same transaction as the ticket, so an interruption cannot leave a ticket
         without its concept row. The caller cannot know the new ticket id, so `open` sets
@@ -344,6 +350,8 @@ class Ledger:
         verdict: Verdict | None = None,
         delivered: dict[str, str] | None = None,
     ) -> Status:
+        """Moves the ticket by `TRANSITIONS`, if the actor's party may and, for a review, with its verdict.
+        The event binds the state the ticket is left in."""
         allowed_from, target, party = TRANSITIONS[action]
         with self._writing() as session:
             row = session.get(TicketRow, ticket_id)
@@ -423,7 +431,7 @@ class Ledger:
             found += _row_mismatches(label, column, rows[model], bound_rows[key])
         return found
 
-    # Consumi
+    # Usage
 
     def record_usage(self, row: UsageRow) -> None:
         """A paid call and the event that binds it, in one transaction (ADR-0050). The event stays on the
@@ -448,7 +456,7 @@ class Ledger:
             query = select(UsageRow).where(UsageRow.project == project).order_by(col(UsageRow.seq))
             return list(session.exec(query).all())
 
-    # Prove
+    # Proofs
 
     def add_evidence(self, row: EvidenceRow, operation: tuple[str, str, str, str] | None = None) -> None:
         """`operation` (id, instance, tool, result) makes the proof and its resume record one transaction, as
@@ -534,7 +542,7 @@ class Ledger:
             )
             return list(session.exec(query).all())
 
-    # Idee e gate
+    # Ideas and gates
 
     def add_concept(self, row: ConceptRow) -> None:
         with self._writing() as session:
@@ -576,7 +584,7 @@ class Ledger:
             query = select(GateRow).where(GateRow.project == project).order_by(col(GateRow.seq))
             return list(session.exec(query).all())
 
-    # Operazioni, per la ripresa senza doppi effetti
+    # Operations, so a resume has no double effects
 
     def operation(self, operation_id: str) -> str | None:
         with Session(self.engine) as session:
@@ -596,7 +604,7 @@ class Ledger:
             session.execute(insert(OperationRow).values(row.model_dump()).on_conflict_do_nothing(["id"]))
             session.commit()
 
-    # Esecuzioni
+    # Runs
 
     def record_run(self, project: str, command: RunCommand, fingerprint: Fingerprint) -> int:
         row = RunRow(
@@ -622,13 +630,13 @@ class Ledger:
         with Session(self.engine) as session:
             return session.get(RunRow, seq)
 
-    # Giudizi alla cieca
+    # Blind judgments
 
     def record_judgment(self, comparison: str, judgment: Judgment, files: dict[str, Judged]) -> None:
-        """Un confronto intero in una sola transazione: un giudizio a metà non resta nel registro."""
+        """A whole comparison in one transaction: half a judgment never stays in the registry."""
         letters = [rating.letter for rating in judgment.ratings]
         if sorted(files) != sorted(letters):
-            raise ValueError(f"lettere giudicate {letters}, lettere con un file {sorted(files)}")
+            raise ValueError(f"judged letters {letters}, letters with a file {sorted(files)}")
         at = now()
         with Session(self.engine) as session:
             for rating in judgment.ratings:
@@ -662,10 +670,10 @@ class Ledger:
             )
             return list(session.exec(query).all())
 
-    # Artefatti
+    # Artifacts
 
     def record_artifacts(self, rows: list[ArtifactRow]) -> None:
-        """Una versione già registrata per lo stesso file e motivo non si registra di nuovo."""
+        """A version already recorded for the same file and reason is not recorded again."""
         if not rows:
             return
         values = [row.model_dump(exclude={"seq"}) for row in rows]

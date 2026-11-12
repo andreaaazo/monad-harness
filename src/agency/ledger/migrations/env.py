@@ -1,4 +1,4 @@
-"""Ambiente di Alembic: lavora solo sulla connessione aperta da `agency.ledger.schema`."""
+"""Alembic's environment: it works only on the connection that `agency.ledger.schema` opens."""
 
 from __future__ import annotations
 

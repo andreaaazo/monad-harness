@@ -248,7 +248,7 @@ def test_a_comparison_is_recorded_one_row_per_file(tmp_path: Path) -> None:
 def test_every_letter_needs_its_file(tmp_path: Path) -> None:
     ledger = Ledger(tmp_path / "l.sqlite")
     judgment, origins = comparison()
-    with pytest.raises(ValueError, match="lettere"):
+    with pytest.raises(ValueError, match="letters"):
         ledger.record_judgment("s1", judgment, {"A": origins["A"]})
     assert ledger.comparison("s1") == []
 

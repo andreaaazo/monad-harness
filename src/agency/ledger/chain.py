@@ -1,4 +1,4 @@
-"""La catena di hash degli eventi: chi la scrive e chi la verifica usano le stesse regole."""
+"""The events' hash chain: the code that writes it and the code that verifies it share these rules."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ GENESIS = "0" * 64
 
 
 def digest(prev: str, ticket_id: str, at: str, actor: str, action: str, note: str) -> str:
+    """The version-1 hash: it binds the event and the hash before it, but no ticket state."""
     payload = json.dumps([prev, ticket_id, at, actor, action, note], ensure_ascii=False)
     return hashlib.sha256(payload.encode()).hexdigest()
 
@@ -56,7 +57,8 @@ def _expected(prev: str, row: Any) -> str | None:
 
 
 def intact(rows: Iterable[Any]) -> bool:
-    """`rows` sono gli eventi in ordine di `seq`, con i campi della tabella `events`."""
+    """True if each event links to the one before and has its version's hash. `rows` are the events in
+    `seq` order, with the fields of the `events` table."""
     prev = GENESIS
     for row in rows:
         if row.prev_hash != prev or row.hash != _expected(prev, row):

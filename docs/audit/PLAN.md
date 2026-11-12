@@ -1554,7 +1554,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
 
 ## Phase 5: developer experience
 
-- [ ] **Task 5.1: the Taskfile ignore test needs a git checkout.** Closes DX-005.
+- [x] **Task 5.1: the Taskfile ignore test needs a git checkout.** Closes DX-005.
   - Files: `tests/test_taskfile.py:107-110`. It reuses the `skipif` of `tests/test_repository.py:33`, and asserts git's
     return code with its stderr.
   - Verify: in a `git archive` copy, `task test -- tests/test_taskfile.py` skips that test instead of failing; standard

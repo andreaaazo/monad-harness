@@ -99,18 +99,25 @@ def test_the_taskfile_never_loads_dotenv_and_keeps_next_telemetry_off() -> None:
     assert re.search(r'^env:\n  NEXT_TELEMETRY_DISABLED: "1"$', TASKFILE, re.MULTILINE)
 
 
+@pytest.mark.skipif(
+    shutil.which("git") is None or not (REPO_ROOT / ".git").exists(), reason="serve un clone git"
+)
+def test_the_build_fingerprints_of_task_are_not_versioned() -> None:
+    """The production interface starts from its build, redone only when the sources change. Task keeps its
+    fingerprint in .task/, which is not versioned. Outside a git checkout there is no .gitignore to ask."""
+    ignored = subprocess.run(
+        ["git", "check-ignore", ".task/checksum/x"], cwd=REPO_ROOT, capture_output=True, text=True
+    )
+    assert ignored.returncode == 0, f"git check-ignore exited {ignored.returncode}: {ignored.stderr.strip()}"
+    assert ignored.stdout.strip() == ".task/checksum/x"
+
+
 def test_the_dashboard_starts_api_and_interface_together_and_stops_both_if_one_stops() -> None:
     summary = task("--summary", "dashboard")
     assert "dashboard:api" in summary and "dashboard:ui" in summary
     for name in ("dashboard", "dashboard:dev"):
         block = re.search(rf"^  {re.escape(name)}:\n((?:    .*\n|\n)+)", TASKFILE, re.MULTILINE)
         assert block is not None and "    failfast: true\n" in block[1], name
-    # The production interface starts from its build, redone only when the sources change. Task keeps
-    # its fingerprint in .task/, which is not versioned.
-    ignored = subprocess.run(
-        ["git", "check-ignore", ".task/checksum/x"], cwd=REPO_ROOT, capture_output=True, text=True
-    )
-    assert ignored.stdout.strip() == ".task/checksum/x"
     assert commands("dashboard:ui", "--force")[-2:] == [
         "pnpm --dir web run build",
         "pnpm --dir web run start",

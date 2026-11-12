@@ -399,6 +399,7 @@ BLOCK_AT_ONCE = {
 }
 
 
+@needs_craft
 @pytest.mark.parametrize("record", [False, True])
 def test_agency_run_records_only_when_asked(
     record: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

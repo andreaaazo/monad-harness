@@ -1560,7 +1560,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Verify: in a `git archive` copy, `task test -- tests/test_taskfile.py` skips that test instead of failing; standard
     gate.
   - Commit: `test(taskfile): skip the ignore check outside a git checkout`.
-- [ ] **Task 5.2 [APPROVAL]: the Craft tests skip without the Craft CLIs, and the sandbox tests fail once without
+- [x] **Task 5.2 [APPROVAL]: the Craft tests skip without the Craft CLIs, and the sandbox tests fail once without
   bwrap.** Closes DX-001 and TST-017 (its key half) (Q10).
   - Files: `tests/conftest.py`, `tests/test_agent_flow.py`, `tests/test_hardening.py:406`, and `pyproject.toml`
     (the `sandbox` marker).

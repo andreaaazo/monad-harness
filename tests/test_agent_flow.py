@@ -219,6 +219,7 @@ def test_path_outside_the_job_is_refused(tmp_path: Path) -> None:
     assert Toolbox(context).call("a", "read_file", {"path": "../../etc/passwd"})["is_error"]
 
 
+@needs_craft
 def test_budget_stop_keeps_the_work_and_resumes_after_an_increase(tmp_path: Path) -> None:
     config = settings(tmp_path)
     responses = [turn(use("list_files", "t1")), turn(use("block", "t2", reason="prova finita"))]
@@ -326,6 +327,7 @@ def test_interrupted_between_response_and_tools_does_not_duplicate(tmp_path: Pat
     assert len(ledger.children(root)) == 1
 
 
+@needs_craft
 def test_finished_instance_is_not_run_again(tmp_path: Path) -> None:
     config = settings(tmp_path)
     run, transport, ledger = runner(config, [])
@@ -336,6 +338,7 @@ def test_finished_instance_is_not_run_again(tmp_path: Path) -> None:
     assert transport.requests == []
 
 
+@needs_craft
 def test_refusal_blocks_the_ticket(tmp_path: Path) -> None:
     config = settings(tmp_path)
     reply = turn(stop="refusal") | {"stop_details": {"category": "cyber"}}
@@ -344,6 +347,7 @@ def test_refusal_blocks_the_ticket(tmp_path: Path) -> None:
     assert run.run(ticket).state == "blocked"
 
 
+@needs_craft
 def test_truncated_response_is_not_added_to_history(tmp_path: Path) -> None:
     config = settings(tmp_path)
     partial = turn(use("list_files", "t1"), stop="max_tokens")
@@ -359,6 +363,7 @@ def _assistant_turns(config: Settings, ticket: str) -> list[dict]:
     return [entry for entry in entries if entry.get("message", {}).get("role") == "assistant"]
 
 
+@needs_craft
 def test_a_context_window_cut_blocks_without_appending(tmp_path: Path) -> None:
     config = settings(tmp_path)
     cut = turn(use("list_files", "t1"), stop="model_context_window_exceeded")
@@ -374,6 +379,7 @@ def test_a_context_window_cut_blocks_without_appending(tmp_path: Path) -> None:
     assert [entry.get("message", {}).get("role") for entry in entries if "message" in entry] == ["user"]
 
 
+@needs_craft
 @pytest.mark.parametrize("stop", ["end_turn", "stop_sequence"])
 def test_a_tool_call_is_never_appended_without_its_result(tmp_path: Path, stop: str) -> None:
     config = settings(tmp_path)
@@ -389,6 +395,7 @@ def test_a_tool_call_is_never_appended_without_its_result(tmp_path: Path, stop: 
     assert "non deve girare" not in str(ledger.history(ticket))  # the tool did not run
 
 
+@needs_craft
 def test_each_answer_in_the_transcript_names_its_request_and_a_truncated_one_is_not_there(
     tmp_path: Path,
 ) -> None:
@@ -407,6 +414,7 @@ def test_each_answer_in_the_transcript_names_its_request_and_a_truncated_one_is_
 FALLBACK = {"type": "fallback", "from": {"model": "claude-opus-5-5"}, "to": {"model": "claude-opus-5"}}
 
 
+@needs_craft
 def test_the_unanswered_tool_guard_looks_only_at_the_kept_content(tmp_path: Path) -> None:
     """A declined attempt's tool call is dropped, so a finished answer after it is not an interrupted one."""
     config = settings(tmp_path)
@@ -419,6 +427,7 @@ def test_the_unanswered_tool_guard_looks_only_at_the_kept_content(tmp_path: Path
     assert len(transport.requests) == 2
 
 
+@needs_craft
 def test_tool_calls_before_a_fallback_are_not_executed(tmp_path: Path) -> None:
     """The declined attempt's `block` must not close the ticket: only the serving model's call runs."""
     config = settings(tmp_path)
@@ -472,6 +481,7 @@ def test_a_fallback_keeps_only_what_the_serving_model_continues_from() -> None:
     assert _after_fallback(plain) == plain
 
 
+@needs_craft
 def test_agent_ending_without_delivery_is_reminded_then_blocked(tmp_path: Path) -> None:
     config = settings(tmp_path)
     text = {"type": "text", "text": "fatto"}
@@ -481,6 +491,7 @@ def test_agent_ending_without_delivery_is_reminded_then_blocked(tmp_path: Path) 
     assert len(transport.requests) == 2
 
 
+@needs_craft
 def test_each_role_sends_its_registry_model_and_effort(tmp_path: Path) -> None:
     """With no client choice, each role's first request carries its own row of registry/roles.json."""
     registry = json.loads((REPO_ROOT / "registry/roles.json").read_text(encoding="utf-8"))["roles"]
@@ -609,6 +620,7 @@ def test_restore_closes_each_closing_tool_with_its_state(
     assert context.finished == expected
 
 
+@needs_craft
 def test_history_is_append_only_between_calls(tmp_path: Path) -> None:
     config = settings(tmp_path)
     responses = [
@@ -713,6 +725,7 @@ def test_two_zooms_with_one_corner_get_two_files(tmp_path: Path) -> None:
         assert large.size == (320, 320)
 
 
+@pytest.mark.sandbox
 def test_compute_runs_the_script_and_returns_exit_and_output(tmp_path: Path) -> None:
     box = Toolbox(bare_context(tmp_path, "identity-designer"))
     result = box.call("c1", "compute", {"code": "print(6 * 7)"})
@@ -760,6 +773,7 @@ def test_craft_run_replays_its_stored_result_on_resume(tmp_path: Path) -> None:
     assert (work / master).read_text(encoding="utf-8") == "documento costruito"
 
 
+@pytest.mark.sandbox
 def test_compute_script_lives_outside_the_work_folder(tmp_path: Path) -> None:
     """The agent's compute script lives in /ops, bound read-only, and /job has no `.ops` (SEC-001, ADR-0044).
 
@@ -904,8 +918,9 @@ def test_child_ticket_outside_org_is_refused(tmp_path: Path) -> None:
     assert "non può aprire" in Toolbox(context).call("a", "open_ticket", arguments)["content"]
 
 
-def test_sandbox_has_no_network_key_or_outside_files(tmp_path: Path) -> None:
-    os.environ["ANTHROPIC_API_KEY"] = "sk-ant-non-deve-entrare"
+@pytest.mark.sandbox
+def test_sandbox_has_no_network_key_or_outside_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-non-deve-entrare")
     outside = tmp_path / "riservato.txt"
     outside.write_text("x")
     work = tmp_path / "work"
@@ -920,10 +935,10 @@ def test_sandbox_has_no_network_key_or_outside_files(tmp_path: Path) -> None:
         "print(bool(os.statvfs('/usr').f_flag & os.ST_RDONLY))"
     )
     done = box.run(["python3", "-c", probe])
-    del os.environ["ANTHROPIC_API_KEY"]
     assert done.stdout.split() == ["None", "False", "lo", "True"]
 
 
+@pytest.mark.sandbox
 def test_sandbox_runs_in_a_new_session(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -934,6 +949,7 @@ def test_sandbox_runs_in_a_new_session(tmp_path: Path) -> None:
     assert Sandbox(work).run(["python3", "-c", probe]).stdout.split() == ["1"]
 
 
+@pytest.mark.sandbox
 def test_sandbox_writes_only_in_its_folder(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -946,6 +962,7 @@ def test_sandbox_writes_only_in_its_folder(tmp_path: Path) -> None:
     assert not Path("/etc/agency-probe").exists()
 
 
+@pytest.mark.sandbox
 def test_sandbox_tmp_is_size_limited(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -968,6 +985,7 @@ def test_sandbox_file_size_is_limited(tmp_path: Path) -> None:
     assert not (work / "x").exists() or (work / "x").stat().st_size < 3 * 2**30
 
 
+@pytest.mark.sandbox
 def test_sandbox_dev_shm_is_size_limited(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -987,6 +1005,7 @@ def test_sandbox_dev_shm_is_size_limited(tmp_path: Path) -> None:
     assert 0 < int(written) <= SHM_BYTES
 
 
+@pytest.mark.sandbox
 def test_sandbox_stops_a_command_that_prints_too_much(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -1000,6 +1019,7 @@ def test_sandbox_stops_a_command_that_prints_too_much(tmp_path: Path) -> None:
     assert not process_running("yes ycap")
 
 
+@pytest.mark.sandbox
 def test_sandbox_stops_a_command_that_prints_too_much_on_stderr(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -1012,6 +1032,7 @@ def test_sandbox_stops_a_command_that_prints_too_much_on_stderr(tmp_path: Path) 
     assert not process_running("yes boom")
 
 
+@pytest.mark.sandbox
 def test_sandbox_keeps_exactly_the_cap_of_output(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -1019,6 +1040,7 @@ def test_sandbox_keeps_exactly_the_cap_of_output(tmp_path: Path) -> None:
     assert (done.code, len(done.stdout), done.stderr) == (0, OUTPUT_BYTES, "")
 
 
+@pytest.mark.sandbox
 def test_sandbox_stops_a_command_that_prints_one_byte_over_the_cap(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -1026,6 +1048,7 @@ def test_sandbox_stops_a_command_that_prints_one_byte_over_the_cap(tmp_path: Pat
     assert (done.code, len(done.stdout)) == (125, OUTPUT_BYTES)
 
 
+@pytest.mark.sandbox
 def test_sandbox_returns_code_and_streams_of_a_normal_command(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -1034,6 +1057,7 @@ def test_sandbox_returns_code_and_streams_of_a_normal_command(tmp_path: Path) ->
     assert done == Completed(3, "out\na\nb\ufffd", "err\n")
 
 
+@pytest.mark.sandbox
 def test_sandbox_feeds_stdin_to_the_command(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -1044,6 +1068,7 @@ def test_sandbox_feeds_stdin_to_the_command(tmp_path: Path) -> None:
     assert box.run(["true"], stdin=big).code == 0  # a command that never reads is not waited on
 
 
+@pytest.mark.sandbox
 def test_sandbox_timeout_returns_124_and_leaves_nothing_running(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -1054,6 +1079,7 @@ def test_sandbox_timeout_returns_124_and_leaves_nothing_running(tmp_path: Path) 
     assert not process_running("sleep 4321")
 
 
+@pytest.mark.sandbox
 def test_sandbox_timeout_also_covers_a_command_that_prints_a_little_and_hangs(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -1078,6 +1104,7 @@ def host_cgroup(path: str) -> Path:
     return Path("/sys/fs/cgroup") / path.removeprefix("0::/").strip()
 
 
+@pytest.mark.sandbox
 def test_sandbox_runs_in_its_own_capped_scope(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -1337,6 +1364,7 @@ class Killed(Exception):
     """The process dies here: nothing after this point reaches the disk."""
 
 
+@needs_craft
 def test_an_effect_tool_records_its_result_for_resume(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1386,6 +1414,7 @@ def test_an_effect_tool_records_its_result_for_resume(
     assert len(transport.requests) == 1  # resume replayed the stored results without calling the model
 
 
+@needs_craft
 def test_reviewer_delivers_without_owning_a_master(tmp_path: Path) -> None:
     config = settings(tmp_path)
     work = config.projects_dir / "p/work"

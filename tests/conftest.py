@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
@@ -15,6 +17,7 @@ from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.views import ProjectReport
+from agency.tools.sandbox import Sandbox, SandboxUnavailable
 
 # The real registry: no test writes it. The -shm files change even on a read, so they stay out of
 # the comparison.
@@ -34,6 +37,38 @@ def _real_data() -> dict[str, tuple[int, int]]:
 
 def pytest_sessionstart(session: pytest.Session) -> None:
     session.config.stash[_REAL_DATA_KEY] = _real_data()
+
+
+def _sandbox_problem() -> str | None:
+    """None if the engine's own sandbox runs a trivial command; otherwise what went wrong, on one line."""
+    if shutil.which("bwrap") is None:
+        return "bwrap is not on PATH"
+    with tempfile.TemporaryDirectory() as work:
+        try:
+            done = Sandbox(Path(work)).run(["/usr/bin/true"], timeout=30)
+        except SandboxUnavailable as error:
+            return str(error)
+    if done.code != 0:
+        first = next((line for line in done.output.splitlines() if line.strip()), "no output")
+        return f"bwrap exited {done.code}: {first}"
+    return None
+
+
+def pytest_collection_finish(session: pytest.Session) -> None:
+    """A selected `sandbox` test needs a working sandbox: without one, the session stops at once in one line.
+
+    Those tests prove no network, no key and one writable folder, so a run that skipped them would be a false
+    green. `pytest -m "not sandbox"` is the explicit way to run without them (Q10).
+    """
+    if not any(item.get_closest_marker("sandbox") for item in session.items):
+        return
+    why = _sandbox_problem()
+    if why is not None:
+        pytest.exit(
+            f"the sandbox tests need a working bwrap sandbox, and it fails here: {why}. "
+            "Check it with `task doctor`, or run without them: pytest -m 'not sandbox'",
+            returncode=pytest.ExitCode.TESTS_FAILED,
+        )
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:

@@ -67,6 +67,9 @@ typeCheckingMode = "standard"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["tests"]
+markers = [
+  "sandbox: runs a command in the engine's bwrap sandbox; the session stops at once if the sandbox does not work",
+]
 addopts = "-q"
 
 [tool.importlinter]

@@ -6,6 +6,7 @@ import itertools
 import json
 import os
 import re
+import shutil
 import threading
 from collections.abc import Callable
 from pathlib import Path
@@ -81,6 +82,9 @@ def context(tmp_path: Path, actor: str = "identity-designer", ticket: str = "T-1
 OPERATIONS = itertools.count(1)
 
 
+needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="serve VectorCraft")
+
+
 def call(ctx: ToolContext, tool_name: str, **arguments: object) -> dict:
     """Each call has its own id: with the same id, the system repeats the first outcome, as it should."""
     return Toolbox(ctx, role_tools(ctx.actor)).call(f"t{next(OPERATIONS)}", tool_name, arguments)
@@ -136,6 +140,7 @@ def test_list_files_ignores_links_that_leave_the_work(tmp_path: Path) -> None:
     assert "link.txt" not in result
 
 
+@pytest.mark.sandbox
 def test_compute_never_writes_through_a_planted_ops_symlink(tmp_path: Path) -> None:
     """Sandboxed code plants `.ops` as a link to a host folder. The next compute writes nothing there.
 
@@ -698,6 +703,7 @@ BLOCK_AT_ONCE = {
 }
 
 
+@needs_craft
 def test_run_hands_budget_and_model_to_the_ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The declared cap and the chosen model are what the run starts under (TST-005, ADR-0043)."""
     path = cli_data(tmp_path, monkeypatch)
@@ -723,6 +729,7 @@ def test_budget_command_changes_the_cap(
     assert capsys.readouterr().out.startswith("forno: budget portato a 40.00 $")
 
 
+@needs_craft
 def test_a_brief_that_is_not_utf8_leaves_no_project(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -738,6 +745,7 @@ def test_a_brief_that_is_not_utf8_leaves_no_project(
     assert Ledger(path).runs("forno") == []
 
 
+@needs_craft
 def test_an_empty_brief_leaves_no_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from agency.runtime import open_session
 
@@ -751,6 +759,7 @@ def test_an_empty_brief_leaves_no_project(tmp_path: Path, monkeypatch: pytest.Mo
     assert Ledger(path).project("p") is None
 
 
+@needs_craft
 def test_a_refused_contract_leaves_no_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from agency.qa.delivery import ContractRefused
     from agency.runtime import open_session
@@ -775,6 +784,7 @@ def test_project_names(tmp_path: Path) -> None:
         assert repr(bad) in str(refused.value)
 
 
+@needs_craft
 def test_a_project_name_that_would_leave_projects_never_starts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -835,6 +845,7 @@ def test_an_invalid_stored_name_is_reported_not_crashed(
     assert captured.out == ""
 
 
+@needs_craft
 def test_resume_without_saved_work_says_so(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1027,6 +1038,7 @@ def test_the_project_lock_lives_under_the_data_folder(tmp_path: Path) -> None:
     assert settings(tmp_path).layout.lock(ProjectName("forno")) == tmp_path / "data" / "locks" / "forno.lock"
 
 
+@needs_craft
 def test_a_second_process_cannot_work_on_the_same_project(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

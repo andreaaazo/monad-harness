@@ -13,9 +13,9 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict
 
-from agency.contracts.run import Fingerprint, changes
+from agency.contracts.run import Fingerprint, changes, read_fingerprint
 from agency.insights import sums
 from agency.insights.behaviour import behaviour_report
 from agency.insights.domain import Call, JudgmentRecord, Provenance, RunRecord
@@ -129,19 +129,12 @@ class CompareReport(_View):
     judgments: list[BlindComparison]
 
 
-def _fingerprint(run: RunRecord) -> Fingerprint | None:
-    try:
-        return Fingerprint.model_validate_json(run.fingerprint_json)
-    except ValidationError:
-        return None
-
-
 def _executions(runs: list[RunRecord], calls: list[Call]) -> list[Execution]:
     by_run = sums.groups((call for call in calls if call.run is not None), lambda call: str(call.run))
     executions: list[Execution] = []
     previous: Fingerprint | None = None
     for run in sorted(runs, key=lambda run: run.seq):
-        current = _fingerprint(run)
+        current = read_fingerprint(run.fingerprint_json)
         spent = by_run.get(str(run.seq), [])
         executions.append(
             Execution(
@@ -193,7 +186,7 @@ def _side(name: str, data: ProjectData, provenance: Provenance) -> Side:
 
 
 def _readable(runs: list[RunRecord]) -> list[tuple[RunRecord, Fingerprint]]:
-    found = [(run, _fingerprint(run)) for run in sorted(runs, key=lambda run: run.seq)]
+    found = [(run, read_fingerprint(run.fingerprint_json)) for run in sorted(runs, key=lambda run: run.seq)]
     return [(run, print_) for run, print_ in found if print_ is not None]
 
 

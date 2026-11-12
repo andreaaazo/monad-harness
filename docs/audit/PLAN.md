@@ -1778,7 +1778,12 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Files: `src/agency/tools/sandbox.py` (`read_only`, `stdin`), `src/agency/qa/delivery.py` (`inputs_changed`),
     `src/agency/ledger/store.py` (`spent(ticket_id)`). `CommandIndex.load(app)` stays.
   - Commit: `refactor: drop parameters that no caller passes`.
-- [ ] **Task 6.6: one fingerprint reader.** Closes SIM-001.
+- [x] **Task 6.6: one fingerprint reader.** Closes SIM-001.
+  - Done: `_fingerprint` had the same body as `read_fingerprint` (Task 2.32): the same call, the same
+    `ValidationError` caught, the same input. Its two call sites now use the shared reader, and `ValidationError`
+    leaves the imports of compare.py. /ce-simplify-code (reuse, quality, efficiency) agreed and proposed nothing
+    else. The efficiency reviewer noted that each side's fingerprints are parsed twice, by `_executions` and
+    `_readable`. That is negligible for a handful of runs, and removing it would restructure beyond this task.
   - Files: `src/agency/insights/compare.py:132-136` (it uses `contracts.run.read_fingerprint` and deletes its own
     copy).
   - Commit: `refactor(insights): read fingerprints through the shared reader`.

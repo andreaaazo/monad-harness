@@ -1644,7 +1644,16 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     - `mise exec -- task check:clean` exits 0;
     - standard gate.
   - Commit: `build(gate): add a pre-commit hook and a clean-checkout check`.
-- [ ] **Task 5.12: the README gets a newcomer to a green run.** Closes DX-002, DX-013, and STR-017 (the README part).
+- [x] **Task 5.12: the README gets a newcomer to a green run.** Closes DX-002, DX-013, and STR-017 (the README part).
+  - Found while writing it:
+    - nine presentation tests need `fc-match`. With fontconfig missing they fail with
+      `No such file or directory: 'fc-match'`. The README lists fontconfig as a prerequisite instead of skipping them.
+    - the sandbox tests need the systemd user session (ADR-0046). A shell started with `env -i`, `sudo -u` or `su`
+      has no `XDG_RUNTIME_DIR` or `DBUS_SESSION_BUS_ADDRESS`, and the session stops at once with systemd's own
+      line. The README has that row in its common errors.
+  - Walk-through (2026-11-12): an index copy with `PATH=/usr/bin:/bin`, so without mise active, and warm caches.
+    `mise trust`, `make setup`, the Chromium line and `make check` reach green in 119 s: 1139 passed, and 4 skipped
+    for want of a git clone. Then the single-test commands each exit 0.
   - Files: `README.md`, in Italian.
   - Content:
     - prerequisites: mise activated, or the `make` aliases; the machine tools `task doctor` checks; and the Chromium

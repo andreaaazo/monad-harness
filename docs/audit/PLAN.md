@@ -1578,7 +1578,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     `cli.main(["--help"])` under `pytest.raises(SystemExit)`).
   - Verify: `--durations=5` no longer lists them above 0.5 s; standard gate.
   - Commit: `test(dx): keep the doctor and help tests off slow subprocesses`.
-- [ ] **Task 5.4 [APPROVAL]: a stale lock fails instead of being rewritten.** Closes DX-004 (Q12).
+- [x] **Task 5.4 [APPROVAL]: a stale lock fails instead of being rewritten.** Closes DX-004 (Q12).
   - Files:
     - `Taskfile.yml`: `setup` runs `uv sync --locked`, `UV_LOCKED: "1"` goes in `env:`, and `uv lock --check` becomes
       the first step of `check`;

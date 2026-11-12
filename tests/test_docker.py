@@ -147,6 +147,13 @@ def test_the_containers_never_run_as_root_and_django_stays_on_loopback() -> None
     assert "HOSTNAME=0.0.0.0" in web and "HOSTNAME" not in server
 
 
+def test_the_api_image_installs_the_lock_as_it_is() -> None:
+    """`--frozen` would install a stale lock without a word; `--locked` stops the build instead (DX-004)."""
+    server = dockerfile("server.Dockerfile")
+    syncs = [line for line in server.splitlines() if "uv sync" in line]
+    assert syncs and all("--locked" in line and "--frozen" not in line for line in syncs)
+
+
 def test_build_contexts_let_in_only_what_each_image_needs() -> None:
     """The context is the root, with .env, .data and the client's projects: all excluded, then let back in."""
     server, web = rules("server.Dockerfile"), rules("web.Dockerfile")

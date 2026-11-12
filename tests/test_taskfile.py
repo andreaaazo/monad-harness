@@ -18,8 +18,9 @@ import pytest
 from agency.config import REPO_ROOT
 
 TASKFILE = (REPO_ROOT / "Taskfile.yml").read_text(encoding="utf-8")
-# The commands of the old Makefile, in their order: `task check` must do exactly this.
+# The commands of `task check`, in their order: a lock check, then those of the old Makefile.
 CHECK = [
+    "uv lock --check",
     "uv run ruff check .",
     "uv run ruff format --check .",
     "uv run lint-imports",
@@ -91,6 +92,13 @@ def test_make_is_only_an_alias_of_task() -> None:
     for name in ALIASES:
         assert make(name).strip() == f"mise exec -- task {name}", name
     assert make("setup").split() == ["mise", "install", "mise", "exec", "--", "task", "setup"]
+
+
+def test_a_stale_lock_fails_instead_of_being_rewritten() -> None:
+    """`setup` installs the lock as it is, and every task runs uv with UV_LOCKED, so a pyproject.toml that the
+    lock no longer matches stops the command with uv's own line instead of rewriting uv.lock (DX-004)."""
+    assert commands("setup")[0] == "uv sync --locked"
+    assert re.search(r'^env:\n(?:  .*\n)*  UV_LOCKED: "1"$', TASKFILE, re.MULTILINE)
 
 
 def test_the_taskfile_never_loads_dotenv_and_keeps_next_telemetry_off() -> None:

@@ -7,6 +7,9 @@ version: "3"
 
 env:
   NEXT_TELEMETRY_DISABLED: "1"
+  # A stale uv.lock fails every command instead of being rewritten (DX-004). Not in mise.toml, which would reach
+  # the shell, where `uv add` and `uv lock` must keep working.
+  UV_LOCKED: "1"
 
 tasks:
   default:
@@ -18,12 +21,13 @@ tasks:
   setup:
     desc: Le dipendenze dai lock, Python con uv e web/ con pnpm
     cmds:
-      - uv sync
+      - uv sync --locked
       - pnpm --dir web install --frozen-lockfile
 
   check:
     desc: "Tutti i controlli prima di dichiarare finito un lavoro: Python, interfaccia, prove Playwright"
     cmds:
+      - uv lock --check
       - task: lint
       - task: imports
       - task: types

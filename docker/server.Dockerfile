@@ -13,9 +13,9 @@ ENV UV_PYTHON_DOWNLOADS=never UV_PYTHON=/usr/local/bin/python3 UV_COMPILE_BYTECO
 WORKDIR /app
 # First the dependencies from the lock, then the project: changing the code does not download the libraries again.
 COPY pyproject.toml uv.lock README.md ./
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-install-project
 COPY src ./src
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-editable
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-editable
 
 FROM ${PYTHON}
 COPY --from=build /app/.venv /app/.venv

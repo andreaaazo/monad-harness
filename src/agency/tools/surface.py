@@ -25,7 +25,16 @@ from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.media import media_type, open_image
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import parse_project_name
-from agency.contracts.ticket import REVIEWERS, Action, Medium, Status, TicketSpec, TicketType, Verdict
+from agency.contracts.ticket import (
+    REVIEWERS,
+    RUNNABLE,
+    Action,
+    Medium,
+    Status,
+    TicketSpec,
+    TicketType,
+    Verdict,
+)
 from agency.ledger import ForbiddenAction, IllegalTransition, Ledger
 from agency.ledger.models import ConceptRow
 from agency.qa import checks as qa
@@ -625,9 +634,7 @@ def rework_ticket(ctx: ToolContext, a: TicketRef, _: str) -> dict:
 
 def hand_off(ctx: ToolContext, a: HandOff, _: str) -> dict:
     waiting = [
-        ticket
-        for ticket in ctx.ledger.children(ctx.ticket_id)
-        if ctx.ledger.status(ticket)[0] in (Status.OPEN, Status.REWORK)
+        ticket for ticket in ctx.ledger.children(ctx.ticket_id) if ctx.ledger.status(ticket)[0] in RUNNABLE
     ]
     if not waiting:
         raise Refused("nessun ticket figlio da eseguire: apri i ticket, oppure consegna")

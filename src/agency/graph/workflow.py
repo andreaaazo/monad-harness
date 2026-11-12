@@ -25,7 +25,7 @@ from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.gate import ConceptGate, Decision, FinalGate
 from agency.contracts.outcome import OutcomeState
 from agency.contracts.project import parse_project_name
-from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
+from agency.contracts.ticket import RUNNABLE, Action, Medium, Status, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.ledger.models import GateRow
 from agency.ledger.store import now
@@ -42,8 +42,6 @@ from agency.tools.files import (
 )
 from agency.tools.sandbox import Sandbox
 from agency.tools.surface import PresentConcepts, SelectConcepts
-
-RUNNABLE = (Status.OPEN, Status.REWORK)
 
 
 class ProjectState(TypedDict):

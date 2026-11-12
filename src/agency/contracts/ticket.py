@@ -36,6 +36,10 @@ class Status(StrEnum):
     CANCELLED = "cancelled"
 
 
+# The statuses in which the assignee still works on a ticket: it can deliver or block it from there.
+RUNNABLE: frozenset[Status] = frozenset({Status.OPEN, Status.REWORK})
+
+
 class Verdict(StrEnum):
     READY = "READY"
     REVISE = "REVISE"
@@ -66,10 +70,10 @@ Party = Literal["sender", "assignee", "either"]
 
 # Who can do what, and from which state: the only definition of the lifecycle.
 TRANSITIONS: dict[Action, tuple[frozenset[Status], Status, Party]] = {
-    Action.DELIVER: (frozenset({Status.OPEN, Status.REWORK}), Status.DELIVERED, "assignee"),
+    Action.DELIVER: (RUNNABLE, Status.DELIVERED, "assignee"),
     Action.ACCEPT: (frozenset({Status.DELIVERED}), Status.ACCEPTED, "sender"),
     Action.REWORK: (frozenset({Status.DELIVERED, Status.ACCEPTED}), Status.REWORK, "sender"),
-    Action.BLOCK: (frozenset({Status.OPEN, Status.REWORK}), Status.BLOCKED, "either"),
+    Action.BLOCK: (RUNNABLE, Status.BLOCKED, "either"),
     Action.RESUME: (frozenset({Status.BLOCKED}), Status.OPEN, "either"),
     Action.CANCEL: (
         frozenset({Status.OPEN, Status.DELIVERED, Status.REWORK, Status.BLOCKED}),

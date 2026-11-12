@@ -1809,7 +1809,18 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - The members: `IDEA="idea"`, `SKETCH="schizzo"`, `SELECTED="selezionata"`, `IN_DEVELOPMENT="in-sviluppo"`,
     `PROPOSAL="proposta"` and `CHOSEN="scelta"`.
   - Commit: `refactor(contracts): type the concept status`.
-- [ ] **Task 6.8: closing behaviour is declared on each tool.** Closes SIM-010.
+- [x] **Task 6.8: closing behaviour is declared on each tool.** Closes SIM-010.
+  - Done in part, after review with /ce-simplify-code (reuse, quality, efficiency, comments).
+  - Kept: the runnable set. `RUNNABLE = frozenset({Status.OPEN, Status.REWORK})` in contracts/ticket.py replaces
+    six spellings: the DELIVER and BLOCK rows of `TRANSITIONS`, workflow.py's own `RUNNABLE`, `hand_off` in
+    surface.py and `_block` in loop.py. Every use is a membership test.
+  - Rejected: the `closes` and `conditional` fields on `Tool`. They would move `CLOSE_ALWAYS`'s six entries and
+    `_restore`'s three branches into the tool table without removing any fact. And `CLOSING` must stay a
+    hand-ordered tuple anyway, because the reminder text goes to the model and Task 1.14 pins it byte for byte.
+    `CLOSING` and `CLOSE_ALWAYS` answer different questions: what the reminder offers, in what order, and how to
+    rebuild an outcome on resume. Only the drift between them is a risk; a separate test unit covers it.
+  - Not changed: the CANCEL row and `reject_concept`'s four statuses (cancellable, a different fact) and
+    `insights.flow.UNFINISHED` (runnable plus delivered).
   - Files: `src/agency/tools/surface.py` (`Tool`, `CLOSE_ALWAYS` and `_restore`), `src/agency/agents/loop.py:25`
     (`CLOSING`), `src/agency/contracts/ticket.py` (one exported `RUNNABLE`), `src/agency/graph/workflow.py:37`.
   - Changes:

@@ -14,7 +14,7 @@ from agency.contracts import phase
 from agency.contracts.artifact import ArtifactStore
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import parse_project_name
-from agency.contracts.ticket import Action, Status, TicketSpec
+from agency.contracts.ticket import RUNNABLE, Action, TicketSpec
 from agency.gateway import CallContext, ModelGateway, ModelRequest, ModelResponse
 from agency.ledger import IllegalTransition, Ledger
 from agency.tools.craft import CommandIndex
@@ -241,7 +241,7 @@ class AgentRunner:
 
     def _block(self, context: CallContext, role: str, reason: str) -> Outcome:
         status, _ = self.ledger.status(context.ticket_id)
-        if status in (Status.OPEN, Status.REWORK):
+        if status in RUNNABLE:
             with contextlib.suppress(IllegalTransition):
                 self.ledger.apply(context.ticket_id, Action.BLOCK, role, reason)
         return Outcome(state=OutcomeState.BLOCKED, note=reason)

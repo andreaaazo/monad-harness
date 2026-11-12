@@ -23,17 +23,46 @@ tasks:
     cmds:
       - uv sync --locked
       - pnpm --dir web install --frozen-lockfile
+      # The hook is Andrea's to enable (ADR-0051): setup only says how, once, and changes no git setting.
+      - cmd: >-
+          test "$(git config core.hooksPath 2>/dev/null)" = .githooks ||
+          echo "Per i controlli veloci a ogni commit (ADR-0051), una volta sola: git config core.hooksPath .githooks"
+        silent: true
 
   check:
-    desc: "Tutti i controlli prima di dichiarare finito un lavoro: Python, interfaccia, prove Playwright"
+    desc: "Tutti i controlli prima di dichiarare finito un lavoro: i veloci, poi le prove di Python, interfaccia e Playwright"
+    # The fast checks come first, so the pre-commit hook runs exactly the start of the gate (ADR-0051).
+    cmds:
+      - task: check:fast
+      - task: test
+      - task: web:unit
+      - task: e2e
+
+  check:fast:
+    desc: "I controlli veloci dell'hook pre-commit: lock, Ruff, confini, tipi, interfaccia senza prove"
     cmds:
       - uv lock --check
       - task: lint
       - task: imports
       - task: types
-      - task: test
-      - task: web
-      - task: e2e
+      - task: web:static
+
+  check:clean:
+    desc: "setup e check su una copia di ciò che git ha nell'indice: un file che c'è solo sul disco non conta"
+    # The copy is the index, so it is HEAD plus what is staged: what the next commit would hold (DX-009). Neither
+    # command writes git's history or index, and the folder goes away even when a check fails.
+    preconditions:
+      - sh: git rev-parse --is-inside-work-tree >/dev/null 2>&1
+        msg: "check:clean copia l'indice di git: serve un clone git"
+    cmds:
+      - |
+        set -e
+        copy="$(mktemp -d)"
+        trap 'rm -rf "$copy"' EXIT
+        git checkout-index --all --prefix="$copy/"
+        cd "$copy"
+        {{.TASK_EXE}} setup
+        {{.TASK_EXE}} check
 
   lint:
     desc: Le regole e il formato di Ruff
@@ -63,15 +92,26 @@ tasks:
       - uv run pytest {{.CLI_ARGS}}
 
   web:
-    desc: "L'interfaccia senza server: tipi dallo schema, TypeScript, prove unitarie, difese di ADR-0024"
+    desc: "L'interfaccia senza server: tipi dallo schema, TypeScript, difese di ADR-0024, prove unitarie"
+    cmds:
+      - task: web:static
+      - task: web:unit
+
+  web:static:
+    internal: true
     preconditions: &modules
       - sh: test -d web/node_modules
         msg: "web/node_modules manca: esegui task setup"
     cmds:
       - pnpm --dir web run api:check
       - pnpm --dir web run typecheck
-      - pnpm --dir web run test
       - pnpm --dir web run defenses
+
+  web:unit:
+    internal: true
+    preconditions: *modules
+    cmds:
+      - pnpm --dir web run test
 
   e2e:
     desc: "Le prove Playwright, sui server veri e sulla build di produzione; per una sola: task e2e -- e2e/run.spec.ts"

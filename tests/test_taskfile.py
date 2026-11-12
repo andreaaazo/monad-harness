@@ -18,21 +18,25 @@ import pytest
 from agency.config import REPO_ROOT
 
 TASKFILE = (REPO_ROOT / "Taskfile.yml").read_text(encoding="utf-8")
-# The commands of `task check`, in their order: a lock check, then those of the old Makefile.
-CHECK = [
+# The commands of `task check`, in their order: first the fast ones, those of the pre-commit hook (ADR-0051).
+FAST = [
     "uv lock --check",
     "uv run ruff check .",
     "uv run ruff format --check .",
     "uv run lint-imports",
     "uv run pyright",
-    "uv run pytest",
     "pnpm --dir web run api:check",
     "pnpm --dir web run typecheck",
-    "pnpm --dir web run test",
     "pnpm --dir web run defenses",
+]
+CHECK = [
+    *FAST,
+    "uv run pytest",
+    "pnpm --dir web run test",
     "pnpm --dir web run build:e2e",
     "pnpm --dir web exec playwright test",
 ]
+HOOK = REPO_ROOT / ".githooks" / "pre-commit"
 ALIASES = [
     "check",
     "lint",
@@ -82,6 +86,64 @@ def test_every_command_the_studio_uses_has_its_task() -> None:
 
 def test_check_runs_every_control_in_order() -> None:
     assert commands("check") == CHECK
+
+
+def test_the_fast_checks_are_the_start_of_the_gate() -> None:
+    """The hook runs `check:fast`, so a commit it lets through has passed the first part of `task check`."""
+    assert commands("check:fast") == FAST
+    assert commands("web") == [*FAST[-3:], "pnpm --dir web run test"]
+
+
+@pytest.mark.parametrize(("status", "expected"), [(0, 0), (1, 1)])
+def test_the_pre_commit_hook_runs_the_fast_checks_through_mise(
+    tmp_path: Path, status: int, expected: int
+) -> None:
+    """A stub `mise` first on PATH stands in for the checks: the hook passes their exit status on and says
+    what to do when they fail."""
+    stub = tmp_path / "mise"
+    seen = tmp_path / "seen.txt"
+    stub.write_text(f'#!/bin/sh\necho "$@" > "{seen}"\nexit {status}\n', encoding="utf-8")
+    stub.chmod(0o755)
+    done = subprocess.run(
+        [HOOK], cwd=REPO_ROOT, env={"PATH": f"{tmp_path}:/usr/bin:/bin"}, capture_output=True, text=True
+    )
+    assert done.returncode == expected
+    assert seen.read_text(encoding="utf-8").split() == ["exec", "--", "task", "check:fast"]
+    assert ("the fast checks failed" in done.stderr) == bool(status)
+
+
+def test_the_pre_commit_hook_says_what_to_do_without_mise(tmp_path: Path) -> None:
+    done = subprocess.run([HOOK], cwd=REPO_ROOT, env={"PATH": str(tmp_path)}, capture_output=True, text=True)
+    assert done.returncode == 1
+    assert "mise is not on PATH" in done.stderr and "--no-verify" in done.stderr
+
+
+@pytest.mark.skipif(
+    shutil.which("git") is None or not (REPO_ROOT / ".git").exists(), reason="serve un clone git"
+)
+def test_check_clean_runs_setup_and_check_on_a_copy_of_the_index(tmp_path: Path) -> None:
+    """`check:clean` copies what git holds, runs `setup` and `check` there and removes the copy (DX-009).
+
+    A stub stands in for the inner `task` (Task lets TASK_EXE be set like any variable): it records where it
+    ran and what it saw, so the real gate does not run twice.
+    """
+    stub = tmp_path / "task"
+    seen = tmp_path / "seen.txt"
+    stub.write_text(
+        f'#!/bin/sh\n{{ echo "$1 $PWD"; ls -A; }} >> "{seen}"\n',
+        encoding="utf-8",
+    )
+    stub.chmod(0o755)
+    task("check:clean", f"TASK_EXE={stub}")
+    lines = seen.read_text(encoding="utf-8").splitlines()
+    runs = [line.split(" ", 1) for line in lines if line.startswith(("setup ", "check "))]
+    assert [name for name, _ in runs] == ["setup", "check"]
+    copy = Path(runs[0][1])
+    assert copy != REPO_ROOT and runs[1][1] == str(copy)
+    assert not copy.exists()
+    listed = set(lines)
+    assert {"Taskfile.yml", "pyproject.toml", "uv.lock", "web"} <= listed
+    assert not {".git", ".venv", ".task"} & listed  # on the disk of the checkout, never in its index
 
 
 def test_format_fixes_what_ruff_can_and_then_formats() -> None:

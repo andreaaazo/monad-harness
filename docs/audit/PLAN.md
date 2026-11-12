@@ -1626,8 +1626,10 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     - count only each probe's own exit status.
   - Verify: on a PATH without bwrap, the script exits 1 and prints no `ok`; with bwrap, it prints 8 `ok`.
   - Commit: `fix(spikes): run the Craft spike in the engine's own sandbox`.
-- [ ] **Task 5.11 [APPROVAL]: a pre-commit hook and a clean-checkout gate.** Closes DX-009 (Q11). New ADR, expected
-  ADR-0049 ("Il controllo gira da solo").
+- [x] **Task 5.11 [APPROVAL]: a pre-commit hook and a clean-checkout gate.** Closes DX-009 (Q11). New ADR: ADR-0051
+  ("Il controllo gira da solo"), since 0049 and 0050 were taken by Phase 2. The hook runs `task check:fast`, a new
+  task that is also the start of `task check`, so the fast checks are listed once; `check:clean` copies the index,
+  which is HEAD plus what is staged.
   - Files:
     - create `.githooks/pre-commit`. It calls `mise exec -- uv lock --check`, then `ruff check`,
       `ruff format --check`, `lint-imports`, `pyright`, `api:check`, the web typecheck and `defenses`;
@@ -1636,7 +1638,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
         `git checkout-index -a --prefix=`, into a temporary folder, runs `setup` and `check` there, and deletes the
         folder;
       - `setup` prints `git config core.hooksPath .githooks` for Andrea to run;
-    - `tests/test_taskfile.py`, `docs/adr/0049-*.md`, `docs/adr/README.md`.
+    - `tests/test_taskfile.py`, `docs/adr/0051-il-controllo-gira-da-solo.md`, `docs/adr/README.md`.
   - Verify:
     - `PATH=/usr/bin:/bin .githooks/pre-commit` exits 0 in about 10 s;
     - `mise exec -- task check:clean` exits 0;

@@ -43,7 +43,7 @@ vecchio. Date: 2026-10-31.
 | [0036](0036-la-vista-strumenti-e-qa.md) | La vista Strumenti e QA | Accettata |
 | [0037](0037-la-vista-confronto.md) | La vista Confronto | Accettata |
 | [0038](0038-la-vista-replay.md) | La vista Replay | Accettata, rovescia le trascrizioni nella proiezione di 0029 |
-| [0039](0039-taskfile-come-ingresso-unico.md) | Taskfile come ingresso unico | Accettata |
+| [0039](0039-taskfile-come-ingresso-unico.md) | Taskfile come ingresso unico | Accettata; `check` comincia con i controlli veloci dell'hook (0051) |
 | [0040](0040-il-cruscotto-in-docker.md) | Il cruscotto in Docker | Accettata, il nome della variabile dell'host passa a 0045 |
 | [0041](0041-la-tavola-del-giudizio.md) | La tavola del giudizio e il migliore coerente | Accettata, aggiunge a 0027 |
 | [0042](0042-il-riferimento-di-qualita-e-merlo3.md) | Il riferimento di qualità di E1 è `merlo3` | Accettata, sostituisce `merlo` in `07-EVALS.md` |
@@ -55,3 +55,4 @@ vecchio. Date: 2026-10-31.
 | [0048](0048-le-esecuzioni-si-registrano-e-si-ripetono.md) | Le esecuzioni si registrano e si ripetono | Accettata, sostituisce il registratore di M1: chiave per richiesta, `--record`, ripetizione nei test |
 | [0049](0049-la-catena-copre-cio-che-decide-la-consegna.md) | La catena copre ciò che decide la consegna | Accettata, estende 0047: contratto dei ticket, idee, gate e prove legati nella catena |
 | [0050](0050-la-catena-copre-anche-i-costi.md) | La catena copre anche i costi | Accettata, estende 0049: chiamate pagate e progetti legati nella catena, `operations` solo in aggiunta |
+| [0051](0051-il-controllo-gira-da-solo.md) | Il controllo gira da solo | Accettata, estende 0039: hook pre-commit con `task check:fast`, `task check:clean` sull'indice, CI con il remoto |

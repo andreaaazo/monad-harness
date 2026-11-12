@@ -1,0 +1,14 @@
+#!/bin/sh
+# The fast part of the gate before each commit (ADR-0051): `task check:fast`, the start of `task check`, in about
+# 10 s. It checks the working tree; `task check:clean` checks what git holds. Enabled once by Andrea with
+# `git config core.hooksPath .githooks`. Through mise exec it works without mise active in the shell.
+if ! command -v mise >/dev/null 2>&1; then
+  echo "pre-commit: mise is not on PATH. Install it as the README says," \
+    "or skip this check once with git commit --no-verify." >&2
+  exit 1
+fi
+if ! mise exec -- task check:fast; then
+  echo "pre-commit: the fast checks failed, so nothing was committed." \
+    "Fix what is reported above (task format fixes lint and format), then commit again." >&2
+  exit 1
+fi

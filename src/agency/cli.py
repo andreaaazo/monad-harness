@@ -29,7 +29,7 @@ from agency.evaluation import blind, board
 from agency.gateway import BudgetExceeded
 from agency.gateway.pricing import PRICES
 from agency.insights import application as insights
-from agency.insights.adapters.ledger import ReadOnlyRegistry
+from agency.insights.adapters.ledger import ReadOnlyLedger
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import JsonlTranscripts
@@ -130,7 +130,7 @@ def _report_of(settings: Settings, project: str) -> ProjectReport:
     changed."""
     projection = SqliteProjection(settings.insights_path)
     insights.current(
-        ReadOnlyRegistry(settings.ledger_path),
+        ReadOnlyLedger(settings.ledger_path),
         JsonlTraces(settings.traces_path),
         JsonlTranscripts(settings.layout),
         projection,
@@ -455,7 +455,7 @@ def _insights(_: argparse.Namespace) -> int:
     """Reads the registry read-only, so it can run while the engine works."""
     settings = Settings()
     require_registry(settings.ledger_path)
-    registry, traces = ReadOnlyRegistry(settings.ledger_path), JsonlTraces(settings.traces_path)
+    registry, traces = ReadOnlyLedger(settings.ledger_path), JsonlTraces(settings.traces_path)
     transcripts = JsonlTranscripts(settings.layout)
     built = insights.rebuild(registry, traces, transcripts, SqliteProjection(settings.insights_path), now())
     print(report.render_provenance(built, str(settings.insights_path)))
@@ -531,7 +531,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.fn(args)
-    except (LedgerMissing, LedgerOutdated, LedgerMismatch, ChainBroken, insights.RegistryNotReadable) as exc:
+    except (LedgerMissing, LedgerOutdated, LedgerMismatch, ChainBroken, insights.LedgerNotReadable) as exc:
         print(f"REGISTRO: {exc}")
         return 1
     except RelativeDataRoot as exc:  # the dashboard server prints the same line (ADR-0045)

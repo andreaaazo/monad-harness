@@ -10,7 +10,7 @@ import pytest
 from agency.config import REPO_ROOT, Settings
 from agency.contracts.layout import DataLayout
 from agency.insights import application
-from agency.insights.adapters.ledger import ReadOnlyRegistry
+from agency.insights.adapters.ledger import ReadOnlyLedger
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import JsonlTranscripts
@@ -62,7 +62,7 @@ def report_of(tmp_path: Path) -> Callable[[Path, str], ProjectReport]:
         projection = SqliteProjection(tmp_path / "insights.sqlite")
         traces, transcripts = JsonlTraces(tmp_path / "traces.jsonl"), JsonlTranscripts(DataLayout(tmp_path))
         application.rebuild(
-            ReadOnlyRegistry(ledger), traces, transcripts, projection, "2026-11-02T12:00:00+00:00"
+            ReadOnlyLedger(ledger), traces, transcripts, projection, "2026-11-02T12:00:00+00:00"
         )
         return application.report(projection, project)
 

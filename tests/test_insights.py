@@ -24,7 +24,7 @@ from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.insights import application
-from agency.insights.adapters.ledger import ReadOnlyRegistry
+from agency.insights.adapters.ledger import ReadOnlyLedger
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import JsonlTranscripts
@@ -50,7 +50,7 @@ from agency.insights.domain import (
     derive_phase,
     project_calls,
 )
-from agency.insights.ports import RegistrySnapshot
+from agency.insights.ports import LedgerSnapshot
 from agency.ledger import Ledger
 from agency.ledger.models import EvidenceRow, TicketRow, UsageRow
 from agency.ledger.schema import head
@@ -495,7 +495,7 @@ def test_the_registry_reader_reads_and_cannot_write(tmp_path: Path) -> None:
     path = tmp_path / "ledger.sqlite"
     filled_registry(path).engine.dispose()
     before = digest(path)
-    registry = ReadOnlyRegistry(path)
+    registry = ReadOnlyLedger(path)
 
     (row,) = registry.read().usage
 
@@ -556,7 +556,7 @@ def test_the_registry_reader_reads_the_life_of_tickets_and_why_they_went_back(tm
     ledger.add_evidence(evidence(ticket_id, "svg_audit", "PASS", "ok"))
     ledger.engine.dispose()
 
-    events = ReadOnlyRegistry(tmp_path / "ledger.sqlite").read().events
+    events = ReadOnlyLedger(tmp_path / "ledger.sqlite").read().events
 
     assert [
         (event.project, event.ticket_id, event.actor, event.action, event.reason) for event in events
@@ -591,7 +591,7 @@ def test_the_registry_reader_reads_every_execution_with_its_fingerprint(tmp_path
     second = ledger.record_run("merlo4", RunCommand.DECIDE, fingerprint(explorers=3))
     ledger.engine.dispose()
 
-    runs = ReadOnlyRegistry(tmp_path / "ledger.sqlite").read().runs
+    runs = ReadOnlyLedger(tmp_path / "ledger.sqlite").read().runs
 
     assert [(run.seq, run.project, run.command, run.digest) for run in runs] == [
         (first, "merlo4", "run", fingerprint().digest()),
@@ -607,7 +607,7 @@ def test_the_registry_reader_reads_every_check_with_its_result_and_reason(tmp_pa
     ledger.add_evidence(evidence(ticket_id, "svg_audit", "PASS", ""))
     ledger.engine.dispose()
 
-    checks = ReadOnlyRegistry(tmp_path / "ledger.sqlite").read().checks
+    checks = ReadOnlyLedger(tmp_path / "ledger.sqlite").read().checks
 
     assert [
         (item.project, item.ticket_id, item.file, item.check_name, item.result, item.reason)
@@ -635,15 +635,15 @@ def test_the_registry_reader_works_while_the_engine_is_writing(tmp_path: Path) -
     thread.start()
     assert writing.wait(timeout=10), "the engine never took the write lock: nothing was read while it wrote"
     try:
-        assert len(ReadOnlyRegistry(path).read().usage) == 1
+        assert len(ReadOnlyLedger(path).read().usage) == 1
     finally:
         done.set()
         thread.join()
 
 
 def test_a_missing_registry_is_explained(tmp_path: Path) -> None:
-    with pytest.raises(application.RegistryNotReadable, match="non esiste"):
-        ReadOnlyRegistry(tmp_path / "ledger.sqlite").revision()
+    with pytest.raises(application.LedgerNotReadable, match="non esiste"):
+        ReadOnlyLedger(tmp_path / "ledger.sqlite").revision()
 
 
 def test_a_registry_that_cannot_be_opened_is_explained_not_crashed(tmp_path: Path) -> None:
@@ -655,10 +655,10 @@ def test_a_registry_that_cannot_be_opened_is_explained_not_crashed(tmp_path: Pat
     assert not (folder / "ledger.sqlite-shm").exists()
     folder.chmod(0o555)
     try:
-        registry = ReadOnlyRegistry(folder / "ledger.sqlite")
-        with pytest.raises(application.RegistryNotReadable, match="non si apre"):
+        registry = ReadOnlyLedger(folder / "ledger.sqlite")
+        with pytest.raises(application.LedgerNotReadable, match="non si apre"):
             registry.revision()
-        with pytest.raises(application.RegistryNotReadable, match="non si apre"):
+        with pytest.raises(application.LedgerNotReadable, match="non si apre"):
             registry.read()
     finally:
         folder.chmod(0o755)
@@ -681,9 +681,9 @@ class FakeRegistry:
     def revision(self) -> str | None:
         return self._revision
 
-    def read(self) -> RegistrySnapshot:
+    def read(self) -> LedgerSnapshot:
         calls = [usage(), usage(seq=2, request_id="req_2", phase="director-plan", duration_ms=10)]
-        return RegistrySnapshot(
+        return LedgerSnapshot(
             usage=calls,
             tickets=TICKETS,
             projects=[],
@@ -703,7 +703,7 @@ def test_rebuild_refuses_a_registry_it_does_not_know(
     tmp_path: Path, revision: str | None, advice: str
 ) -> None:
     projection = SqliteProjection(tmp_path / "insights.sqlite")
-    with pytest.raises(application.RegistryNotReadable, match=advice):
+    with pytest.raises(application.LedgerNotReadable, match=advice):
         application.rebuild(
             FakeRegistry(revision),
             JsonlTraces(tmp_path / "t.jsonl"),
@@ -977,7 +977,7 @@ def test_ticket_10000_is_listed_after_ticket_9999_by_the_registry_reader_and_the
         session.commit()
     ledger.engine.dispose()
 
-    snapshot = ReadOnlyRegistry(path).read()
+    snapshot = ReadOnlyLedger(path).read()
     assert list(snapshot.tickets) == ["T-9999", "T-10000"]
 
     projection = SqliteProjection(tmp_path / "insights.sqlite")

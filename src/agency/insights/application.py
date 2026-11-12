@@ -16,10 +16,10 @@ from agency.insights.domain import (
 )
 from agency.insights.flow import FlowReport, flow_report
 from agency.insights.ports import (
+    LedgerReader,
     ProjectionReader,
     ProjectionStore,
     ProjectionWriter,
-    RegistryReader,
     TraceReader,
     TranscriptReader,
 )
@@ -32,7 +32,7 @@ from agency.insights.views import ProjectReport, ProjectSummary, project_report,
 READS_REVISION = "0008"
 
 
-class RegistryNotReadable(Exception):
+class LedgerNotReadable(Exception):
     """The registry is missing, or not at the revision insights can read."""
 
 
@@ -50,25 +50,23 @@ def _why(revision: str | None) -> str:
     return f"registro alla revisione {revision}, più nuova della {READS_REVISION}: aggiorna insights"
 
 
-def _stamps(
-    registry: RegistryReader, traces: TraceReader, transcripts: TranscriptReader
-) -> list[SourceStamp]:
+def _stamps(registry: LedgerReader, traces: TraceReader, transcripts: TranscriptReader) -> list[SourceStamp]:
     return registry.stamp() + traces.stamp() + transcripts.stamp()
 
 
 def rebuild(
-    registry: RegistryReader,
+    registry: LedgerReader,
     traces: TraceReader,
     transcripts: TranscriptReader,
     projection: ProjectionWriter,
     built_at: str,
 ) -> Provenance:
-    """Rebuilds the whole projection, or raises `RegistryNotReadable` for a registry at another revision."""
+    """Rebuilds the whole projection, or raises `LedgerNotReadable` for a registry at another revision."""
     # Stamped before reading: a write in the meantime shows up as a change next time.
     sources = _stamps(registry, traces, transcripts)
     revision = registry.revision()
     if revision != READS_REVISION:
-        raise RegistryNotReadable(_why(revision))
+        raise LedgerNotReadable(_why(revision))
     snapshot, reading, conversations = registry.read(), traces.read(), transcripts.read()
     calls = project_calls(snapshot.usage, snapshot.tickets, reading.measures)
     projected = Projected(
@@ -96,7 +94,7 @@ def rebuild(
 
 
 def current(
-    registry: RegistryReader,
+    registry: LedgerReader,
     traces: TraceReader,
     transcripts: TranscriptReader,
     projection: ProjectionStore,

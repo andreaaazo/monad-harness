@@ -20,7 +20,7 @@ from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, changes
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.gateway import BudgetExceeded
-from agency.insights.adapters.ledger import ReadOnlyRegistry
+from agency.insights.adapters.ledger import ReadOnlyLedger
 from agency.insights.domain import derive_phase
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
@@ -733,7 +733,7 @@ def test_insights_derives_the_phase_the_engine_recorded_for_every_call(tmp_path:
     session = open_session(config, Router(full_script()))
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "Mi piace la X", "X")
-    snapshot = ReadOnlyRegistry(config.ledger_path).read()
+    snapshot = ReadOnlyLedger(config.ledger_path).read()
     tickets, calls = snapshot.tickets, snapshot.usage
     assert len({call.phase for call in calls}) == 10
     for call in calls:

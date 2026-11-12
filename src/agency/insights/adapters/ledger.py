@@ -14,7 +14,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from agency.insights.adapters.stamps import stamp
-from agency.insights.application import RegistryNotReadable
+from agency.insights.application import LedgerNotReadable
 from agency.insights.domain import (
     SETBACKS,
     CheckRecord,
@@ -29,7 +29,7 @@ from agency.insights.domain import (
     TicketRecord,
     UsageRecord,
 )
-from agency.insights.ports import RegistrySnapshot
+from agency.insights.ports import LedgerSnapshot
 
 BUSY_SECONDS = 30
 # The columns are named one by one, from the model, so a new registry column cannot slip in unseen.
@@ -82,8 +82,8 @@ class _StoredCard(BaseModel):
     concept: str = ""  # an idea not delivered yet has an empty card
 
 
-class ReadOnlyRegistry:
-    """The `RegistryReader` on the SQLite file, which it never writes."""
+class ReadOnlyLedger:
+    """The `LedgerReader` on the SQLite file, which it never writes."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -93,7 +93,7 @@ class ReadOnlyRegistry:
         creates it: if the folder is not writable SQLite cannot open it, and the registry is reported as
         unreadable."""
         if not self.path.is_file():
-            raise RegistryNotReadable(f"il registro {self.path} non esiste")
+            raise LedgerNotReadable(f"il registro {self.path} non esiste")
         connection = sqlite3.connect(
             f"{self.path.resolve().as_uri()}?mode=ro", uri=True, timeout=BUSY_SECONDS
         )
@@ -103,7 +103,7 @@ class ReadOnlyRegistry:
             connection.execute("SELECT count(*) FROM sqlite_master").fetchone()
         except sqlite3.OperationalError as exc:
             connection.close()
-            raise RegistryNotReadable(f"il registro {self.path} non si apre: {exc}") from exc
+            raise LedgerNotReadable(f"il registro {self.path} non si apre: {exc}") from exc
         return connection
 
     def stamp(self) -> list[SourceStamp]:
@@ -124,12 +124,12 @@ class ReadOnlyRegistry:
             row = connection.execute(REVISION).fetchone()
             return row[0] if row else None
 
-    def read(self) -> RegistrySnapshot:
+    def read(self) -> LedgerSnapshot:
         with closing(self.connect()) as connection:
             connection.row_factory = sqlite3.Row
             connection.execute("BEGIN")  # one snapshot of everything that is read
             try:
-                return RegistrySnapshot(
+                return LedgerSnapshot(
                     usage=[UsageRecord.model_validate(dict(row)) for row in connection.execute(USAGE)],
                     tickets={ticket.id: ticket for ticket in map(_ticket, connection.execute(TICKETS))},
                     projects=[
@@ -148,7 +148,7 @@ class ReadOnlyRegistry:
                     runs=[RunRecord.model_validate(dict(row)) for row in connection.execute(RUNS)],
                 )
             except sqlite3.OperationalError as exc:
-                raise RegistryNotReadable(f"il registro non si legge come atteso: {exc}") from exc
+                raise LedgerNotReadable(f"il registro non si legge come atteso: {exc}") from exc
             finally:
                 connection.rollback()
 

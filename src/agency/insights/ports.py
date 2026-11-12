@@ -27,7 +27,7 @@ from agency.insights.domain import (
 )
 
 
-class RegistrySnapshot(BaseModel):
+class LedgerSnapshot(BaseModel):
     """What insights reads from the registry, in one transaction: a consistent snapshot."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -78,7 +78,7 @@ class TranscriptReading(BaseModel):
     unreadable: int
 
 
-class RegistryReader(Protocol):
+class LedgerReader(Protocol):
     def stamp(self) -> list[SourceStamp]:
         """The registry's files as they are now: if they change, the projection is stale."""
         ...
@@ -87,7 +87,7 @@ class RegistryReader(Protocol):
         """The registry's revision, or None if it predates the migrations."""
         ...
 
-    def read(self) -> RegistrySnapshot: ...
+    def read(self) -> LedgerSnapshot: ...
 
 
 class TraceReader(Protocol):

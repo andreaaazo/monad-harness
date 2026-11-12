@@ -1494,7 +1494,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
 
 ## Phase 4: file structure
 
-- [ ] **Task 4.1: the insights ledger reader gets the name ledger.** Closes STR-009 (Q18).
+- [x] **Task 4.1: the insights ledger reader gets the name ledger.** Closes STR-009 (Q18).
   - Files:
     - move `src/agency/insights/adapters/registry.py` to `adapters/ledger.py`, with plain `mv`;
     - in `ports.py`, `application.py` and `domain.py`: `RegistryReader` → `LedgerReader`, `RegistrySnapshot` →

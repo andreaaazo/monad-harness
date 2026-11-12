@@ -12,7 +12,7 @@ from ninja import NinjaAPI, Schema, Status
 from agency.contracts.layout import DataLayout
 from agency.contracts.project import parse_project_name
 from agency.insights import application
-from agency.insights.adapters.ledger import ReadOnlyRegistry
+from agency.insights.adapters.ledger import ReadOnlyLedger
 from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import IMAGE_TYPES, JsonlTranscripts
@@ -50,7 +50,7 @@ def _projection() -> SqliteProjection:
     """The up-to-date projection: rebuilt only if the registry, the traces or the transcripts changed."""
     layout = _layout()
     projection = SqliteProjection(layout.insights)
-    registry, traces = ReadOnlyRegistry(layout.ledger), JsonlTraces(layout.traces)
+    registry, traces = ReadOnlyLedger(layout.ledger), JsonlTraces(layout.traces)
     transcripts = JsonlTranscripts(layout)
     with _refresh:
         built_at = datetime.now(UTC).isoformat(timespec="seconds")
@@ -58,8 +58,8 @@ def _projection() -> SqliteProjection:
     return projection
 
 
-@api.exception_handler(application.RegistryNotReadable)
-def registry_not_readable(request: HttpRequest, exc: application.RegistryNotReadable) -> HttpResponse:
+@api.exception_handler(application.LedgerNotReadable)
+def registry_not_readable(request: HttpRequest, exc: application.LedgerNotReadable) -> HttpResponse:
     """An unreadable registry is a 503 with a `Problem`, the shape every route declares for it."""
     return api.create_response(request, Problem(detail=str(exc)), status=503)
 

@@ -1,4 +1,4 @@
-"""Comandi dell'harness."""
+"""The harness's commands: the `agency` CLI."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ from agency.ledger.store import now
 from agency.telemetry import report
 from agency.tools.sandbox import JOB, Sandbox, SandboxUnavailable, scope_problem
 
-if TYPE_CHECKING:  # la sessione carica il motore: i comandi leggeri non la importano
+if TYPE_CHECKING:  # the session loads the engine: the light commands do not import it
     from agency.runtime import Session
 
 LOGO_OUTPUTS = ["source/segno.vectorcraft", "exports/segno.svg", "construction.md"]
@@ -126,7 +126,8 @@ def _migrate(_: argparse.Namespace) -> int:
 
 
 def _report_of(settings: Settings, project: str) -> ProjectReport:
-    """Il rapporto passa da insights, come il cruscotto: la proiezione si rifà se il registro è cambiato."""
+    """The report goes through insights, like the dashboard's: the projection is rebuilt if the registry
+    changed."""
     projection = SqliteProjection(settings.insights_path)
     insights.current(
         ReadOnlyRegistry(settings.ledger_path),
@@ -157,7 +158,7 @@ def _show(session: Session, project: ProjectName) -> int:
 
 
 def _guarded(project: ProjectName, session: Session, action: Callable[[], str]) -> int:
-    """Il budget finito non è un errore: il lavoro resta salvato e la scelta passa al cliente."""
+    """A spent budget is not an error: the work stays saved, and the choice passes to the client."""
     try:
         outcome = action()
     except BudgetExceeded as exc:
@@ -181,7 +182,7 @@ def _guarded(project: ProjectName, session: Session, action: Callable[[], str]) 
 
 
 def _dollars(text: str) -> float:
-    """Un tetto di spesa: un importo positivo e finito. Zero, negativi, `nan` e `inf` non sono tetti."""
+    """A spending cap: a positive, finite amount. Zero, negatives, `nan` and `inf` are not caps."""
     try:
         amount = float(text)
     except ValueError:
@@ -299,9 +300,8 @@ def _decide_locked(args: argparse.Namespace) -> int:
         return 1
     gate = waiting[0]
     choice = (args.choice or "").strip().upper()
-    if (
-        args.approve and isinstance(gate, ConceptGate) and choice not in gate.options
-    ):  # altrimenti si riesplora
+    # Without a valid choice, an approval at the concept gate would send the work back to exploration.
+    if args.approve and isinstance(gate, ConceptGate) and choice not in gate.options:
         print(f"Al gate concept scegli una proposta con --choice: {', '.join(gate.options)}")
         return 1
     action = lambda: session.decide(args.project, args.approve, args.text, choice)  # noqa: E731
@@ -407,7 +407,7 @@ def _judge(args: argparse.Namespace) -> int:
         altered = blind.changed(assigned, copies)
         if altered:
             raise blind.CannotCompare(f"le copie {', '.join(altered)} sono cambiate durante il giudizio")
-        for item, copy in zip(assigned.values(), copies, strict=True):  # si conserva ciò che si è guardato
+        for item, copy in zip(assigned.values(), copies, strict=True):  # keep exactly what was looked at
             judged = item.judged
             keeping.keep(
                 store,
@@ -452,7 +452,7 @@ def _restore(args: argparse.Namespace) -> int:
 
 
 def _insights(_: argparse.Namespace) -> int:
-    """Legge il registro in sola lettura: si può usare anche mentre il motore lavora."""
+    """Reads the registry read-only, so it can run while the engine works."""
     settings = Settings()
     require_registry(settings.ledger_path)
     registry, traces = ReadOnlyRegistry(settings.ledger_path), JsonlTraces(settings.traces_path)
@@ -463,6 +463,7 @@ def _insights(_: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """The `agency` command; returns its exit code."""
     parser = argparse.ArgumentParser(prog="agency", description=DESCRIPTION)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor", help="controlla strumenti e configurazione").set_defaults(fn=_doctor)

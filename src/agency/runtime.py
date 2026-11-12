@@ -1,4 +1,4 @@
-"""Assembla i pezzi di una sessione di lavoro. I test ci passano un trasporto registrato."""
+"""Assembles the parts of a working session. Tests pass it a recorded transport."""
 
 from __future__ import annotations
 
@@ -30,14 +30,14 @@ from agency.telemetry import configure, fingerprint
 from agency.tools.craft import CommandIndex
 from agency.tools.files import replace_under, sha256_under
 
-# Valore tecnico richiesto da LangGraph, irraggiungibile: a fermare il lavoro è solo il budget del cliente.
+# A technical value LangGraph requires, never reached: only the client's budget stops the work.
 GRAPH_STEPS = 100_000
 
 
 def _outcome(result: dict[str, Any] | None) -> str:
-    """L'esito del progetto dallo stato finale del grafo: vuoto se il lavoro aspetta il cliente.
+    """The project's outcome from the graph's final state: empty if the work waits for the client.
 
-    LangGraph restituisce lo stato come dict, o niente se non c'era nulla da eseguire: è il confine.
+    LangGraph returns the state as a dict, or nothing if there was nothing to run: this is the boundary.
     """
     return str((result or {}).get("outcome", ""))
 
@@ -55,8 +55,8 @@ class ProjectBusy(Exception):
 
 
 class ProjectLock:
-    """A non-blocking claim on a lock file for as long as the `with` block runs: exclusive, or shared with
-    the other shared claims (the registry's, 2.F63).
+    """A claim that never waits, on a lock file, for as long as the `with` block runs: exclusive, or shared
+    with the other shared claims (the registry's, 2.F63).
 
     `flock` is released by the kernel when the process ends, so a crash never leaves a stale lock.
     """
@@ -86,6 +86,9 @@ class ProjectLock:
 
 @dataclass
 class Session:
+    """A working session on the registry and the graph. `start`, `resume` and `decide` each record a run,
+    with its fingerprint, before the graph works."""
+
     settings: Settings
     ledger: Ledger
     graph: Graph
@@ -101,7 +104,7 @@ class Session:
         }
 
     def _record(self, project: str, command: RunCommand) -> None:
-        """Prima che il grafo lavori: anche un'esecuzione interrotta dal budget ha la sua impronta."""
+        """Before the graph works, so even a run stopped by the budget has its fingerprint."""
         choice = self.ledger.project(project)
         model, effort = (choice.model, choice.effort) if choice else ("", "")
         run = self.ledger.record_run(project, command, fingerprint.take(self.settings, model, effort))
@@ -122,7 +125,7 @@ class Session:
         model: str = "",
         effort: str = "",
     ) -> str:
-        """`budget` è il tetto dichiarato da chi avvia, in dollari: non ha un valore di default (ADR-0043)."""
+        """`budget` is the cap in dollars that whoever starts the project declares: no default (ADR-0043)."""
         folder = parse_project_name(project)  # before anything is read or written (COR-013)
         try:
             request = brief.read_text(encoding="utf-8")
@@ -176,7 +179,10 @@ class Session:
 
 
 def open_session(settings: Settings, transport: Transport | None = None, record: bool = False) -> Session:
-    """`record` writes each run's answers to its cassette under the data root, for replay in tests."""
+    """Assembles a session: ledger, gateway, agent runner and checkpointed graph.
+
+    `record` writes each run's answers to its cassette under the data root, for replay in tests.
+    """
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     configure(settings.traces_path)
     ledger = Ledger(settings.ledger_path)

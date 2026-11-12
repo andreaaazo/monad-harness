@@ -1,4 +1,4 @@
-"""Verifica di sola lettura dell'ambiente. Interroga solo CLI note: mai launcher sconosciuti."""
+"""A read-only check of the environment. It asks only known CLIs, never unknown launchers."""
 
 from __future__ import annotations
 
@@ -28,6 +28,8 @@ BINARIES: tuple[tuple[str, bool, str], ...] = (
 
 @dataclass(frozen=True)
 class Finding:
+    """One line of `agency doctor`: what is checked, whether it is there, whether it is required, and why."""
+
     name: str
     ok: bool
     required: bool
@@ -49,6 +51,7 @@ def _gpu() -> str:
 
 
 def run_checks(settings: Settings | None = None) -> list[Finding]:
+    """The machine's findings, read-only: the known CLIs, the API key, the sandbox caps and the GPU."""
     settings = settings or Settings()
     findings = [
         Finding(name, shutil.which(name) is not None, required, why) for name, required, why in BINARIES

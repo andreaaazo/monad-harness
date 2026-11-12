@@ -1,4 +1,4 @@
-"""Configurazione da ambiente o `.env`. La chiave API non viene mai stampata né registrata."""
+"""Settings from the environment or `.env`. The API key is never printed or logged."""
 
 from __future__ import annotations
 
@@ -44,6 +44,9 @@ class _KeyOnlyDotEnv(DotEnvSettingsSource):
 
 
 class Settings(BaseSettings):
+    """The engine's settings: `AGENCY_*` environment variables, and the API key from the environment or
+    `.env`, which may hold nothing else (ADR-0045)."""
+
     model_config = SettingsConfigDict(env_file=CHECKOUT / ".env", env_prefix="AGENCY_", extra="ignore")
 
     data_dir: Path = Field(default_factory=data_root)

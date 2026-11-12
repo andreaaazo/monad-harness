@@ -1430,7 +1430,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
   `sandbox.py`.
   - No class docstring on any tool-input model: use `#` comments.
   - Commit: `docs(tools): translate comments and docstrings to English`.
-- [ ] **Task 3.16: the top-level modules.** Closes CMT-009 for `cli.py`, `config.py`, `doctor.py`, `runtime.py`,
+- [x] **Task 3.16: the top-level modules.** Closes CMT-009 for `cli.py`, `config.py`, `doctor.py`, `runtime.py`,
   `__init__.py` and `context/__init__.py`.
   - The CLI help is safe after 3.1; keep every printed string.
   - Commit: `docs(engine): translate the top-level modules' comments and docstrings to English`.

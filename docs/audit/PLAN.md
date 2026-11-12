@@ -1787,7 +1787,16 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Files: `src/agency/insights/compare.py:132-136` (it uses `contracts.run.read_fingerprint` and deletes its own
     copy).
   - Commit: `refactor(insights): read fingerprints through the shared reader`.
-- [ ] **Task 6.7: the concept status is a type.** Closes SIM-009.
+- [x] **Task 6.7: the concept status is a type.** Closes SIM-009.
+  - Done: `ConceptStatus(StrEnum)` in contracts/concept.py owns the six values. The ten places that spelled them
+    use it: the `ConceptRow.status` default, 3 in tools/surface.py and 6 in graph/workflow.py. `ConceptRow.status`
+    keeps its `str` column type, because an Enum column would need a migration. A `StrEnum` member compares equal
+    to the stored string and serializes to the same bytes in the chain (`chain.canonical` is `json.dumps`), so
+    stored rows, chain hashes and request snapshots are unchanged. tests/test_vocabulary.py pins the six values.
+  - /ce-simplify-code reviewers (reuse, quality, efficiency, test value): no existing enum covers these values,
+    and `TicketType`'s three equal words belong to another lifecycle. Rejected: writing `.value` at each writer,
+    a matter of taste that gives the same bytes. Noted, not changed: `update_concept(**fields: object)` stays
+    untyped, so the enum documents the values but cannot reject a wrong one there.
   - Before the change, a characterization test. No test asserted two of the six values: "idea", the default of a
     new concept row, and "scelta", which production writes for the client's choice. Found by the test-value
     reviewer of /ce-simplify-code. They are now pinned:

@@ -5,6 +5,8 @@ from __future__ import annotations
 from sqlalchemy import Index
 from sqlmodel import Field, SQLModel
 
+from agency.contracts.concept import ConceptStatus
+
 
 class ProjectRow(SQLModel, table=True):
     """The client's choices for a project: they still hold after an interruption."""
@@ -143,7 +145,7 @@ class ConceptRow(SQLModel, table=True):
     idea_ticket: str
     sketch_ticket: str = ""
     sketch_file: str = ""
-    status: str = "idea"
+    status: str = ConceptStatus.IDEA
 
 
 class GateRow(SQLModel, table=True):

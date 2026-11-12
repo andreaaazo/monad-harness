@@ -21,7 +21,7 @@ from agency import registry
 from agency.artifacts import keeping
 from agency.config import Settings
 from agency.contracts.artifact import ArtifactStore, Origin
-from agency.contracts.concept import ConceptCard
+from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.media import media_type, open_image
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import parse_project_name
@@ -747,7 +747,7 @@ def submit_concept(ctx: ToolContext, a: ConceptCard, _: str) -> dict:
         ctx.warned_sketch = digest
         raise Refused(warning)
     kept = ctx.keep(present, Origin.DELIVERY)
-    ctx.ledger.update_concept(ctx.ticket_id, card_json=a.model_dump_json(), status="schizzo")
+    ctx.ledger.update_concept(ctx.ticket_id, card_json=a.model_dump_json(), status=ConceptStatus.SKETCH)
     ctx.ledger.apply(ctx.ticket_id, Action.DELIVER, ctx.actor, a.concept, delivered=kept)
     ctx.finished = Outcome(state=OutcomeState.DELIVERED, note=a.concept)
     return {"ok": True}
@@ -790,7 +790,7 @@ def select_concepts(ctx: ToolContext, a: SelectConcepts, _: str) -> dict:
                 "avanti. Scegli tra quelli che passano, o passa chosen vuoto per esplorare di nuovo."
             )
     for anon in a.chosen:
-        ctx.ledger.update_concept(available[anon].idea_ticket, status="selezionata")
+        ctx.ledger.update_concept(available[anon].idea_ticket, status=ConceptStatus.SELECTED)
     state = OutcomeState.SELECTED if a.chosen else OutcomeState.NO_CONCEPT
     ctx.finished = Outcome(state=state, note=a.model_dump_json())
     return a.model_dump()
@@ -808,7 +808,11 @@ def _delivered_proposal(ctx: ToolContext, letter: str) -> dict[str, str]:
 
 def draft_presentation(ctx: ToolContext, a: PresentConcepts, _: str) -> dict:
     """Builds the real pages: the director sees what the client will see, not the texts the director wrote."""
-    available = {row.anon for row in ctx.ledger.concepts(ctx.project, ctx.round) if row.status == "proposta"}
+    available = {
+        row.anon
+        for row in ctx.ledger.concepts(ctx.project, ctx.round)
+        if row.status == ConceptStatus.PROPOSAL
+    }
     letters = [item.letter for item in a.proposals]
     unknown = sorted(set(letters) - available)
     if unknown:

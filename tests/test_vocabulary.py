@@ -13,6 +13,7 @@ from enum import StrEnum
 import pytest
 
 from agency.config import REPO_ROOT
+from agency.contracts.concept import ConceptStatus
 from agency.contracts.judgment import Level
 from agency.contracts.outcome import OutcomeState
 from agency.contracts.run import RunCommand
@@ -35,6 +36,7 @@ VALUES: dict[type[StrEnum], set[str]] = {
         "schizzo",
         "proposta",
     },
+    ConceptStatus: {"idea", "schizzo", "selezionata", "in-sviluppo", "proposta", "scelta"},
     Medium: {"vettoriale", "motion", "immagine", "interfaccia", "3d", "nessuno"},
     Verdict: {"READY", "REVISE", "NOT_VERIFIED"},
     Status: {"open", "delivered", "accepted", "rework", "blocked", "cancelled"},

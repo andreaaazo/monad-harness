@@ -21,7 +21,7 @@ from langgraph.types import Send, interrupt
 
 from agency.agents.loop import AgentRunner
 from agency.config import Settings
-from agency.contracts.concept import ConceptCard
+from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.gate import ConceptGate, Decision, FinalGate
 from agency.contracts.outcome import OutcomeState
 from agency.contracts.project import parse_project_name
@@ -220,11 +220,11 @@ def build(
         applications = json.loads(
             read_under(work, f"explorations/r{turn}/applicazioni.json", MAX_TEXT_FILE_BYTES).decode("utf-8")
         )
-        chosen = [row for row in ledger.concepts(project, turn) if row.status == "selezionata"]
+        chosen = [row for row in ledger.concepts(project, turn) if row.status == ConceptStatus.SELECTED]
         for row in sorted(chosen, key=lambda item: item.anon):
             title = f"Proposta {row.anon} r{turn}"
             if title in existing:  # a replay: the ticket was opened, the status may not have been set
-                ledger.update_concept(row.idea_ticket, status="in-sviluppo")
+                ledger.update_concept(row.idea_ticket, status=ConceptStatus.IN_DEVELOPMENT)
                 continue
             letter = row.anon.lower()
             workspace = f"proposals/r{turn}/{letter}"
@@ -260,7 +260,7 @@ def build(
             )
             hashes = {path: sha256_under(work, f"{workspace}/{path}") for path in spec.inputs}
             ledger.open(spec, project, hashes)
-            ledger.update_concept(row.idea_ticket, status="in-sviluppo")
+            ledger.update_concept(row.idea_ticket, status=ConceptStatus.IN_DEVELOPMENT)
         return {}
 
     def send_proposals(state: ProjectState) -> list[Send] | str:
@@ -283,7 +283,7 @@ def build(
             if ledger.status(ticket)[0] is not Status.ACCEPTED:
                 continue
             row = concepts[title]
-            ledger.update_concept(row.idea_ticket, status="proposta")
+            ledger.update_concept(row.idea_ticket, status=ConceptStatus.PROPOSAL)
             mark, applications = presentation.proposal_files(
                 work_dir(project), turn, row.anon, ledger.delivered(ticket)
             )
@@ -297,7 +297,7 @@ def build(
                 f"Fatto: {card.client_fact}",
                 "",
             ]
-        ready = [row for row in ledger.concepts(project, turn) if row.status == "proposta"]
+        ready = [row for row in ledger.concepts(project, turn) if row.status == ConceptStatus.PROPOSAL]
         if not ready:
             return {"route": END, "outcome": "bloccato: nessuna proposta è stata sviluppata"}
         outcome = runner.run(root, turn, "\n".join(lines), mode="present")
@@ -353,7 +353,7 @@ def build(
         project, turn, root = state["project"], state["exploration"], state["root"]
         spec = ledger.spec(root)
         row = next(item for item in ledger.concepts(project, turn) if item.anon == state["chosen"])
-        ledger.update_concept(row.idea_ticket, status="scelta")
+        ledger.update_concept(row.idea_ticket, status=ConceptStatus.CHOSEN)
         title = f"Rifinitura {row.anon} r{turn}"  # per round: a rejected concept makes way for the new one
         if any(ledger.spec(ticket).title == title for ticket in ledger.children(root)):
             return {"client_note": ""}

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Collaudo ADR-0005: Craft e Blender in bwrap, senza rete, con una sola cartella scrivibile.
-# Non usa l'API e non scrive fuori dalla cartella temporanea.
+# ADR-0005 acceptance test: Craft and Blender in bwrap, with no network and a single writable folder.
+# It does not use the API and writes nothing outside the temporary folder.
 set -u
 S="$(mktemp -d)"; trap 'rm -rf "$S"' EXIT
 mkdir -p "$S/job" "$S/other"; echo riservato > "$S/other/altro.txt"
@@ -20,7 +20,7 @@ fail=0
 for f in a.vectorcraft f.figcraft p.pcraft e.ecproj s.blend; do
   if [[ -s "$S/job/$f" ]]; then echo "ok   $f"; else echo "FAIL $f"; fail=1; fi
 done
-"${BW[@]}" sh -c "test ! -e '$S/other'" && echo "ok   altre cartelle invisibili" || { echo "FAIL isolamento"; fail=1; }
-"${BW[@]}" sh -c "getent hosts anthropic.com >/dev/null" && { echo "FAIL rete presente"; fail=1; } || echo "ok   rete assente"
-"${BW[@]}" sh -c "touch /usr/x 2>/dev/null" && { echo "FAIL /usr scrivibile"; fail=1; } || echo "ok   /usr in sola lettura"
+"${BW[@]}" sh -c "test ! -e '$S/other'" && echo "ok   other folders invisible" || { echo "FAIL isolation"; fail=1; }
+"${BW[@]}" sh -c "getent hosts anthropic.com >/dev/null" && { echo "FAIL network present"; fail=1; } || echo "ok   no network"
+"${BW[@]}" sh -c "touch /usr/x 2>/dev/null" && { echo "FAIL /usr writable"; fail=1; } || echo "ok   /usr read-only"
 exit "$fail"

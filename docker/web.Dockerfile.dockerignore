@@ -1,5 +1,5 @@
-# Il contesto è la radice del repo, che contiene .env, il registro in .data e i progetti del cliente. Entra solo
-# web/, senza ciò che si rigenera dentro l'immagine né i dati delle prove (ADR-0040).
+# The context is the repository root, which holds .env, the registry in .data and the client's projects. Only
+# web/ gets in, without what is regenerated inside the image or the tests' data (ADR-0040).
 *
 !web/
 web/node_modules

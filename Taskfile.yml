@@ -1,9 +1,9 @@
 version: "3"
 
-# L'ingresso unico dei comandi (ADR-0020, ADR-0039): `task` elenca tutto, `make` ne è l'alias. Docker: ADR-0040.
-# Gli strumenti hanno le versioni di mise.toml: con mise attivo nella shell sono nel PATH, altrimenti
-# `mise exec -- task …`. Niente dotenv: la chiave API sta in .env e la legge solo il gateway; qui arriverebbe a
-# ogni comando, Next.js compreso.
+# The single entry point for commands (ADR-0020, ADR-0039): `task` lists everything, `make` is its alias. Docker:
+# ADR-0040. The tools have the versions of mise.toml: with mise active in the shell they are on PATH, otherwise
+# `mise exec -- task …`. No dotenv: the API key is in .env and only the gateway reads it; here it would reach
+# every command, Next.js included.
 
 env:
   NEXT_TELEMETRY_DISABLED: "1"
@@ -83,7 +83,7 @@ tasks:
 
   dashboard:
     desc: "Il cruscotto: API su http://127.0.0.1:8000/api/, interfaccia su http://127.0.0.1:3000"
-    # Se uno dei due si ferma, si ferma anche l'altro: un'interfaccia senza API mostrerebbe solo un errore.
+    # If one of the two stops, so does the other: an interface without the API would show only an error.
     failfast: true
     deps: [dashboard:api, dashboard:ui]
 
@@ -120,8 +120,8 @@ tasks:
 
   docker:up:
     desc: "Il cruscotto in Docker su http://127.0.0.1:3000; il registro è .data, o AGENCY_DATA_DIR se lo dai"
-    # Le stesse regole del motore e del server (ADR-0045): Compose risolverebbe un percorso relativo rispetto a
-    # docker/, e il vecchio nome verrebbe ignorato in silenzio.
+    # The same rules as the engine and the server (ADR-0045): Compose would resolve a relative path against
+    # docker/, and the old name would be ignored silently.
     preconditions:
       - sh: test -z "${AGENCY_DATA+x}"
         msg: "AGENCY_DATA non si usa più: il registro si indica con AGENCY_DATA_DIR, un percorso assoluto"

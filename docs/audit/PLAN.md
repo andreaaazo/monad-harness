@@ -1459,7 +1459,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
     `web/scripts/standalone.mjs` (their messages).
   - Keep the UI-copy assertions, and the "Next.js" and "Django" label prefixes.
   - Commit: `test(web): write test titles and build messages in English`.
-- [ ] **Task 3.22: config and infrastructure comments.** Closes CMT-016, and STR-011 (the comment part).
+- [x] **Task 3.22: config and infrastructure comments.** Closes CMT-016, and STR-011 (the comment part).
   - Files:
     - `pyproject.toml` (its comments and the four contract names);
     - `Makefile`;

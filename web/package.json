@@ -1,7 +1,7 @@
 {
   "name": "design-agency-dashboard",
   "private": true,
-  "description": "L'interfaccia del cruscotto (ADR-0024, ADR-0033): solo lettura, legge tutto dall'API Django.",
+  "description": "The dashboard interface (ADR-0024, ADR-0033): read-only, it reads everything from the Django API.",
   "type": "module",
   "packageManager": "pnpm@12.14.0",
   "engines": {

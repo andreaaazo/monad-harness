@@ -46,7 +46,7 @@ build-backend = "hatchling.build"
 packages = ["src/agency"]
 
 [tool.uv]
-# Nessun pacchetto pubblicato da meno di due settimane: difesa dalle compromissioni della supply chain (ADR-0006).
+# No package published less than two weeks ago: a defense against supply-chain compromise (ADR-0006).
 exclude-newer = "2026-10-17T00:00:00Z"
 
 [tool.ruff]
@@ -56,7 +56,7 @@ extend-exclude = ["legacy", "src/agency/qa/scripts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
-ignore = ["RUF001", "RUF002", "RUF003"]  # testi in italiano con ×, – e simili
+ignore = ["RUF001", "RUF002", "RUF003"]  # × and – in Italian strings, and × in sizes in comments and docstrings
 
 [tool.pyright]
 include = ["src", "tests"]
@@ -72,7 +72,7 @@ root_package = "agency"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "insights legge e basta: niente motore, niente Ledger, niente librerie del motore (ADR-0019)"
+name = "insights only reads: no engine, no Ledger, no engine libraries (ADR-0019)"
 type = "forbidden"
 source_modules = ["agency.insights"]
 forbidden_modules = [
@@ -95,9 +95,9 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "il motore non importa Django né il server: Django legge attraverso insights (ADR-0020)"
+name = "the engine imports neither Django nor the server: Django reads through insights (ADR-0020)"
 type = "forbidden"
-# Ogni pacchetto tranne gli ingressi, elencato a mano: un test verifica che non ne manchi nessuno.
+# Every package but the entry points, listed by hand: a test checks that none is missing.
 source_modules = [
   "agency.agents",
   "agency.artifacts",
@@ -119,7 +119,7 @@ source_modules = [
 forbidden_modules = ["django", "ninja", "agency.entrypoints"]
 
 [[tool.importlinter.contracts]]
-name = "il server legge e basta: niente motore, niente Ledger, niente .env (ADR-0019)"
+name = "the server only reads: no engine, no Ledger, no .env (ADR-0019)"
 type = "forbidden"
 source_modules = ["agency.entrypoints.server"]
 forbidden_modules = [
@@ -143,7 +143,7 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "il giudizio dipende solo dai contratti: niente motore, niente registro (ADR-0027)"
+name = "the judgment depends only on the contracts: no engine, no registry (ADR-0027)"
 type = "forbidden"
 source_modules = ["agency.evaluation"]
 forbidden_modules = [

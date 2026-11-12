@@ -1,7 +1,7 @@
-"""Prende l'impronta di un'esecuzione dai file del repository e dalle CLI installate.
+"""Takes a run's fingerprint from the repository's files and the installed CLIs.
 
-Le CLI si interrogano solo con `--version`, come fa già l'indice dei comandi Craft: sono quelle di
-`docs/04-TOOLS.md`, mai programmi sconosciuti. Ricevono solo `PATH`: la chiave API non esce dal gateway.
+The CLIs are asked only for `--version`, as the Craft command index already does: they are the ones in
+`docs/04-TOOLS.md`, never unknown programs. They receive only `PATH`: the API key never leaves the gateway.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ VERSION_SECONDS = 30
 
 @cache
 def version(binary: str) -> str:
-    """La prima riga di `--version`. Una CLI non cambia mentre il processo lavora: si chiede una volta."""
+    """The first line of `--version`. A CLI does not change while the process works, so it is asked once."""
     if shutil.which(binary) is None:
         return "assente"
     try:
@@ -59,7 +59,7 @@ def take(
     root: Path = REPO_ROOT,
     tools: tuple[str, ...] = TOOLS,
 ) -> Fingerprint:
-    """`model` ed `effort` sono le scelte del cliente, salvate nel progetto."""
+    """`model` and `effort` are the client's choices, saved with the project."""
     return Fingerprint(
         model=model,
         effort=effort,

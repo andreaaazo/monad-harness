@@ -1,4 +1,9 @@
-"""Rapporto di costo: dove sono finiti i soldi di un progetto, e con quale impronta ha lavorato."""
+"""The CLI's text views of the registry and the projection.
+
+The cost report says where a project's money went, and with which fingerprint it worked. The other views
+are the runs, a comparison of two fingerprints, the reveal after a blind judgment, the kept versions, and
+the projection's provenance.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +17,7 @@ from agency.ledger import Ledger
 from agency.ledger.models import ArtifactRow, JudgmentRow, RunRow
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
-NAMED = 5  # oltre, l'elenco delle differenze si legge con agency compare
+NAMED = 5  # beyond these, `agency compare` lists the differences
 
 
 def _seconds(milliseconds: float | None) -> str:
@@ -20,7 +25,7 @@ def _seconds(milliseconds: float | None) -> str:
 
 
 def render(view: ProjectReport) -> str:
-    """Il rapporto di un progetto in testo, dallo stesso modello del JSON e del cruscotto."""
+    """A project's report as text, from the same model as the JSON and the dashboard."""
     budget = f" su {view.budget_usd:.2f} $" if view.budget_usd is not None else ""
     choice = f", modello {view.model}" if view.model else ""
     choice += f", effort {view.effort}" if view.effort else ""
@@ -110,6 +115,7 @@ UNREADABLE = "impronta di una forma che questa versione non legge"
 
 
 def render_runs(ledger: Ledger, project: str) -> str:
+    """A project's runs, each with its differences from the previous readable fingerprint."""
     rows = ledger.runs(project)
     if not rows:
         return f"{project}: nessuna esecuzione con impronta. I lavori precedenti a M1.6 non la hanno"
@@ -133,6 +139,7 @@ def render_runs(ledger: Ledger, project: str) -> str:
 
 
 def render_comparison(first: RunRow, second: RunRow) -> str:
+    """Every difference between two runs' fingerprints, or which fingerprint cannot be read."""
     title = f"#{first.seq} {first.project} {first.command} → #{second.seq} {second.project} {second.command}"
     before, after = read_fingerprint(first.fingerprint_json), read_fingerprint(second.fingerprint_json)
     if before is None or after is None:
@@ -153,7 +160,7 @@ def _quality(level: str, specific: bool) -> str:
 
 
 def render_reveal(rows: list[JudgmentRow]) -> str:
-    """Dopo il giudizio, e solo allora: quale file c'era dietro ogni lettera."""
+    """After the judgment, and only then: which file was behind each letter."""
     first = rows[0]
     count = _count(len(rows), "giudizio", "giudizi")
     lines = [f"Registrati {count} di {first.judge}, confronto {first.comparison}:"]
@@ -172,6 +179,7 @@ def _size(size: int) -> str:
 
 
 def render_artifacts(rows: list[ArtifactRow], project: str) -> str:
+    """The versions kept for a project: hash, reason, ticket, size and path."""
     if not rows:
         return f"{project}: nessuna versione conservata. I lavori precedenti a M1.6 non ne hanno"
     lines = [f"{project}: {_count(len(rows), 'versione conservata', 'versioni conservate')}"]
@@ -183,6 +191,7 @@ def render_artifacts(rows: list[ArtifactRow], project: str) -> str:
 
 
 def render_restored(rows: list[ArtifactRow], destination: str) -> str:
+    """What `agency restore` brought back, with every reason that version was kept for."""
     lines = [f"Ripristinato {destination} dalla versione {rows[0].sha256[:12]}, conservata per:"]
     for row in rows:
         reason = f"{row.origin} di {row.ticket_id}" if row.ticket_id else row.origin
@@ -191,12 +200,14 @@ def render_restored(rows: list[ArtifactRow], destination: str) -> str:
 
 
 def render_damaged(rows: list[ArtifactRow]) -> str:
+    """The kept versions that are missing from the store or no longer have their hash."""
     lines = ["ARTEFATTI DANNEGGIATI: queste versioni mancano dal deposito o non hanno più il loro hash"]
     lines += [f"  {row.sha256[:12]}  {row.project or '-'}  {row.path}" for row in rows]
     return plain("\n".join(lines))
 
 
 def render_provenance(built: Provenance, path: str) -> str:
+    """What `agency insights` rebuilt the projection from, and how much of it is measured."""
     return plain(
         "\n".join(
             [

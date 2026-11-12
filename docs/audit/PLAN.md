@@ -1423,7 +1423,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
 - [x] **Task 3.13: `src/agency/qa/`, apart from the scripts.** Closes CMT-009 for this package.
   - Keep `qa/checks.py:58`: it can reach the model.
   - Commit: `docs(qa): translate comments and docstrings to English`.
-- [ ] **Task 3.14: `src/agency/telemetry/`.** Closes CMT-009 for this package.
+- [x] **Task 3.14: `src/agency/telemetry/`.** Closes CMT-009 for this package.
   - Keep the report texts.
   - Commit: `docs(telemetry): translate comments and docstrings to English`.
 - [ ] **Task 3.15: `src/agency/tools/`.** Closes CMT-009 for this package, CMT-004, and its CMT-014 items for

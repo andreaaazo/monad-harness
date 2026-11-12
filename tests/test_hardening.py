@@ -1,4 +1,4 @@
-"""Difetti trovati rileggendo il sistema prima di M2: ognuno ha qui la sua prova."""
+"""Defects found by rereading the system before M2: each one has its test here."""
 
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ OPERATIONS = itertools.count(1)
 
 
 def call(ctx: ToolContext, tool_name: str, **arguments: object) -> dict:
-    """Ogni chiamata ha il suo id: con lo stesso id il sistema ripete il primo esito, com'è giusto."""
+    """Each call has its own id: with the same id, the system repeats the first outcome, as it should."""
     return Toolbox(ctx, role_tools(ctx.actor)).call(f"t{next(OPERATIONS)}", tool_name, arguments)
 
 
@@ -100,12 +100,12 @@ def spec(**extra: Any) -> TicketSpec:
     return TicketSpec.model_validate(values | extra)
 
 
-# Perimetro
+# Perimeter
 
 
 @pytest.mark.parametrize("name", ["../..", "../../.", "logo-design/../../.."])
 def test_read_skill_cannot_leave_the_skills(tmp_path: Path, name: str) -> None:
-    """La chiave API sta nella radice della repo: `name` non deve arrivarci."""
+    """The API key is in the repository root: `name` must not reach it."""
     result = call(context(tmp_path), "read_skill", name=name, file="pyproject.toml")
     assert result.get("is_error")
     assert "[project]" not in str(result["content"])
@@ -199,7 +199,7 @@ def test_a_reviewer_cannot_leave_reviews_with_dotdot(tmp_path: Path) -> None:
     assert brief.read_text(encoding="utf-8") == "il brief del cliente"
 
 
-# Percorsi dei ticket
+# Ticket paths
 
 
 def with_path(field: str, path: str) -> TicketSpec:
@@ -247,11 +247,11 @@ def test_open_ticket_refuses_an_absolute_review_output_without_globbing_it(tmp_p
     assert not ctx.ledger.tickets("p")
 
 
-# Deleghe
+# Delegations
 
 
 def test_ticket_to_a_role_not_yet_ported_is_refused(tmp_path: Path) -> None:
-    """Senza prompt il ruolo farebbe cadere il lavoro quando tocca a lui."""
+    """Without a prompt, the role would bring the work down when its turn came."""
     ctx = context(tmp_path, "design-director")
     result = call(
         ctx,
@@ -269,14 +269,14 @@ def test_ticket_to_a_role_not_yet_ported_is_refused(tmp_path: Path) -> None:
     assert not ctx.ledger.tickets("p")
 
 
-# Ripresa
+# Resume
 
 
 def test_transcript_survives_a_torn_last_line(tmp_path: Path) -> None:
     first = Transcript(tmp_path / "t.jsonl")
     first.append({"role": "user", "content": "uno"})
     with first.path.open("a", encoding="utf-8") as handle:
-        handle.write('{"message": {"role": "assis')  # processo ucciso a metà riga
+        handle.write('{"message": {"role": "assis')  # a process killed mid-line
     resumed = Transcript(first.path)
     assert [m["content"] for m in resumed.messages()] == ["uno"]
     resumed.append({"role": "user", "content": "due"})
@@ -293,7 +293,7 @@ def test_transcript_keeps_a_whole_line_that_only_lost_its_newline(tmp_path: Path
 
 
 def test_a_response_keeps_its_request_id_and_the_resumed_messages_stay_the_same(tmp_path: Path) -> None:
-    """Il Replay lega ogni turno alla sua riga di usage col request_id; la ripresa legge solo i messaggi."""
+    """The replay view matches each turn to its usage row by request_id; a resume reads only the messages."""
     transcript = Transcript(tmp_path / "t.jsonl")
     transcript.append({"role": "user", "content": "uno"})
     transcript.append({"role": "assistant", "content": [{"type": "text", "text": "due"}]}, request_id="req_7")
@@ -322,7 +322,8 @@ def test_unexpected_tool_failure_goes_back_to_the_model(tmp_path: Path) -> None:
 
 
 def runner(config: Settings, responses: list[dict]) -> tuple[AgentRunner, ScriptedTransport, Ledger]:
-    """Il progetto `p` con il tetto che il cliente dichiarerebbe: senza, il gateway non spende (ADR-0043)."""
+    """Project `p`, with the cap the client would declare: without one the gateway spends nothing
+    (ADR-0043)."""
     ledger = Ledger(config.ledger_path)
     ledger.set_project("p", 25.0)
     transport = ScriptedTransport(responses)
@@ -367,7 +368,7 @@ def test_reminder_names_only_the_tools_of_the_phase(tmp_path: Path) -> None:
 
 
 def test_agent_working_again_after_a_reminder_can_be_reminded_again(tmp_path: Path) -> None:
-    """Il promemoria non è una tacca: chi ha ripreso a lavorare non viene bloccato alla prima pausa."""
+    """The reminder is not a strike: an agent that went back to work is not blocked at the next pause."""
     done = reply(text("Fatto"), stop="end_turn")
     work = reply(tool("list_files", "l1"))
     run, _, ledger = runner(
@@ -379,7 +380,7 @@ def test_agent_working_again_after_a_reminder_can_be_reminded_again(tmp_path: Pa
 
 
 def test_nothing_runs_after_the_tool_that_closes_the_ticket(tmp_path: Path) -> None:
-    """Scrivere dopo la consegna renderebbe il lavoro diverso da ciò che è stato consegnato."""
+    """Writing after the delivery would make the work differ from what was delivered."""
     run, _, ledger = runner(
         settings(tmp_path),
         [
@@ -414,7 +415,7 @@ def paused() -> dict:
 
 
 def test_paused_turn_resends_the_history_as_it_is(tmp_path: Path) -> None:
-    """Le ricerche web si fermano così: niente messaggi aggiunti, il server riprende da solo."""
+    """Web searches pause like this: no message is added, and the server resumes on its own."""
     run, transport, ledger = runner(
         settings(tmp_path), [paused(), reply(tool("block", "b1", reason="ricerca finita"))]
     )
@@ -437,7 +438,7 @@ def test_paused_turn_interrupted_resumes_the_same_way(tmp_path: Path) -> None:
 
 
 def test_answer_interrupted_before_the_reminder_gets_it_on_resume(tmp_path: Path) -> None:
-    """Una conversazione non può ripartire da una risposta di testo: sarebbe rifiutata dall'API."""
+    """A conversation cannot restart from a text answer: the API would reject it."""
     config = settings(tmp_path)
     run, transport, ledger = runner(config, [reply(tool("block", "b1", reason="mi fermo"))])
     ticket = ledger.open(spec(), "p")
@@ -450,11 +451,11 @@ def test_answer_interrupted_before_the_reminder_gets_it_on_resume(tmp_path: Path
     assert "Non hai concluso" in sent[-1]["content"]
 
 
-# Registro
+# Registry
 
 
 def test_parallel_writers_never_hit_a_locked_database(tmp_path: Path) -> None:
-    """Cinque esploratori scrivono insieme: leggere e poi scrivere non deve mai fallire."""
+    """Five explorers write at once: reading and then writing must never fail."""
     ledger = Ledger(tmp_path / "l.sqlite")
     tickets = [ledger.open(spec(title=f"Lavoro {i}"), "p") for i in range(6)]
     errors: list[Exception] = []
@@ -492,7 +493,7 @@ def test_parallel_writers_never_hit_a_locked_database(tmp_path: Path) -> None:
 
 
 def test_two_processes_share_one_chain_of_hashes(tmp_path: Path) -> None:
-    """Due lavori lanciati insieme sono due processi: il lucchetto interno non basta."""
+    """Two jobs started together are two processes: the in-process lock is not enough."""
     path = tmp_path / "l.sqlite"
     errors: list[Exception] = []
     start = threading.Barrier(4)
@@ -500,7 +501,7 @@ def test_two_processes_share_one_chain_of_hashes(tmp_path: Path) -> None:
     def work(project: str) -> None:
         try:
             start.wait(timeout=20)
-            ledger = Ledger(path)  # ogni istanza ha il suo lucchetto, come un altro processo
+            ledger = Ledger(path)  # each instance has its own lock, like another process
             for index in range(15):
                 ticket = ledger.open(spec(title=f"Lavoro {index}"), project)
                 ledger.apply(ticket, Action.BLOCK, "identity-designer", "fine")
@@ -551,7 +552,7 @@ def test_report_counts_how_many_worked_at_once(
     assert "in parallelo: 5" in report.render(view)
 
 
-# Prove
+# Proofs
 
 
 def test_a_crashed_measure_is_not_evidence(tmp_path: Path) -> None:
@@ -561,7 +562,7 @@ def test_a_crashed_measure_is_not_evidence(tmp_path: Path) -> None:
     assert not outcome.proofs
 
 
-# Comandi: un errore di battitura non deve costare un'esplorazione
+# Commands: a typo must not cost an exploration
 
 
 class FakeSession:
@@ -627,7 +628,8 @@ def test_run_refuses_a_project_that_already_exists(
 def test_run_does_not_start_without_a_declared_budget(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Il tetto lo dichiara chi avvia (ADR-0043): un valore dell'ambiente non è una scelta del cliente."""
+    """Whoever starts the project declares the cap (ADR-0043): a value from the environment is not the
+    client's choice."""
     monkeypatch.setenv("AGENCY_PROJECT_BUDGET_USD", "40")
     opened: list[object] = []
     monkeypatch.setattr("agency.runtime.open_session", lambda settings, record=False: opened.append(settings))
@@ -644,7 +646,7 @@ def test_a_budget_is_a_positive_amount_of_dollars(
     command: list[str], amount: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(
-        "agency.runtime.open_session", lambda _, record=False: pytest.fail("non doveva partire")
+        "agency.runtime.open_session", lambda _, record=False: pytest.fail("should not have started")
     )
     with pytest.raises(SystemExit) as stopped:
         cli.main([*command, amount])
@@ -653,7 +655,8 @@ def test_a_budget_is_a_positive_amount_of_dollars(
 
 
 def test_settings_have_no_budget_of_their_own() -> None:
-    """Prima c'era AGENCY_PROJECT_BUDGET_USD: 25 $ nel codice, 40 $ nell'ambiente, 30 $ nella roadmap."""
+    """There used to be AGENCY_PROJECT_BUDGET_USD: $25 in the code, $40 in the environment, $30 in the
+    roadmap."""
     assert not any("budget" in name for name in Settings.model_fields)
 
 
@@ -882,7 +885,7 @@ def test_blocked_outcome_is_shown(
     assert "manca il brief" in capsys.readouterr().out
 
 
-# Contratti di revisione: su merlo3 quattro revisori hanno finito il lavoro senza poterlo consegnare
+# Review contracts: on merlo3, four reviewers finished their work without being able to deliver it
 
 
 SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M0 0h10v10z"/></svg>'
@@ -955,7 +958,7 @@ def test_a_review_can_be_opened_before_the_file_it_judges_exists(tmp_path: Path)
 
 
 def test_the_refusal_shows_the_director_the_contract_to_write(tmp_path: Path) -> None:
-    """Il primo tentativo del direttore, su merlo3: il messaggio lo portava fuori strada."""
+    """The director's first attempt, on merlo3: the message led the director astray."""
     result = open_review(studio(tmp_path), outputs=["reviews/critica.md"], checks={"*.svg": ["critique"]})
     assert result.get("is_error")
     assert "exports/segno.svg" in result["content"]
@@ -985,7 +988,7 @@ def test_a_review_delivers_and_is_accepted_with_the_contract_the_refusal_suggest
 
 
 def test_a_reviewer_who_repeats_a_check_does_not_unsign_the_other(tmp_path: Path) -> None:
-    """Su merlo3 il critico ha rifatto svg_audit dopo il QA: il direttore non poteva più accettare il QA."""
+    """On merlo3 the critic redid svg_audit after QA: the director could no longer accept the QA."""
     director = studio(tmp_path)
     tickets = {}
     for role, report_file in (("qa-inspector", "reviews/qa.md"), ("critic", "reviews/critica.md")):
@@ -1411,7 +1414,7 @@ def test_a_relative_toolchain_dir_is_refused_like_the_data_root(
     assert Settings(_env_file=None).toolchain_dir.is_absolute()  # type: ignore[call-arg]
 
 
-# Testo del modello: arriva al terminale dell'operatore senza sequenze di controllo (SEC-009)
+# Model text: it reaches the operator's terminal without control sequences (SEC-009)
 
 OSC_52 = "\x1b]52;c;ZWNobyBwd25lZA==\x07"
 
@@ -1726,7 +1729,7 @@ def rating(*letters: str, passing: str = "") -> list[dict]:
 
 
 def board_critic(tmp_path: Path) -> ToolContext:
-    """The critic of round 1: his work folder is the board's, inside the project's."""
+    """The critic of round 1: its work folder is the board's, inside the project's."""
     ctx = context(tmp_path, "critic", "T-5")
     ctx.settings = settings(tmp_path)
     ctx.sandbox = Sandbox(ctx.work / "board/r1", ops=ctx.sandbox.ops)

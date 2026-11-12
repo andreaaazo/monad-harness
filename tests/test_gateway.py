@@ -57,7 +57,7 @@ def gateway(
     clock: Callable[[], float] = time.monotonic,
     budget: float | None = 25.0,
 ) -> ModelGateway:
-    """Il progetto `p` di CONTEXT, con il tetto che il cliente ha dichiarato. None: nessun tetto."""
+    """Project `p` of CONTEXT, with the cap the client declared. None: no cap."""
     settings = Settings(data_dir=tmp_path, _env_file=None)  # type: ignore[call-arg]
     ledger = Ledger(settings.ledger_path)
     if budget is not None:
@@ -174,7 +174,7 @@ def test_a_call_without_iterations_costs_what_its_top_level_usage_costs(tmp_path
 
 
 class Slow(ScriptedTransport):
-    """Una risposta che arriva dopo 2,5 secondi di un orologio finto."""
+    """An answer that arrives after 2.5 seconds of a fake clock."""
 
     def __init__(self, responses: list[dict], now: list[float]) -> None:
         super().__init__(responses)
@@ -239,7 +239,7 @@ SSE = [
 
 
 def test_anthropic_transport_measures_the_first_chunk_without_calling_the_api() -> None:
-    """Lo stream arriva un evento alla volta e l'orologio avanza con lui: il testo arriva dopo 500 ms."""
+    """The stream arrives one event at a time and the clock moves with it: the text arrives after 500 ms."""
     now = [100.0]
     arrives = {"message_start": 0.1, "content_block_delta": 0.4}
 
@@ -449,7 +449,7 @@ def test_project_ceiling_counts_previous_spend(tmp_path: Path) -> None:
 
 
 def test_a_project_without_a_declared_budget_spends_nothing(tmp_path: Path) -> None:
-    """Prima valeva il tetto delle impostazioni: ora senza un tetto dichiarato non parte nulla (ADR-0043)."""
+    """The settings' cap used to apply: now nothing goes out without a declared cap (ADR-0043)."""
     counted: list[dict] = []
 
     class Counting(ScriptedTransport):
@@ -461,7 +461,7 @@ def test_a_project_without_a_declared_budget_spends_nothing(tmp_path: Path) -> N
     gw = gateway(tmp_path, transport, budget=None)
     with pytest.raises(BudgetExceeded, match="p non ha un tetto dichiarato"):
         gw.call(CONTEXT, request())
-    assert transport.requests == [] and counted == []  # niente esce, nemmeno per contare i token
+    assert transport.requests == [] and counted == []  # nothing goes out, not even to count the tokens
 
 
 def test_malformed_tool_json_is_retried(tmp_path: Path) -> None:
@@ -471,7 +471,7 @@ def test_malformed_tool_json_is_retried(tmp_path: Path) -> None:
         def stream(self, params: dict) -> dict:
             if self.fails:
                 self.fails -= 1
-                raise ValueError("JSON illeggibile")
+                raise ValueError("unreadable JSON")
             return super().stream(params)
 
     assert gateway(tmp_path, Flaky([reply()])).call(CONTEXT, request()).stop_reason == "end_turn"
@@ -488,7 +488,7 @@ class MalformedThenOk(ScriptedTransport):
         if self.fails:
             self.fails -= 1
             self.requests.append(params)
-            raise ValueError("JSON illeggibile")
+            raise ValueError("unreadable JSON")
         return super().stream(params)
 
 
@@ -568,7 +568,7 @@ def test_the_last_malformed_stream_failure_is_recorded_and_raised(tmp_path: Path
     estimate = gw.estimate_usd(request(), None)
     authorized = count_authorizations(gw)
 
-    with pytest.raises(ValueError, match="JSON illeggibile"):
+    with pytest.raises(ValueError, match="unreadable JSON"):
         gw.call(CONTEXT, request())
 
     assert len(transport.requests) == 3 and len(transport.responses) == 1

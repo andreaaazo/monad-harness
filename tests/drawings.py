@@ -1,8 +1,9 @@
-"""Disegni di prova per la tavola del giudizio (ADR-0041): un SVG con un rettangolo solo, e un renderer finto.
+"""Test drawings for the blind-judgment board (ADR-0041): an SVG with a single rectangle, and a fake
+renderer.
 
-Il renderer vero è vectorcraft-cli. Queste prove non dipendono dalla macchina: il finto capisce solo
-la tela e il rettangolo, e li rende come `vectorcraft-cli convert --scale`, con il resto trasparente.
-La prova con quello vero si salta se manca.
+The real renderer is vectorcraft-cli. These tests do not depend on the machine: the fake understands only
+the canvas and the rectangle, and renders them like `vectorcraft-cli convert --scale`, with the rest
+transparent. The test with the real one is skipped when it is missing.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ INK = (17, 17, 19, 255)
 
 
 def svg(canvas: tuple[float, float], rect: tuple[float, float, float, float]) -> str:
-    """Una tela e un rettangolo, con un titolo che la tavola non deve mostrare."""
+    """A canvas and a rectangle, with a title the board must not show."""
     width, height = canvas
     x, y, w, h = rect
     return (
@@ -39,7 +40,7 @@ def _numbers(text: str, tag: str) -> dict[str, float]:
 
 
 class FakeVectorcraft:
-    """Annota la scala di ogni rendering: le misure piccole si rendono alla loro, non si riducono."""
+    """Notes the scale of each rendering: the small sizes are rendered at their own, not reduced."""
 
     def __init__(self) -> None:
         self.scales: list[float] = []
@@ -51,7 +52,7 @@ class FakeVectorcraft:
         size = (max(1, round(canvas["width"] * scale)), max(1, round(canvas["height"] * scale)))
         image = Image.new("RGBA", size, (0, 0, 0, 0))
         if rect["width"] and rect["height"]:
-            # Come un renderer vero, un disegno più piccolo di un pixel lascia comunque un pixel.
+            # Like a real renderer, a drawing smaller than a pixel still leaves one pixel.
             left, top = round(rect["x"] * scale), round(rect["y"] * scale)
             right = max(left, round((rect["x"] + rect["width"]) * scale) - 1)
             bottom = max(top, round((rect["y"] + rect["height"]) * scale) - 1)

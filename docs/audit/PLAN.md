@@ -1441,7 +1441,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
 
   Keep every assertion on a user-facing string.
   - Commit: `docs(tests): translate the dashboard tests' comments and docstrings to English`.
-- [ ] **Task 3.18: tests, part 2 of 3.** Closes CMT-010 and CMT-011 for:
+- [x] **Task 3.18: tests, part 2 of 3.** Closes CMT-010 and CMT-011 for:
   - `test_agent_flow.py`, `test_sketch_flow.py`, `test_hardening.py`, `test_gateway.py`;
   - `test_request_snapshots.py`, `test_board.py`, `drawings.py`.
   - Commit: `docs(tests): translate the engine tests' comments and docstrings to English`.

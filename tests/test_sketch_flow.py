@@ -1,4 +1,4 @@
-"""L'esplorazione con Craft veri e risposte registrate: nessuna chiamata all'API."""
+"""The exploration with real Craft and recorded answers: no API call."""
 
 from __future__ import annotations
 
@@ -84,7 +84,7 @@ def card(text: str) -> dict:
 
 
 class Router:
-    """Risponde per istanza: l'ordine tra agenti paralleli non conta."""
+    """Answers per instance: the order among parallel agents does not matter."""
 
     def __init__(self, script: dict[str, list[dict]]) -> None:
         self.script = script
@@ -114,11 +114,11 @@ class Router:
             self.requests[key].append(json.loads(json.dumps(params)))
             if not self.script.get(key):
                 last = str(params["messages"][-1]["content"])[:600]
-                raise AssertionError(f"risposte esaurite per {key}: {last}")
+                raise AssertionError(f"no answers left for {key}: {last}")
             return self.script[key].pop(0)
 
 
-BUDGET = 1000.0  # il tetto che ogni prova dichiara all'avvio, come agency run --budget (ADR-0043)
+BUDGET = 1000.0  # the cap every test declares at the start, like agency run --budget (ADR-0043)
 
 
 def settings(tmp_path: Path, **extra: object) -> Settings:
@@ -200,7 +200,7 @@ def proposal_turns(anon: str) -> list[dict]:
 
 
 def present_turn(*letters: str, round_: int = 1, pages: int = 0) -> list[dict]:
-    """Bozza, sguardo a ogni pagina, invio: tre pagine per proposta più la raccomandazione."""
+    """Draft, a look at each page, sending: three pages per proposal plus the recommendation."""
     texts = [
         {"letter": letter, "title": f"Titolo {letter}", "idea": "Idea", "why": "Perché sì", "risk": "Limite"}
         for letter in letters
@@ -217,7 +217,7 @@ def present_turn(*letters: str, round_: int = 1, pages: int = 0) -> list[dict]:
 
 
 def exploration(first: int = 2, count: int = 3) -> dict[str, list[dict]]:
-    """Ticket a partire da `first`: gli esploratori, poi la tavola."""
+    """Tickets from `first` on: the explorers, then the board."""
     script: dict[str, list[dict]] = {}
     for offset, letter in enumerate("abcde"[:count]):
         script[f"T-{first + offset:04d}"] = explorer_turns(letter)
@@ -226,7 +226,7 @@ def exploration(first: int = 2, count: int = 3) -> dict[str, list[dict]]:
 
 
 def to_the_gate() -> dict[str, list[dict]]:
-    """Dall'inizio alla presentazione: due proposte sviluppate, T-0006 e T-0007."""
+    """From the start to the presentation: two developed proposals, T-0006 and T-0007."""
     script = exploration()
     script["T-0001:plan"] = plan_turn()
     script["T-0001:select"] = [turn(use("select_concepts", chosen=["X", "Y"], reasons="Si leggono da sole"))]
@@ -237,7 +237,7 @@ def to_the_gate() -> dict[str, list[dict]]:
 
 
 def full_script() -> dict[str, list[dict]]:
-    production = [  # il master parte dalla proposta approvata
+    production = [  # the master starts from the approved proposal
         turn(use("export_master", master=MASTER, output=SVG)),
         turn(use("write_file", path="construction.md", content="unità u")),
         turn(
@@ -466,7 +466,7 @@ def test_presentation_has_pages_for_each_proposal_and_the_recommendation(tmp_pat
     ]
     pages = presentation.build(items, "X", "Regge meglio", tmp_path / "out")
     assert (tmp_path / "out/presentazione.pdf").read_bytes()[:4] == b"%PDF"
-    assert len(pages) == 7  # segno, applicazioni e motivi per ogni proposta, poi la raccomandazione
+    assert len(pages) == 7  # mark, applications and reasons for each proposal, then the recommendation
     with Image.open(tmp_path / "out/pagina-1.png") as page:
         assert max(page.size) <= 1600
 
@@ -514,7 +514,7 @@ def test_five_directions_run_together_and_reach_the_board(tmp_path: Path) -> Non
         def stream(self, params: dict) -> dict:
             key = self.key(params)
             if key in ("T-0002", "T-0003", "T-0004", "T-0005", "T-0006") and not self.requests[key]:
-                together.wait()  # scade se non girano tutte e cinque insieme
+                together.wait()  # it times out unless all five run together
             return super().stream(params)
 
     script = exploration(count=5)
@@ -602,7 +602,7 @@ def test_agents_never_hear_about_budget(tmp_path: Path) -> None:
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=1000)
     calls = [call for calls in transport.requests.values() for call in calls]
     assert calls
-    for call in calls:  # gli schemi degli strumenti contengono `$ref`: conta ciò che l'agente legge
+    for call in calls:  # the tool schemas hold `$ref`: what counts is what the agent reads
         readable = json.dumps([call["system"], call["messages"]], ensure_ascii=False).lower()
         assert "budget" not in readable and "quota" not in readable
         assert " $" not in readable
@@ -634,7 +634,7 @@ def test_budget_end_pauses_the_project_and_an_increase_resumes_it(tmp_path: Path
     again = open_session(config, session_transport := Router(to_the_gate()))
     again.resume("officina")
     assert again.pending("officina")[0].gate == "concept"
-    assert "T-0001:plan" not in session_transport.requests  # il piano già fatto non si ripaga
+    assert "T-0001:plan" not in session_transport.requests  # the plan already made is not paid for again
 
 
 def fingerprints(ledger: Ledger, project: str) -> list[Fingerprint]:
@@ -728,7 +728,7 @@ def test_client_refusing_the_final_work_sends_it_back_with_their_words(tmp_path:
 
 
 def test_insights_derives_the_phase_the_engine_recorded_for_every_call(tmp_path: Path) -> None:
-    """La regola che ricava la fase delle chiamate vecchie è quella che il motore usa per le nuove."""
+    """The rule that derives the phase of old calls is the one the engine uses for new ones."""
     config = settings(tmp_path)
     session = open_session(config, Router(full_script()))
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
@@ -1053,7 +1053,7 @@ def test_interrupted_exploration_resumes_without_repeating_work(tmp_path: Path) 
     class Dies(Router):
         def stream(self, params: dict) -> dict:
             if self.key(params) == "T-0005":
-                raise ConnectionError("processo ucciso")
+                raise ConnectionError("process killed")
             return super().stream(params)
 
     dying = Dies(script)
@@ -1070,7 +1070,8 @@ def test_interrupted_exploration_resumes_without_repeating_work(tmp_path: Path) 
 
 
 def test_second_exploration_is_rated_on_its_own_letters(tmp_path: Path) -> None:
-    """Un secondo giro con meno leve ha lettere diverse dal primo: il critico deve vedere quelle giuste."""
+    """A second round with fewer levers has letters other than the first's: the critic must see the right
+    ones."""
     script = exploration()
     script["T-0005"] = board_turns("XYZ", failing="XYZ")
     script["T-0001:plan"] = [*plan_turn(), *plan_turn(2)]
@@ -1087,7 +1088,7 @@ def test_second_exploration_is_rated_on_its_own_letters(tmp_path: Path) -> None:
 
 
 def test_new_concept_after_a_rejection_gets_its_own_production(tmp_path: Path) -> None:
-    """La seconda rifinitura parte dal nuovo master approvato, non da quello della prima idea."""
+    """The second finishing ticket starts from the new approved master, not from the first idea's."""
     script = to_the_gate()
     script["T-0008"] = [turn(use("block", reason="Il concetto non regge a piccola scala"))]
     script["T-0001"] = [
@@ -1151,7 +1152,7 @@ def test_no_line_is_wider_than_its_column() -> None:
 
 
 def test_merlo3_texts_are_entirely_inside_the_document(tmp_path: Path) -> None:
-    """Il caso reale: 541 caratteri di motivo e 772 di limite finivano fuori pagina."""
+    """The real case: 541 characters of reasons and a 772 limit ran off the page."""
     long = "Il segno nasce da due cose che ha solo la vostra officina e dal lavoro che la distingue. " * 9
     item = proposal(long, tmp=tmp_path / "file")
     pages = presentation.build([item], "V", long, tmp_path / "pdf")
@@ -1173,12 +1174,12 @@ def test_a_shorter_draft_leaves_no_old_pages(tmp_path: Path) -> None:
 
 
 def test_presentation_cannot_reach_the_client_unseen(tmp_path: Path) -> None:
-    """Nessuno aveva guardato il PDF di merlo3: il testo era tagliato e nessuno se ne è accorto."""
+    """Nobody had looked at merlo3's PDF: the text was cut and nobody noticed."""
     script = to_the_gate()
     views = present_turn("X", "Y")
     script["T-0001:present"] = [
         views[0],
-        turn(use("present_concepts")),  # rifiutato: non ha guardato nulla
+        turn(use("present_concepts")),  # refused: it looked at nothing
         views[1],
         turn(
             use(
@@ -1188,7 +1189,7 @@ def test_presentation_cannot_reach_the_client_unseen(tmp_path: Path) -> None:
                 reasons="Ci abbiamo ripensato, questa regge meglio",
             )
         ),
-        turn(use("present_concepts")),  # rifiutato: l'ultima pagina è cambiata
+        turn(use("present_concepts")),  # refused: the last page changed
         turn(use("view_image", path="presentation/r1/pagina-7.png")),
         turn(use("present_concepts")),
     ]
@@ -1254,12 +1255,12 @@ def test_board_ignores_a_light_background(tmp_path: Path) -> None:
     write_sketch(tmp_path / "fondo.png", (500, 300, 700, 500), background="#f4f1ea")
     board.build([("V", tmp_path / "fondo.png")], tmp_path / "tavola.png")
     with Image.open(tmp_path / "tavola.png") as image:
-        outside_the_mark = image.convert("RGB").getpixel((65, 145))  # era beige, dentro il riquadro
+        outside_the_mark = image.convert("RGB").getpixel((65, 145))  # it was beige, inside the frame
     assert outside_the_mark == (255, 255, 255)
 
 
 def test_explorer_is_warned_once_then_can_insist(tmp_path: Path) -> None:
-    """È una stima: un segno vero in più parti non deve restare bloccato."""
+    """It is an estimate: a real mark in several parts must not stay blocked."""
     ledger = Ledger(tmp_path / "l.sqlite")
     spec = TicketSpec(
         title="Esplorazione A",

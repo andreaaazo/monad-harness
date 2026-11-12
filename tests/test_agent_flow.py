@@ -1,4 +1,4 @@
-"""Il percorso completo con risposte registrate e Craft veri: nessuna chiamata all'API."""
+"""The full path with recorded answers and real Craft: no API call."""
 
 from __future__ import annotations
 
@@ -84,7 +84,8 @@ def production_spec() -> TicketSpec:
 
 
 def runner(config: Settings, responses: list[dict]) -> tuple[AgentRunner, ScriptedTransport, Ledger]:
-    """Il progetto `p` con il tetto che il cliente dichiarerebbe: senza, il gateway non spende (ADR-0043)."""
+    """Project `p`, with the cap the client would declare: without one the gateway spends nothing
+    (ADR-0043)."""
     ledger = Ledger(config.ledger_path)
     ledger.set_project("p", 25.0)
     transport = ScriptedTransport(responses)
@@ -225,7 +226,7 @@ def test_budget_stop_keeps_the_work_and_resumes_after_an_increase(tmp_path: Path
     ticket = ledger.open(production_spec(), "p")
     with pytest.raises(BudgetExceeded):
         run.run(ticket)
-    assert ledger.status(ticket)[0] is Status.OPEN  # non è bloccato: aspetta la scelta del cliente
+    assert ledger.status(ticket)[0] is Status.OPEN  # not blocked: it waits for the client's choice
     ledger.set_budget("p", 1.0)
     assert run.run(ticket).state == "blocked"
     assert transport.requests[-1]["messages"][0]["content"].startswith("Scrivi note")
@@ -238,7 +239,7 @@ def test_interruption_resumes_without_repeating_effects(tmp_path: Path) -> None:
     class Dies(ScriptedTransport):
         def stream(self, params: dict) -> dict:
             if not self.responses:
-                raise ConnectionError("processo ucciso")
+                raise ConnectionError("process killed")
             return super().stream(params)
 
     ledger = Ledger(config.ledger_path)
@@ -270,7 +271,7 @@ def test_interruption_resumes_without_repeating_effects(tmp_path: Path) -> None:
     with pytest.raises(ConnectionError):
         first.run(root)
     assert len(ledger.children(root)) == 1
-    # Riparte dalla trascrizione: nessuna chiamata ripetuta, nessun ticket doppio.
+    # It restarts from the transcript: no call repeated, no ticket opened twice.
     again = ScriptedTransport([turn(use("hand_off", "t2", note="attendo il segno"))])
     second = AgentRunner(
         ModelGateway(again, ledger, config), ledger, config, index, FileStore(config.artifacts_dir)
@@ -390,7 +391,7 @@ def test_a_tool_call_is_never_appended_without_its_result(tmp_path: Path, stop: 
 def test_each_answer_in_the_transcript_names_its_request_and_a_truncated_one_is_not_there(
     tmp_path: Path,
 ) -> None:
-    """Il Replay lega ogni turno alla sua chiamata con questo request_id."""
+    """The replay view matches each turn to its call through this request_id."""
     config = settings(tmp_path)
     partial = turn(use("list_files", "t1"), stop="max_tokens") | {"_request_id": "req_tagliata"}
     final = turn(use("block", "t2", reason="manca il brief")) | {"_request_id": "req_blocco"}
@@ -909,8 +910,8 @@ def test_sandbox_has_no_network_key_or_outside_files(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
     box = Sandbox(work)
-    # What the sandbox sees, not a failed probe: an offline host also fails to connect, and a non-root user
-    # cannot write to /usr anyway. Only `lo` exists without the host's network, and /usr is mounted read-only.
+    # What the sandbox sees, not a failed probe: an offline host also fails to connect, and only root could
+    # write to /usr anyway. Only `lo` exists without the host's network, and /usr is mounted read-only.
     probe = (
         "import os,socket;print(os.environ.get('ANTHROPIC_API_KEY'));"
         f"print(os.path.exists({str(outside)!r}));"

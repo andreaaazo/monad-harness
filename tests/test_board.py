@@ -1,8 +1,8 @@
-"""La tavola del giudizio alla cieca: ogni disegno alla stessa misura, grande e alle misure d'uso (ADR-0041).
+"""The blind-judgment board: every drawing at the same size, large and at the sizes it is used at
+(ADR-0041).
 
-Le tele sono quelle dei due `segno.svg` reali: 98 × 118,5 px con il disegno al 91%, 800 × 600 px con
-il disegno al 76%. Messi nello stesso riquadro per la loro tela, il primo sembrerebbe più grande di un
-quinto.
+The canvases are those of the two real `segno.svg` files: 98 × 118.5 px with the drawing at 91%, 800 × 600 px
+with the drawing at 76%. Put in the same frame by their canvas, the first would look a fifth larger.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ def longest(image: Image.Image) -> int:
 
 
 def ink_box(image: Image.Image) -> tuple[int, int, int, int] | None:
-    """Dove c'è inchiostro su una tavola bianca."""
+    """Where there is ink on a white board."""
     return Image.eval(image.convert("L"), lambda value: 255 if value < 128 else 0).getbbox()
 
 
@@ -55,10 +55,10 @@ def test_every_drawing_has_the_same_size_whatever_its_canvas(tmp_path: Path) -> 
 
 
 def test_small_sizes_are_rendered_at_their_own_scale_not_reduced_from_the_large_one(tmp_path: Path) -> None:
-    """Come in logo_proof: a 16 px conta cosa resta di un disegno reso a 16 px."""
+    """As in logo_proof: at 16 px, what counts is what remains of a drawing rendered at 16 px."""
     render = FakeVectorcraft()
     board.drawn(write(tmp_path / "A.svg", TIGHT), render, tmp_path)
-    for size in SIZES:  # il lato più lungo del disegno è 108 px della tela
+    for size in SIZES:  # the drawing's longest side is 108 px of the canvas
         assert any(abs(scale - size / 108) <= size / 108 / 100 for scale in render.scales), size
 
 
@@ -80,7 +80,7 @@ def test_the_board_puts_every_letter_in_the_same_square_on_white(tmp_path: Path)
     assert sorted(path.name for path in folder.iterdir()) == ["A.svg", "B.svg", "tavola.png"]
     with Image.open(sheet) as opened:
         assert (opened.format, opened.mode, opened.size) == ("PNG", "RGB", (2 * board.CELL, board.ROW))
-        assert not opened.info.keys() - {"dpi"}, opened.info  # nessun testo: né titoli né percorsi
+        assert not opened.info.keys() - {"dpi"}, opened.info  # no text: neither titles nor paths
         image = opened.copy()
     assert image.getpixel((0, 0)) == (255, 255, 255)
     for column in range(2):
@@ -127,10 +127,10 @@ def test_a_speck_on_a_huge_canvas_is_refused_before_an_enormous_render(tmp_path:
     render = FakeVectorcraft()
     with pytest.raises(CannotCompare, match="parte troppo piccola"):
         board.drawn(write(tmp_path / "A.svg", svg((2000, 2000), (0, 0, 1, 1))), render, tmp_path)
-    assert max(render.scales) <= 1  # la tela misurata, non quella enorme
+    assert max(render.scales) <= 1  # the measured canvas, not the huge one
 
 
-# Il renderer vero
+# The real renderer
 
 
 needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="manca vectorcraft-cli")

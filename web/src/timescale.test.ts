@@ -5,17 +5,17 @@ import { between, workScale } from "./timescale.ts";
 
 const at = (minute: number) => new Date(Date.UTC(2026, 10, 2, 10, minute)).toISOString();
 
-test("i minuti fra due istanti", () => {
+test("the minutes between two instants", () => {
   assert.equal(between("2026-11-02T10:00:00+00:00", "2026-11-02T10:30:00+00:00"), 30);
   assert.equal(between("2026-11-02T10:30:00+00:00", "2026-11-02T10:00:00+00:00"), -30);
 });
 
-test("senza attese la scala è il tempo", () => {
+test("without waits the scale is the time", () => {
   const place = workScale(at(0), at(40), []);
   assert.deepEqual([at(0), at(10), at(40)].map(place), [0, 25, 100]);
 });
 
-test("un'attesa non occupa spazio: prima, durante e dopo cadono dove finisce il lavoro fatto", () => {
+test("a wait takes no space: instants before, during and after it land where the work done ends", () => {
   // One hour: 20 minutes of work, 30 of waiting, 10 of work.
   const place = workScale(at(0), at(60), [{ started_at: at(20), minutes: 30 }]);
   assert.equal(place(at(10)), (10 / 30) * 100);
@@ -26,7 +26,7 @@ test("un'attesa non occupa spazio: prima, durante e dopo cadono dove finisce il 
   assert.equal(place(at(60)), 100);
 });
 
-test("fuori dal run la scala si ferma ai bordi, e un run di un istante sta tutto a sinistra", () => {
+test("outside the run the scale stops at the edges, and a run of one instant sits all on the left", () => {
   const place = workScale(at(10), at(20), []);
   assert.deepEqual([place(at(0)), place(at(30))], [0, 100]);
   assert.equal(workScale(at(10), at(10), [])(at(10)), 0);

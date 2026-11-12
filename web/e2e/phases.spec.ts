@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { PROJECT } from "./project";
 
-test("vista Fasi: dove si è fermato, le fasi in ordine di lavoro, i passi indietro", async ({ page }) => {
+test("phases view: where the work stopped, the phases in order of work, the steps back", async ({ page }) => {
   await page.goto(`/projects/${PROJECT}`);
   await page.getByRole("navigation", { name: "Viste del progetto" }).getByRole("link", { name: "Fasi" }).click();
   await expect(page.getByRole("link", { name: "Fasi" })).toHaveAttribute("aria-current", "page");

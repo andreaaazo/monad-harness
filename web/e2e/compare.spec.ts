@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { BEFORE, PROJECT } from "./project";
 
-test("vista Confronto: due progetti affiancati, l'impronta che cambia, il giudizio alla cieca", async ({ page }) => {
+test("compare view: two projects side by side, the fingerprint that changes, the blind judgment", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("navigation", { name: "Cruscotto" }).getByRole("link", { name: "Confronto" }).click();
   // Without a choice: the two projects that worked last, the older one first.
@@ -43,7 +43,7 @@ test("vista Confronto: due progetti affiancati, l'impronta che cambia, il giudiz
   await expect(votes.getByRole("row", { name: /^A/ })).toContainText("non regge: generico");
 });
 
-test("vista Confronto: si sceglie chi confrontare, e un progetto con sé stesso non si confronta", async ({ page }) => {
+test("compare view: the user picks what to compare, and a project is not compared with itself", async ({ page }) => {
   await page.goto("/compare");
   await page.getByRole("combobox", { name: "Prima", exact: true }).selectOption(PROJECT);
   await page.getByRole("combobox", { name: "Dopo", exact: true }).selectOption(BEFORE);

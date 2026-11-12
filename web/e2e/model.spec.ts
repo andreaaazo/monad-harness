@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { PROJECT } from "./project";
 
-test("vista Modello: perché il modello si è fermato e come ha lavorato ogni ruolo", async ({ page }) => {
+test("model view: why the model stopped and how each role worked", async ({ page }) => {
   await page.goto(`/projects/${PROJECT}/model`);
   await expect(page.getByRole("link", { name: "Modello" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("list", { name: "Motivi di fine" }).getByRole("listitem")).toHaveText([
@@ -17,7 +17,7 @@ test("vista Modello: perché il modello si è fermato e come ha lavorato ogni ru
   ).toHaveText(["3", "6,10 $", "4200", "4200", "86%", "180", "9,8 s", "2,6 s", "high", "tool_use 2, max_tokens 1"]);
 });
 
-test("vista Modello: il contesto turno per turno, col puntatore, con la tastiera e in tabella", async ({ page }) => {
+test("model view: the context turn by turn, with the pointer, with the keyboard and in a table", async ({ page }) => {
   await page.goto(`/projects/${PROJECT}/model`);
   await page.waitForLoadState("networkidle");
   const cards = page.getByRole("list", { name: "Istanze" }).getByRole("listitem");

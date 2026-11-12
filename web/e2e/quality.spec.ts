@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { PROJECT } from "./project";
 
-test("vista Strumenti e QA: dove sbaglia, con le parole di chi ha detto no", async ({ page }) => {
+test("tools and QA view: where the work goes wrong, in the words of whoever said no", async ({ page }) => {
   await page.goto(`/projects/${PROJECT}`);
   await page.getByRole("navigation", { name: "Viste del progetto" }).getByRole("link", { name: "Strumenti e QA" }).click();
   await expect(page.getByRole("link", { name: "Strumenti e QA" })).toHaveAttribute("aria-current", "page");
@@ -50,7 +50,7 @@ test("vista Strumenti e QA: dove sbaglia, con le parole di chi ha detto no", asy
   await expect(setbacks.nth(1)).toContainText("La coda sparisce a 16 px: ingrossala di 2 unità.");
 });
 
-test("le parole che non dicono un no restano nel registro", async ({ page }) => {
+test("words that do not say no stay in the registry", async ({ page }) => {
   for (const view of ["phases", "quality"]) {
     await page.goto(`/projects/${PROJECT}/${view}`);
     await expect(page.getByRole("main")).not.toContainText("Le parole di una consegna restano nel registro");

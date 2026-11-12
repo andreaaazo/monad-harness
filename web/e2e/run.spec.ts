@@ -11,7 +11,7 @@ const NEXT_PORT = 13765;
 const DJANGO_PORT = 18765;
 const OFFLINE_PORT = 13766;
 
-test("la pagina dei progetti elenca il registro e dice da dove vengono i dati", async ({ page }) => {
+test("the projects page lists the registry and says where the data comes from", async ({ page }) => {
   await page.goto("/");
   const row = page.getByRole("row", { name: new RegExp(PROJECT) });
   await expect(row).toContainText("10,80 $");
@@ -19,7 +19,7 @@ test("la pagina dei progetti elenca il registro e dice da dove vengono i dati", 
   await expect(page.getByLabel("Provenienza dei dati")).toContainText("revisione 0008");
 });
 
-test("vista Run: quanto è costato, quanto è durato, chi ha lavorato quando", async ({ page }) => {
+test("run view: what it cost, how long it took, who worked when", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("link", { name: PROJECT }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(PROJECT);
@@ -56,7 +56,7 @@ test("vista Run: quanto è costato, quanto è durato, chi ha lavorato quando", a
   await expect(page.getByRole("table", { name: "Ticket" }).getByRole("row")).toHaveCount(7);
 });
 
-test("un progetto che non esiste ha la sua pagina e il suo stato, in ogni vista", async ({ page }) => {
+test("a project that does not exist has its own page and status, in every view", async ({ page }) => {
   for (const path of VIEWS.map((view) => `/projects/fantasma${view}`)) {
     const response = await page.goto(path);
     expect(response?.status(), path).toBe(404);
@@ -64,7 +64,7 @@ test("un progetto che non esiste ha la sua pagina e il suo stato, in ogni vista"
   }
 });
 
-test("se Django è spento le pagine lo dicono e dicono come riavviarlo", async ({ page }) => {
+test("with Django down the pages say so and say how to restart it", async ({ page }) => {
   for (const path of pages()) {
     await page.goto(`http://127.0.0.1:${OFFLINE_PORT}${path}`);
     // Next.js already has its own role="alert", the route announcer: the test looks for the page's.
@@ -75,7 +75,7 @@ test("se Django è spento le pagine lo dicono e dicono come riavviarlo", async (
   }
 });
 
-test("il browser parla solo con Next.js: niente CDN, niente telemetria, niente Django diretto", async ({ page }) => {
+test("the browser talks only to Next.js: no CDN, no telemetry, no direct Django", async ({ page }) => {
   const requests: string[] = [];
   const failed: string[] = [];
   page.on("request", (request) => requests.push(request.url()));
@@ -97,14 +97,14 @@ test("il browser parla solo con Next.js: niente CDN, niente telemetria, niente D
   expect(failed).toEqual([]);
 });
 
-test("l'API arriva dal browser solo passando da Next.js, nella stessa origine", async ({ request }) => {
+test("the browser reaches the API only through Next.js, on the same origin", async ({ request }) => {
   const response = await request.get("/api/projects");
   expect(response.ok()).toBe(true);
   expect((await response.json()).map((project: { name: string }) => project.name)).toContain(PROJECT);
   expect((await request.post("/api/projects")).status()).toBe(405);
 });
 
-test("le pagine non restano in cache, non si incorniciano e non dicono chi le serve", async ({ request }) => {
+test("pages are not cached, not framed, and do not say who serves them", async ({ request }) => {
   // The dynamic pages and the static ones too: on its own, Next.js would give /_not-found s-maxage=31536000.
   for (const path of [`/projects/${PROJECT}`, "/_not-found"]) {
     const headers = (await request.get(path)).headers();
@@ -128,7 +128,7 @@ function ask(path: string, host: string, headers: Record<string, string> = {}): 
   });
 }
 
-test("un nome che punta a 127.0.0.1 non legge il cruscotto: né pagine, né /api, né file statici", async ({ page }) => {
+test("a name pointing at 127.0.0.1 cannot read the dashboard: no pages, no /api, no static files", async ({ page }) => {
   await page.goto("/");
   const script = await page.locator('script[src*="/_next/static/"]').first().getAttribute("src");
   expect(script).not.toBeNull();
@@ -143,7 +143,7 @@ test("un nome che punta a 127.0.0.1 non legge il cruscotto: né pagine, né /api
   }
 });
 
-test("su un telefono nessuna vista scorre in orizzontale, neanche con i dettagli aperti", async ({ browser }) => {
+test("on a phone no view scrolls sideways, not even with the details open", async ({ browser }) => {
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
   for (const path of pages()) {
     await phone.goto(path);
@@ -153,7 +153,7 @@ test("su un telefono nessuna vista scorre in orizzontale, neanche con i dettagli
   await phone.close();
 });
 
-test("Next.js e Django ascoltano solo su loopback", async () => {
+test("Next.js and Django listen only on loopback", async () => {
   // The kernel's own socket tables, not a connection attempt from outside: they need no second interface,
   // so the test never has to skip.
   const servers = [
@@ -209,7 +209,7 @@ function servers(): { program: string; port: string; keys: string[]; canary: boo
         if (!next && !django) return [];
         return [
           {
-            program: next ? `Next.js su ${port}` : `Django (${basename(argv[0] ?? "")})`,
+            program: next ? `Next.js on ${port}` : `Django (${basename(argv[0] ?? "")})`,
             port,
             // Only the names and a yes or a no: an error must not print the environment, which can hold secrets.
             keys: environment.map((item) => item.split("=")[0] ?? "").filter((name) => name.includes("ANTHROPIC")),
@@ -222,8 +222,8 @@ function servers(): { program: string; port: string; keys: string[]; canary: boo
     });
 }
 
-test("né Next.js né Django ricevono la chiave, anche quando chi li avvia ce l'ha nell'ambiente", () => {
-  test.skip(!existsSync("/proc/self/environ"), "serve /proc per leggere l'ambiente dei processi");
+test("neither Next.js nor Django gets the key, even when whoever starts them has it in the environment", () => {
+  test.skip(!existsSync("/proc/self/environ"), "needs /proc to read the processes' environment");
   const found = servers();
   expect(found.filter((server) => server.program.startsWith("Next.js")).map((server) => server.port).sort()).toEqual([
     String(NEXT_PORT),
@@ -244,7 +244,7 @@ function everything(folder: string): string[] {
   });
 }
 
-test("nella build non restano dati del registro, immagini o file .env", async ({ page }) => {
+test("no registry data, images or .env files stay in the build", async ({ page }) => {
   for (const path of pages()) {
     await page.goto(path);
   }

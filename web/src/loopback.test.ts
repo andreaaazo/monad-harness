@@ -3,13 +3,13 @@ import { test } from "node:test";
 
 import { isLoopbackHost } from "./loopback.ts";
 
-test("gli host di loopback, con o senza porta: gli stessi di ALLOWED_HOSTS in Django", () => {
+test("loopback hosts, with or without a port: the same as ALLOWED_HOSTS in Django", () => {
   for (const host of ["127.0.0.1", "127.0.0.1:3000", "localhost", "localhost:13765", "LOCALHOST:3000"]) {
     assert.equal(isLoopbackHost(host), true, host);
   }
 });
 
-test("ogni altro host no: è il nome che una pagina ostile fa puntare a 127.0.0.1", () => {
+test("any other host is refused: it is the name a hostile page points at 127.0.0.1", () => {
   for (const host of [
     null,
     "",

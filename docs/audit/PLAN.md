@@ -1454,7 +1454,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
   - Keep `fetch(`, `use server` and `generateStaticParams` out of the comments in `web/src` (CMT-002).
   - Verify: `pnpm --dir web run defenses`, `typecheck` and `test`, `make e2e`, then the standard gate.
   - Commit: `docs(web): translate comments to English and document the exported helpers`.
-- [ ] **Task 3.21: web test titles and build-check messages.** Closes CMT-013.
+- [x] **Task 3.21: web test titles and build-check messages.** Closes CMT-013.
   - Files: `web/src/*.test.ts`, `web/e2e/*.spec.ts` (the titles), `web/scripts/check-defenses.mjs` and
     `web/scripts/standalone.mjs` (their messages).
   - Keep the UI-copy assertions, and the "Next.js" and "Django" label prefixes.

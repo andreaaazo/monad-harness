@@ -6,7 +6,6 @@ The CLIs are asked only for `--version`, as the Craft command index already does
 
 from __future__ import annotations
 
-import hashlib
 import os
 import platform
 import shutil
@@ -15,6 +14,7 @@ from functools import cache
 from pathlib import Path
 
 from agency.config import REPO_ROOT, Settings
+from agency.contracts.files import file_sha256
 from agency.contracts.run import Fingerprint
 
 TOOLS = ("vectorcraft-cli", "effectcraft-cli", "photocraft-cli", "figcraft-cli", "blender")
@@ -45,11 +45,7 @@ def _hashes(root: Path, folder: str) -> dict[str, str]:
     files = sorted(
         path for path in (root / folder).rglob("*") if path.is_file() and "__pycache__" not in path.parts
     )
-    return {path.relative_to(root).as_posix(): _sha256(path) for path in files}
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return {path.relative_to(root).as_posix(): file_sha256(path) for path in files}
 
 
 def take(
@@ -70,7 +66,7 @@ def take(
         prompts=_hashes(root, "prompts"),
         registry=_hashes(root, "registry"),
         code=_hashes(root, "src/agency"),
-        lock=_sha256(root / "uv.lock"),
+        lock=file_sha256(root / "uv.lock"),
         python=platform.python_version(),
         tools={binary: version(binary) for binary in tools},
     )

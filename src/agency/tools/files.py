@@ -1,11 +1,8 @@
-"""Paths and hashes inside the work's perimeter: the no-follow helpers of `agency.contracts.files`,
-re-exported for the tools, plus `sha256` and `clip`.
+"""Paths and hashes inside the work's perimeter: the helpers of `agency.contracts.files`, re-exported for the
+tools (`sha256` is its `file_sha256`), plus `clip`.
 """
 
 from __future__ import annotations
-
-import hashlib
-from pathlib import Path
 
 from agency.contracts.files import (
     MAX_DOCUMENT_BYTES,
@@ -21,6 +18,9 @@ from agency.contracts.files import (
     replace_under,
     sha256_under,
     write_new_under,
+)
+from agency.contracts.files import (
+    file_sha256 as sha256,
 )
 
 __all__ = [
@@ -40,16 +40,6 @@ __all__ = [
     "sha256_under",
     "write_new_under",
 ]
-
-
-def sha256(path: Path) -> str:
-    """The file's sha256, read in 1 MiB chunks. It follows links: on a path the sandbox can write, use
-    `sha256_under`."""
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def clip(text: str, limit: int = 4000) -> str:

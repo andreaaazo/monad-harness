@@ -14,17 +14,10 @@ from pathlib import Path
 from typing import BinaryIO
 
 from agency.contracts.artifact import SHA256, ArtifactMissing, Blob
+from agency.contracts.files import file_sha256
 
 CHUNK = 1 << 20
 READ_ONLY = 0o444
-
-
-def _digest(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        while chunk := handle.read(CHUNK):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _sync(folder: Path) -> None:
@@ -88,4 +81,4 @@ class FileStore:
     def intact(self, sha256: str) -> bool:
         """Whether the stored file exists and still hashes to its name: a full read."""
         target = self.location(sha256)
-        return target.is_file() and _digest(target) == sha256
+        return target.is_file() and file_sha256(target) == sha256

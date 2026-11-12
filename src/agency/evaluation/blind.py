@@ -7,7 +7,6 @@ for a person who judges many times, repeated letters would in time give away whi
 
 from __future__ import annotations
 
-import hashlib
 import os
 import random
 import secrets
@@ -17,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from agency.contracts.files import OutsidePerimeter, open_under, sha256_under
+from agency.contracts.files import OutsidePerimeter, file_sha256, open_under, sha256_under
 from agency.contracts.judgment import Judged, Judgment, Level, Rating, below_the_top
 from agency.contracts.project import parse_project_name
 
@@ -57,10 +56,6 @@ def candidates(paths: list[Path], projects_dir: Path) -> list[Candidate]:
     return found
 
 
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def _below(path: Path, projects_dir: Path) -> tuple[Path, tuple[str, ...]] | None:
     """The projects folder and the parts of `path` below it, or None for a file elsewhere.
 
@@ -77,7 +72,7 @@ def _candidate(path: Path, projects_dir: Path) -> Candidate:
     below = _below(path, projects_dir)
     if below is None:  # the operator's own file
         resolved = path.resolve()
-        return Candidate(resolved, Judged(project="", file=str(resolved), sha256=_digest(resolved)))
+        return Candidate(resolved, Judged(project="", file=str(resolved), sha256=file_sha256(resolved)))
     root, parts = below
     relative = "/".join(parts)
     try:
@@ -125,7 +120,7 @@ def lay_out(assigned: dict[str, Candidate], folder: Path) -> list[Path]:
     for letter, candidate in assigned.items():
         copy = folder / f"{letter}{candidate.path.suffix.lower()}"
         _copy(candidate, copy)
-        if _digest(copy) != candidate.judged.sha256:
+        if file_sha256(copy) != candidate.judged.sha256:
             raise CannotCompare(f"{candidate.path} è cambiato mentre lo copiavo: riprova quando è fermo")
         copies.append(copy)
     return copies
@@ -146,7 +141,7 @@ def _copy(candidate: Candidate, copy: Path) -> None:
 def changed(assigned: dict[str, Candidate], copies: list[Path]) -> list[str]:
     """The letters whose anonymous copy no longer has its hash: a judgment can take minutes."""
     pairs = zip(assigned.items(), copies, strict=True)
-    return [letter for (letter, candidate), copy in pairs if _digest(copy) != candidate.judged.sha256]
+    return [letter for (letter, candidate), copy in pairs if file_sha256(copy) != candidate.judged.sha256]
 
 
 def _choose[T](ask: Callable[[str], str], prompt: str, options: dict[str, T]) -> T:

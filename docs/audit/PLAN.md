@@ -1861,7 +1861,22 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - With them, all ten mutants are killed, each by the test meant for it, on a green baseline of 632 tests.
   - Files: `src/agency/tools/surface.py:427,437,466`, `src/agency/qa/delivery.py:26`, `src/agency/qa/evidence.py:20,85`.
   - Commit: `refactor(qa): compare check kinds through CheckKind`.
-- [ ] **Task 6.10: one copy of each small helper.** Closes SIM-011.
+- [x] **Task 6.10: one copy of each small helper.** Closes SIM-011 (the hash part).
+  - Done: the four "sha256 of a file path" copies become one `file_sha256` in contracts/files.py, next to
+    `sha256_under`, with the same `hashlib.file_digest` body. The copies were tools/files `sha256`,
+    artifacts/files `_digest`, evaluation/blind `_digest` and telemetry/fingerprint `_sha256`. The output and the
+    errors are the same: every copy opened the path, following links. blind.py and fingerprint.py now stream the
+    file instead of reading it whole. agency.tools.files still exports it as `sha256`, so its importers (two
+    tests) are unchanged. The name follows the plan, `file_sha256`, and not `sha256`: `FileStore.intact` has a
+    parameter called `sha256`, which would shadow an imported function of that name. The four reviewers of
+    /ce-simplify-code had all proposed `sha256`. The module docstrings of contracts/files.py and tools/files.py
+    now say what each holds.
+  - Not done, behaviour change: one `clip`. tools/files `clip` and insights/adapters/transcripts `_clip`
+    cut differently: different markers, and one counts the marker in the limit. Merging them changes either the
+    tool results the model reads or the refusals the dashboard shows.
+  - Not done, rejected: one `BUSY_SECONDS`. The engine's write timeout and the dashboard's read-only wait are two
+    independent waits that both happen to be 30 s. ADR-0019 keeps insights apart from the ledger. A contracts
+    module for one number would be a new abstraction. The reviewers disagreed.
   - Files:
     - create `src/agency/contracts/files.py`, with `file_sha256(path: Path) -> str` (streamed in 1 MiB chunks),
       `clip(text: str, limit: int) -> str` and `BUSY_SECONDS = 30`;

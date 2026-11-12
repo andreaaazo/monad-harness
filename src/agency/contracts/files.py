@@ -1,4 +1,4 @@
-"""No-follow file helpers confined to a work folder."""
+"""No-follow file helpers confined to a work folder, and the hash of a file the harness trusts."""
 
 from __future__ import annotations
 
@@ -136,6 +136,12 @@ def replace_under(root: Path, relative: str, data: bytes) -> None:
 
 def sha256_under(root: Path, relative: str) -> str:
     with os.fdopen(open_under(root, relative, os.O_RDONLY), "rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
+def file_sha256(path: Path) -> str:
+    """The file's sha256. It follows links: on a path the sandbox can write, use `sha256_under`."""
+    with path.open("rb") as handle:
         return hashlib.file_digest(handle, "sha256").hexdigest()
 
 

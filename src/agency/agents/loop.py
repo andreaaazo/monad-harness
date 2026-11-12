@@ -51,7 +51,8 @@ def _after_fallback(content: list[dict]) -> list[dict]:
     return [block for i, block in enumerate(content) if i > boundary or kept(block)]
 
 
-# The tools that close an instance. The reminder names those the current phase has.
+# The closing tools the reminder offers, in the order it names them; it names those the current phase has.
+# reject_concept also closes an instance, but the reminder does not offer it (tests/test_agent_flow.py).
 CLOSING = (
     "deliver",
     "hand_off",

@@ -1819,6 +1819,13 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     hand-ordered tuple anyway, because the reminder text goes to the model and Task 1.14 pins it byte for byte.
     `CLOSING` and `CLOSE_ALWAYS` answer different questions: what the reminder offers, in what order, and how to
     rebuild an outcome on resume. Only the drift between them is a risk; a separate test unit covers it.
+  - The drift guard: `test_the_reminder_offers_every_closing_tool_but_reject_concept` takes the tools that close
+    on resume from the Task 1.14 table. It requires every `CLOSE_ALWAYS` name to be in that table, and `CLOSING` to
+    equal that set minus reject_concept. Three mutations fail it: a new closer added only to `CLOSE_ALWAYS`, one
+    added only to `CLOSING`, and a closer dropped from `CLOSING`. The comment above `CLOSING` no longer says it
+    lists "the tools that close an instance". Now it records that reject_concept closes too, but is not offered.
+    The history gives no reason: `CLOSING` is unchanged since the bootstrap commit 51c511c. So the comment states
+    the fact and gives no reason.
   - Not changed: the CANCEL row and `reject_concept`'s four statuses (cancellable, a different fact) and
     `insights.flow.UNFINISHED` (runnable plus delivered).
   - Files: `src/agency/tools/surface.py` (`Tool`, `CLOSE_ALWAYS` and `_restore`), `src/agency/agents/loop.py:25`

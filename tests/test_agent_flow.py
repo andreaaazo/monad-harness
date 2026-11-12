@@ -19,7 +19,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from PIL import Image
 
 from agency import cli
-from agency.agents.loop import AgentRunner, _after_fallback
+from agency.agents.loop import CLOSING, AgentRunner, _after_fallback
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
@@ -48,7 +48,7 @@ from agency.tools.sandbox import (
     Sandbox,
     SandboxUnavailable,
 )
-from agency.tools.surface import TOOLS, Toolbox, ToolContext, tools_for
+from agency.tools.surface import CLOSE_ALWAYS, TOOLS, Toolbox, ToolContext, tools_for
 from support.scripted import ScriptedTransport
 
 SVG_PATH = "M10 90 L50 10 L90 90 Z"
@@ -619,6 +619,15 @@ def test_restore_closes_each_closing_tool_with_its_state(
     assert result == {"type": "tool_result", "tool_use_id": "t1", "content": text}
     expected = None if state is None else Outcome(state=state, note=text if note is None else note)
     assert context.finished == expected
+
+
+def test_the_reminder_offers_every_closing_tool_but_reject_concept() -> None:
+    """The reminder's list and the resume table answer different questions, so they stay apart (SIM-010).
+    They must still name the same closing tools, but for reject_concept: a closing tool added to one and not
+    to the other fails here."""
+    closes_on_resume = {name for name, _, state, _ in RESTORED if state is not None}
+    assert set(CLOSE_ALWAYS) <= closes_on_resume
+    assert set(CLOSING) == closes_on_resume - {"reject_concept"}
 
 
 @needs_craft

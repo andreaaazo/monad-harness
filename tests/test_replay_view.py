@@ -1,4 +1,4 @@
-"""La vista Replay: un'istanza turno per turno, con le misure di ogni chiamata e le risposte scartate."""
+"""The replay view: an instance turn by turn, with each call's measures and the discarded answers."""
 
 from __future__ import annotations
 
@@ -55,7 +55,7 @@ def record(*turns: AssistantTurn) -> TranscriptRecord:
 
 
 def test_turns_meet_their_calls_by_request_and_a_discarded_answer_sits_where_it_happened() -> None:
-    """La risposta tagliata (#2) non va in trascrizione: la si vede prima del turno che la rifà."""
+    """The cut-off answer (#2) does not go into the transcript: it shows before the turn that redoes it."""
     calls = [call(1, "req_1"), call(2, "req_x", "max_tokens"), call(3, "req_2", "end_turn")]
     report = replay.replay_report(record(turn("req_1", "uno"), turn("req_2", "due")), calls)
     assert report.alignment is replay.Alignment.BY_REQUEST
@@ -87,7 +87,7 @@ def test_when_the_order_does_not_add_up_no_turn_gets_somebody_elses_measures() -
 
 
 def test_a_refusal_after_the_last_turn_closes_the_replay() -> None:
-    """Un rifiuto del modello blocca il ticket: la sua chiamata non ha un turno dopo di sé."""
+    """A model refusal blocks the ticket: its call has no turn after it."""
     calls = [call(1, "req_1"), call(2, "req_x", "refusal")]
     report = replay.replay_report(record(turn("req_1", "uno")), calls)
     assert [item.seq for item in report.trailing_discarded] == [2]

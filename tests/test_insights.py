@@ -1,4 +1,6 @@
-"""La slice di lettura: proietta registro e tracce senza mai scrivere il registro (M1.6, punto 9)."""
+"""The read slice: it projects the registry, the traces and the transcripts without ever writing the
+registry (M1.6, item 9).
+"""
 
 from __future__ import annotations
 
@@ -103,7 +105,7 @@ TICKETS = {
 TRACE = TraceMeasure(request_id="req_1", duration_ms=8200, ttft_ms=1400, effort="high", reasoning_tokens=310)
 
 
-# Le regole: la fase
+# The rules: the phase
 
 
 @pytest.mark.parametrize(
@@ -115,7 +117,7 @@ TRACE = TraceMeasure(request_id="req_1", duration_ms=8200, ttft_ms=1400, effort=
         ("T-0001-a3", "T-0001", "design-director", "design-director"),
         ("T-0002-a1", "T-0002", "direction-a", "explorer"),
         ("T-0009-a1", "T-0009", "critic", "critic"),
-        ("T-0099-a1", "T-0099", "critic", "critic"),  # un ticket che il registro non ha: resta il ruolo
+        ("T-0099-a1", "T-0099", "critic", "critic"),  # a ticket the registry lacks: the role stays
     ],
 )
 def test_phase_of_an_old_call_is_derived_with_the_rule_the_engine_uses(
@@ -125,7 +127,7 @@ def test_phase_of_an_old_call_is_derived_with_the_rule_the_engine_uses(
 
 
 def test_a_recorded_phase_wins_over_the_derived_one() -> None:
-    """Quella registrata è la verità di allora, anche se la regola di oggi direbbe altro."""
+    """The recorded phase is the truth of its time, even if today's rule would say otherwise."""
     (call,) = project_calls([usage(phase="explorer-idea")], TICKETS, {})
     assert (call.phase, call.phase_source) == ("explorer-idea", PhaseSource.RECORDED)
     (old,) = project_calls([usage()], TICKETS, {})
@@ -135,10 +137,10 @@ def test_a_recorded_phase_wins_over_the_derived_one() -> None:
 def test_instance_names_are_written_and_read_by_one_rule() -> None:
     for mode in ("", *phase.MODES):
         assert phase.mode_of(phase.instance("T-0042", 3, mode)) == mode
-    assert phase.mode_of("i1") == ""  # un nome di prova non è un'istanza del motore
+    assert phase.mode_of("i1") == ""  # a test name is not an engine instance
 
 
-# Le regole: le misure
+# The rules: the measures
 
 
 def test_a_new_call_keeps_its_own_measures_even_if_a_trace_exists() -> None:
@@ -174,7 +176,7 @@ def test_a_call_keeps_cost_tokens_and_the_type_of_its_ticket() -> None:
     assert orphan.ticket_type == ""
 
 
-# Le tracce
+# The traces
 
 
 def span(name: str, request_id: str, **attributes: object) -> str:
@@ -199,8 +201,8 @@ def test_traces_give_duration_ttft_effort_and_reasoning_by_request(tmp_path: Pat
                 "gen_ai.usage.reasoning.output_tokens": 310,
             },
         ),
-        span("model.call", "req_9"),  # le tracce nostre non hanno le misure dell'SDK
-        '{"name": "anthropic.messages.create", "start": 1, ',  # riga tagliata da un processo ucciso
+        span("model.call", "req_9"),  # our own traces lack the SDK's measures
+        '{"name": "anthropic.messages.create", "start": 1, ',  # a line cut short by a killed process
         span("anthropic.messages.create", "req_2"),
     ]
     path = tmp_path / "traces.jsonl"
@@ -249,7 +251,7 @@ def test_missing_traces_are_not_an_error(tmp_path: Path) -> None:
     assert (reading.measures, reading.unreadable) == ({}, 0)
 
 
-# Le trascrizioni: da ognuna solo gli strumenti usati e i loro rifiuti
+# The transcripts: from each, only the tools used and their refusals
 
 
 def turn(*blocks: dict) -> dict:
@@ -270,7 +272,7 @@ def answer(id_: str, text: str, *, error: bool = False) -> dict:
 
 
 def test_transcripts_give_every_tool_call_and_the_refusals_with_their_words(tmp_path: Path) -> None:
-    """Il motore scrive la trascrizione, insights la legge con lo stesso percorso: DataLayout."""
+    """The engine writes the transcript and insights reads it through the same path: DataLayout."""
     layout = DataLayout(tmp_path)
     transcript = Transcript(layout.transcript(ProjectName("merlo4"), "T-0002-a1"))
     transcript.append({"role": "user", "content": "Il brief del cliente"})
@@ -304,7 +306,7 @@ def test_a_half_written_line_is_counted_and_skipped_and_the_stamp_names_each_tra
     layout = DataLayout(tmp_path)
     Transcript(layout.transcript(ProjectName("merlo4"), "T-0002-a1")).append(turn(use("u1", "render")))
     with layout.transcript(ProjectName("merlo4"), "T-0002-a1").open("a", encoding="utf-8") as handle:
-        handle.write('{"message": {"role": "user", "cont')  # il motore sta scrivendo
+        handle.write('{"message": {"role": "user", "cont')  # the engine is writing
 
     transcripts = JsonlTranscripts(layout)
 
@@ -333,7 +335,7 @@ def test_a_line_torn_inside_a_utf8_character_counts_as_unreadable(tmp_path: Path
 
 
 def test_a_long_refusal_keeps_its_head_and_its_tail_and_says_where_it_was_cut(tmp_path: Path) -> None:
-    """craft_run risponde con il registro dei passi: l'errore può stare in fondo."""
+    """craft_run answers with the log of its steps: the error can be at the end."""
     layout = DataLayout(tmp_path)
     transcript = Transcript(layout.transcript(ProjectName("merlo4"), "T-0002-a1"))
     transcript.append(turn(use("u1", "craft_run")))
@@ -353,7 +355,7 @@ def image_block(media_type: str = "image/png", data: str = PIXEL) -> dict:
 
 
 def replayed(tmp_path: Path) -> DataLayout:
-    """Un'istanza come la scrive il motore: il compito, due turni, un promemoria, l'esito."""
+    """An instance as the engine writes it: the task, two turns, a reminder, the outcome."""
     layout = DataLayout(tmp_path)
     transcript = Transcript(layout.transcript(ProjectName("merlo4"), "T-0002-a1"))
     transcript.append({"role": "user", "content": "TICKET T-0002: il segno"})
@@ -407,7 +409,7 @@ def test_a_transcript_reads_as_the_task_then_turn_after_turn(tmp_path: Path) -> 
         (0, "image/png", True)
     ]
     assert (first.notes, second.request_id) == (["Ricorda di consegnare"], "req_2")
-    # Un'immagine di un tipo che il cruscotto non serve si conta, ma non si offre.
+    # An image of a type the dashboard does not serve is counted, but not offered.
     assert [(image.index, image.media_type, image.servable) for image in second.tools[0].images] == [
         (1, "image/svg+xml", False)
     ]
@@ -421,21 +423,21 @@ def test_an_image_comes_out_of_its_transcript_only_if_it_is_a_picture(tmp_path: 
         "image/png",
         base64.b64decode(PIXEL),
     )
-    assert transcripts.image("merlo4", "T-0002-a1", 1) is None  # SVG: potrebbe contenere script
+    assert transcripts.image("merlo4", "T-0002-a1", 1) is None  # SVG: it could hold scripts
     assert transcripts.image("merlo4", "T-0002-a1", 2) is None
 
 
 def test_a_name_that_is_not_an_instance_never_becomes_a_path(tmp_path: Path) -> None:
-    """Due difese, ognuna con il suo caso: il nome dev'essere quello di un'istanza, e il file deve stare
-    nella cartella delle trascrizioni."""
+    """Two defences, each with its own case: the name must be an instance's, and the file must be in the
+    transcripts folder."""
     transcripts = JsonlTranscripts(replayed(tmp_path))
     line = '{"message": {"role": "user", "content": "x"}}\n'
     (tmp_path / "segreto.jsonl").write_text(line, encoding="utf-8")
     (tmp_path / "runs" / "merlo4" / "appunti.jsonl").write_text(
         line, encoding="utf-8"
-    )  # dentro, non un'istanza
+    )  # inside, not an instance
     (tmp_path / "fuori").mkdir()
-    (tmp_path / "fuori" / "T-0002-a1.jsonl").write_text(line, encoding="utf-8")  # un'istanza, ma fuori
+    (tmp_path / "fuori" / "T-0002-a1.jsonl").write_text(line, encoding="utf-8")  # an instance, but outside
     assert transcripts.transcript("merlo4", "appunti") is None
     assert transcripts.transcript("../fuori", "T-0002-a1") is None
     assert transcripts.image("../fuori", "T-0002-a1", 0) is None
@@ -459,7 +461,7 @@ def test_missing_transcripts_are_not_an_error(tmp_path: Path) -> None:
     assert (transcripts.read().calls, transcripts.read().unreadable, transcripts.stamp()) == ([], 0, [])
 
 
-# Il registro, in sola lettura
+# The registry, read-only
 
 
 def filled_registry(path: Path) -> Ledger:
@@ -501,14 +503,16 @@ def test_the_registry_reader_reads_and_cannot_write(tmp_path: Path) -> None:
     assert registry.revision() == head()
     with closing(registry.connect()) as connection:
         assert connection.execute("PRAGMA query_only").fetchone() == (1,)
-        connection.execute("PRAGMA query_only = OFF")  # anche togliendo una difesa, resta l'altra: mode=ro
+        connection.execute(
+            "PRAGMA query_only = OFF"
+        )  # even with one defence removed, the other holds: mode=ro
         with pytest.raises(sqlite3.OperationalError, match="readonly"):
             connection.execute("DELETE FROM projects")
     assert digest(path) == before
 
 
 def test_ticket_events_are_the_opening_and_every_transition_the_engine_knows() -> None:
-    """Le prove hanno la loro tabella: nella storia di un ticket contano l'apertura e le transizioni."""
+    """Proofs have their own table: in a ticket's history, the opening and the transitions count."""
     assert {item.value for item in Lifecycle} == {"open"} | {action.value for action in Action}
 
 
@@ -543,8 +547,8 @@ def evidence(ticket_id: str, check: str, result: str, note: str) -> EvidenceRow:
 
 
 def test_the_registry_reader_reads_the_life_of_tickets_and_why_they_went_back(tmp_path: Path) -> None:
-    """Il motivo si legge solo per un passo indietro: è ciò che dice dove il lavoro sbaglia. Le parole di
-    una consegna o di un'apertura restano nel registro."""
+    """The reason is read only for a step back: it is what says where the work goes wrong. The words of a
+    delivery or of an opening stay in the registry."""
     ledger = Ledger(tmp_path / "ledger.sqlite")
     ticket_id = proposal(ledger)
     ledger.apply(ticket_id, Action.DELIVER, "identity-designer", note="Le parole del designer")
@@ -622,7 +626,7 @@ def test_the_registry_reader_works_while_the_engine_is_writing(tmp_path: Path) -
 
     def engine() -> None:
         with ledger.engine.connect() as connection:
-            connection.exec_driver_sql("BEGIN IMMEDIATE")  # il motore tiene il lucchetto di scrittura
+            connection.exec_driver_sql("BEGIN IMMEDIATE")  # the engine holds the write lock
             writing.set()
             done.wait(timeout=10)
             connection.rollback()
@@ -643,8 +647,8 @@ def test_a_missing_registry_is_explained(tmp_path: Path) -> None:
 
 
 def test_a_registry_that_cannot_be_opened_is_explained_not_crashed(tmp_path: Path) -> None:
-    """Un registro WAL chiuso dal motore non ha -shm: chi legge lo deve creare. In una cartella dove non si
-    può scrivere SQLite non lo apre, e il cruscotto lo dice come un registro illeggibile, non come un 500."""
+    """A WAL registry closed by the engine has no -shm file: the reader must create it. In a folder that is
+    not writable SQLite cannot open it, and the dashboard reports an unreadable registry, not a 500."""
     folder = tmp_path / "dati"
     folder.mkdir()
     filled_registry(folder / "ledger.sqlite").engine.dispose()
@@ -660,7 +664,7 @@ def test_a_registry_that_cannot_be_opened_is_explained_not_crashed(tmp_path: Pat
         folder.chmod(0o755)
 
 
-# Il caso d'uso
+# The use cases
 
 
 def test_insights_reads_exactly_the_revision_the_engine_writes() -> None:
@@ -729,7 +733,7 @@ def test_rebuild_projects_every_call_and_says_where_measures_came_from(tmp_path:
     assert projection.provenance() == built
 
 
-# La proiezione
+# The projection
 
 
 def call(seq: int, project: str = "merlo3") -> Call:
@@ -817,7 +821,7 @@ def test_a_reader_never_sees_a_half_written_projection(tmp_path: Path) -> None:
         reader.execute("BEGIN")
         assert reader.execute("SELECT count(*) FROM calls").fetchone()[0] == 1
         projection.replace(only([call(1), call(2)]), rebuilt(2))
-        assert reader.execute("SELECT count(*) FROM calls").fetchone()[0] == 1  # la sua versione resta intera
+        assert reader.execute("SELECT count(*) FROM calls").fetchone()[0] == 1  # its version stays whole
     assert len(projection.calls()) == 2
     assert [item.name for item in tmp_path.iterdir()] == ["insights.sqlite"]
 
@@ -826,15 +830,17 @@ def test_a_failed_rebuild_leaves_the_previous_projection(tmp_path: Path) -> None
     projection = SqliteProjection(tmp_path / "insights.sqlite")
     projection.replace(only([call(1)]), rebuilt(1))
     with pytest.raises(sqlite3.IntegrityError):
-        projection.replace(only([call(1), call(1)]), rebuilt(2))  # due chiamate con lo stesso numero
+        projection.replace(only([call(1), call(1)]), rebuilt(2))  # two calls with the same number
     assert [item.seq for item in projection.calls()] == [1]
     assert [item.name for item in tmp_path.iterdir()] == ["insights.sqlite"]
 
 
 def test_a_change_to_what_the_projection_stores_changes_its_schema_number() -> None:
-    """Se un modello salvato cambia e lo schema no, una proiezione vecchia si legge male invece di rifarsi.
+    """If a stored model changes and the schema number does not, an old projection is misread instead of
+    rebuilt.
 
-    Quando questo test fallisce: si alza SqliteProjection.SCHEMA e si aggiorna qui l'impronta.
+    When this test fails: raise SqliteProjection.SCHEMA if a stored shape changed, then update the fingerprint
+    here. The hash also covers the models' descriptions, so a docstring change moves it without a new SCHEMA.
     """
     stored = (
         Call,
@@ -862,7 +868,7 @@ def test_a_projection_of_the_previous_schema_is_rebuilt_not_misread(tmp_path: Pa
     with closing(sqlite3.connect(path)) as connection:
         connection.execute(
             'UPDATE meta SET value = \'{"built_at": "ieri"}\''
-        )  # la provenienza di uno schema vecchio
+        )  # the provenance of an old schema
         connection.execute(f"PRAGMA user_version = {SqliteProjection.SCHEMA - 1}")
         connection.commit()
     built = application.current(
@@ -876,7 +882,7 @@ def test_a_projection_of_the_previous_schema_is_rebuilt_not_misread(tmp_path: Pa
 
 
 def test_a_transcript_that_grows_makes_the_projection_old(tmp_path: Path) -> None:
-    """Un'istanza che lavora scrive la sua trascrizione: alla lettura dopo, la proiezione si rifà."""
+    """A working instance writes its transcript: on the next read, the projection is rebuilt."""
     layout = DataLayout(tmp_path)
     transcript = Transcript(layout.transcript(ProjectName("merlo3"), "T-0002-a1"))
     transcript.append(turn(use("u1", "render")))
@@ -904,7 +910,7 @@ def test_an_old_projection_schema_is_not_read(tmp_path: Path) -> None:
         SqliteProjection(path).calls()
 
 
-# Il comando
+# The command
 
 
 def test_agency_insights_rebuilds_and_reports_where_data_came_from(

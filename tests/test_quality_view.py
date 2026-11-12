@@ -1,4 +1,4 @@
-"""La vista Strumenti e QA: dove sbaglia, con le parole di chi ha detto no."""
+"""The tools and QA view: where the work goes wrong, in the words of whoever said no."""
 
 from __future__ import annotations
 
@@ -138,8 +138,8 @@ def data(**extra: object) -> ProjectData:
 
 
 def test_a_check_passes_at_the_first_try_when_its_first_result_on_that_file_is_not_a_fail() -> None:
-    """svg_audit su segno.svg: due FAIL e poi PASS, non al primo colpo; su favicon.svg sì. FAIL è l'unico
-    esito che boccia: NOT_APPLICABLE e MEASURED passano."""
+    """svg_audit on segno.svg: two FAILs and then PASS, so not at once; on favicon.svg, at once. FAIL is
+    the only result that fails: NOT_APPLICABLE and MEASURED pass."""
     report = quality.quality_report("officina", data())
     assert [
         (item.check_name, item.runs, item.failed, item.subjects, item.first_pass) for item in report.checks
@@ -181,7 +181,7 @@ def test_tools_say_how_often_they_said_no_and_with_which_words() -> None:
 
 
 def test_refusals_follow_the_instances_in_the_order_they_started_not_by_name() -> None:
-    """Le trascrizioni si leggono per nome: T-0001-a2 viene prima di T-0005-a1, ma ha iniziato dopo."""
+    """Transcripts are read by name: T-0001-a2 comes before T-0005-a1, but it started later."""
     calls = [*CALLS, call(3, 20, "T-0001-a2", "T-0001", "design-director", "design-director")]
     tools = [
         tool(1, "T-0001-a2", 1, "open_ticket", "il pattern non corrisponde a nessun output"),
@@ -200,7 +200,7 @@ def test_blocked_tickets_and_every_step_back_come_with_their_reason() -> None:
 
 
 def test_a_refusal_in_an_instance_without_calls_still_counts() -> None:
-    """Una trascrizione senza chiamate in `usage` non sparisce: il rifiuto resta, senza ruolo né fase."""
+    """A transcript without calls in `usage` does not vanish: the refusal stays, without a role or phase."""
     calls = [tool(1, "T-0009-a1", 1, "render", "render non disponibile")]
     (refusal,) = quality.quality_report("officina", data(tool_calls=calls)).refusals
     assert (refusal.instance, refusal.ticket_id, refusal.role, refusal.phase) == ("T-0009-a1", "", "", "")

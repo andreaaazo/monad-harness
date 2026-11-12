@@ -1,11 +1,11 @@
-"""Un registro di prova per le prove del cruscotto: `uv run python tests/dashboard_fixture.py <cartella>`.
+"""A test registry for the dashboard tests: `uv run python tests/dashboard_fixture.py <folder>`.
 
-Un progetto inventato, `officina-e2e`, scritto con il motore vero: più fasi e più istanze, chiamate misurate e
-no, un gate approvato, idee, un giudizio, la storia dei ticket con una revisione bloccata e una rifinitura
-rimandata e rifatta, prove FAIL e PASS, trascrizioni con due strumenti che dicono no, e due esecuzioni con
-la loro impronta. Accanto, `officina-prima`: lo stesso lavoro il giorno prima, con un'impronta diversa e un
-giudizio alla cieca che mette i due segni a confronto. Gli istanti sono fissi, eventi compresi, così le
-viste mostrano sempre gli stessi numeri. La cartella si svuota e si riscrive a ogni esecuzione.
+An invented project, `officina-e2e`, written with the real engine: several phases and instances, measured and
+unmeasured calls, an approved gate, ideas, a judgment, the tickets' history with a blocked review and a
+finishing ticket sent back and redone, FAIL and PASS proofs, transcripts with two tools that say no, and two
+runs with their fingerprints. Beside it, `officina-prima`: the same work the day before, with a different
+fingerprint and a blind judgment that compares the two marks. The instants are fixed, events included, so the
+views always show the same numbers. The folder is emptied and rewritten on every run.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from agency.ledger.models import ConceptRow, EvidenceRow, GateRow, UsageRow
 PROJECT = "officina-e2e"
 BEFORE = "officina-prima"
 DAY, DAY_BEFORE = "2026-11-02", "2026-11-01"
-# (minuto, istanza, ticket, ruolo, fase, costo, durata in ms o None se non misurata, TTFT in ms, stop_reason)
+# (minute, instance, ticket, role, phase, cost, duration in ms or None if unmeasured, TTFT in ms, stop_reason)
 CALLS = [
     (0, "T-0001-a1-plan", "T-0001", "design-director", "director-plan", 0.40, 21000, 9000, "tool_use"),
     (2, "T-0002-a1", "T-0002", "direction-a", "explorer", 0.90, 9000, 2100, "tool_use"),
@@ -46,7 +46,7 @@ CALLS = [
     (38, "T-0006-a1", "T-0006", "critic", "critic", 0.30, 7800, 2400, "tool_use"),
     (44, "T-0005-a2", "T-0005", "identity-designer", "finisher", 2.10, 9100, 2500, "tool_use"),
 ]
-# (minuto di apertura, titolo, tipo, a chi, prompt)
+# (minute of opening, title, type, assignee, prompt)
 TICKETS = [
     (0, "Consegna officina-e2e", TicketType.DELIVERY, "design-director", ""),
     (1, "Esplorazione a", TicketType.SKETCH, "direction-a", "explorer"),
@@ -57,7 +57,7 @@ TICKETS = [
 ]
 BLOCKED = "Il contratto chiede review/critica.md, ma posso scrivere solo in reviews/.\nIl referto è pronto."
 REWORKED = "La coda sparisce a 16 px: ingrossala di 2 unità."
-# (minuto, ticket, azione, chi, nota): consegne, accettazioni, il blocco del critico, il rimando del direttore
+# (minute, ticket, action, actor, note): deliveries, acceptances, the critic's block, the director's rework
 STEPS = [
     (8, "T-0002", Action.DELIVER, "direction-a", ""),
     (8, "T-0003", Action.DELIVER, "direction-b", ""),
@@ -70,7 +70,7 @@ STEPS = [
     (41, "T-0005", Action.REWORK, "design-director", REWORKED),
     (45, "T-0005", Action.DELIVER, "identity-designer", ""),
 ]
-# (minuto, ticket, file, controllo, esito, chi firma, nota)
+# (minute, ticket, file, check, result, signer, note)
 CHECKS = [
     (7, "T-0002", "foglio-a.png", "master_open", "PASS", "direction-a", ""),
     (19, "T-0004", "proposta.svg", "svg_audit", "PASS", "identity-designer", ""),
@@ -94,7 +94,7 @@ SVG = b"<svg xmlns='http://www.w3.org/2000/svg' onload='alert(1)'/>"
 
 
 def png(width: int, height: int) -> bytes:
-    """Una PNG vera, di un solo colore: il browser la deve poter disegnare."""
+    """A real PNG of a single colour: the browser must be able to draw it."""
 
     def chunk(kind: bytes, data: bytes) -> bytes:
         return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
@@ -116,9 +116,9 @@ def picture(media_type: str, data: bytes) -> dict:
     }
 
 
-# Le trascrizioni: per ogni istanza, i turni del modello. Un turno è la chiamata che lo ha prodotto (il
-# numero della riga di usage, per il suo request_id; None in una trascrizione di prima di M1.6), ciò che il
-# modello ha pensato e scritto, gli strumenti chiesti col rifiuto o col risultato, i messaggi dell'harness.
+# The transcripts: for each instance, the model's turns. A turn is the call that produced it (the
+# number of its usage row, for its request_id; None in a transcript from before M1.6), what the model
+# thought and wrote, the tools it asked for with their refusal or result, and the harness's messages.
 Turn = tuple[int | None, list[str], list[str], list[tuple[str, str | None, list[dict]]], list[str]]
 TRANSCRIPTS: dict[str, tuple[list[Turn], tuple[OutcomeState, str] | None]] = {
     "T-0002-a1": (
@@ -132,9 +132,9 @@ TRANSCRIPTS: dict[str, tuple[list[Turn], tuple[OutcomeState, str] | None]] = {
         [(9, [], [], [("deliver", DELIVERY_REFUSED, []), ("render", None, []), ("deliver", None, [])], [])],
         (OutcomeState.DELIVERED, ""),
     ),
-    # Di prima di M1.6: senza request_id, i turni si legano alle chiamate per ordine.
+    # From before M1.6: without request_id, turns are matched to calls by order.
     "T-0006-a1": ([(None, [], [], [("write_file", WRITE_REFUSED, []), ("block", None, [])], [])], None),
-    # La sola risposta, tagliata dal limite di token, non entra in trascrizione.
+    # The only answer, cut by the token limit, does not enter the transcript.
     "T-0004-a1": ([], None),
 }
 
@@ -144,11 +144,11 @@ def at(minute: int, day: str = DAY) -> str:
 
 
 def clock(minute: int, day: str = DAY) -> AbstractContextManager[object]:
-    """Il Ledger scrive l'istante di ogni evento con `now()`: qui lo si fissa, un evento alla volta."""
+    """The Ledger stamps each event with `now()`: here it is fixed, one event at a time."""
     return patch("agency.ledger.store.now", return_value=at(minute, day))
 
 
-# Le impronte: officina-prima esplorava con 5 direzioni e un altro prompt del designer.
+# The fingerprints: officina-prima explored with 5 directions and another designer prompt.
 PRINT_BEFORE = Fingerprint(
     model="",
     effort="high",
@@ -169,7 +169,7 @@ PRINT_AFTER = PRINT_BEFORE.model_copy(
         "prompts": {"prompts/roles/identity-designer.md": "2" * 64, "prompts/roles/critic.md": "3" * 64},
     }
 )
-# officina-prima: (minuto, istanza, ticket, fase, costo), tutte dell'identity-designer tranne il piano
+# officina-prima: (minute, instance, ticket, phase, cost), all by the identity-designer except the plan
 CALLS_BEFORE = [
     (0, "T-0007-a1-plan", "T-0007", "design-director", "director-plan", 0.50),
     (3, "T-0008-a1", "T-0008", "identity-designer", "finisher", 3.00),
@@ -190,7 +190,7 @@ def usage(
     duration_ms: int | None = None,
     ttft_ms: int | None = None,
 ) -> UsageRow:
-    """Una chiamata della prova. Una chiamata misurata ha fase, effort, durata, TTFT e ragionamento."""
+    """One call of the test. A measured call has a phase, effort, duration, TTFT and reasoning."""
     minute, instance, ticket, role, _, cost = row[:6]
     measured = duration_ms is not None
     return UsageRow(
@@ -202,7 +202,7 @@ def usage(
         model="claude-opus-5-5",
         input_tokens=400,
         output_tokens=120,
-        # Il contesto cresce turno dopo turno, come in un'istanza vera.
+        # The context grows turn after turn, as in a real instance.
         cache_read_tokens=3600 + 1600 * (turn - 1),
         cache_write_5m_tokens=200,
         cost_usd=cost,
@@ -218,7 +218,7 @@ def usage(
 
 
 def build_before(ledger: Ledger) -> int:
-    """Il progetto di prima: un piano e una rifinitura consegnata, con la sua esecuzione."""
+    """The earlier project: a plan and a delivered finishing ticket, with its run."""
     ledger.set_project(BEFORE, 20.0, "", "high")
     with clock(0, DAY_BEFORE):
         run = ledger.record_run(BEFORE, RunCommand.RUN, PRINT_BEFORE)
@@ -251,7 +251,7 @@ def build_before(ledger: Ledger) -> int:
 
 
 def write_transcripts(layout: DataLayout) -> None:
-    """Con la classe del motore: il formato è quello che il motore scrive davvero."""
+    """With the engine's class, so the format is the one the engine really writes."""
     for instance, (turns, closed) in TRANSCRIPTS.items():
         transcript = Transcript(layout.transcript(ProjectName(PROJECT), instance))
         transcript.append({"role": "user", "content": "Prova del cruscotto"})
@@ -295,7 +295,7 @@ def build(folder: Path) -> None:
     folder.mkdir(parents=True)
     ledger = Ledger(folder / "ledger.sqlite")
     ledger.set_project(PROJECT, 20.0, "", "high")
-    # Il lavoro fino al gate con `run`, il resto con `decide`: stessa impronta.
+    # The work up to the gate with `run`, the rest with `decide`: the same fingerprint.
     with clock(0):
         started = ledger.record_run(PROJECT, RunCommand.RUN, PRINT_AFTER)
     with clock(30):
@@ -364,7 +364,7 @@ def build(folder: Path) -> None:
         {"A": Judged(project=PROJECT, file="segno.svg", sha256="c" * 64)},
     )
     build_before(ledger)
-    # Il confronto alla cieca fra i due segni: chi giudica vede solo A e B.
+    # The blind comparison of the two marks: the judge sees only A and B.
     ledger.record_judgment(
         "prima-dopo",
         Judgment(
@@ -387,4 +387,4 @@ def build(folder: Path) -> None:
 
 if __name__ == "__main__":
     build(Path(sys.argv[1]))
-    print(f"registro di prova in {sys.argv[1]}")
+    print(f"test registry in {sys.argv[1]}")

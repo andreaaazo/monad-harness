@@ -1,4 +1,4 @@
-"""Il server del cruscotto: solo GET, solo loopback, senza chiave, senza database (M1.6, punto 11)."""
+"""The dashboard server: GET only, loopback only, no key, no database (M1.6, item 11)."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-# Django prima di tutto: Django Ninja legge le impostazioni già all'import.
+# Django first: Django Ninja reads the settings on import.
 os.environ["DJANGO_SETTINGS_MODULE"] = "agency.entrypoints.server.settings"
 import django
 
@@ -92,7 +92,7 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-# Cosa risponde
+# What it answers
 
 
 def test_the_request_log_line_loses_control_characters(capsys: pytest.CaptureFixture[str]) -> None:
@@ -170,7 +170,7 @@ PNG = b"\x89PNG\r\n\x1a\n un pixel"
 
 
 def replayable(tmp_path: Path) -> None:
-    """L'istanza T-0001-a1 di officina, come la scrive il motore: un'immagine PNG e una SVG."""
+    """Instance T-0001-a1 of officina, as the engine writes it: one PNG image and one SVG."""
     transcript = Transcript(DataLayout(tmp_path).transcript(ProjectName("officina"), "T-0001-a1"))
     transcript.append({"role": "user", "content": "Il compito"})
     transcript.append(
@@ -262,9 +262,9 @@ def test_the_dashboard_follows_the_engine_and_rebuilds_only_when_something_chang
     assert client.get("/api/provenance").status_code == 200
     built = projection.stat().st_ino
     assert client.get("/api/projects").status_code == 200
-    assert projection.stat().st_ino == built  # niente è cambiato: la proiezione non si rifà
+    assert projection.stat().st_ino == built  # nothing changed: the projection is not rebuilt
     ledger = Ledger(tmp_path / "ledger.sqlite")
-    ledger.record_usage(usage(3, cost=2.0))  # il motore lavora, e resta aperto: la riga nuova sta nel WAL
+    ledger.record_usage(usage(3, cost=2.0))  # the engine works and stays open: the new row is in the WAL
     try:
         report = ProjectReport.model_validate(client.get("/api/projects/officina/report").json())
     finally:
@@ -284,7 +284,7 @@ def test_an_outdated_registry_is_explained_not_hidden(tmp_path: Path) -> None:
     assert "agency migrate" in response.json()["detail"]
 
 
-# Cosa non fa
+# What it does not do
 
 
 ROUTES = [
@@ -312,7 +312,7 @@ def test_the_api_cannot_write_and_the_registry_stays_intact(
 
 @pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
 def test_writes_stop_before_any_view_even_one_that_would_accept_them(method: str) -> None:
-    """La seconda difesa da sola: anche una route futura scritta per sbaglio non riceve una scrittura."""
+    """The second defence alone: even a future route written by mistake gets no write."""
     reached: list[str] = []
 
     def careless_view(request: HttpRequest) -> HttpResponse:
@@ -342,12 +342,12 @@ def test_no_docs_page_that_loads_scripts_from_a_cdn(client: Client) -> None:
 
 def test_django_owns_no_model_and_no_database() -> None:
     assert apps.get_models() == []
-    assert settings.DATABASES["default"]["ENGINE"] == "django.db.backends.dummy"  # cioè nessun database
+    assert settings.DATABASES["default"]["ENGINE"] == "django.db.backends.dummy"  # that is, no database
     assert settings.DEBUG is False
     assert settings.ALLOWED_HOSTS == ["127.0.0.1", "localhost"]
 
 
-# Il processo
+# The process
 
 
 @pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.10", "10.0.0.1", "example.com", "::", "localhost"])
@@ -359,8 +359,10 @@ def test_the_server_refuses_anything_but_loopback(host: str) -> None:
 def test_a_busy_port_is_explained_not_dumped_as_a_traceback(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Un altro cruscotto acceso: lo si dice, e si dice come sceglierne un'altra."""
-    monkeypatch.setattr(serve.os, "environ", dict(os.environ))  # il server ripulisce l'ambiente: una copia
+    """Another dashboard is running: say so, and say how to choose another port."""
+    monkeypatch.setattr(
+        serve.os, "environ", dict(os.environ)
+    )  # the server scrubs the environment: pass a copy
     with socket.socket() as taken:
         taken.bind(("127.0.0.1", 0))
         taken.listen()
@@ -399,7 +401,7 @@ def test_the_server_listens_on_loopback_and_answers(
 
 
 def test_the_server_never_reads_dotenv_nor_loads_the_engine_settings(tmp_path: Path) -> None:
-    """In un processo nuovo, con un .env che contiene una chiave: il server non la vede."""
+    """In a new process, with a .env that holds a key: the server does not see it."""
     (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-dal-dotenv\n", encoding="utf-8")
     probe = (
         "import os, sys\n"
@@ -538,11 +540,11 @@ def test_agency_schemas_prints_the_refusal_of_a_relative_folder(tmp_path: Path, 
     )
 
 
-# I confini
+# The boundaries
 
 
 def test_every_engine_package_is_forbidden_to_import_django() -> None:
-    """Il contratto elenca i pacchetti a mano: un pacchetto nuovo non deve sfuggirgli."""
+    """The contract lists the packages by hand: a new package must not slip past it."""
     config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     contracts = config["tool"]["importlinter"]["contracts"]
     (engine,) = [contract for contract in contracts if "django" in contract["forbidden_modules"]]
@@ -585,7 +587,8 @@ def test_every_slice_contract_forbids_every_engine_package() -> None:
 
 
 def test_the_projection_can_live_away_from_the_registry(client: Client, tmp_path: Path) -> None:
-    """In Docker la proiezione sta in memoria: il server la scrive lì, e accanto al registro niente."""
+    """In Docker the projection lives in memory: the server writes it there, and nothing beside the
+    registry."""
     elsewhere = tmp_path / "in-memoria"
     elsewhere.mkdir()
     with override_settings(AGENCY_PROJECTION_DIR=elsewhere):

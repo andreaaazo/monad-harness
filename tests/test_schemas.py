@@ -1,4 +1,6 @@
-"""Lo schema viene prima del codice: l'OpenAPI nel repository è l'API com'è (M1.6, punto 12; ADR-0022)."""
+"""The schema comes before the code: the OpenAPI in the repository is the API as it is (M1.6, item 12;
+ADR-0022).
+"""
 
 from __future__ import annotations
 
@@ -14,7 +16,7 @@ COMMITTED = REPO_ROOT / "schemas" / "openapi.json"
 
 
 def test_the_openapi_in_the_repository_is_the_api_as_it_is() -> None:
-    """Se fallisce: uv run agency-schemas, poi si rivede il diff prima del commit."""
+    """If it fails: run uv run agency-schemas, then review the diff before committing."""
     assert COMMITTED.read_text(encoding="utf-8") == schema.render()
 
 
@@ -56,7 +58,7 @@ def operations() -> dict[str, dict]:
 
 
 def test_operations_have_names_that_do_not_depend_on_where_the_code_lives() -> None:
-    """I tipi TypeScript le chiamano per nome: un refactor dei moduli Python non deve cambiarlo."""
+    """The TypeScript types call them by name: a refactor of the Python modules must not change them."""
     names = {key: operation["operationId"] for key, operation in operations().items()}
     assert names == {
         "GET /api/projects": "listProjects",

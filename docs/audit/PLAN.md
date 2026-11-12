@@ -1434,7 +1434,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
   `__init__.py` and `context/__init__.py`.
   - The CLI help is safe after 3.1; keep every printed string.
   - Commit: `docs(engine): translate the top-level modules' comments and docstrings to English`.
-- [ ] **Task 3.17: tests, part 1 of 3.** Closes CMT-010 and CMT-011 (the test rows) for:
+- [x] **Task 3.17: tests, part 1 of 3.** Closes CMT-010 and CMT-011 (the test rows) for:
   - `test_insights.py`, `test_server.py`, `test_schemas.py`, `test_report_views.py`;
   - `test_compare_view.py`, `test_replay_view.py`, `test_quality_view.py`, `test_behaviour_view.py`, `test_flow_view.py`;
   - `dashboard_fixture.py`.

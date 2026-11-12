@@ -1,4 +1,6 @@
-"""La vista Confronto: due progetti affiancati, cosa è cambiato nell'impronta, e i giudizi alla cieca."""
+"""The compare view: two projects side by side, what changed in the fingerprint, and the blind
+judgments.
+"""
 
 from __future__ import annotations
 
@@ -197,7 +199,7 @@ def test_each_side_says_what_it_cost_how_long_it_took_and_where_it_went_wrong() 
 
 
 def test_a_project_without_its_record_says_so_instead_of_looking_like_the_default() -> None:
-    """merlo3 qui non ha la riga del progetto: modello ed effort non sono registrati, non predefiniti."""
+    """Here merlo3 has no project row: its model and effort are not recorded, rather than the defaults."""
     chosen = ProjectRecord(name="merlo4", budget_usd=30.0, model="", effort="max")
     sides = report(after=data(AFTER.calls, AFTER.runs, project=chosen))
     assert (sides.before.model, sides.before.effort, sides.before.budget_usd) == (None, None, None)
@@ -205,7 +207,8 @@ def test_a_project_without_its_record_says_so_instead_of_looking_like_the_defaul
 
 
 def test_the_fingerprints_compared_are_the_last_one_before_and_the_first_one_after() -> None:
-    """merlo3 finisce con explorers=3 (decide #2): verso merlo4 cambiano effort e un prompt, non explorers."""
+    """merlo3 ends with explorers=3 (decide #2): towards merlo4 the effort and a prompt change, not
+    explorers."""
     later = run(4, "merlo4", "resume", fingerprint(explorers=9))
     diff = report(after=data(AFTER.calls, [*AFTER.runs, later])).fingerprint
     assert (diff.state, diff.before_run, diff.after_run) == (compare.Compared.BOTH, 2, 3)
@@ -216,7 +219,7 @@ def test_the_fingerprints_compared_are_the_last_one_before_and_the_first_one_aft
 
 
 def test_every_execution_says_what_it_spent_and_how_far_it_is_from_the_one_before() -> None:
-    """La chiamata senza esecuzione è di prima delle impronte: non si conta in nessuna."""
+    """The call without a run is from before the fingerprints: it counts in none."""
     before, after = report().before.executions, report().after.executions
     assert [
         (item.seq, item.command, item.calls, item.cost_usd, item.changes_from_previous) for item in before
@@ -237,14 +240,14 @@ def test_without_a_fingerprint_on_one_side_nothing_is_compared_and_the_report_sa
 
 
 def test_a_fingerprint_this_version_cannot_read_is_said_not_guessed() -> None:
-    """Un'impronta di una forma che il contratto non conosce più resta nell'elenco, ma non si confronta."""
+    """A fingerprint of a shape the contract no longer knows stays in the list, but is not compared."""
     runs = [
         run(1, "merlo3", "run", fingerprint()),
         run(2, "merlo3", "decide", '{"model": 1}'),
         run(3, "merlo3", "resume", fingerprint(explorers=3)),
     ]
     side = report(before=data(BEFORE.calls, runs))
-    # La #3 si confronta con l'ultima leggibile, la #1.
+    # #3 is compared with the last readable one, #1.
     assert [(item.seq, item.readable, item.changes_from_previous) for item in side.before.executions] == [
         (1, True, None),
         (2, False, None),
@@ -264,7 +267,7 @@ def test_phases_stand_side_by_side_in_the_order_of_the_newer_work() -> None:
 
 
 def test_a_blind_judgment_counts_when_both_projects_are_in_it_and_shows_every_vote() -> None:
-    """Il confronto x ha anche un file esterno: si vede, con la sua lettera. Il confronto y ha solo merlo3."""
+    """Comparison x also has an outside file: it shows, with its letter. Comparison y has only merlo3."""
     judgments = [
         vote(1, "x", "C", "", "ordinario", best=False, compared=3),
         vote(2, "x", "A", "merlo3", "ordinario", best=False, compared=3),

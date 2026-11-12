@@ -977,9 +977,11 @@ def test_the_refusal_shows_the_director_the_contract_to_write(tmp_path: Path) ->
     assert "reviews/critica.md" in result["content"]
 
 
-def test_a_visual_check_needs_something_that_can_be_rendered() -> None:
+@pytest.mark.parametrize("check", ["visual_review", "critique"])
+def test_a_visual_check_needs_something_that_can_be_rendered(check: str) -> None:
+    """An observation and a judgement are both made by looking at a render of the file."""
     with pytest.raises(delivery.ContractRefused, match="render"):
-        delivery.validate(spec(checks={"*.md": ["visual_review"]}))
+        delivery.validate(spec(checks={"*.md": [check]}))
 
 
 def test_a_review_delivers_and_is_accepted_with_the_contract_the_refusal_suggests(tmp_path: Path) -> None:

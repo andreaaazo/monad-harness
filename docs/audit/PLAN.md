@@ -1837,6 +1837,17 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
       comment.
   - Commit: `refactor(tools): declare closing behaviour on each tool`.
 - [ ] **Task 6.9: check kinds use `CheckKind`.** Closes STR-005 (the literals part).
+  - Before the change, characterization tests. Ten mutants of the seven kind comparisons ran on a full copy; seven
+    survived, since nothing pinned the refusals and the measure rule:
+    - `observe` and `judge` refusing a check of another kind;
+    - `record_requirement` refusing an observation, a judgement or a measure;
+    - a judgement needing a renderable file;
+    - a measure's PASS stored and accepted as MEASURED.
+  - New tests:
+    - `test_each_kind_of_check_is_recorded_by_its_own_tool` (test_agent_flow.py, five cases);
+    - a `critique` case in `test_a_visual_check_needs_something_that_can_be_rendered` (test_hardening.py);
+    - `test_a_measurement_is_stored_as_measured_and_passes_as_measured` (test_qa_gates.py).
+  - With them, all ten mutants are killed, each by the test meant for it, on a green baseline of 632 tests.
   - Files: `src/agency/tools/surface.py:427,437,466`, `src/agency/qa/delivery.py:26`, `src/agency/qa/evidence.py:20,85`.
   - Commit: `refactor(qa): compare check kinds through CheckKind`.
 - [ ] **Task 6.10: one copy of each small helper.** Closes SIM-011.

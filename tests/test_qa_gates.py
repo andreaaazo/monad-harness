@@ -67,6 +67,19 @@ def ticket(**extra: Any) -> TicketSpec:
     return TicketSpec.model_validate(values | extra)
 
 
+def test_a_measurement_is_stored_as_measured_and_passes_as_measured(tmp_path: Path) -> None:
+    """A measure check reports a value, not a verdict: its PASS is stored as MEASURED, which lets the file
+    pass."""
+    studio = Studio(tmp_path)
+    ticket_id, _ = studio.open()
+    studio.sign("diversity", "PASS", "qa-inspector", ticket_id)
+    assert [(row.check_name, row.result) for row in studio.ledger.evidence("p")] == [
+        ("diversity", "MEASURED")
+    ]
+    assert evidence.accepted("diversity") == ("PASS", "NOT_APPLICABLE", "MEASURED")
+    assert evidence.accepted("critique") == ("PASS", "NOT_APPLICABLE")
+
+
 class Studio:
     """Project `p`: a work folder holding one valid SVG, a ledger and a sandbox, as the tools see them."""
 

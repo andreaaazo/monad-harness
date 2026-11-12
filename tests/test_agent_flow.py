@@ -680,6 +680,53 @@ def critic_box(tmp_path: Path) -> tuple[Toolbox, Path]:
     return Toolbox(context), work
 
 
+LOOKED = "Quadrato rosso pieno, bordi netti, nessun difetto visibile nel render della pagina."
+REASONED = "Rispetto alla versione precedente il segno regge meglio a piccola scala e resta riconoscibile."
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments", "refusal"),
+    [
+        (
+            "observe",
+            {"file": "a.png", "seen": LOOKED, "check": "critique"},
+            "non è un controllo di osservazione",
+        ),
+        (
+            "judge",
+            {
+                "file": "a.png",
+                "compare": ["b.png"],
+                "why": REASONED,
+                "check": "visual_review",
+                "result": "PASS",
+            },
+            "non è un giudizio",
+        ),
+        ("record_requirement", {"check": "visual_review"}, "ha il suo strumento"),
+        ("record_requirement", {"check": "critique"}, "ha il suo strumento"),
+        ("record_requirement", {"check": "diversity"}, "ha il suo strumento"),
+    ],
+    ids=[
+        "observe-judgement",
+        "judge-observation",
+        "requirement-observation",
+        "requirement-judgement",
+        "requirement-measure",
+    ],
+)
+def test_each_kind_of_check_is_recorded_by_its_own_tool(
+    tmp_path: Path, tool: str, arguments: dict, refusal: str
+) -> None:
+    """The kind of a check (registry/checks.json) decides which tool records it: the others refuse it."""
+    box, _ = critic_box(tmp_path)
+    if tool == "record_requirement":
+        arguments = {"file": "a.png", "result": "PASS", "note": "verificato"} | arguments
+    result = box.call("t", tool, arguments)
+    assert result["is_error"]
+    assert result["content"].startswith(f"{arguments['check']} {refusal}")
+
+
 def rendered(box: Toolbox, tool_id: str, path: str, zooms: list[list[float]] | None = None) -> list[str]:
     result = box.call(tool_id, "render", {"path": path, "zooms": zooms or []})
     proofs: list[str] = json.loads(result["content"])["proofs"]

@@ -1478,9 +1478,10 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   disegno", not "della larghezza".
 - [x] **D2 (the doctor.py owner note).** `agency doctor` gives Docker's reason as "cruscotto (ADR-0040); da M4 Langfuse
   e ComfyUI". D1 and D2: `fix: say what the sketch warning measures and what Docker serves`.
-- [ ] **D3 (Task 3.2 follow-up).** The OpenAPI `info.title` is English, "Design agency: dashboard" (Q15).
-- [ ] **D4 (CMT-011).** `qa/checks.py` `execute` raises its internal error in English: `run`, its only caller, refuses any
-  check outside RUNNABLE first, so the model never sees it.
+- [x] **D3 (Task 3.2 follow-up).** The OpenAPI `info.title` is English, "Design agency: dashboard" (Q15).
+- [x] **D4 (CMT-011).** `qa/checks.py` `execute` raises its internal error in English: `run`, its only caller, refuses any
+  check outside RUNNABLE first, so the model never sees it. D3 and D4: `docs: write the OpenAPI title and the internal
+  check error in English`.
 - [ ] **D5.** The projection's schema fingerprint covers the stored shape, not the models' descriptions.
 - [ ] **D6.** The Phase 3 language check becomes a test in `make check`: comments through `tokenize`, docstrings through
   `ast`, so a string never matches.

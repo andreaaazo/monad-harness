@@ -2412,7 +2412,7 @@
   },
   "info": {
     "description": "The read-only dashboard: the registry and the traces, through insights (ADR-0019).",
-    "title": "Design agency: cruscotto",
+    "title": "Design agency: dashboard",
     "version": "1"
   },
   "openapi": "3.1.0",

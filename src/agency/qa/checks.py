@@ -58,7 +58,7 @@ def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
         found = glob_under(sandbox.work, f"{glob.escape(folder)}/*.png")
         # Whoever looks at the sheet decides the result: this only produces the proof.
         return CheckOutcome("PROOF", clip(output, 800), tuple(found))
-    raise ValueError(f"controllo non eseguibile: {check}")
+    raise ValueError(f"not a runnable check: {check}")
 
 
 def run(

@@ -26,7 +26,7 @@ from agency.insights.views import ProjectReport, ProjectSummary
 
 # No documentation page: it would load scripts from a CDN. The schema stays at /api/openapi.json.
 api = NinjaAPI(
-    title="Design agency: cruscotto",
+    title="Design agency: dashboard",
     version="1",
     description="The read-only dashboard: the registry and the traces, through insights (ADR-0019).",
     docs_url=None,

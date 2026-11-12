@@ -1,9 +1,17 @@
 from argparse import Namespace
 
+import pytest
+
 from agency.cli import _doctor
 from agency.config import Settings
 from agency.doctor import run_checks
 from agency.tools.sandbox import MEMORY_MAX_BYTES, TASKS_MAX
+
+
+@pytest.fixture(autouse=True)
+def no_gpu_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`nvidia-smi` can take seconds on a GPU machine, and none of these tests asserts on the GPU."""
+    monkeypatch.setattr("agency.doctor._gpu", lambda: "non rilevata")
 
 
 def test_doctor_never_exposes_the_key(monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]

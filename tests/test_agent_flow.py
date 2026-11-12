@@ -18,6 +18,7 @@ import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 from PIL import Image
 
+from agency import cli
 from agency.agents.loop import AgentRunner, _after_fallback
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
@@ -2137,7 +2138,10 @@ def test_a_node_run_once_sets_the_status_and_a_rerun_writes_nothing(tmp_path: Pa
     assert len(studio.proposals()) == 1
 
 
-def test_cli_lists_new_commands() -> None:
-    done = subprocess.run(["uv", "run", "agency", "--help"], capture_output=True, text=True, check=True)
+def test_cli_lists_new_commands(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as stop:
+        cli.main(["--help"])
+    assert stop.value.code == 0
+    printed = capsys.readouterr().out
     for command in ("run", "resume", "decide", "report"):
-        assert command in done.stdout
+        assert command in printed

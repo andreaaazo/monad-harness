@@ -1573,7 +1573,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Verify: on a PATH without `vectorcraft-cli`, the Craft tests skip; on a PATH without bwrap, the session stops with
     one line; `pytest -m "not sandbox"` runs; standard gate.
   - Commit: `test(dx): skip Craft tests without the CLIs, and fail once without a working bwrap`.
-- [ ] **Task 5.3: the two slowest tests no longer wait on subprocesses.** Closes TST-018.
+- [x] **Task 5.3: the two slowest tests no longer wait on subprocesses.** Closes TST-018.
   - Files: `tests/test_doctor.py:5` (it patches `doctor._gpu`), and `tests/test_agent_flow.py:655` (it calls
     `cli.main(["--help"])` under `pytest.raises(SystemExit)`).
   - Verify: `--durations=5` no longer lists them above 0.5 s; standard gate.

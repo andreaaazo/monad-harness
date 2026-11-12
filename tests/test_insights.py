@@ -839,8 +839,8 @@ def test_a_change_to_what_the_projection_stores_changes_its_schema_number() -> N
     """If a stored model changes and the schema number does not, an old projection is misread instead of
     rebuilt.
 
-    When this test fails: raise SqliteProjection.SCHEMA if a stored shape changed, then update the fingerprint
-    here. The hash also covers the models' descriptions, so a docstring change moves it without a new SCHEMA.
+    The fingerprint covers the stored shape only: a docstring is no column. When this test fails, raise
+    SqliteProjection.SCHEMA and update the fingerprint here.
     """
     stored = (
         Call,
@@ -855,11 +855,27 @@ def test_a_change_to_what_the_projection_stores_changes_its_schema_number() -> N
         RunRecord,
         Provenance,
     )
-    shape = json.dumps([model.model_json_schema() for model in stored], sort_keys=True)
+    shape = json.dumps([_without_descriptions(model.model_json_schema()) for model in stored], sort_keys=True)
     assert (SqliteProjection.SCHEMA, hashlib.sha256(shape.encode()).hexdigest()[:16]) == (
         6,
-        "2724e9659e80e7c3",
+        "2f88b9215fa57f05",
     )
+
+
+def _without_descriptions(schema: object) -> object:
+    """The JSON schema without the docstrings and field descriptions it carries as `description` texts.
+
+    Only text values go: a stored field named `description` is part of the shape, and its schema is an object.
+    """
+    if isinstance(schema, dict):
+        return {
+            key: _without_descriptions(value)
+            for key, value in schema.items()
+            if not (key == "description" and isinstance(value, str))
+        }
+    if isinstance(schema, list):
+        return [_without_descriptions(value) for value in schema]
+    return schema
 
 
 def test_a_projection_of_the_previous_schema_is_rebuilt_not_misread(tmp_path: Path) -> None:

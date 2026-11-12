@@ -79,7 +79,9 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$M/src" .venv/bin/python -m pytest -p no:c
 Run the last line from the worktree root. A mutant is **killed** when that run fails. Before applying any mutant,
 check that the unmutated copy passes the same tests. `agency.config.REPO_ROOT` then resolves to `$M`.
 
-**LANG-CHECK.** This is the language check of Phase 3. Both commands must print nothing for the task's files:
+**LANG-CHECK.** This is the language check of Phase 3. Both commands must print nothing for the task's files. Since
+D6 of the Phase 3 follow-up, `tests/test_language.py` runs the same word list in `make check`, reading comments with
+`tokenize`, so a `#` inside a string no longer matches:
 
 ```sh
 rg -n '#.*\b(che|non|della|delle|nella|perché|sono|questo|questa|degli|alla|senza|quando|viene)\b' <files>
@@ -1482,9 +1484,10 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
 - [x] **D4 (CMT-011).** `qa/checks.py` `execute` raises its internal error in English: `run`, its only caller, refuses any
   check outside RUNNABLE first, so the model never sees it. D3 and D4: `docs: write the OpenAPI title and the internal
   check error in English`.
-- [ ] **D5.** The projection's schema fingerprint covers the stored shape, not the models' descriptions.
-- [ ] **D6.** The Phase 3 language check becomes a test in `make check`: comments through `tokenize`, docstrings through
-  `ast`, so a string never matches.
+- [x] **D5.** The projection's schema fingerprint covers the stored shape, not the models' descriptions.
+- [x] **D6.** The Phase 3 language check becomes a test in `make check`: comments through `tokenize`, docstrings through
+  `ast`, so a string never matches (`tests/test_language.py`). D5 and D6: `test: fingerprint the stored shape and guard
+  the language of comments`.
 - [ ] **D7 (CMT-016).** Ruff keeps RUF001-RUF003 on and allows `×` through `allowed-confusables`.
 - [ ] **D8 (STR-002, the pyproject half).** Every slice contract forbids every engine package the slice does not use.
 

@@ -579,6 +579,18 @@ def test_every_slice_contract_forbids_every_engine_package() -> None:
         assert not unforbidden, f"{slice_} does not forbid {sorted(unforbidden)}"
 
 
+def test_every_package_but_the_gateway_is_forbidden_to_import_anthropic() -> None:
+    """The anthropic contract lists the packages by hand: a new package must not slip past it."""
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    contracts = config["tool"]["importlinter"]["contracts"]
+    (contract,) = [contract for contract in contracts if contract["forbidden_modules"] == ["anthropic"]]
+    source = REPO_ROOT / "src" / "agency"
+    present = {
+        path.stem for path in source.iterdir() if path.suffix == ".py" or (path / "__init__.py").exists()
+    } - {"__init__"}
+    assert {module.removeprefix("agency.") for module in contract["source_modules"]} == present - {"gateway"}
+
+
 def test_the_projection_can_live_away_from_the_registry(client: Client, tmp_path: Path) -> None:
     """In Docker the projection lives in memory: the server writes it there, and nothing beside the
     registry."""

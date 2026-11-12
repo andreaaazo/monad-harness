@@ -178,3 +178,30 @@ forbidden_modules = [
   "sqlalchemy",
   "sqlmodel",
 ]
+
+[[tool.importlinter.contracts]]
+name = "only the gateway imports anthropic: the API calls and the key stay in one place (ADR-0021)"
+type = "forbidden"
+# Every package but the gateway, listed by hand: a test checks that none is missing.
+source_modules = [
+  "agency.agents",
+  "agency.artifacts",
+  "agency.cli",
+  "agency.config",
+  "agency.context",
+  "agency.contracts",
+  "agency.doctor",
+  "agency.entrypoints",
+  "agency.evaluation",
+  "agency.graph",
+  "agency.insights",
+  "agency.ledger",
+  "agency.qa",
+  "agency.registry",
+  "agency.runtime",
+  "agency.telemetry",
+  "agency.tools",
+]
+forbidden_modules = ["anthropic"]
+# The CLI catches the gateway's re-export of the API error: importing anthropic through it is allowed.
+allow_indirect_imports = true

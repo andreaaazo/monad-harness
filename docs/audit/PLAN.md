@@ -1538,7 +1538,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Verify: `mise exec -- uv run pytest --import-mode=importlib --collect-only -q` collects everything; `make e2e`
     passes; standard gate.
   - Commit: `refactor(tests): keep test helpers and the scripted transport in tests/support`.
-- [ ] **Task 4.4: only the gateway imports `anthropic`.** Closes STR-003, for this refactor. `langgraph` and the
+- [x] **Task 4.4: only the gateway imports `anthropic`.** Closes STR-003, for this refactor. `langgraph` and the
   ledger port stay in M1.7.
   - Files: `src/agency/gateway/__init__.py` (it re-exports `APIError`), `src/agency/cli.py` (its import), and
     `pyproject.toml`: a new forbidden contract on `anthropic` for every package except `agency.gateway`, with

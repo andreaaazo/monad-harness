@@ -14,8 +14,6 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import anthropic
-
 from agency.artifacts import FileStore, keeping
 from agency.config import DotenvHoldsSetting, Settings
 from agency.contracts.artifact import Origin
@@ -26,7 +24,7 @@ from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.text import one_line
 from agency.doctor import run_checks
 from agency.evaluation import blind, board
-from agency.gateway import BudgetExceeded
+from agency.gateway import APIError, BudgetExceeded
 from agency.gateway.pricing import PRICES
 from agency.insights import application as insights
 from agency.insights.adapters.ledger import ReadOnlyLedger
@@ -166,7 +164,7 @@ def _guarded(project: ProjectName, session: Session, action: Callable[[], str]) 
         print(f"\nBUDGET FINITO: {exc}. Il lavoro è salvato.")
         print(f"Per continuare: agency budget {project} <nuovo tetto>, poi agency resume {project}")
         return 2
-    except anthropic.APIError as exc:
+    except APIError as exc:
         # The message carries the response body of the API, or of a proxy in between.
         print("\n" + one_line(f"API NON DISPONIBILE: {exc}. Il lavoro è salvato."))
         print(f"Per riprendere: agency resume {project}")

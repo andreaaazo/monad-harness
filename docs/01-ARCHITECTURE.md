@@ -270,10 +270,10 @@ schemas/         OpenAPI generato e versionato
 
 Le dipendenze puntano verso l'interno: `entrypoints`, poi `process`, poi `studio` e `insights`, poi `platform`, poi `shared`.
 Dentro una slice il dominio tiene le regole pure, l'applicazione casi d'uso e porte, gli adattatori strumenti e nodi. Le slice non
-si importano tra loro, e `import-linter` in `make check` lo impone. Oggi impone quattro confini: `insights` e il server leggono e
+si importano tra loro, e `import-linter` in `make check` lo impone. Oggi impone cinque confini: `insights` e il server leggono e
 basta, senza motore né `Ledger`; il giudizio alla cieca dipende solo dai contratti (ADR-0027); il motore non importa Django né il
-server. Ogni contratto elenca a mano i pacchetti, e un test controlla che non ne manchi nessuno. Le altre regole della tabella
-entrano con M1.7.
+server; solo il gateway importa `anthropic`. Ogni contratto elenca a mano i pacchetti, e un test controlla che non ne manchi
+nessuno. Della tabella qui sotto vale già la riga di `anthropic`; le altre entrano con M1.7.
 
 | Libreria | Chi può importarla |
 |---|---|

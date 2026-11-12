@@ -1836,7 +1836,18 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     - The reminder keeps its current order and still leaves out `reject_concept`, as Task 1.14 pins. Record why in a
       comment.
   - Commit: `refactor(tools): declare closing behaviour on each tool`.
-- [ ] **Task 6.9: check kinds use `CheckKind`.** Closes STR-005 (the literals part).
+- [x] **Task 6.9: check kinds use `CheckKind`.** Closes STR-005 (the literals part).
+  - Done: the six string spellings of the kinds in surface.py, qa/delivery.py and qa/evidence.py use
+    `CheckKind` members. A `StrEnum` member equals the raw string the registry dict holds. An unknown check still
+    gives None, which matches no member. The measure rule in `evidence.record` now asks `check in MEASUREMENTS`,
+    the set the same module builds from the same kinds, instead of reading the kind again. That one came from the
+    quality reviewer of /ce-simplify-code.
+  - Rejected or left out:
+    - a `check_kind(name)` helper in agency/registry.py for the five `CHECKS.get(name, {}).get("kind")` lookups.
+      It is outside this task's files, and the two reviewers disagreed on its value. Open for a later decision;
+    - renaming `LOOKED_AT` (taste);
+    - typing `registry.CHECKS` and `ROLES` as `CheckSpec` and `RoleSpec`. That is the part Task 4.2 left to this
+      phase; it touches every raw-dict reader and needs its own task.
   - Before the change, characterization tests. Ten mutants of the seven kind comparisons ran on a full copy; seven
     survived, since nothing pinned the refusals and the measure rule:
     - `observe` and `judge` refusing a check of another kind;

@@ -7,13 +7,14 @@ import json
 from pathlib import Path
 
 from agency.contracts.files import is_file_under, sha256_under
+from agency.contracts.registry import CheckKind
 from agency.contracts.ticket import AUTHOR_TYPES
 from agency.ledger import Ledger
 from agency.ledger.models import EvidenceRow
 from agency.ledger.store import now
 from agency.registry import CHECKS
 
-MEASUREMENTS = {name for name, spec in CHECKS.items() if spec["kind"] == "measure"}
+MEASUREMENTS = {name for name, spec in CHECKS.items() if spec["kind"] == CheckKind.MEASURE}
 
 
 class EvidenceRefused(Exception):
@@ -87,7 +88,7 @@ def record(
     guard(ledger, project, file, check, actor)
     if not is_file_under(work, file):
         raise EvidenceRefused(f"file inesistente: {file}")
-    if CHECKS.get(check, {}).get("kind") == "measure" and result == "PASS":
+    if check in MEASUREMENTS and result == "PASS":
         result = "MEASURED"
     row = EvidenceRow(
         at=now(),

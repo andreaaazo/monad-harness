@@ -7,6 +7,7 @@ from pathlib import Path
 
 from agency import registry
 from agency.contracts.files import glob_under, inside, is_file_under, sha256_under
+from agency.contracts.registry import CheckKind
 from agency.contracts.ticket import (
     AUTHOR_TYPES,
     NO_CHECK_TYPES,
@@ -23,7 +24,7 @@ from agency.tools.sandbox import Sandbox
 
 GLOB = "*?["
 REPORTS = "reviews/"
-LOOKED_AT = ("observation", "judgement")  # recorded only by looking at a render of the file
+LOOKED_AT = (CheckKind.OBSERVATION, CheckKind.JUDGEMENT)  # recorded only by looking at a render of the file
 REVIEW_SHAPE = (
     "Una revisione dichiara in outputs i file che giudica e il referto, con i controlli sui file giudicati: "
     'outputs ["exports/segno.svg", "reviews/critica.md"], checks {"*.svg": ["critique"]}.'

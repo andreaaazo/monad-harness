@@ -25,6 +25,7 @@ from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.media import media_type, open_image
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import parse_project_name
+from agency.contracts.registry import CheckKind
 from agency.contracts.ticket import (
     REVIEWERS,
     RUNNABLE,
@@ -495,7 +496,7 @@ def _seen_proof(ctx: ToolContext, file: str) -> str:
 def observe(ctx: ToolContext, a: Observe, operation_id: str) -> dict:
     if len(a.seen.strip()) < 40:
         raise Refused("descrivi cosa hai visto, con almeno una frase concreta")
-    if registry.CHECKS.get(a.check, {}).get("kind") != "observation":
+    if registry.CHECKS.get(a.check, {}).get("kind") != CheckKind.OBSERVATION:
         raise Refused(f"{a.check} non è un controllo di osservazione")
     proof = _seen_proof(ctx, a.file)
     value = {"ok": True, "check": a.check, "result": a.result, "proof": proof}
@@ -516,7 +517,7 @@ def observe(ctx: ToolContext, a: Observe, operation_id: str) -> dict:
 
 
 def judge(ctx: ToolContext, a: Judge, operation_id: str) -> dict:
-    if registry.CHECKS.get(a.check, {}).get("kind") != "judgement":
+    if registry.CHECKS.get(a.check, {}).get("kind") != CheckKind.JUDGEMENT:
         raise Refused(f"{a.check} non è un giudizio")
     if len(a.why.strip()) < 60:
         raise Refused("motiva con elementi visibili del confronto")
@@ -547,7 +548,7 @@ def judge(ctx: ToolContext, a: Judge, operation_id: str) -> dict:
 
 def record_requirement(ctx: ToolContext, a: RecordRequirement, operation_id: str) -> dict:
     kind = registry.CHECKS.get(a.check, {}).get("kind")
-    if kind in ("observation", "judgement", "measure") or a.check in qa.RUNNABLE:
+    if kind in (CheckKind.OBSERVATION, CheckKind.JUDGEMENT, CheckKind.MEASURE) or a.check in qa.RUNNABLE:
         raise Refused(f"{a.check} ha il suo strumento: run_check, observe o judge")
     value = {"ok": True}
     evidence.record(

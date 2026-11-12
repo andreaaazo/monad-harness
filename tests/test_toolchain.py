@@ -37,6 +37,11 @@ def test_python_stays_with_uv_not_with_mise() -> None:
     assert "python" not in MISE["tools"]
 
 
+def test_python_is_pinned_to_an_exact_version() -> None:
+    """Like every tool of mise.toml: `3.13` would let uv take whichever 3.13.x it finds first (DX-011)."""
+    assert re.fullmatch(r"\d+\.\d+\.\d+", (REPO_ROOT / ".python-version").read_text(encoding="utf-8").strip())
+
+
 def test_mise_never_loads_dotenv_into_the_shell() -> None:
     """The API key is in .env, which only the gateway reads: in the environment it would reach every
     process."""

@@ -128,9 +128,7 @@ def test_images_are_pinned_by_digest_and_match_the_local_tools() -> None:
     """The same versions as mise.toml and .python-version, and images that do not change underfoot."""
     server, web = dockerfile("server.Dockerfile"), dockerfile("web.Dockerfile")
     python = (REPO_ROOT / ".python-version").read_text(encoding="utf-8").strip()
-    assert re.search(
-        rf"^ARG PYTHON=python:{re.escape(python)}\.\d+-slim-trixie{DIGEST}$", server, re.MULTILINE
-    )
+    assert re.search(rf"^ARG PYTHON=python:{re.escape(python)}-slim-trixie{DIGEST}$", server, re.MULTILINE)
     assert re.search(rf"^ARG UV=ghcr\.io/astral-sh/uv:{re.escape(MISE['uv'])}{DIGEST}$", server, re.MULTILINE)
     assert re.search(rf"^ARG NODE=node:{re.escape(MISE['node'])}-trixie-slim{DIGEST}$", web, re.MULTILINE)
     assert re.search(rf"^ARG PNPM={re.escape(MISE['pnpm'])}$", web, re.MULTILINE)

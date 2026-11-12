@@ -1613,7 +1613,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     `tests/test_taskfile.py`.
   - Verify: `task --dry docker:up` with a missing folder prints the line; standard gate.
   - Commit: `build(docker): refuse docker:up when the registry folder is missing`.
-- [ ] **Task 5.9 [APPROVAL]: Python is pinned to its exact version.** Closes DX-011, and STR-011 (the Python part).
+- [x] **Task 5.9 [APPROVAL]: Python is pinned to its exact version.** Closes DX-011, and STR-011 (the Python part).
   - Files: `.python-version` (`3.13.15`), `tests/test_docker.py:116-119` (compares the full version).
   - Verify: `uv run python -V` prints `3.13.15`; standard gate.
   - Commit: `build(python): pin Python to 3.13.15 everywhere`.

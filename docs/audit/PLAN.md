@@ -1545,7 +1545,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     `allow_indirect_imports = true`.
   - Verify: `mise exec -- uv run lint-imports` reports 5 contracts kept; standard gate.
   - Commit: `refactor(cli): catch API errors through the gateway, and let only the gateway import anthropic`.
-- [ ] **Task 4.5: each dashboard view is mapped to its names.** Closes STR-015.
+- [x] **Task 4.5: each dashboard view is mapped to its names.** Closes STR-015.
   - Files: `docs/01-ARCHITECTURE.md`, section "Cruscotto e server". The table, in Italian, maps each view label to its
     page, e2e spec, API route, operationId, read model, module and pytest file.
   - Commit: `docs(architecture): map each dashboard view to its route, API and read model`.

@@ -201,11 +201,59 @@ Next.js con TypeScript (ADR-0024). Taskfile è l'ingresso unico dei comandi.
 - Django non possiede il registro: nessun modello Django e nessun admin sulle sue tabelle.
 - Docker contiene Django, Next.js e i servizi. Il motore resta sull'host, con `bwrap`, Craft, Blender e GPU.
 
+Ogni vista ha più nomi: l'etichetta, la pagina, l'operazione dell'API, il modello di lettura. Rotte e operationId sono fissati
+dagli ADR delle viste e da `tests/test_schemas.py`, quindi non si rinominano: questa tabella li tiene insieme (STR-015). Le rotte
+stanno sotto `/api`, quelle di un progetto sotto `/api/projects/{name}`.
+
+| Vista | Pagina | e2e | API · operationId | Modello · modulo di `insights` | pytest |
+|---|---|---|---|---|---|
+| Progetti | `/` | `run.spec.ts` | `/projects` · `listProjects`, `/provenance` · `provenance` | `ProjectSummary` · `views.py`, `Provenance` · `domain.py` | `test_server.py`, `test_insights.py` |
+| Run | `/projects/[name]` | `run.spec.ts` | `/report` · `projectReport` | `ProjectReport` · `views.py` | `test_report_views.py` |
+| Fasi | `…/phases` | `phases.spec.ts` | `/flow` · `projectFlow` | `FlowReport` · `flow.py` | `test_flow_view.py` |
+| Modello | `…/model` | `model.spec.ts` | `/behaviour` · `projectBehaviour` | `BehaviourReport` · `behaviour.py` | `test_behaviour_view.py` |
+| Strumenti e QA | `…/quality` | `quality.spec.ts` | `/quality` · `projectQuality` | `QualityReport` · `quality.py` | `test_quality_view.py` |
+| Replay, elenco | `…/replay` | `replay.spec.ts` | `/report` · `projectReport` | `ProjectReport` · `views.py` | `test_report_views.py` |
+| Replay, istanza | `…/replay/[instance]` | `replay.spec.ts` | `/instances/{instance}/replay` · `instanceReplay`, `/instances/{instance}/images/{index}` · `instanceImage` | `ReplayReport` · `replay.py` | `test_replay_view.py`, `test_server.py` |
+| Confronto | `/compare` | `compare.spec.ts` | `/projects` · `listProjects`, `/compare` · `compareProjects` | `CompareReport` · `compare.py` | `test_compare_view.py` |
+
+Il componente Django ha due nomi: `server` nel codice (`entrypoints/server`, `agency-server`, `server.Dockerfile`) e `api` in
+Compose (il servizio `api`, l'immagine `dashboard-api`, `task dashboard:api`).
+
 ## Struttura del codice
 
 Cinque principi: modular monolith in vertical slices, explicit over implicit, Clean Architecture (ADR-0021), Schema-First Design
-(ADR-0022) e testing pyramid (`07-EVALS.md`). Questa è la forma di arrivo: `insights` nasce così in M1.6, il motore ci arriva in
-M1.7.
+(ADR-0022) e testing pyramid (`07-EVALS.md`).
+
+### Oggi
+
+Il motore è ancora diviso per pacchetti tecnici; `insights` ha già la forma a slice.
+
+```text
+src/agency/
+  agents/        il ciclo di un'istanza, il prompt di sistema, il pacchetto del ticket, la trascrizione
+  artifacts/     le versioni conservate per sha256, e quando conservarle
+  context/       riservato al contesto visivo di M3: per ora vuoto
+  contracts/     i contratti tipizzati: ticket, gate, esiti, impronte, giudizi, percorsi dei dati, file senza link
+  entrypoints/   server/: il cruscotto Django, in sola lettura
+  evaluation/    il giudizio alla cieca e la sua tavola
+  gateway/       l'unico punto che chiama l'API: budget, costi, registrazione delle risposte
+  graph/         il processo dello studio su LangGraph
+  insights/      la slice di lettura: dominio, porte, casi d'uso, una vista per modulo; adapters/ legge registro,
+                 tracce e trascrizioni e scrive la proiezione
+  ledger/        il registro SQLite, la catena di hash, le migrazioni
+  qa/            controlli, prove, consegna e accettazione; scripts/ sono gli script QA importati dal setup precedente
+  telemetry/     tracce OpenTelemetry, impronte delle esecuzioni, i testi della CLI
+  tools/         gli strumenti degli agenti, la sandbox, i comandi Craft, render, master, tavola, presentazione
+  registry.py    le regole dello studio di `registry/`, caricate una volta, e le ricerche sui prompt
+  cli.py  config.py  doctor.py  runtime.py
+tests/           test_*.py; support/ ha gli aiuti condivisi (ScriptedTransport, ReplayTransport, i disegni di prova,
+                 il registro di prova del cruscotto); fixtures/ e snapshots/ i dati
+web/src/         app/ le pagine, components/, lib/ gli aiuti puri con le loro prove, api/ il client e i tipi, proxy.ts
+```
+
+### Forma di arrivo
+
+`insights` nasce così in M1.6, il motore ci arriva in M1.7.
 
 ```text
 src/agency/
@@ -222,8 +270,10 @@ schemas/         OpenAPI generato e versionato
 
 Le dipendenze puntano verso l'interno: `entrypoints`, poi `process`, poi `studio` e `insights`, poi `platform`, poi `shared`.
 Dentro una slice il dominio tiene le regole pure, l'applicazione casi d'uso e porte, gli adattatori strumenti e nodi. Le slice non
-si importano tra loro, e `import-linter` in `make check` lo impone. Da M1.6 impone tre confini: `insights` e il server leggono e
-basta, senza motore né `Ledger`, e il motore non importa Django né il server. Le altre regole della tabella entrano con M1.7.
+si importano tra loro, e `import-linter` in `make check` lo impone. Oggi impone quattro confini: `insights` e il server leggono e
+basta, senza motore né `Ledger`; il giudizio alla cieca dipende solo dai contratti (ADR-0027); il motore non importa Django né il
+server. Ogni contratto elenca a mano i pacchetti, e un test controlla che non ne manchi nessuno. Le altre regole della tabella
+entrano con M1.7.
 
 | Libreria | Chi può importarla |
 |---|---|

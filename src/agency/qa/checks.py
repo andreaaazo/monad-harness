@@ -1,4 +1,4 @@
-"""Controlli eseguibili: il sistema li lancia, legge l'esito e firma con l'attore reale."""
+"""Runnable checks: the system runs them, reads the result, and signs with the real actor."""
 
 from __future__ import annotations
 
@@ -19,6 +19,9 @@ RUNNABLE = ("master_open", "svg_audit", "svg_parity", "logo_proof", "optical_che
 
 @dataclass(frozen=True)
 class CheckOutcome:
+    """A check's result, its detail, and the proof files it made. A `PROOF` result is not recorded: whoever
+    looks at the proof signs the result."""
+
     result: str
     detail: str
     proofs: tuple[str, ...] = ()
@@ -30,6 +33,7 @@ def _script(sandbox: Sandbox, name: str, *args: str) -> tuple[int, str]:
 
 
 def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
+    """Runs one check on `file` in the sandbox, without recording anything."""
     target = f"{JOB}/{file}"
     if check == "master_open":
         why = master.problem(sandbox, file)
@@ -41,9 +45,9 @@ def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
         proof = f"proofs/optical/{_stem(file)}.png"
         ensure_dir_under(sandbox.work, "proofs/optical")
         code, output = _script(sandbox, check, target, "--out", f"{JOB}/{proof}")
-        if code:  # una misura che non è riuscita non è una prova
+        if code:  # a measurement that failed is not a proof
             return CheckOutcome("FAIL", clip(output, 1800))
-        # È una misura: dice cosa c'è, non che vada bene.
+        # It is a measurement: it says what is there, not that it is right.
         return CheckOutcome("MEASURED", clip(output, 1800), (proof,))
     if check == "logo_proof":
         folder = f"proofs/logo/{_stem(file)}"
@@ -52,7 +56,7 @@ def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
         if code:
             return CheckOutcome("FAIL", clip(output, 1800))
         found = glob_under(sandbox.work, f"{glob.escape(folder)}/*.png")
-        # L'esito lo decide chi guarda il foglio: qui si produce soltanto la prova.
+        # Whoever looks at the sheet decides the result: this only produces the proof.
         return CheckOutcome("PROOF", clip(output, 800), tuple(found))
     raise ValueError(f"controllo non eseguibile: {check}")
 
@@ -67,7 +71,10 @@ def run(
     file: str,
     resume: Callable[[CheckOutcome], tuple[str, str, str, str]] | None = None,
 ) -> CheckOutcome:
-    """`resume` makes the tool call's resume record from the outcome; it is written with the evidence row."""
+    """Runs a runnable check and records its proof, signed by `actor`.
+
+    `resume` makes the tool call's resume record from the outcome; it is written with the evidence row.
+    """
     if check not in RUNNABLE:
         raise evidence.EvidenceRefused(f"{check} non si esegue: usa observe, judge o record_requirement")
     evidence.guard(ledger, project, file, check, actor)

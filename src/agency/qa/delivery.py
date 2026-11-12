@@ -1,4 +1,4 @@
-"""Controlli alla consegna e all'accettazione: stessa logica per ogni ticket, senza eccezioni."""
+"""Checks at delivery and at acceptance: the same logic for every ticket, with no exceptions."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from agency.tools.sandbox import Sandbox
 
 GLOB = "*?["
 REPORTS = "reviews/"
-LOOKED_AT = ("observation", "judgement")  # si registrano solo guardando un render del file
+LOOKED_AT = ("observation", "judgement")  # recorded only by looking at a render of the file
 REVIEW_SHAPE = (
     "Una revisione dichiara in outputs i file che giudica e il referto, con i controlli sui file giudicati: "
     'outputs ["exports/segno.svg", "reviews/critica.md"], checks {"*.svg": ["critique"]}.'
@@ -30,14 +30,16 @@ REVIEW_SHAPE = (
 
 
 class ContractRefused(Exception):
-    """Il ticket non è un contratto valido."""
+    """The ticket is not a valid contract."""
 
 
 def matches(file: str, pattern: str) -> bool:
+    """Whether `pattern` matches the file's path, or its name alone."""
     return fnmatch.fnmatch(file, pattern) or fnmatch.fnmatch(Path(file).name, pattern)
 
 
 def checks_for(spec: TicketSpec, file: str) -> list[str]:
+    """The checks the contract asks for on `file`, from every pattern it matches, without duplicates."""
     found: list[str] = []
     for pattern, names in spec.checks.items():
         if matches(file, pattern):
@@ -46,6 +48,7 @@ def checks_for(spec: TicketSpec, file: str) -> list[str]:
 
 
 def exempted(spec: TicketSpec, file: str) -> bool:
+    """Whether the contract exempts `file`, by its exact path or by a pattern."""
     return any(file == key or matches(file, key) for key in spec.exempt)
 
 
@@ -56,7 +59,7 @@ def _needs_coverage(spec: TicketSpec, file: str) -> bool:
 
 
 def validate(spec: TicketSpec) -> None:
-    """Rifiuta all'apertura i contratti che lascerebbero passare output senza verifica."""
+    """Refuses, at opening, a contract that would let an output through unchecked."""
     for names in spec.checks.values():
         for name in names:
             why = evidence.check_problem(name)
@@ -88,9 +91,9 @@ def _looked_at(check: str) -> bool:
 
 
 def validate_review(spec: TicketSpec, work: Path, coming: set[str]) -> None:
-    """Chi giudica scrive solo in reviews/: ogni altro contratto finirebbe con un referto non consegnabile.
+    """A reviewer writes only in reviews/: any other contract would end in a report that cannot be delivered.
 
-    `coming` sono i file che altri stanno producendo: una revisione si può aprire prima che esistano.
+    `coming` are the files others are producing: a review can be opened before they exist.
     """
     if spec.assignee not in REVIEWERS:
         return
@@ -109,6 +112,7 @@ def validate_review(spec: TicketSpec, work: Path, coming: set[str]) -> None:
 
 
 def expected(spec: TicketSpec, work: Path) -> tuple[list[str], list[str]]:
+    """The output files a delivery must have, globs expanded, and the globs that matched nothing."""
     files: list[str] = []
     empty: list[str] = []
     for output in spec.outputs:
@@ -123,6 +127,7 @@ def expected(spec: TicketSpec, work: Path) -> tuple[list[str], list[str]]:
 
 
 def coverage_problems(spec: TicketSpec, files: list[str]) -> list[str]:
+    """One problem per file that needs a check and has neither a check nor an exemption."""
     return [
         f"{file}: nessun controllo lo copre"
         for file in files
@@ -139,8 +144,12 @@ def evidence_problems(
     include_independent: bool,
     verdict: Verdict | None,
 ) -> list[str]:
+    """One problem per required proof that is missing, signed by the author when it must be independent,
+    stale, or not passed. Outside reviews, independent checks count only at acceptance
+    (`include_independent`). A review counts only its reviewer's proofs: NOT_VERIFIED asks for none, and
+    REVISE does not ask them to pass."""
     review = spec.type in REVIEW_TYPES
-    # Un revisore risponde delle sue prove: quelle di un altro non lo sostituiscono e non lo annullano.
+    # A reviewer answers for their own proofs: another signer's neither replace nor cancel them.
     table = evidence.latest(ledger, project, spec.assignee if review else None)
     problems = []
     for file in files:
@@ -165,8 +174,10 @@ def evidence_problems(
 def master_problems(
     ledger: Ledger, project: str, sandbox: Sandbox, spec: TicketSpec, files: list[str]
 ) -> list[str]:
+    """For an authoring ticket: each declared medium has its master, each master opens, and each export
+    derives from a master unless `no_master` excuses it."""
     if spec.type not in AUTHOR_TYPES:
-        return []  # chi rivede giudica il lavoro: il master lo deve l'autore
+        return []  # a reviewer judges the work: the master is the author's job
     media = [medium for medium in spec.media if medium is not Medium.NONE]
     problems: list[str] = []
     masters: list[str] = []
@@ -204,6 +215,8 @@ def delivery_problems(
     inputs_changed: bool = False,
     inputs: dict[str, str] | None = None,
 ) -> tuple[list[str], list[str]]:
+    """The output files present, and what blocks the delivery: missing outputs, inputs changed since the
+    opening (left out when `inputs_changed`), coverage, proofs and masters."""
     work = sandbox.work
     files, empty = expected(spec, work)
     stale = [
@@ -223,6 +236,8 @@ def delivery_problems(
 
 
 def acceptance_problems(ledger: Ledger, project: str, sandbox: Sandbox, ticket_id: str) -> list[str]:
+    """What blocks acceptance: a delivered file changed since the delivery, or a required proof, independent
+    ones included, that is not in order."""
     spec = ledger.spec(ticket_id)
     _, verdict = ledger.status(ticket_id)
     delivered = ledger.delivered(ticket_id)

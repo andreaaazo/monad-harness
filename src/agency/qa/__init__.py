@@ -1,1 +1,1 @@
-"""Controlli deterministici e registro delle prove (M1-M2)."""
+"""Deterministic checks and the record of proofs (M1-M2)."""

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from typing import Protocol
 
 import anthropic
@@ -50,21 +49,3 @@ class AnthropicTransport:
         data["_request_id"] = request_id
         data["_ttft_ms"] = round((first - started) * 1000) if first is not None else None
         return data
-
-
-class ScriptedTransport:
-    """Prepared or recorded answers, so tests spend nothing."""
-
-    def __init__(self, responses: Iterable[dict], tokens: int = 1000) -> None:
-        self.responses = list(responses)
-        self.tokens = tokens
-        self.requests: list[dict] = []
-
-    def count_tokens(self, params: dict) -> int:
-        return self.tokens
-
-    def stream(self, params: dict) -> dict:
-        self.requests.append(json.loads(json.dumps(params)))
-        if not self.responses:
-            raise AssertionError("no recorded responses left")
-        return self.responses.pop(0)

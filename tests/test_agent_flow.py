@@ -27,7 +27,7 @@ from agency.contracts.concept import ConceptCard
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
-from agency.gateway import BudgetExceeded, ModelGateway, ScriptedTransport
+from agency.gateway import BudgetExceeded, ModelGateway
 from agency.graph import workflow
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow, DerivationRow, EvidenceRow
@@ -48,6 +48,7 @@ from agency.tools.sandbox import (
     SandboxUnavailable,
 )
 from agency.tools.surface import TOOLS, Toolbox, ToolContext, tools_for
+from support.scripted import ScriptedTransport
 
 SVG_PATH = "M10 90 L50 10 L90 90 Z"
 needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="serve VectorCraft")

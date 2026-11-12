@@ -18,12 +18,12 @@ from agency.gateway import (
     ModelGateway,
     ModelRequest,
     ModelResponse,
-    ScriptedTransport,
     Transport,
 )
 from agency.gateway.pricing import PRICES, cost_usd
 from agency.ledger import Ledger
 from agency.telemetry import fingerprint
+from support.scripted import ScriptedTransport
 
 CONTEXT = CallContext(project="p", ticket_id="T-0001", role="critic", instance="i1", phase="critic-board")
 

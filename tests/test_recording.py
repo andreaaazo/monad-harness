@@ -17,11 +17,12 @@ import pytest
 from agency import cli
 from agency.config import Settings
 from agency.contracts.project import ProjectName
-from agency.gateway import AnthropicTransport, RecordingTransport, ScriptedTransport, request_key
+from agency.gateway import AnthropicTransport, RecordingTransport, request_key
 from agency.ledger import Ledger
 from agency.ledger.models import TicketRow
 from agency.runtime import Session, open_session
 from support.replay import MissingRecording, ReplayTransport
+from support.scripted import ScriptedTransport
 
 needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="serve VectorCraft")
 EXPLORERS = 5

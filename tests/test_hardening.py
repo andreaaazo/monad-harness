@@ -29,7 +29,7 @@ from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.run import Fingerprint
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.evaluation.blind import CannotCompare
-from agency.gateway import ModelGateway, ScriptedTransport
+from agency.gateway import ModelGateway
 from agency.insights.domain import Provenance
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
@@ -42,6 +42,7 @@ from agency.tools.craft import Command, CommandIndex
 from agency.tools.files import OutsidePerimeter, is_file_under
 from agency.tools.sandbox import Completed, Sandbox
 from agency.tools.surface import TOOLS, Toolbox, ToolContext, role_tools
+from support.scripted import ScriptedTransport
 
 
 def settings(tmp_path: Path) -> Settings:

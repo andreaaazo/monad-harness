@@ -2,7 +2,7 @@
 
 from agency.gateway.client import BudgetExceeded, CallContext, ModelGateway, ModelRequest, ModelResponse
 from agency.gateway.recording import RecordingTransport, request_key
-from agency.gateway.transport import AnthropicTransport, ScriptedTransport, Transport
+from agency.gateway.transport import AnthropicTransport, Transport
 
 __all__ = [
     "AnthropicTransport",
@@ -12,7 +12,6 @@ __all__ = [
     "ModelRequest",
     "ModelResponse",
     "RecordingTransport",
-    "ScriptedTransport",
     "Transport",
     "request_key",
 ]

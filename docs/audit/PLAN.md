@@ -1317,6 +1317,8 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   tests keep alive. Fix: delete it and its test uses, unless a harness write should refuse an existing file; then route
   that write through it. Found in Task 2.33. Not covered by a planned task (Task 4.3 moves only `ScriptedTransport`).
   - Moved to Phase 4 (2026-11-10), with Task 4.3: not a bug, code that only tests use.
+  - Still open after Phase 4 (2026-11-12): Phase 4 only moves code, and this fix deletes code. It goes to the
+    simplification phase.
 - [ ] **Task 2.F60: `Ledger.add_concept` is a seeding helper that only tests call.** ledger/store.py:404 (as of Task
   2.33). Since COR-003 (55039eb) the concept row is written by `Ledger.open(..., concept=...)` in the ticket's own
   transaction (tools/surface.py:660-665), and `rg -n -w add_concept src` finds only the definition. The tests
@@ -1325,6 +1327,8 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   `Ledger.open(..., concept=...)` or a `tests/support/` helper, then delete the method; it fits Task 4.3. Found in
   Task 2.33. Not covered by a planned task.
   - Moved to Phase 4 (2026-11-10), with Task 4.3: not a bug, code that only tests use.
+  - Still open after Phase 4 (2026-11-12): Phase 4 only moves code, and this fix deletes code. It goes to the
+    simplification phase.
 - [ ] **Task 2.F61: `REVIEWERS` is a second list of the reviewer roles.** contracts/ticket.py:79 (as of Task 2.34).
   Task 2.34 made `roles.json` declare `"tools": "reviewer"` for `qa-inspector`, `critic` and `legal-reviewer`, but
   `REVIEWERS` still hard-codes the same three names and is read by tools/surface.py:318 and :518 and qa/delivery.py:96.
@@ -1523,7 +1527,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Done as a pure move (Phase 4, unit U3). Two parts of this task are not moves and are left to the simplification
     phase (SIM-005): deleting the dead `evidence.ROLES` loader, and typing `ROLES` and `CHECKS` as `RoleSpec` and
     `CheckSpec`.
-- [ ] **Task 4.3: test helpers and the scripted transport live in `tests/support/`.** Closes STR-016 and SIM-006 (its
+- [x] **Task 4.3: test helpers and the scripted transport live in `tests/support/`.** Closes STR-016 and SIM-006 (its
   move part).
   - Files:
     - move `tests/drawings.py` and `tests/dashboard_fixture.py` into `tests/support/`;

@@ -1,6 +1,6 @@
 import type { InstanceView, WaitView } from "../api";
-import { counted, minutes, seconds, usd, when } from "../format";
-import { between, workScale } from "../timescale";
+import { counted, minutes, seconds, usd, when } from "../lib/format";
+import { between, workScale } from "../lib/timescale";
 
 /**
  * Each instance is a bar, from its first call to its last, on the scale of the work: the client's waits take no

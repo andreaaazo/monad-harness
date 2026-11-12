@@ -6,7 +6,7 @@ import { readForPage } from "../../../api/read";
 import { ProjectHeader } from "../../../components/project-header";
 import { Timeline } from "../../../components/timeline";
 import { Unavailable } from "../../../components/unavailable";
-import { count, counted, minutes, seconds, share, usd, when } from "../../../format";
+import { count, counted, minutes, seconds, share, usd, when } from "../../../lib/format";
 
 export const dynamic = "force-dynamic";
 

@@ -5,8 +5,8 @@ import { ApiError, api } from "../../api/client";
 import { readForPage } from "../../api/read";
 import { Said } from "../../components/said";
 import { Unavailable } from "../../components/unavailable";
-import { count, counted, minutes, share, signed, usd, when } from "../../format";
-import { fingerprintValue, status } from "../../labels";
+import { count, counted, minutes, share, signed, usd, when } from "../../lib/format";
+import { fingerprintValue, status } from "../../lib/labels";
 
 export const dynamic = "force-dynamic";
 

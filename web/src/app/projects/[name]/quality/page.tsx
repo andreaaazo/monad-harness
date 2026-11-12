@@ -7,7 +7,7 @@ import { ProjectHeader } from "../../../../components/project-header";
 import { Said } from "../../../../components/said";
 import { SetbackList } from "../../../../components/setbacks";
 import { Unavailable } from "../../../../components/unavailable";
-import { count, counted, share, when } from "../../../../format";
+import { count, counted, share, when } from "../../../../lib/format";
 
 export const dynamic = "force-dynamic";
 

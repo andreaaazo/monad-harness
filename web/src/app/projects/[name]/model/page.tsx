@@ -6,8 +6,8 @@ import { readForPage } from "../../../../api/read";
 import { InstanceTurnsView } from "../../../../components/context-chart";
 import { ProjectHeader } from "../../../../components/project-header";
 import { Unavailable } from "../../../../components/unavailable";
-import { count, counted, seconds, share, usd } from "../../../../format";
-import { stop } from "../../../../labels";
+import { count, counted, seconds, share, usd } from "../../../../lib/format";
+import { stop } from "../../../../lib/labels";
 
 export const dynamic = "force-dynamic";
 

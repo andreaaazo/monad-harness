@@ -7,8 +7,8 @@ import { readForPage } from "../../../../../api/read";
 import { ProjectHeader } from "../../../../../components/project-header";
 import { Said } from "../../../../../components/said";
 import { Unavailable } from "../../../../../components/unavailable";
-import { count, counted, seconds, usd } from "../../../../../format";
-import { outcome, stop } from "../../../../../labels";
+import { count, counted, seconds, usd } from "../../../../../lib/format";
+import { outcome, stop } from "../../../../../lib/labels";
 
 export const dynamic = "force-dynamic";
 

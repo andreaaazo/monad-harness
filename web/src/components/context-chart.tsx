@@ -3,9 +3,9 @@
 import { type KeyboardEvent, type PointerEvent, type SyntheticEvent, useId, useState } from "react";
 
 import type { Turn } from "../api";
-import { area, type Frame, line, nearest, points } from "../chart";
-import { count, seconds } from "../format";
-import { stop } from "../labels";
+import { area, type Frame, line, nearest, points } from "../lib/chart";
+import { count, seconds } from "../lib/format";
+import { stop } from "../lib/labels";
 
 const FRAME: Frame = { width: 320, height: 96, inset: 6 };
 const KEYS = new Set(["ArrowLeft", "ArrowRight", "Home", "End"]);

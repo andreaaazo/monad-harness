@@ -1,6 +1,6 @@
 import type { Setback } from "../api";
-import { counted, when } from "../format";
-import { step } from "../labels";
+import { counted, when } from "../lib/format";
+import { step } from "../lib/labels";
 import { Said } from "./said";
 
 /** The steps back in time order, each with the reason written by whoever took it. */

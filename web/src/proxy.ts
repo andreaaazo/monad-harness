@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-import { isLoopbackHost } from "./loopback";
+import { isLoopbackHost } from "./lib/loopback";
 
 /**
  * The only code between the browser and the pages (ADR-0033): it refuses every request whose `Host` is not

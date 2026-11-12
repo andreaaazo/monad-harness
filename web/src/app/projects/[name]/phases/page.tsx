@@ -6,8 +6,8 @@ import { readForPage } from "../../../../api/read";
 import { ProjectHeader } from "../../../../components/project-header";
 import { SetbackList } from "../../../../components/setbacks";
 import { Unavailable } from "../../../../components/unavailable";
-import { count, usd, when } from "../../../../format";
-import { pending, status, step } from "../../../../labels";
+import { count, usd, when } from "../../../../lib/format";
+import { pending, status, step } from "../../../../lib/labels";
 
 export const dynamic = "force-dynamic";
 

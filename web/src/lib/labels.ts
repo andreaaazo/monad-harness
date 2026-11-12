@@ -2,7 +2,7 @@
  * The registry's words, said in Italian. They are labels only: no studio rule lives here. A word the dashboard
  * does not know is shown as the registry writes it.
  */
-import type { Lifecycle } from "./api";
+import type { Lifecycle } from "../api";
 
 const STATUSES: Readonly<Record<string, string>> = {
   open: "aperto",

@@ -5,7 +5,7 @@ import { ApiError, api } from "../../../../api/client";
 import { readForPage } from "../../../../api/read";
 import { ProjectHeader } from "../../../../components/project-header";
 import { Unavailable } from "../../../../components/unavailable";
-import { count, usd, when } from "../../../../format";
+import { count, usd, when } from "../../../../lib/format";
 
 export const dynamic = "force-dynamic";
 

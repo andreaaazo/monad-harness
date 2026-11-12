@@ -1,4 +1,4 @@
-import { oneLine } from "../format";
+import { oneLine } from "../lib/format";
 
 /** How much is read before opening: enough for the reason, not for a program's output. */
 const SUMMARY = 160;

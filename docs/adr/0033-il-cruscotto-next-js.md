@@ -56,7 +56,7 @@ sono emersi tre fatti che ADR-0024 non prevedeva:
 **Conseguenze.**
 - ADR-0024 resta valida. Le sue difese diventano sei: si aggiungono il controllo dell'`Host` e `no-store` sulle pagine statiche,
   e per il server standalone `-H 127.0.0.1` diventa `HOSTNAME=127.0.0.1`.
-- Quando arriveranno i clienti (M6), l'elenco degli host ammessi cambierà in Django e in `src/loopback.ts` insieme.
+- Quando arriveranno i clienti (M6), l'elenco degli host ammessi cambierà in Django e in `src/lib/loopback.ts` insieme.
 - `make check` costruisce Next.js e avvia quattro server: dura circa un minuto, ma le difese si provano a ogni modifica.
 - La porta di Django nei `rewrites` si fissa quando si costruisce: le prove costruiscono per le loro porte, in una cartella propria.
 - La prova sulla chiave legge `/proc`, quindi gira su Linux; altrove si salta e lo dice.

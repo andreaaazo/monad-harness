@@ -1688,6 +1688,27 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     `mise exec --` form for the web lines; the harmless hardlink warnings of `task setup` outside the caches'
     filesystem; and what the silent Chromium line should leave behind. Fixed in
     `docs(readme): answer what the clean-clone walk-through found unclear`.
+  - Run 2 (2026-11-12, at `8a644d1`), the one repeat the verification allows: green on the first try, again 153 s
+    from the clone to green, of which 122 s were commands (`task check` alone 119 s). Every cache was warm again,
+    and it again took the mise-active path. Every README step exited 0, and so did each single-test command
+    (pytest `1143 passed`, Playwright `22 passed`, web `18/18`). After the gate, `git status --short` in the clone
+    printed nothing. The README text fixes left the time unchanged.
+  - Open, from run 2. These are not fixed, because the verification stops after one repeat. Each is a small README
+    change, unless noted:
+    - the clone line `git clone <percorso-o-url>` names no source. It can name one only once a Git remote exists,
+      which is the same decision CI waits for (Q11, ADR-0051);
+    - nothing says how to tell whether mise is already active, for example that `command -v task` prints a path
+      under `mise/installs`. The `echo … >> ~/.zshrc` line also adds a second copy if run twice;
+    - the Chromium line carries `mise exec --` while the other lines of its block are bare, and nothing says why.
+      The reason is that it works with or without mise active;
+    - uv's hardlink warning suggests `UV_LINK_MODE=copy`. The README row says to do nothing, which is right, but
+      could add that the variable only hides the warning;
+    - there is no cold-machine estimate: no time, download size or disk space for a first `mise install`,
+      `task setup` and Chromium. Both runs had warm caches, so measuring it needs a machine or user with empty
+      caches. On this one, `.venv` is about 290 MB and `web/node_modules` about 400 MB.
+  - Not checked by either run: the skips without VectorCraft or Docker, and the "Errori comuni" rows. Every tool
+    was present on this machine. The skips and the `fc-match` failures were checked separately in Task 5.12, with
+    a PATH that lacks those tools.
 
 ## Phase 6: sanity refactor and simplification
 

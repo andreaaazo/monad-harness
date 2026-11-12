@@ -21,7 +21,8 @@ dopo il primo cliente reale. I dettagli sono nella [roadmap](docs/02-ROADMAP.md)
 
 ### Prerequisiti
 
-Serve Linux con una sessione utente di systemd, e questi strumenti della macchina:
+Serve Linux con una sessione utente di systemd (`systemctl --user status` risponde), e questi strumenti della
+macchina:
 
 | Strumento | Perché | Su Debian e Ubuntu |
 |---|---|---|
@@ -48,13 +49,16 @@ cd design-agency-harness
 mise trust        # una volta: permette a mise di usare il mise.toml della cartella
 mise install      # Node 22.22.1, pnpm 12.14.0, uv 0.12.5, Task 3.54.0
 task setup        # Python 3.13.15 e le dipendenze da uv.lock, web/ da pnpm-lock.yaml
-mise exec -- pnpm --dir web exec playwright install chromium   # una volta per macchina
+mise exec -- pnpm --dir web exec playwright install chromium   # una volta per macchina; se c'è già, non stampa nulla
 task check        # tutto il gate, circa due minuti: finisce con le prove Playwright e codice d'uscita 0
 ```
 
-Senza mise attivo: `mise trust`, `make setup` (che esegue `mise install` e poi `task setup`), la riga di Chromium,
-`make check`. `task setup` stampa anche il comando che attiva l'hook pre-commit, se non è già attivo:
-`git config core.hooksPath .githooks` (ADR-0051).
+Dopo la riga di Chromium, `task doctor` mostra `ok` sulla riga `Chromium`. Senza mise attivo: `mise trust`,
+`make setup` (che esegue `mise install` e poi `task setup`), la riga di Chromium, `make check`.
+
+`task setup` stampa anche il comando che attiva l'hook pre-commit, se non è già attivo:
+`git config core.hooksPath .githooks` (ADR-0051). L'hook esegue i controlli veloci prima di ogni commit; per le
+prove non serve.
 
 ### I comandi
 
@@ -83,11 +87,13 @@ task doctor        # gli strumenti della macchina
 task test -- tests/test_ledger.py                        # un file
 task test -- tests/test_ledger.py::test_verify_exits_1_on_a_broken_chain   # una prova
 task test -- -k chain                                    # le prove con quella parola nel nome
-task e2e -- e2e/run.spec.ts                              # un file Playwright, dopo la build
+task e2e -- e2e/run.spec.ts                              # un file Playwright; prima rifà da sé la build
 pnpm --dir web exec node --test src/lib/format.test.ts   # un file di prove unitarie dell'interfaccia
 ```
 
-Con `make` gli argomenti non passano: senza mise attivo si scrive `mise exec -- task test -- tests/test_ledger.py`.
+I percorsi delle prove di Python partono dalla radice del clone; quelli di Playwright e delle prove unitarie
+dell'interfaccia partono da `web/`. Senza mise attivo ogni riga prende `mise exec --` davanti, per esempio
+`mise exec -- task test -- tests/test_ledger.py`; con `make` gli argomenti non passano.
 
 ### Errori comuni
 
@@ -97,6 +103,7 @@ Con `make` gli argomenti non passano: senza mise attivo si scrive `mise exec -- 
 | mise dice che `mise.toml` non è fidato (`not trusted`) | `mise trust` nella cartella del clone |
 | ``The lockfile at `uv.lock` needs to be updated`` | `pyproject.toml` è cambiato e `uv.lock` no. I comandi di Task non riscrivono mai il lock: se la modifica è tua, esegui `uv lock` nella shell e versiona i due file insieme |
 | `web/node_modules manca: esegui task setup` | `task setup` |
+| `task setup` avverte `Failed to hardlink files; falling back to full copy` (uv) o `The store at … is not used because packages cannot be hard linked` (pnpm) | niente: il clone sta su un filesystem diverso dalle cache, per esempio in `/tmp`. uv copia i pacchetti invece di collegarli, e pnpm usa uno store alla radice di quel filesystem, come `/tmp/.pnpm-store` |
 | `browserType.launch: Executable doesn't exist at …` | manca Chromium per Playwright: esegui la riga di Chromium qui sopra; `task doctor` dice quale cartella manca |
 | `the sandbox tests need a working bwrap sandbox, and it fails here: …` | la fine della riga dice perché. Installa bubblewrap e guarda `task doctor`, righe `bwrap` e `limiti sandbox`. Intanto puoi lavorare senza quelle prove, con `task test -- -m "not sandbox"`, o per tutto il gate con `PYTEST_ADDOPTS='-m "not sandbox"' task check`; un gate così non è verde |
 | `No such file or directory: 'fc-match'` nelle prove della presentazione | `sudo apt install fontconfig` |

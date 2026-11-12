@@ -1679,6 +1679,15 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Verify: Neovim 0.11 (built-in EditorConfig) opens a `.py`, `.tsx`, `.mjs`, `.yml`, `.sql`, `.md` file, the
     Makefile, `uv.lock` and `schema.ts` with the expected indent, and LF; standard gate.
   - Commit: `build(editor): add an .editorconfig that matches the files and Ruff`.
+- **Phase 5 verification: a newcomer's clean clone.** A fresh subagent clones `audit/deep-review` into `/tmp` and
+  follows only the README.
+  - Run 1 (2026-11-12, at `3967e55`): green on the first try, 153 s from the clone to the end of `task check`, of
+    which 123 s were commands (`task check` alone 121 s). It ran with mise active and every cache warm.
+  - Nothing failed. It found seven gaps in the text: what `task e2e -- …` does first; which folder the web test
+    paths start from; the hook hint inside the no-mise paragraph; no way to check the systemd session; no
+    `mise exec --` form for the web lines; the harmless hardlink warnings of `task setup` outside the caches'
+    filesystem; and what the silent Chromium line should leave behind. Fixed in
+    `docs(readme): answer what the clean-clone walk-through found unclear`.
 
 ## Phase 6: sanity refactor and simplification
 

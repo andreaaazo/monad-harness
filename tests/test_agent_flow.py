@@ -1059,6 +1059,15 @@ def test_sandbox_returns_code_and_streams_of_a_normal_command(tmp_path: Path) ->
 
 
 @pytest.mark.sandbox
+def test_a_sandboxed_command_reads_an_empty_closed_stdin(tmp_path: Path) -> None:
+    """A command that reads its input gets end of file at once: with stdin left open, `cat` would wait for the
+    timeout and answer 124."""
+    work = tmp_path / "work"
+    work.mkdir()
+    assert Sandbox(work).run(["cat"], timeout=10) == Completed(0, "", "")
+
+
+@pytest.mark.sandbox
 def test_sandbox_feeds_stdin_to_the_command(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()

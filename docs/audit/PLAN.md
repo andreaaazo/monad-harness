@@ -1759,6 +1759,10 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Verify: `rg -n -w -e SKETCH_CHECKS -e contact_sheet -e render_of src tests` prints nothing; standard gate.
   - Commit: `refactor: delete definitions with no caller`.
 - [ ] **Task 6.5: drop four parameters that no caller passes.** Closes SIM-007.
+  - Before the change, a characterization test: no test pinned what production keeps once `stdin` goes, namely
+    that a sandboxed command gets an empty, closed stdin. Every `stdin=` call passed data. New
+    `test_a_sandboxed_command_reads_an_empty_closed_stdin`: `cat` answers `Completed(0, "", "")`. With stdin left
+    open, it would wait for the timeout and answer 124. Found by the test-value reviewer of /ce-simplify-code.
   - Files: `src/agency/tools/sandbox.py` (`read_only`, `stdin`), `src/agency/qa/delivery.py` (`inputs_changed`),
     `src/agency/ledger/store.py` (`spent(ticket_id)`). `CommandIndex.load(app)` stays.
   - Commit: `refactor: drop parameters that no caller passes`.

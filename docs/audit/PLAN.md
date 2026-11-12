@@ -1604,7 +1604,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     joins `TASKS`), `tests/test_taskfile.py` (`ALIASES`).
   - Verify: `mise exec -- task --list` shows `format`; `make -n format` prints `mise exec -- task format`; standard gate.
   - Commit: `build(task): add a format task that fixes and formats`.
-- [ ] **Task 5.7 [APPROVAL]: a bare `make` lists the commands.** Closes DX-012.
+- [x] **Task 5.7 [APPROVAL]: a bare `make` lists the commands.** Closes DX-012.
   - Files: `Makefile` (a first target, `help`, that runs `mise exec -- task`), `tests/test_taskfile.py`.
   - Verify: `make -n` prints `mise exec -- task`; standard gate.
   - Commit: `build(make): list the commands on a bare make`.

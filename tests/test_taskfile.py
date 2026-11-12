@@ -89,12 +89,12 @@ def test_format_fixes_what_ruff_can_and_then_formats() -> None:
     assert commands("format") == ["uv run ruff check --fix .", "uv run ruff format ."]
 
 
-def make(name: str) -> str:
-    """What `make <name>` would do, even when the test runs inside another make (such as `make check`)."""
+def make(*names: str) -> str:
+    """What `make <names>` would do, even when the test runs inside another make (such as `make check`)."""
     outer = {"MAKEFLAGS", "MAKELEVEL", "MFLAGS", "MAKEOVERRIDES"}
     environment = {key: value for key, value in os.environ.items() if key not in outer}
     dry = subprocess.run(
-        ["make", "--no-print-directory", "-n", name],
+        ["make", "--no-print-directory", "-n", *names],
         cwd=REPO_ROOT,
         env=environment,
         capture_output=True,
@@ -109,6 +109,11 @@ def test_make_is_only_an_alias_of_task() -> None:
     for name in ALIASES:
         assert make(name).strip() == f"mise exec -- task {name}", name
     assert make("setup").split() == ["mise", "install", "mise", "exec", "--", "task", "setup"]
+
+
+def test_a_bare_make_lists_the_commands_instead_of_installing() -> None:
+    assert make().strip() == "mise exec -- task"
+    assert make("help").strip() == "mise exec -- task"
 
 
 def test_a_stale_lock_fails_instead_of_being_rewritten() -> None:

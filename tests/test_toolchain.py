@@ -1,4 +1,4 @@
-"""The local tools have a single version, written in mise.toml (ADR-0034)."""
+"""The local tools have a single version, written in mise.toml (ADR-0034), and the editors follow Ruff."""
 
 from __future__ import annotations
 
@@ -49,3 +49,12 @@ def test_mise_never_loads_dotenv_into_the_shell() -> None:
     assert "_" not in environment or "file" not in environment["_"]
     assert environment.get("NEXT_TELEMETRY_DISABLED") == "1"
     assert not any("ANTHROPIC" in name for name in environment)
+
+
+def test_the_editors_wrap_python_where_ruff_does() -> None:
+    """.editorconfig repeats Ruff's line length for the editors; pyproject.toml owns it."""
+    ruff = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["ruff"]
+    editors = (REPO_ROOT / ".editorconfig").read_text(encoding="utf-8")
+    section = re.search(r"^\[\*\.py\]\n((?:[^\[\n].*\n)*)", editors, re.MULTILINE)
+    assert section is not None
+    assert f"max_line_length = {ruff['line-length']}\n" in section[1]

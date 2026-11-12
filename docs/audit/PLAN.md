@@ -1653,6 +1653,23 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     - the full "Struttura" tree, including `web/`, `schemas/`, `prompts/`, `docker/` and `evals/`.
   - Verify: a README walk-through in a `git archive` copy reaches a green `task check`; standard gate.
   - Commit: `docs(readme): list the prerequisites and every command and folder`.
+- [x] **Task 5.13: the editors keep the files as they are.** Added in Phase 5 for the editor-config target, and done
+  before 5.12 so the README can name it.
+  - Files: create `.editorconfig`; `tests/test_toolchain.py`.
+  - Content: UTF-8, LF, a final newline and no trailing whitespace everywhere. Indents follow the files as they
+    are: 2 spaces by default, 4 for Python and SQL, tabs in the Makefile, and the generators' 4 in `uv.lock` and
+    `web/src/api/schema.ts`. Python wraps at Ruff's 110. A test keeps that number equal to the one in
+    `pyproject.toml`. No `.vscode/`: the language servers already read `pyproject.toml` (pyright, Ruff) and
+    `web/tsconfig.json`.
+  - Found while checking: every versioned file outside `legacy/` is UTF-8 and LF with no trailing whitespace.
+    Two files have no final newline, `prompts/skills/critique/SKILL.md` and `registry/checks.json`, and they stay
+    so: both are content the runs read, not configuration. An editor adds the newline at their next edit.
+  - Not in Phase 5: a formatter and a linter for `web/` (Biome, or Prettier and ESLint). Each is a new dependency
+    under the two-week quarantine. Its first run would also reformat every web file. It needs its own decision and
+    ADR, after this plan.
+  - Verify: Neovim 0.11 (built-in EditorConfig) opens a `.py`, `.tsx`, `.mjs`, `.yml`, `.sql`, `.md` file, the
+    Makefile, `uv.lock` and `schema.ts` with the expected indent, and LF; standard gate.
+  - Commit: `build(editor): add an .editorconfig that matches the files and Ruff`.
 
 ## Phase 6: sanity refactor and simplification
 

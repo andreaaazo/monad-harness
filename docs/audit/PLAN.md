@@ -1484,6 +1484,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   disegno", not "della larghezza".
 - [x] **D2 (the doctor.py owner note).** `agency doctor` gives Docker's reason as "cruscotto (ADR-0040); da M4 Langfuse
   e ComfyUI". D1 and D2: `fix: say what the sketch warning measures and what Docker serves`.
+  Superseded by Task 5.5 (Q13): Docker is now optional, with the reason `task docker:up`.
 - [x] **D3 (Task 3.2 follow-up).** The OpenAPI `info.title` is English, "Design agency: dashboard" (Q15).
 - [x] **D4 (CMT-011).** `qa/checks.py` `execute` raises its internal error in English: `run`, its only caller, refuses any
   check outside RUNNABLE first, so the model never sees it. D3 and D4: `docs: write the OpenAPI title and the internal
@@ -1588,7 +1589,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Verify: in a copy where `pyproject.toml` disagrees with the lock, `task setup` fails and `uv.lock` is unchanged;
     standard gate.
   - Commit: `build(task): fail on a stale uv.lock instead of rewriting it`.
-- [ ] **Task 5.5 [APPROVAL]: doctor tells the truth about Docker and Chromium.** Closes DX-006 (Q13).
+- [x] **Task 5.5 [APPROVAL]: doctor tells the truth about Docker and Chromium.** Closes DX-006 (Q13).
   - Files: `src/agency/doctor.py`, `tests/test_doctor.py`.
   - Changes:
     - Docker becomes optional, with the reason `task docker:up`.

@@ -31,7 +31,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        `uv run python ../tests/dashboard_fixture.py ${DATA} && ` +
+        `uv run python ../tests/support/dashboard_fixture.py ${DATA} && ` +
         `${withoutKey} AGENCY_DATA_DIR=${DATA} uv run agency-server --port 18765`,
       url: `${DJANGO}/api/provenance`,
       env: withCanary,

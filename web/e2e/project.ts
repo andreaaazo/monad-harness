@@ -1,4 +1,4 @@
-/** The invented project of tests/dashboard_fixture.py, which every dashboard test runs on. */
+/** The invented project of tests/support/dashboard_fixture.py, which every dashboard test runs on. */
 export const PROJECT = "officina-e2e";
 
 /** A project's views: the cross-cutting tests (network, cache, Django down, 404) visit them all. */

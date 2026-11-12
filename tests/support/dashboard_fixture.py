@@ -1,4 +1,4 @@
-"""A test registry for the dashboard tests: `uv run python tests/dashboard_fixture.py <folder>`.
+"""A test registry for the dashboard tests: `uv run python tests/support/dashboard_fixture.py <folder>`.
 
 An invented project, `officina-e2e`, written with the real engine: several phases and instances, measured and
 unmeasured calls, an approved gate, ideas, a judgment, the tickets' history with a blocked review and a

@@ -41,7 +41,7 @@ sono emersi tre fatti che ADR-0024 non prevedeva:
     assente nei processi dei server, intestazioni, cache, file statici serviti, Django spento.
   - `node --test`, in `make web`, prova la logica pura: formati, scala del lavoro, controllo dell'`Host`.
 - Le prove usano i server veri e la build di produzione in `.next-e2e`, su porte proprie, con un registro di prova inventato
-  (`tests/dashboard_fixture.py`). Un secondo server Next.js punta a una porta dove Django non c'è. Ogni server parte da un
+  (`tests/support/dashboard_fixture.py`). Un secondo server Next.js punta a una porta dove Django non c'è. Ogni server parte da un
   ambiente con una chiave finta, che il suo comando deve togliere. Tracce, video e schermate di Playwright restano spenti:
   conterrebbero i dati delle pagine.
 - I tipi generati stanno in `src/api/schema.ts`. I tipi di Next.js 16 usano `URLPattern`, che TypeScript 5.9 non ha ancora, quindi

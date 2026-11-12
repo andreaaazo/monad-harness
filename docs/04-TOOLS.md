@@ -104,5 +104,7 @@ ComfyUI headless, solo esplorazione e texture (ADR-0009). Con 16 GB di VRAM il c
 
 ## Da installare
 
-`oiiotool` e `usdcat` non sono presenti. OpenImageIO arriva dal gruppo `qa` delle dipendenze Python;
-OpenUSD non serve per ora.
+`oiiotool` e `usdcat` non sono presenti. OpenUSD non serve per ora. I pacchetti Python dei traguardi futuri non
+sono dichiarati finché il codice non li importa: OpenImageIO, trimesh, LanceDB, transformers e torch entrano con il
+traguardo che li usa per primo (M3), Langfuse con M4. Così il lock non risolve oggi versioni che a quel punto
+sarebbero vecchie (SIM-003).

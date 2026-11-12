@@ -14,7 +14,7 @@ vecchio. Date: 2026-10-31.
 | [0007](0007-openusd-rimandato.md) | Master nativi, OpenUSD rimandato | Accettata |
 | [0008](0008-dspy-separato.md) | DSPy tardi e in ambiente separato | Accettata |
 | [0009](0009-comfyui-limitato.md) | ComfyUI solo per esplorazione e texture | Accettata, rivedibile |
-| [0010](0010-osservabilita.md) | OpenTelemetry subito, Langfuse self-hosted | Accettata, cruscotto anticipato da 0019 |
+| [0010](0010-osservabilita.md) | OpenTelemetry subito, Langfuse self-hosted | Accettata, cruscotto anticipato da 0019; il pacchetto `langfuse` non è più un extra: si dichiara con M4 |
 | [0011](0011-esplorazione-a-schizzi.md) | Esplorazione a schizzi prima della produzione | Accettata, gate cambiato da 0012, istanze da 0014 |
 | [0012](0012-il-cliente-vede-proposte.md) | Il cliente vede proposte, non schizzi | Accettata |
 | [0013](0013-cinque-direzioni-interne.md) | Cinque direzioni interne | Accettata |

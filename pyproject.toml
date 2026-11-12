@@ -18,11 +18,6 @@ dependencies = [
   "django-ninja>=1.4",
 ]
 
-[project.optional-dependencies]
-context = ["lancedb>=0.20", "pillow>=11", "transformers>=4.50", "torch>=2.6"]
-qa = ["trimesh>=4.5", "openimageio>=3.0"]
-telemetry = ["langfuse>=3"]
-
 [project.scripts]
 agency = "agency.cli:main"
 agency-server = "agency.entrypoints.server.serve:main"

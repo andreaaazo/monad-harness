@@ -1719,10 +1719,15 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     The lock keeps their entries, because `langfuse` in the `telemetry` extra still requires the exporter. They
     leave the lock with that extra in Task 6.2. No locked version changed.
   - Commit: `build(deps): drop the unused OTLP exporter`.
-- [ ] **Task 6.2 [APPROVAL]: drop the unused extras.** Closes SIM-003 (Q6).
+- [x] **Task 6.2 [APPROVAL]: drop the unused extras.** Closes SIM-003 (Q6).
   - Files: `pyproject.toml`, `uv.lock` (`context`, `qa` and `telemetry` removed), and `docs/04-TOOLS.md`, which notes
     that each package is declared again by the milestone that first imports it. Langfuse returns with M4.
   - Verify: `uv export --all-extras` lists 56 packages fewer; standard gate.
+  - Done: `uv remove --optional` for each extra, then the empty `[project.optional-dependencies]` table removed and
+    `uv lock`. The lock goes from 136 to 79 packages: 57 removed, none added, no version changed. The 57 are the
+    extras' 50 plus the 7 that only the OTLP exporter needed, kept until now by `langfuse` (Task 6.1).
+    `uv export --all-extras --no-dev` goes from 124 to 61, the same as the default install. The ADR-0010 row in
+    `docs/adr/README.md` records that `langfuse` is declared with M4; the ADR itself is unchanged (Q6).
   - Commit: `build(deps): drop extras that nothing imports yet`.
 - [ ] **Task 6.3: the code declares what it imports, and a test keeps it that way.** Closes SIM-004 (Q7). New ADR,
   expected ADR-0050 ("Le dipendenze le dichiara il codice che le importa").

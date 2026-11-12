@@ -17,7 +17,7 @@ from opentelemetry import trace
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from agency.agents import prompts
+from agency import registry
 from agency.artifacts import keeping
 from agency.config import Settings
 from agency.contracts.artifact import ArtifactStore, Origin
@@ -329,9 +329,9 @@ def write_file(ctx: ToolContext, a: WriteFile, _: str) -> dict:
 
 
 def read_skill(_: ToolContext, a: ReadSkill, __: str) -> dict:
-    if a.name != "org" and a.name not in prompts.skill_names():
-        raise Refused(f"skill sconosciuta: {a.name}. Disponibili: {prompts.skills_index()}")
-    root = prompts.PROMPTS / ("org" if a.name == "org" else f"skills/{a.name}")
+    if a.name != "org" and a.name not in registry.skill_names():
+        raise Refused(f"skill sconosciuta: {a.name}. Disponibili: {registry.skills_index()}")
+    root = registry.PROMPTS / ("org" if a.name == "org" else f"skills/{a.name}")
     target = inside(root, a.file)
     if not target.is_file():
         raise Refused(f"{a.file}: non esiste in {a.name}")
@@ -396,7 +396,7 @@ CRAFT_APP = "vectorcraft"  # every craft tool drives VectorCraft in this phase
 
 
 def require_craft_app(ctx: ToolContext, app: str = CRAFT_APP) -> None:
-    if app not in prompts.ROLES[ctx.actor]["craft"]:
+    if app not in registry.ROLES[ctx.actor]["craft"]:
         raise Refused(f"{ctx.actor} non lavora con {app}")
 
 
@@ -486,7 +486,7 @@ def _seen_proof(ctx: ToolContext, file: str) -> str:
 def observe(ctx: ToolContext, a: Observe, operation_id: str) -> dict:
     if len(a.seen.strip()) < 40:
         raise Refused("descrivi cosa hai visto, con almeno una frase concreta")
-    if evidence.CHECKS.get(a.check, {}).get("kind") != "observation":
+    if registry.CHECKS.get(a.check, {}).get("kind") != "observation":
         raise Refused(f"{a.check} non è un controllo di osservazione")
     proof = _seen_proof(ctx, a.file)
     value = {"ok": True, "check": a.check, "result": a.result, "proof": proof}
@@ -507,7 +507,7 @@ def observe(ctx: ToolContext, a: Observe, operation_id: str) -> dict:
 
 
 def judge(ctx: ToolContext, a: Judge, operation_id: str) -> dict:
-    if evidence.CHECKS.get(a.check, {}).get("kind") != "judgement":
+    if registry.CHECKS.get(a.check, {}).get("kind") != "judgement":
         raise Refused(f"{a.check} non è un giudizio")
     if len(a.why.strip()) < 60:
         raise Refused("motiva con elementi visibili del confronto")
@@ -537,7 +537,7 @@ def judge(ctx: ToolContext, a: Judge, operation_id: str) -> dict:
 
 
 def record_requirement(ctx: ToolContext, a: RecordRequirement, operation_id: str) -> dict:
-    kind = evidence.CHECKS.get(a.check, {}).get("kind")
+    kind = registry.CHECKS.get(a.check, {}).get("kind")
     if kind in ("observation", "judgement", "measure") or a.check in qa.RUNNABLE:
         raise Refused(f"{a.check} ha il suo strumento: run_check, observe o judge")
     value = {"ok": True}
@@ -563,11 +563,11 @@ def _coming(ctx: ToolContext) -> set[str]:
 
 
 def open_ticket(ctx: ToolContext, a: OpenTicket, operation_id: str) -> dict:
-    if not prompts.can_open(ctx.actor, a.assignee):
+    if not registry.can_open(ctx.actor, a.assignee):
         raise Refused(f"{ctx.actor} non può aprire ticket verso {a.assignee}")
-    if a.assignee not in prompts.ROLES:
+    if a.assignee not in registry.ROLES:
         raise Refused(f"ruolo inesistente: {a.assignee}")
-    if not prompts.has_prompt(a.assignee):
+    if not registry.has_prompt(a.assignee):
         raise Refused(f"{a.assignee} non è ancora attivo nello studio: affida il lavoro a un altro ruolo")
     missing = [path for path in a.inputs if not is_file_under(ctx.work, path)]
     if missing:
@@ -1003,13 +1003,13 @@ KIND_TOOLS = {
 
 def _without_craft(role: str, names: list[str]) -> list[str]:
     """A role that lists no Craft app gets no craft_* tool, whatever set it is given."""
-    if prompts.ROLES[role]["craft"]:
+    if registry.ROLES[role]["craft"]:
         return names
     return [name for name in names if not name.startswith("craft_")]
 
 
 def role_tools(role: str) -> list[Tool]:
-    names = _without_craft(role, KIND_TOOLS[prompts.ROLES[role]["tools"]])
+    names = _without_craft(role, KIND_TOOLS[registry.ROLES[role]["tools"]])
     return [TOOLS[name] for name in sorted(names)]
 
 

@@ -6,6 +6,7 @@ import contextlib
 
 from opentelemetry import trace
 
+from agency import registry
 from agency.agents import prompts
 from agency.agents.transcript import Transcript
 from agency.config import Settings
@@ -143,7 +144,7 @@ class AgentRunner:
         rework_note: str,
     ) -> Outcome:
         role = spec.assignee
-        config = prompts.ROLES[role]
+        config = registry.ROLES[role]
         choice = self.ledger.project(context.project)  # the client's model and effort override the role's
         system = [
             {"type": "text", "text": prompts.system_prompt(prompt), "cache_control": {"type": "ephemeral"}}

@@ -236,9 +236,9 @@ def test_an_unknown_key_beside_valid_ones_fails_at_load(
 @pytest.mark.parametrize(
     ("module", "name", "document"),
     [
-        ("agency.agents.prompts", "roles", {"roles": {"x": ROLE | {"extra": 1}}}),
-        ("agency.agents.prompts", "org", {"can_open": {}, "extra": 1}),
-        ("agency.qa.evidence", "checks", {"checks": {"x": CHECK | {"kind": "judgment"}}}),
+        ("agency.registry", "roles", {"roles": {"x": ROLE | {"extra": 1}}}),
+        ("agency.registry", "org", {"can_open": {}, "extra": 1}),
+        ("agency.registry", "checks", {"checks": {"x": CHECK | {"kind": "judgment"}}}),
     ],
 )
 def test_the_modules_that_load_the_rules_validate_them(

@@ -1504,7 +1504,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     Keep `Provenance.from_registry`, `registry_revision` and `Fingerprint.registry`.
   - Verify: the standard gate, with `schemas/openapi.json` byte-identical.
   - Commit: `refactor(insights): call the ledger reader a ledger`.
-- [ ] **Task 4.2: one module loads the studio rules.** Closes STR-005, SIM-005 (`evidence.ROLES`), and STR-004 (the
+- [x] **Task 4.2: one module loads the studio rules.** Closes STR-005, SIM-005 (`evidence.ROLES`), and STR-004 (the
   `tools → agents` edge) (Q18, Q19).
   - Files:
     - create `src/agency/registry.py`;
@@ -1520,6 +1520,9 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     - the request snapshots are byte-identical;
     - standard gate.
   - Commit: `refactor(registry): load the studio rules in one module`.
+  - Done as a pure move (Phase 4, unit U3). Two parts of this task are not moves and are left to the simplification
+    phase (SIM-005): deleting the dead `evidence.ROLES` loader, and typing `ROLES` and `CHECKS` as `RoleSpec` and
+    `CheckSpec`.
 - [ ] **Task 4.3: test helpers and the scripted transport live in `tests/support/`.** Closes STR-016 and SIM-006 (its
   move part).
   - Files:

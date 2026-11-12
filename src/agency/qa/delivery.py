@@ -5,6 +5,7 @@ from __future__ import annotations
 import fnmatch
 from pathlib import Path
 
+from agency import registry
 from agency.contracts.files import glob_under, inside, is_file_under, sha256_under
 from agency.contracts.ticket import (
     AUTHOR_TYPES,
@@ -87,7 +88,7 @@ def validate(spec: TicketSpec) -> None:
 
 
 def _looked_at(check: str) -> bool:
-    return evidence.CHECKS.get(check, {}).get("kind") in LOOKED_AT
+    return registry.CHECKS.get(check, {}).get("kind") in LOOKED_AT
 
 
 def validate_review(spec: TicketSpec, work: Path, coming: set[str]) -> None:

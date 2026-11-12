@@ -1,20 +1,22 @@
 /**
- * Next.js è solo interfaccia (ADR-0024): niente dati propri, niente logica sul server, niente servizi esterni.
- * Ogni difesa qui sotto ha un controllo in scripts/check-defenses.mjs.
+ * Next.js is only the interface (ADR-0024): no data of its own, no server logic, no outside services.
+ * scripts/check-defenses.mjs checks `images`, `output` and `poweredByHeader`. e2e/run.spec.ts checks the
+ * Cache-Control, X-Frame-Options and X-Content-Type-Options headers, and e2e/replay.spec.ts goes through the
+ * rewrites. Referrer-Policy has no check.
  */
 
-/** Dove ascolta l'API Django. I rewrites lo fissano quando si costruisce: per un'altra porta si rifà la build. */
+/** Where the Django API listens. The rewrites fix it at build time: another port needs a new build. */
 const api = process.env.AGENCY_API_ORIGIN ?? "http://127.0.0.1:8000";
 
 /** @type {import("next").NextConfig} */
 const config = {
-  // Le prove costruiscono a parte, per le loro porte: la build vera non si confonde con quella di prova.
+  // The tests build apart, for their own ports: the real build is never mixed up with the test one.
   distDir: process.env.AGENCY_NEXT_DIST ?? ".next",
   output: "standalone",
   poweredByHeader: false,
-  // Le immagini ottimizzate finirebbero in .next/cache/images: copie dei materiali del cliente fuori da projects/.
+  // Optimized images would end up in .next/cache/images: copies of the client's materials outside projects/.
   images: { unoptimized: true },
-  // Il browser parla solo con Next.js, che inoltra /api a Django: stessa origine, niente CORS.
+  // The browser talks only to Next.js, which forwards /api to Django: same origin, no CORS.
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${api}/api/:path*` }];
   },

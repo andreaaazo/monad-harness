@@ -1448,7 +1448,7 @@ Every task edits comments and docstrings only, plus developer-facing messages wh
 - [x] **Task 3.19: tests, part 3 of 3.** Closes CMT-010 and CMT-011 for the remaining test files and `conftest.py`.
   - Includes the Python-owner sentence of `test_toolchain.py`, for STR-011.
   - Commit: `docs(tests): translate the remaining tests' comments and docstrings to English`.
-- [ ] **Task 3.20: web comments and JSDoc.** Closes CMT-012, CMT-002, CMT-003 and CMT-015.
+- [x] **Task 3.20: web comments and JSDoc.** Closes CMT-012, CMT-002, CMT-003 and CMT-015.
   - Files: `web/src/**`, `web/e2e/**` (comments only), `web/scripts/**`, `web/next.config.mjs`,
     `web/playwright.config.ts`, and the comments of `web/src/app/globals.css`.
   - Keep `fetch(`, `use server` and `generateStaticParams` out of the comments in `web/src` (CMT-002).

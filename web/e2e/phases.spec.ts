@@ -12,7 +12,7 @@ test("vista Fasi: dove si è fermato, le fasi in ordine di lavoro, i passi indie
   await expect(where).toContainText("T-0005, Rifinitura X: consegnato, da accettare (identity-designer)");
   await expect(where).toContainText("T-0005 consegnato, 02/11/26, 10:45 UTC");
 
-  // In ordine di lavoro, non di costo; la consegna al cliente non è una fase.
+  // In order of work, not of cost; the delivery to the client is not a phase.
   const phases = page.getByRole("table", { name: "Fasi" });
   await expect(phases.locator("tbody th")).toHaveText([
     "director-plan",
@@ -23,7 +23,7 @@ test("vista Fasi: dove si è fermato, le fasi in ordine di lavoro, i passi indie
     "finisher",
     "critic",
   ]);
-  // Inizio, chiamate, costo, ticket, consegne, rimandi, bloccati, rifatto, senza esito
+  // Start, calls, cost, tickets, deliveries, reworks, blocked, redone, without a result
   await expect(phases.getByRole("row", { name: /^finisher/ }).getByRole("cell")).toHaveText([
     "02/11/26, 10:31 UTC",
     "2",
@@ -51,7 +51,7 @@ test("vista Fasi: dove si è fermato, le fasi in ordine di lavoro, i passi indie
   await expect(setbacks).toHaveCount(2);
   await expect(setbacks.nth(0)).toContainText("T-0006 bloccato da critic: Revisione segno X");
   await expect(setbacks.nth(1)).toContainText("T-0005 rimandato da design-director dopo 1 consegna: Rifinitura X");
-  // Il motivo, con le parole di chi lo ha fatto.
+  // The reason, in the words of whoever gave it.
   await expect(setbacks.nth(1)).toContainText("La coda sparisce a 16 px: ingrossala di 2 unità.");
 
   await expect(page.getByRole("list", { name: "Passi di T-0005" }).getByRole("listitem")).toHaveText([

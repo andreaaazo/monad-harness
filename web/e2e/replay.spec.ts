@@ -20,7 +20,7 @@ test("vista Replay: un'istanza turno per turno, con le misure, il ragionamento e
   await expect(first).toContainText("Guardo prima il foglio intero, poi il dettaglio");
   await expect(first).toContainText("Apro il foglio");
 
-  // La PNG arriva dal browser a Next.js, e da lì a Django: si disegna davvero.
+  // The PNG goes from the browser to Next.js, and from there to Django: it is really drawn.
   const image = first.getByRole("img", { name: "Immagine 1 restituita da view_image" });
   await expect(image).toHaveAttribute("src", `/api/projects/${PROJECT}/instances/${REPLAYED}/images/0`);
   await image.scrollIntoViewIfNeeded();

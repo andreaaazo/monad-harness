@@ -1,6 +1,6 @@
 /**
- * Le difese di ADR-0024, controllate una per una: se una manca, `make web` si ferma e dice quale.
- * Gira prima della build, senza server: legge configurazione, script e sorgenti.
+ * The defenses of ADR-0024, checked one by one: if one is missing, `make web` stops and says which.
+ * It runs before the build, without a server: it reads the configuration, the scripts and the sources.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -14,7 +14,11 @@ const expect = (ok, problem) => {
   if (!ok) problems.push(problem);
 };
 
-/** Il codice senza commenti: una regola si verifica su ciò che gira, non su ciò che lo descrive. */
+/**
+ * The code without its comments. Only the client.ts and proxy.ts checks below read it: the per-source checks read
+ * the raw text, comments included, so no comment in src/ may contain `fetch(`, `use server` or
+ * `generateStaticParams`, and a commented-out `force-dynamic` line would satisfy the page check.
+ */
 const code = (text) => text.replace(/\/\*[\s\S]*?\*\/|(^|\s)\/\/.*$/gm, "$1");
 
 function files(folder) {
@@ -24,12 +28,12 @@ function files(folder) {
   });
 }
 
-// La configurazione
+// The configuration
 expect(config.images?.unoptimized === true, "next.config: images.unoptimized deve restare attivo");
 expect(config.output === "standalone", "next.config: output deve essere 'standalone'");
 expect(config.poweredByHeader === false, "next.config: poweredByHeader deve essere spento");
 
-// Gli script: ogni script che avvia Next.js lo fa con la telemetria spenta, senza la chiave e solo su loopback
+// The scripts: every script that starts Next.js does so with telemetry off, without the key, on loopback only
 const { scripts } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const runsNext = (script) => /(?:^|[\s;&|])next\s/.test(script);
 const runsServer = (script) => /standalone\/server\.js/.test(script);
@@ -52,7 +56,7 @@ for (const [name, script] of Object.entries(scripts)) {
   }
 }
 
-// I sorgenti: una sola fetch, sempre senza cache; nessun secondo backend
+// The sources: a single fetch, never cached; no second backend
 const sources = files(join(root, "src")).filter((path) => /\.(ts|tsx|js|jsx|mjs)$/.test(path));
 const client = join(root, "src", "api", "client.ts");
 for (const path of sources) {
@@ -61,7 +65,7 @@ for (const path of sources) {
   if (path !== client) expect(!/\bfetch\(/.test(text), `${where}: fetch solo in src/api/client.ts`);
   expect(!/["']use server["']/.test(text), `${where}: niente Server Action, sarebbero un secondo backend`);
   expect(!/\/route\.(ts|tsx|js|mjs)$/.test(path), `${where}: niente Route Handler, sarebbero un secondo backend`);
-  // Una pagina statica costruita con Django acceso porterebbe dentro la build i dati di quel momento.
+  // A static page built while Django is up would carry that moment's data into the build.
   if (path.startsWith(join(root, "src", "app")) && /[/\\]page\.(tsx|ts|jsx|js)$/.test(path)) {
     expect(
       /^export const dynamic = "force-dynamic";$/m.test(text),
@@ -70,14 +74,14 @@ for (const path of sources) {
   }
   expect(!/\bgenerateStaticParams\b/.test(text), `${where}: niente generateStaticParams, si costruirebbe con i dati`);
 }
-// Conta il codice, non i commenti: ogni chiamata a fetch porta con sé cache: "no-store".
+// The code counts, not the comments: every call to fetch carries cache: "no-store".
 const calls = code(readFileSync(client, "utf8")).match(/\bfetch\([^;]*;/g) ?? [];
 expect(
   calls.length > 0 && calls.every((call) => /\bcache:\s*"no-store"/.test(call)),
   "src/api/client.ts: ogni lettura con cache: 'no-store'",
 );
-// Fra il browser e le pagine c'è solo src/proxy.ts, che rifiuta gli Host non loopback (DNS rebinding), su ogni
-// richiesta: niente matcher. middleware è il vecchio nome dello stesso file, e un secondo punto d'ingresso.
+// Between the browser and the pages there is only src/proxy.ts, which refuses any Host but loopback (DNS rebinding)
+// on every request: no matcher. middleware is the old name of the same file, and would be a second entry point.
 for (const folder of ["", "src"]) {
   for (const extension of ["ts", "js", "mjs"]) {
     const middleware = join(root, folder, `middleware.${extension}`);
@@ -93,11 +97,11 @@ const proxyCode = existsSync(proxy) ? code(readFileSync(proxy, "utf8")) : "";
 expect(/\bisLoopbackHost\(/.test(proxyCode), "src/proxy.ts: deve rifiutare gli Host non loopback con isLoopbackHost");
 expect(!/\bexport\s+const\s+config\b|\bmatcher\b/.test(proxyCode), "src/proxy.ts: senza matcher, vale per ogni richiesta");
 
-// Nessun .env: Next.js li caricherebbe da solo nell'ambiente del server
+// No .env: Next.js would load it into the server's environment by itself
 const environments = readdirSync(root).filter((name) => name.startsWith(".env"));
 expect(environments.length === 0, `niente file .env in web/: ${environments.join(", ")}`);
 
-// La telemetria: questa versione di Next.js deve riconoscere la variabile che la spegne
+// The telemetry: this version of Next.js must recognise the variable that turns it off
 const telemetry = spawnSync(join(root, "node_modules", ".bin", "next"), ["telemetry", "status"], {
   env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
   encoding: "utf8",

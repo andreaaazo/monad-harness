@@ -5,7 +5,7 @@ import { readForPage } from "../api/read";
 import { Unavailable } from "../components/unavailable";
 import { count, counted, share, usd, when } from "../format";
 
-// Ogni richiesta legge i dati di quel momento: niente pagine costruite con i dati durante la build.
+// Every request reads the data of that moment: no page is built with data during the build.
 export const dynamic = "force-dynamic";
 
 export default async function Projects() {

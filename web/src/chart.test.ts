@@ -11,7 +11,7 @@ test("una serie va da sinistra a destra, e il valore sale dal basso sulla scala 
     { x: 50, y: 25 },
     { x: 95, y: 5 },
   ]);
-  // La scala è comune a tutte le istanze: 50 su 200 sta a un quarto dell'altezza.
+  // The scale is shared by every instance: 50 out of 200 sits at a quarter of the height.
   assert.deepEqual(points([50], 200, frame), [{ x: 50, y: 35 }]);
 });
 

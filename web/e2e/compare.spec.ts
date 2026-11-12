@@ -5,7 +5,7 @@ import { BEFORE, PROJECT } from "./project";
 test("vista Confronto: due progetti affiancati, l'impronta che cambia, il giudizio alla cieca", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("navigation", { name: "Cruscotto" }).getByRole("link", { name: "Confronto" }).click();
-  // Senza una scelta: i due progetti che hanno lavorato per ultimi, prima il più vecchio.
+  // Without a choice: the two projects that worked last, the older one first.
   await expect(page.getByRole("combobox", { name: "Prima", exact: true })).toHaveValue(BEFORE);
   await expect(page.getByRole("combobox", { name: "Dopo", exact: true })).toHaveValue(PROJECT);
 
@@ -53,7 +53,7 @@ test("vista Confronto: si sceglie chi confrontare, e un progetto con sé stesso 
     page.getByRole("table", { name: "Affiancati" }).getByRole("row", { name: /^Costo/ }).getByRole("cell"),
   ).toHaveText(["10,80 $", "6,00 $", "−4,80 $"]);
 
-  // Una scelta sbagliata non è un guasto dell'API: si dice cosa scegliere, e la scelta resta lì.
+  // A wrong choice is not an API failure: the page says what to choose, and the choice stays there.
   await page.goto(`/compare?before=${PROJECT}&after=${PROJECT}`);
   await expect(page.getByRole("main").getByRole("alert")).toContainText("scegli due progetti diversi");
   await expect(page.getByRole("heading", { name: "L'API non risponde come atteso" })).toHaveCount(0);

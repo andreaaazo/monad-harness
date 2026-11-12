@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: PageProps<"/projects/[name]/q
   return { title: `${name}: strumenti e QA` };
 }
 
-/** La vista Strumenti e QA: dove sbaglia, con le parole di chi ha detto no. */
+/** The tools and QA view: where the work goes wrong, in the words of whoever said no. */
 export default async function Quality({ params }: PageProps<"/projects/[name]/quality">) {
   const { name } = await params;
   const report = await readForPage(() => api.quality(name));

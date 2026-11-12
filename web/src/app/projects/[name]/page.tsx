@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: PageProps<"/projects/[name]">
   return { title: `${name}: run` };
 }
 
-/** La vista Run: quanto è costato e quanto è durato, e chi ha lavorato quando. */
+/** The run view: what it cost and how long it took, and who worked when. */
 export default async function Run({ params }: PageProps<"/projects/[name]">) {
   const { name } = await params;
   const report = await readForPage(() => api.report(name));

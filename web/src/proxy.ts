@@ -3,9 +3,9 @@ import type { NextRequest } from "next/server";
 import { isLoopbackHost } from "./loopback";
 
 /**
- * Il solo codice fra il browser e le pagine (ADR-0033): rifiuta ogni richiesta con un `Host` che non è loopback.
- * Gira prima delle rewrites, quindi copre anche /api: il proxy di Next.js riscrive l'Host verso Django, che da
- * solo non vedrebbe il nome della pagina ostile. Senza `matcher`, vale per ogni richiesta.
+ * The only code between the browser and the pages (ADR-0033): it refuses every request whose `Host` is not
+ * loopback. It runs before the rewrites, so it covers /api too: the Next.js proxy rewrites the Host towards Django,
+ * which on its own would not see the hostile page's name. Without a `matcher`, it applies to every request.
  */
 export function proxy(request: NextRequest): Response | undefined {
   if (isLoopbackHost(request.headers.get("host"))) return undefined;

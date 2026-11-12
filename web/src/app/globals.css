@@ -1,4 +1,4 @@
-/* Nessun font esterno, nessuna libreria: tutto ciò che il browser carica viene da questo server. */
+/* No external font, no library: everything the browser loads comes from this server. */
 :root {
   --ink: #1d1d1f;
   --muted: #5f6368;
@@ -6,7 +6,7 @@
   --paper: #ffffff;
   --panel: #f6f7f9;
   --accent: #2f5fd0;
-  /* Il colore dei dati: series-1 della palette di riferimento, almeno 3:1 su carta e pannello (validato). */
+  /* The data colour: series-1 of the reference palette, at least 3:1 on paper and on panel (validated). */
   --series: #2a78d6;
   --back: #b3261e;
   color-scheme: light dark;
@@ -177,7 +177,7 @@ thead th {
   color: var(--muted);
 }
 
-/* L'attesa del cliente non occupa spazio sulla scala: è un segno tratteggiato nel punto in cui il run si ferma. */
+/* The client's wait takes no space on the scale: it is a dashed mark where the run stops. */
 .timeline .wait {
   background: var(--panel);
 }
@@ -193,7 +193,7 @@ thead th {
   border-left: 2px dashed var(--muted);
 }
 
-/* Sul telefono la riga va in colonna: etichetta, barra, fatti. */
+/* On a phone the row becomes a column: label, bar, facts. */
 @media (max-width: 640px) {
   .top {
     padding: 12px 16px;
@@ -233,7 +233,7 @@ thead th {
   color: var(--muted);
 }
 
-/* La scelta dei due progetti da confrontare. */
+/* The choice of the two projects to compare. */
 .choose {
   display: flex;
   flex-wrap: wrap;
@@ -272,7 +272,7 @@ thead th {
   margin-top: 24px;
 }
 
-/* Il Replay: un turno dopo l'altro, con ciò che il modello ha pensato, scritto e chiesto. */
+/* The replay view: one turn after another, with what the model thought, wrote and asked for. */
 .turns {
   list-style: none;
   margin: 16px 0 0;
@@ -345,7 +345,7 @@ thead th {
   margin: 6px 0;
 }
 
-/* L'intestazione di un progetto: il nome e le sue viste. */
+/* A project's header: its name and its views. */
 .project h1 {
   margin-bottom: 8px;
 }
@@ -373,7 +373,7 @@ thead th {
   border-bottom-color: var(--ink);
 }
 
-/* Una tabella larga scorre dentro il suo riquadro, mai la pagina. */
+/* A wide table scrolls inside its box, never the page. */
 .scroll {
   overflow-x: auto;
 }
@@ -384,7 +384,7 @@ thead th {
   outline-offset: 2px;
 }
 
-/* Un passo indietro si legge anche senza colore: è scritto, e il colore lo sottolinea. */
+/* A step back reads even without colour: it is written, and the colour underlines it. */
 .back {
   color: var(--back);
   font-weight: 600;
@@ -417,7 +417,7 @@ thead th {
   padding-left: 18px;
 }
 
-/* Liste di no: passi indietro, prove fallite, rifiuti degli strumenti. Quando, cosa e perché, la fase a lato. */
+/* Lists of refusals: steps back, failed proofs, tool refusals. When, what and why, with the phase aside. */
 .setbacks,
 .noes {
   list-style: none;
@@ -434,7 +434,7 @@ thead th {
   border-bottom: 1px solid var(--line);
 }
 
-/* Una riga lunga senza spazi (un JSON, un percorso) va a capo dove serve: non allarga mai la pagina. */
+/* A long line without spaces (a JSON, a path) wraps where it must: it never widens the page. */
 .setbacks li > *,
 .noes li > * {
   min-width: 0;
@@ -476,7 +476,7 @@ h3 {
   margin: 20px 0 8px;
 }
 
-/* Un gruppo di no: chiuso, con il numero nel titolo; si apre per leggere i motivi. */
+/* A group of refusals: closed, with the count in the title; it opens to show the reasons. */
 .group {
   border-bottom: 1px solid var(--line);
 }
@@ -518,7 +518,7 @@ h3 {
   color: var(--back);
 }
 
-/* Piccoli multipli: un'istanza per riquadro, la stessa scala per tutti. */
+/* Small multiples: one instance per box, the same scale for all. */
 .multiples {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -582,7 +582,7 @@ h3 {
   fill-opacity: 0.1;
 }
 
-/* Il punto ha un anello del colore del riquadro, così resta leggibile dove incrocia la linea. */
+/* The point has a ring in the box's colour, so it stays readable where it crosses the line. */
 .chart .dot {
   fill: var(--series);
   stroke: var(--panel);

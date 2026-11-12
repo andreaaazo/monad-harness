@@ -15,12 +15,12 @@ export const metadata: Metadata = { title: "Confronto" };
 const one = (value: string | string[] | undefined): string | undefined =>
   typeof value === "string" && value !== "" ? value : undefined;
 
-/** La vista Confronto: è meglio di prima? Due progetti affiancati, le loro impronte, i giudizi alla cieca. */
+/** The compare view: is it better than before? Two projects side by side, their fingerprints, the blind judgments. */
 export default async function Compare({ searchParams }: PageProps<"/compare">) {
   const query = await searchParams;
   const projects = await readForPage(() => api.projects());
   if (projects instanceof ApiError) return <Unavailable error={projects} />;
-  // Senza una scelta, i due progetti che hanno lavorato per ultimi: quello di prima e quello di dopo.
+  // Without a choice, the two projects that worked last: the earlier one and the later one.
   const recent = [...projects].sort((a, b) => (b.last_at ?? "").localeCompare(a.last_at ?? ""));
   const before = one(query.before) ?? recent[1]?.name;
   const after = one(query.after) ?? recent[0]?.name;

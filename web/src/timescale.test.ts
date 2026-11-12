@@ -16,7 +16,7 @@ test("senza attese la scala è il tempo", () => {
 });
 
 test("un'attesa non occupa spazio: prima, durante e dopo cadono dove finisce il lavoro fatto", () => {
-  // Un'ora: 20 minuti di lavoro, 30 di attesa, 10 di lavoro.
+  // One hour: 20 minutes of work, 30 of waiting, 10 of work.
   const place = workScale(at(0), at(60), [{ started_at: at(20), minutes: 30 }]);
   assert.equal(place(at(10)), (10 / 30) * 100);
   assert.equal(place(at(20)), (20 / 30) * 100);

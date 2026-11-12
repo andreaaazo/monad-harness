@@ -11,9 +11,9 @@ const FRAME: Frame = { width: 320, height: 96, inset: 6 };
 const KEYS = new Set(["ArrowLeft", "ArrowRight", "Home", "End"]);
 
 /**
- * I turni di un'istanza: il grafico del contesto e, a richiesta, la tabella. I turni arrivano una volta sola
- * in questo componente; la tabella nasce solo quando la si apre, così una pagina con centinaia di turni non li
- * porta tre volte (HTML, payload di React, grafico).
+ * An instance's turns: the context chart and, on request, the table. The turns reach this component only once; the
+ * table is built only when it is opened, so a page with hundreds of turns does not carry them three times (HTML,
+ * React payload, chart).
  */
 export function InstanceTurnsView({
   turns,
@@ -86,8 +86,8 @@ function TurnsTable({ turns, instance }: { readonly turns: readonly Turn[]; read
 }
 
 /**
- * Il contesto di un'istanza turno per turno, sulla scala comune `max`. Il puntatore, o le frecce dopo aver
- * dato il fuoco al grafico, mostrano un turno. Tutto ciò che mostra sta anche nella tabella dei turni.
+ * An instance's context turn by turn, on the shared scale `max`. The pointer, or the arrow keys once the chart has
+ * focus, show one turn. Everything it shows is also in the turns table.
  */
 function ContextChart({
   turns,

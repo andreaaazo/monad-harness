@@ -19,7 +19,7 @@ test("un numero con il suo nome, al singolare solo per uno", () => {
 test("le durate in decimi sotto l'ora, in ore e minuti da un'ora in su", () => {
   assert.equal(minutes(44), "44,0 min");
   assert.equal(minutes(59.94), "59,9 min");
-  // Arrotondata a 60,0 sarebbe un'ora scritta in minuti.
+  // Rounded to 60.0 it would be an hour written in minutes.
   assert.equal(minutes(59.96), "1 h");
   assert.equal(minutes(60), "1 h");
   assert.equal(minutes(121), "2 h 1 min");

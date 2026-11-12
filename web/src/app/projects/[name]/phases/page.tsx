@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: PageProps<"/projects/[name]/p
   return { title: `${name}: fasi` };
 }
 
-/** La vista Fasi: dalle idee alla consegna, dove si è fermato e dove è tornato indietro. */
+/** The phases view: from the ideas to the delivery, where the work stopped and where it went back. */
 export default async function Phases({ params }: PageProps<"/projects/[name]/phases">) {
   const { name } = await params;
   const report = await readForPage(() => api.flow(name));

@@ -1,7 +1,7 @@
 /**
- * Completa la build `output: "standalone"` (ADR-0033). Next.js lascia fuori dalla cartella standalone i file
- * statici e `public/`, che `server.js` deve servire: si copiano accanto al server, come dice la documentazione.
- * La cartella della build la decide solo next.config.mjs.
+ * Completes the `output: "standalone"` build (ADR-0033). Next.js leaves the static files and `public/` out of the
+ * standalone folder, though `server.js` must serve them: they are copied beside the server, as the documentation
+ * says. Only next.config.mjs decides the build folder.
  */
 import { cpSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";

@@ -1,24 +1,23 @@
 /**
- * L'unico punto dell'interfaccia che parla con l'API Django. Gira solo sul server di Next.js: le pagine
- * leggono qui e mandano al browser HTML già pronto.
+ * The only part of the interface that talks to the Django API. It runs only on the Next.js server: the pages read
+ * here and send the browser ready-made HTML.
  *
- * Ogni lettura usa `cache: "no-store"`: senza, Next.js potrebbe eseguirla una volta sola e servire dati
- * fermi, o scriverli in .next/cache (ADR-0024). scripts/check-defenses.mjs verifica che nessun altro file
- * chiami fetch.
+ * Every read uses `cache: "no-store"`: without it, Next.js could run it once and serve stale data, or write it
+ * into .next/cache (ADR-0024). scripts/check-defenses.mjs checks that no other file calls fetch.
  */
 import type { Ok, Problem } from "./index";
 
-/** Dove ascolta Django. Si legge a ogni richiesta, non quando si costruisce. */
+/** Where Django listens. Read on every request, not at build time. */
 function origin(): string {
   return process.env.AGENCY_API_ORIGIN ?? "http://127.0.0.1:8000";
 }
 
-/** Quanto si aspetta Django prima di dire che non risponde. */
+/** How long to wait for Django before saying it does not answer. */
 const TIMEOUT_MS = 30_000;
 
 /**
- * Una lettura che non è andata, con il motivo. Lo stato è quello di Django; quando Django non risponde,
- * Next.js fa come un proxy: 502 se non risponde affatto, 504 se non risponde in tempo.
+ * A read that failed, with its reason. The status is Django's; when Django does not answer, Next.js acts as a
+ * proxy would: 502 if it does not answer at all, 504 if it does not answer in time.
  */
 export class ApiError extends Error {
   constructor(
@@ -56,6 +55,7 @@ async function read<T>(path: string): Promise<T> {
   return body as T;
 }
 
+/** The dashboard's reads: one per JSON operation of the Django API, typed by the OpenAPI schema. */
 export const api = {
   projects: () => read<Ok<"listProjects">>("/api/projects"),
   report: (name: string) => read<Ok<"projectReport">>(`/api/projects/${encodeURIComponent(name)}/report`),
@@ -74,8 +74,8 @@ export const api = {
 };
 
 /**
- * Gli indirizzi che il browser chiede da sé, a Next.js, che li inoltra a Django con i rewrites (ADR-0033):
- * le immagini di una trascrizione. Non passano da `fetch`, quindi nemmeno dal server di Next.js.
+ * The paths the browser requests itself, from Next.js, which forwards them to Django through the rewrites
+ * (ADR-0033): a transcript's images. They do not go through `fetch`, so not through the Next.js server either.
  */
 export const browserPaths = {
   image: (name: string, instance: string, index: number) =>

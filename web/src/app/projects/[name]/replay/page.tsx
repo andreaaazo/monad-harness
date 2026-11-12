@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: PageProps<"/projects/[name]/r
   return { title: `${name}: replay` };
 }
 
-/** Le istanze di un progetto, in ordine di inizio: da qui se ne apre una turno per turno. */
+/** A project's instances, in order of start: from here, one opens turn by turn. */
 export default async function Instances({ params }: PageProps<"/projects/[name]/replay">) {
   const { name } = await params;
   const report = await readForPage(() => api.report(name));

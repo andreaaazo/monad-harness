@@ -1,6 +1,6 @@
 /**
- * Le parole del registro dette in italiano. Sono solo etichette: nessuna regola dello studio sta qui. Una parola
- * che il cruscotto non conosce si mostra com'è scritta nel registro.
+ * The registry's words, said in Italian. They are labels only: no studio rule lives here. A word the dashboard
+ * does not know is shown as the registry writes it.
  */
 import type { Lifecycle } from "./api";
 
@@ -13,7 +13,7 @@ const STATUSES: Readonly<Record<string, string>> = {
   cancelled: "annullato",
 };
 
-/** Un passo nella storia di un ticket: un nome per ogni azione che il registro scrive. */
+/** A step in a ticket's history: a name for each action the registry writes. */
 const STEPS: Readonly<Record<Lifecycle, string>> = {
   open: "aperto",
   deliver: "consegnato",
@@ -24,7 +24,7 @@ const STEPS: Readonly<Record<Lifecycle, string>> = {
   cancel: "annullato",
 };
 
-/** Perché il modello ha smesso di scrivere: i motivi dell'API Messages. */
+/** Why the model stopped writing: the Messages API's reasons. */
 const STOPS: Readonly<Record<string, string>> = {
   tool_use: "ha chiesto uno strumento",
   end_turn: "ha finito il turno",
@@ -35,28 +35,32 @@ const STOPS: Readonly<Record<string, string>> = {
   model_context_window_exceeded: "contesto pieno",
 };
 
-/** Lo stato di un ticket che non ha finito: cosa gli manca. */
+/** The status of a ticket that has not finished: what it is missing. */
 const PENDING: Readonly<Record<string, string>> = {
   open: "aperto",
   rework: "da rifare",
   delivered: "consegnato, da accettare",
 };
 
+/** A ticket status in Italian, or the registry's word if it is unknown. */
 export const status = (value: string): string => STATUSES[value] ?? value;
+/** What an unfinished ticket is missing; any other status as `status` says it. */
 export const pending = (value: string): string => PENDING[value] ?? status(value);
+/** A step of a ticket's history, in Italian. */
 export const step = (value: Lifecycle): string => STEPS[value];
+/** A stop reason in Italian, or the API's word if it is unknown. */
 export const stop = (value: string): string => STOPS[value] ?? value;
 
 const SHA256 = /^[0-9a-f]{64}$/;
 
-/** Un valore dell'impronta come lo scrive agency compare: un hash in 12 caratteri, il vuoto è il predefinito. */
+/** A fingerprint value as agency compare writes it: a hash in 12 characters; the empty value is the default. */
 export function fingerprintValue(value: string | null): string {
   if (value === null) return "assente";
   if (value === "") return "predefinito";
   return SHA256.test(value) ? value.slice(0, 12) : value;
 }
 
-/** Come si è chiuso il lavoro di un'istanza (`contracts.outcome.OutcomeState`). */
+/** How an instance's work closed (`contracts.outcome.OutcomeState`). */
 const OUTCOMES: Readonly<Record<string, string>> = {
   delivered: "consegnato",
   handed_off: "passato ad altri ticket",
@@ -67,4 +71,5 @@ const OUTCOMES: Readonly<Record<string, string>> = {
   blocked: "bloccato",
 };
 
+/** An instance's outcome in Italian, or the word for an instance that has not closed. */
 export const outcome = (value: string | null): string => (value === null ? "non chiuso" : (OUTCOMES[value] ?? value));

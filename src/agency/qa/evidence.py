@@ -6,16 +6,13 @@ import fnmatch
 import json
 from pathlib import Path
 
-from agency.config import REPO_ROOT
 from agency.contracts.files import is_file_under, sha256_under
-from agency.contracts.registry import read_roles
 from agency.contracts.ticket import AUTHOR_TYPES
 from agency.ledger import Ledger
 from agency.ledger.models import EvidenceRow
 from agency.ledger.store import now
 from agency.registry import CHECKS
 
-ROLES: dict[str, dict] = read_roles(REPO_ROOT / "registry/roles.json")
 MEASUREMENTS = {name for name, spec in CHECKS.items() if spec["kind"] == "measure"}
 
 

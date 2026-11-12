@@ -497,20 +497,6 @@ class Ledger:
                     )
             session.commit()
 
-    def render_of(self, project: str, source: str, source_sha: str) -> str | None:
-        with Session(self.engine) as session:
-            query = (
-                select(RenderRow)
-                .where(
-                    RenderRow.project == project,
-                    RenderRow.source == source,
-                    RenderRow.source_sha == source_sha,
-                )
-                .order_by(col(RenderRow.seq).desc())
-            )
-            row = session.exec(query).first()
-            return row.proof if row else None
-
     def renders_of(self, project: str, source: str, source_sha: str) -> list[str]:
         with Session(self.engine) as session:
             query = select(RenderRow).where(

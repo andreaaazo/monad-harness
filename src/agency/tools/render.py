@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 from pathlib import Path, PurePosixPath
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from agency.contracts.media import open_image
 from agency.ledger import Ledger
@@ -92,24 +92,4 @@ def render_one(
     return proofs
 
 
-def contact_sheet(sandbox: Sandbox, images: list[str], output: str, cell: int = 300) -> str:
-    """The images on one sheet, four per row, each labelled with its file name. Returns `output`."""
-    columns = 4
-    rows = (len(images) + columns - 1) // columns
-    board = Image.new("RGB", (columns * cell, rows * (cell + 22)), (240, 240, 240))
-    for position, relative in enumerate(images):
-        with _open(sandbox.work, relative) as image:
-            thumb = image.convert("RGB")
-        thumb.thumbnail((cell, cell))
-        tile = Image.new("RGB", (cell, cell + 22), (255, 255, 255))
-        tile.paste(thumb, ((cell - thumb.width) // 2, (cell - thumb.height) // 2))
-        ImageDraw.Draw(tile).text((6, cell + 5), Path(relative).stem[-44:], fill=(40, 40, 40))
-        board.paste(tile, ((position % columns) * cell, (position // columns) * (cell + 22)))
-    folder = PurePosixPath(output).parent
-    if folder.parts:
-        ensure_dir_under(sandbox.work, str(folder))
-    _save(board, sandbox.work, output)
-    return output
-
-
-__all__ = ["DEFAULT_SIZE", "contact_sheet", "render_one"]
+__all__ = ["DEFAULT_SIZE", "render_one"]

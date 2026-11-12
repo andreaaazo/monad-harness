@@ -44,7 +44,6 @@ from agency.tools.sandbox import Sandbox
 from agency.tools.surface import PresentConcepts, SelectConcepts
 
 RUNNABLE = (Status.OPEN, Status.REWORK)
-SKETCH_CHECKS = {"*.vectorcraft": ["master_open"], "*.png": ["visual_review"]}
 
 
 class ProjectState(TypedDict):

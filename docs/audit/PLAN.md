@@ -1745,7 +1745,12 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     - `docs/adr/0052-le-dipendenze-le-dichiara-il-codice-che-le-importa.md`, `docs/adr/README.md`.
   - Verify: the test passes; mutant: deleting `sqlalchemy` from the declared dependencies is killed; standard gate.
   - Commit: `build(deps): declare every imported package and test it`.
-- [ ] **Task 6.4: delete three dead definitions.** Closes SIM-005 (its remainder).
+- [x] **Task 6.4: delete three dead definitions.** Closes SIM-005 (its remainder).
+  - Done with a fourth: the dead `qa.evidence.ROLES` loader that Task 4.2 left to this phase, together with the
+    `REPO_ROOT` and `read_roles` imports only it used. In render.py only `ImageDraw` became unused; `Path` still
+    types `_open` and `_save`. Reviewed with /ce-simplify-code (reuse, quality, efficiency): every reviewer
+    confirmed no caller in src/, tests/, web/ or docs/, no dynamic use, and no import-time effect lost, since
+    `agency.registry` already loads and validates registry/roles.json.
   - Files:
     - `src/agency/graph/workflow.py:38` (`SKETCH_CHECKS`);
     - `src/agency/tools/render.py` (`contact_sheet`, its entry in `__all__`, and the `ImageDraw` and `Path` imports

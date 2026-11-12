@@ -1788,6 +1788,11 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     copy).
   - Commit: `refactor(insights): read fingerprints through the shared reader`.
 - [ ] **Task 6.7: the concept status is a type.** Closes SIM-009.
+  - Before the change, a characterization test. No test asserted two of the six values: "idea", the default of a
+    new concept row, and "scelta", which production writes for the client's choice. Found by the test-value
+    reviewer of /ce-simplify-code. They are now pinned:
+    - `test_a_concept_opened_with_its_ticket_starts_as_an_idea` in tests/test_ledger.py;
+    - the statuses after the concept decision, in `test_client_only_sees_developed_proposals_then_production_starts`.
   - Files:
     - `src/agency/contracts/concept.py` (`ConceptStatus(StrEnum)`, with the members below);
     - `src/agency/ledger/models.py:134`, `src/agency/tools/surface.py`, `src/agency/graph/workflow.py`;

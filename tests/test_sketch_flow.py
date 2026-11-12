@@ -331,6 +331,8 @@ def test_client_only_sees_developed_proposals_then_production_starts(tmp_path: P
     session.decide("officina", True, "Mi piace la X", "X")
     assert session.pending("officina")[0].gate == "final"
     assert session.ledger.gates("officina")[0].choice == "X"
+    after = {row.anon: row.status for row in session.ledger.concepts("officina", 1)}
+    assert after == {"X": "scelta", "Y": "proposta", "Z": "schizzo"}  # production marks the client's choice
     spec = session.ledger.spec("T-0008")
     chosen = next(row for row in concepts if row.anon == "X")
     assert chosen.card_json in spec.request and "proposals/r1/x/proposta-x.png" in spec.inputs

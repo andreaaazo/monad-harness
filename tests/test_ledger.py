@@ -423,6 +423,12 @@ def proof(ticket: str) -> EvidenceRow:
     )
 
 
+def test_a_concept_opened_with_its_ticket_starts_as_an_idea(ledger: Ledger) -> None:
+    """The status a concept row stores before its sketch arrives."""
+    ticket = ledger.open(production(), concept=idea())
+    assert [(row.idea_ticket, row.status) for row in ledger.concepts("default", 1)] == [(ticket, "idea")]
+
+
 def with_rows(ledger: Ledger) -> str:
     """An idea, the client's decision and a proof, written as the studio writes them."""
     ticket = ledger.open(production(), concept=idea())

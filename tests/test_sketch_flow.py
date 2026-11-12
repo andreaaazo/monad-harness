@@ -20,7 +20,7 @@ from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, changes
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.gateway import BudgetExceeded
-from agency.insights.adapters.registry import ReadOnlyRegistry
+from agency.insights.adapters.ledger import ReadOnlyRegistry
 from agency.insights.domain import derive_phase
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow

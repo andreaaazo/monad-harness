@@ -24,8 +24,8 @@ from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.insights import application
+from agency.insights.adapters.ledger import ReadOnlyRegistry
 from agency.insights.adapters.projection import SqliteProjection
-from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.domain import (

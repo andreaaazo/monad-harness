@@ -29,8 +29,8 @@ from agency.evaluation import blind, board
 from agency.gateway import BudgetExceeded
 from agency.gateway.pricing import PRICES
 from agency.insights import application as insights
+from agency.insights.adapters.ledger import ReadOnlyRegistry
 from agency.insights.adapters.projection import SqliteProjection
-from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.views import ProjectReport

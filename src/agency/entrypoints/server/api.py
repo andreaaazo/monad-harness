@@ -12,8 +12,8 @@ from ninja import NinjaAPI, Schema, Status
 from agency.contracts.layout import DataLayout
 from agency.contracts.project import parse_project_name
 from agency.insights import application
+from agency.insights.adapters.ledger import ReadOnlyRegistry
 from agency.insights.adapters.projection import SqliteProjection
-from agency.insights.adapters.registry import ReadOnlyRegistry
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import IMAGE_TYPES, JsonlTranscripts
 from agency.insights.behaviour import BehaviourReport

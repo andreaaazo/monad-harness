@@ -56,3 +56,4 @@ vecchio. Date: 2026-10-31.
 | [0049](0049-la-catena-copre-cio-che-decide-la-consegna.md) | La catena copre ciò che decide la consegna | Accettata, estende 0047: contratto dei ticket, idee, gate e prove legati nella catena |
 | [0050](0050-la-catena-copre-anche-i-costi.md) | La catena copre anche i costi | Accettata, estende 0049: chiamate pagate e progetti legati nella catena, `operations` solo in aggiunta |
 | [0051](0051-il-controllo-gira-da-solo.md) | Il controllo gira da solo | Accettata, estende 0039: hook pre-commit con `task check:fast`, `task check:clean` sull'indice, CI con il remoto |
+| [0052](0052-le-dipendenze-le-dichiara-il-codice-che-le-importa.md) | Le dipendenze le dichiara il codice che le importa | Accettata: `sqlalchemy`, `langchain-core` e `httpx2` dichiarati, `tests/test_dependencies.py` lo controlla |

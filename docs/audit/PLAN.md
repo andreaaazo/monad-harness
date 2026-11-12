@@ -1729,8 +1729,12 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     `uv export --all-extras --no-dev` goes from 124 to 61, the same as the default install. The ADR-0010 row in
     `docs/adr/README.md` records that `langfuse` is declared with M4; the ADR itself is unchanged (Q6).
   - Commit: `build(deps): drop extras that nothing imports yet`.
-- [ ] **Task 6.3: the code declares what it imports, and a test keeps it that way.** Closes SIM-004 (Q7). New ADR,
-  expected ADR-0050 ("Le dipendenze le dichiara il codice che le importa").
+- [x] **Task 6.3: the code declares what it imports, and a test keeps it that way.** Closes SIM-004 (Q7). New ADR:
+  ADR-0052 ("Le dipendenze le dichiara il codice che le importa"), since 0050 and 0051 were taken. The check is by
+  top-level name, as planned. A top-level name that several distributions share counts as declared when one of
+  them is. So `langgraph-checkpoint` (`langgraph.checkpoint.base`, `.memory`) and `opentelemetry-api`
+  (`opentelemetry.trace`) stay transitive. The ADR records this limit; checking per module would declare those two
+  as well, and needs its own decision.
   - Files:
     - `pyproject.toml` and `uv.lock`:
       - `uv add 'sqlalchemy>=<locked>' 'langchain-core>=<locked>'`;
@@ -1738,7 +1742,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     - create `tests/test_dependencies.py`. It maps every top-level import in `src/` and `tests/` to its distribution
       with `importlib.metadata.packages_distributions()`. It fails on an import that is not declared, and on a
       runtime dependency that nothing imports. Its allow-list covers ruff, pyright, import-linter and django-stubs;
-    - `docs/adr/0050-*.md`, `docs/adr/README.md`.
+    - `docs/adr/0052-le-dipendenze-le-dichiara-il-codice-che-le-importa.md`, `docs/adr/README.md`.
   - Verify: the test passes; mutant: deleting `sqlalchemy` from the declared dependencies is killed; standard gate.
   - Commit: `build(deps): declare every imported package and test it`.
 - [ ] **Task 6.4: delete three dead definitions.** Closes SIM-005 (its remainder).

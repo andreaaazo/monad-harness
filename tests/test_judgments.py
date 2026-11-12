@@ -21,7 +21,7 @@ from agency.evaluation import blind
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
 from agency.telemetry import report
-from drawings import FakeVectorcraft, red_pixels, svg
+from support.drawings import FakeVectorcraft, red_pixels, svg
 
 
 def rating(letter: str, level: Level = Level.GOOD, specific: bool = True, why: str = "Si legge") -> Rating:

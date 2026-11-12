@@ -20,7 +20,7 @@ from agency.evaluation import board
 from agency.evaluation.blind import CannotCompare
 from agency.tools import sandbox
 from agency.tools.sandbox import Completed, Sandbox
-from drawings import INK, FakeVectorcraft, red_pixels, svg
+from support.drawings import INK, FakeVectorcraft, red_pixels, svg
 
 TIGHT = svg((98, 118.5), (6, 6, 86, 108))
 LOOSE = svg((800, 600), (99, 115, 609, 355))

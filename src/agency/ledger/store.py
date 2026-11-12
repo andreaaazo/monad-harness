@@ -444,11 +444,9 @@ class Ledger:
             self._append(session, row.ticket_id or NO_TICKET, HARNESS, "usage", "", ticket, row)
             session.commit()
 
-    def spent(self, project: str, ticket_id: str | None = None) -> float:
+    def spent(self, project: str) -> float:
         with Session(self.engine) as session:
             query = select(func.coalesce(func.sum(UsageRow.cost_usd), 0.0)).where(UsageRow.project == project)
-            if ticket_id:
-                query = query.where(UsageRow.ticket_id == ticket_id)
             return float(session.exec(query).one())
 
     def usage(self, project: str) -> list[UsageRow]:

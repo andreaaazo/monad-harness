@@ -174,9 +174,7 @@ def test_a_sandbox_that_cannot_start_stops_the_board_with_its_reason(
 
 def test_a_render_that_times_out_says_so(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/vectorcraft-cli")
-    monkeypatch.setattr(
-        Sandbox, "run", lambda self, command, timeout=120, stdin=None: Completed(124, "", "scaduto")
-    )
+    monkeypatch.setattr(Sandbox, "run", lambda self, command, timeout=120: Completed(124, "", "scaduto"))
     render = cli._board_renderer()
     assert render is not None
     with pytest.raises(CannotCompare, match=rf"A\.svg non si rende in {board.TIMEOUT} secondi"):
@@ -186,7 +184,7 @@ def test_a_render_that_times_out_says_so(tmp_path: Path, monkeypatch: pytest.Mon
 def sandboxed_output(leave: Callable[[Path], object], code: int, said: str) -> Callable[..., Completed]:
     """A `Sandbox.run` that leaves something at the convert command's output path, then exits with `code`."""
 
-    def run(self: Sandbox, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+    def run(self: Sandbox, command: list[str], timeout: float = 120) -> Completed:
         leave(self.work / PurePosixPath(command[3]).relative_to(sandbox.JOB))
         return Completed(code, "", said)
 

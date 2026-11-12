@@ -213,11 +213,10 @@ def delivery_problems(
     sandbox: Sandbox,
     spec: TicketSpec,
     verdict: Verdict | None,
-    inputs_changed: bool = False,
     inputs: dict[str, str] | None = None,
 ) -> tuple[list[str], list[str]]:
     """The output files present, and what blocks the delivery: missing outputs, inputs changed since the
-    opening (left out when `inputs_changed`), coverage, proofs and masters."""
+    opening, coverage, proofs and masters."""
     work = sandbox.work
     files, empty = expected(spec, work)
     stale = [
@@ -227,8 +226,7 @@ def delivery_problems(
     ]
     problems = [f"{pattern}: nessun file corrisponde" for pattern in empty]
     problems += [f"{file}: output mancante" for file in files if not is_file_under(work, file)]
-    if not inputs_changed:
-        problems += stale
+    problems += stale
     present = [file for file in files if is_file_under(work, file)]
     problems += coverage_problems(spec, present)
     problems += evidence_problems(ledger, project, work, spec, present, False, verdict)

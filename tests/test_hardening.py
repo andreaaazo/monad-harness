@@ -164,7 +164,7 @@ def test_compute_never_writes_through_a_planted_ops_symlink(tmp_path: Path) -> N
 class IdleSandbox(Sandbox):
     """Runs nothing: what matters is what the harness writes before the sandbox starts."""
 
-    def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+    def run(self, command: list[str], timeout: float = 120) -> Completed:
         return Completed(1, "", "")
 
 

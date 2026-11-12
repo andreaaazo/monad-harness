@@ -1758,7 +1758,19 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     - `src/agency/ledger/store.py:297` (`render_of`).
   - Verify: `rg -n -w -e SKETCH_CHECKS -e contact_sheet -e render_of src tests` prints nothing; standard gate.
   - Commit: `refactor: delete definitions with no caller`.
-- [ ] **Task 6.5: drop four parameters that no caller passes.** Closes SIM-007.
+- [x] **Task 6.5: drop four parameters that no caller passes.** Closes SIM-007.
+  - Done with three. `Sandbox(read_only=…)` stays: since Task 5.10, spikes/sandbox_craft.sh passes it to bind
+    Blender's folder. Removed: `Sandbox.run(stdin=…)` with the stdin-feeding branch of `_collect`, `PIPE_BUF` and
+    `test_sandbox_feeds_stdin_to_the_command`, its only user. `delivery_problems(inputs_changed=…)` and its
+    always-true guard. `Ledger.spent(ticket_id=…)` and its filter. The command still gets `stdin=PIPE`, closed at
+    once, as the characterization test pins. Eight test fakes of `Sandbox.run` lose the parameter; one of them
+    forwarded it positionally to `super().run`.
+  - /ce-simplify-code reviewers (reuse, quality, efficiency, test value, comments). Accepted: the removals and
+    the three comments they made false. Rejected:
+    - `stdin=DEVNULL`, which changes what the command sees;
+    - a `Literal` return type for `_collect` and a `NamedTuple` for `delivery_problems`: new abstractions that
+      remove no duplication;
+    - inlining `stale`, a matter of taste that would also move its file reads.
   - Before the change, a characterization test: no test pinned what production keeps once `stdin` goes, namely
     that a sandboxed command gets an empty, closed stdin. Every `stdin=` call passed data. New
     `test_a_sandboxed_command_reads_an_empty_closed_stdin`: `cat` answers `Completed(0, "", "")`. With stdin left

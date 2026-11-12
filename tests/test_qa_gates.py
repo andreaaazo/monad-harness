@@ -443,7 +443,7 @@ class ProofSandbox(Sandbox):
         super().__init__(work)
         self.outs: list[str] = []
 
-    def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+    def run(self, command: list[str], timeout: float = 120) -> Completed:
         out = command[command.index("--out") + 1]
         self.outs.append(out)
         destination = self.work / Path(out).relative_to("/job")
@@ -520,8 +520,8 @@ def test_logo_proofs_list_regular_files_only(tmp_path: Path) -> None:
     host = plant_host(tmp_path)
 
     class Planting(ProofSandbox):
-        def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
-            done = super().run(command, timeout, stdin)
+        def run(self, command: list[str], timeout: float = 120) -> Completed:
+            done = super().run(command, timeout)
             out = self.work / Path(command[command.index("--out") + 1]).relative_to("/job")
             (out / "furto.png").symlink_to(host / "riservato.svg")
             return done

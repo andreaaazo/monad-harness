@@ -1050,7 +1050,7 @@ class ExportingSandbox(Sandbox):
         super().__init__(work, ops=ops)
         self.size = size
 
-    def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+    def run(self, command: list[str], timeout: float = 120) -> Completed:
         export = Path(command[command.index("--export") + 1]).relative_to(JOB)
         sparse(self.work / export, self.size)
         return Completed(0, json.dumps({"step": "cmd", "result": {"id": 2}}), "")

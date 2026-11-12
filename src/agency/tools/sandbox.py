@@ -30,7 +30,6 @@ TASKS_MAX = 512  # threads count as tasks
 SCOPE_PROBE_SECONDS = 15
 OUTPUT_BYTES = 8 * 2**20  # the most of each of stdout and stderr the harness keeps in memory
 READ_BYTES = 64 * 1024
-PIPE_BUF = 4096  # a write of at most this many bytes to a pipe that select() reported writable never blocks
 
 
 @dataclass(frozen=True)
@@ -156,7 +155,7 @@ class Sandbox:
                 return str(candidate)
         return "python3"
 
-    def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+    def run(self, command: list[str], timeout: float = 120) -> Completed:
         """Runs `command` in the sandbox. A timeout answers 124, and a stream past `OUTPUT_BYTES` answers 125.
         The first run checks that a capped scope can start, and raises `SandboxUnavailable` if not."""
         if not self._scope_checked:
@@ -175,7 +174,7 @@ class Sandbox:
             start_new_session=True,
         )
         try:
-            kept, outcome = _collect(proc, (stdin or "").encode("utf-8"), timeout)
+            kept, outcome = _collect(proc, timeout)
         finally:
             _kill_group(proc)
         if outcome == "timeout":
@@ -204,10 +203,8 @@ def _kill_group(proc: subprocess.Popen[bytes]) -> None:
     proc.wait()
 
 
-def _collect(
-    proc: subprocess.Popen[bytes], data: bytes, timeout: float
-) -> tuple[tuple[bytearray, bytearray], str]:
-    """Feed `data` to the command and read its two streams, keeping at most OUTPUT_BYTES of each.
+def _collect(proc: subprocess.Popen[bytes], timeout: float) -> tuple[tuple[bytearray, bytearray], str]:
+    """Close the command's stdin and read its two streams, keeping at most OUTPUT_BYTES of each.
 
     Returns the kept bytes and how it ended: "done", "timeout" or "overflow" (a stream passed the cap)."""
     assert proc.stdin is not None and proc.stdout is not None and proc.stderr is not None
@@ -216,27 +213,13 @@ def _collect(
     selector = selectors.DefaultSelector()
     selector.register(proc.stdout, selectors.EVENT_READ, kept[0])
     selector.register(proc.stderr, selectors.EVENT_READ, kept[1])
-    sent = 0
-    if data:
-        os.set_blocking(proc.stdin.fileno(), False)
-        selector.register(proc.stdin, selectors.EVENT_WRITE)
-    else:
-        proc.stdin.close()
+    proc.stdin.close()
     with selector:
         while selector.get_map():
             left = deadline - time.monotonic()
             if left <= 0:
                 return kept, "timeout"
             for key, _ in selector.select(left):
-                if key.fileobj is proc.stdin:
-                    try:
-                        sent += os.write(proc.stdin.fileno(), data[sent : sent + PIPE_BUF])
-                    except BrokenPipeError:  # the command stopped reading: nothing more to feed it
-                        sent = len(data)
-                    if sent >= len(data):
-                        selector.unregister(proc.stdin)
-                        proc.stdin.close()
-                    continue
                 chunk = os.read(key.fd, READ_BYTES)
                 if not chunk:
                     selector.unregister(key.fileobj)

@@ -28,7 +28,7 @@ class RecordingSandbox(Sandbox):
         super().__init__(work, ops=ops)
         self.calls: list[list[str]] = []
 
-    def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+    def run(self, command: list[str], timeout: float = 120) -> Completed:
         self.calls.append(command)
         export = Path(command[command.index("--export") + 1]).relative_to(JOB)
         (self.work / export).write_text("documento costruito", encoding="utf-8")

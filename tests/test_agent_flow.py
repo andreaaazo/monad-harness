@@ -740,7 +740,7 @@ class CountingSandbox(Sandbox):
         super().__init__(work, ops=ops)
         self.calls: list[list[str]] = []
 
-    def run(self, command: list[str], timeout: float = 120, stdin: str | None = None) -> Completed:
+    def run(self, command: list[str], timeout: float = 120) -> Completed:
         self.calls.append(command)
         export = Path(command[command.index("--export") + 1]).relative_to(JOB)
         (self.work / export).write_text("documento costruito", encoding="utf-8")
@@ -1065,17 +1065,6 @@ def test_a_sandboxed_command_reads_an_empty_closed_stdin(tmp_path: Path) -> None
     work = tmp_path / "work"
     work.mkdir()
     assert Sandbox(work).run(["cat"], timeout=10) == Completed(0, "", "")
-
-
-@pytest.mark.sandbox
-def test_sandbox_feeds_stdin_to_the_command(tmp_path: Path) -> None:
-    work = tmp_path / "work"
-    work.mkdir()
-    box = Sandbox(work)
-    assert box.run(["cat"], stdin="ciao\nmondo\n").stdout == "ciao\nmondo\n"
-    big = "x" * (3 * 2**20)  # far more than a pipe holds: it is fed while the output is read
-    assert box.run(["wc", "-c"], stdin=big).stdout.strip() == str(len(big))
-    assert box.run(["true"], stdin=big).code == 0  # a command that never reads is not waited on
 
 
 @pytest.mark.sandbox

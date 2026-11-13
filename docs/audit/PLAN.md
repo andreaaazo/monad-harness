@@ -2078,7 +2078,15 @@ Nothing that blocks a merge was introduced by the branch. Andrea chose to fix fo
   (`os.path.normpath`), never by resolving a link. Tests: `test_a_path_through_dotdot_still_names_its_project`
   (test_judgments.py) and `test_restore_refuses_a_link_inside_the_projects_folder_named_through_dotdot`
   (test_artifacts.py), both red before the change (the second restored into the host folder, exit 0).
-- [ ] **R3: the tests ignore the operator's `AGENCY_*` variables.** Testing gap: `AGENCY_EXPLORERS=2` failed four tests.
+- [x] **R3: the tests ignore the operator's `AGENCY_*` variables.** Testing gap. `_no_dotenv` kept the checkout's
+  `.env` away from the tests, but not the shell: with `AGENCY_EXPLORERS=2 AGENCY_PROPOSAL_EFFORT=low` exported, 33
+  flow tests failed, and an exported `AGENCY_DATA_DIR` would have pointed a test that builds default settings at
+  that folder, which the real-registry guard of conftest.py does not watch. A second autouse fixture,
+  `_no_operator_environment`, removes every variable `support.environment.operator_variables` names: the settings'
+  own prefix, read from `Settings`, and the API key names. Tests: tests/test_environment.py. The suite then passed
+  with `AGENCY_EXPLORERS=2 AGENCY_PROPOSAL_EFFORT=low AGENCY_MAX_PARALLEL=1`, `AGENCY_DATA_DIR` and
+  `AGENCY_PROJECTS_DIR` on scratch folders and a fake `ANTHROPIC_API_KEY` exported (1172 passed), and wrote nothing
+  into those folders.
 - [ ] **R4: the chain binds each ticket's project.** P2: `UPDATE tickets SET project = …` passed `agency verify`.
 
 ## Not planned in this refactor

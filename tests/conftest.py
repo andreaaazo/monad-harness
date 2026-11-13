@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 from collections.abc import Callable
@@ -18,6 +19,7 @@ from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.views import ProjectReport
 from agency.tools.sandbox import Sandbox, SandboxUnavailable
+from support.environment import operator_variables
 
 # The real registry: no test writes it. The -shm files change even on a read, so they stay out of
 # the comparison.
@@ -87,6 +89,17 @@ def _no_dotenv(monkeypatch: pytest.MonkeyPatch) -> None:
     A test about `.env` passes its file explicitly, as `Settings(_env_file=...)`.
     """
     monkeypatch.setitem(Settings.model_config, "env_file", None)
+
+
+@pytest.fixture(autouse=True)
+def _no_operator_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test inherits the engine's settings or the API key from the shell that runs pytest.
+
+    An `AGENCY_EXPLORERS=2` there changed the flows the tests pin, and an `AGENCY_DATA_DIR` would point a test
+    that builds default settings at the operator's registry. A test that needs one sets it itself.
+    """
+    for name in operator_variables(os.environ):
+        monkeypatch.delenv(name)
 
 
 @pytest.fixture

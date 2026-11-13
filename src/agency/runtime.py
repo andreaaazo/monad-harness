@@ -184,14 +184,14 @@ def open_session(settings: Settings, transport: Transport | None = None, record:
     `record` writes each run's answers to its cassette under the data root, for replay in tests.
     """
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    configure(settings.traces_path)
-    ledger = Ledger(settings.ledger_path)
+    configure(settings.layout.traces)
+    ledger = Ledger(settings.layout.ledger)
     if transport is None:
         key = settings.anthropic_api_key
         transport = AnthropicTransport(key.get_secret_value() if key else None)
     gateway = ModelGateway(transport, ledger, settings)
     index = CommandIndex.load(settings.layout.craft_index)
-    runner = AgentRunner(gateway, ledger, settings, index, FileStore(settings.artifacts_dir))
-    connection = sqlite3.connect(settings.checkpoints_path, check_same_thread=False, timeout=BUSY_SECONDS)
+    runner = AgentRunner(gateway, ledger, settings, index, FileStore(settings.layout.artifacts))
+    connection = sqlite3.connect(settings.layout.checkpoints, check_same_thread=False, timeout=BUSY_SECONDS)
     graph = build(runner, ledger, settings, SqliteSaver(connection))
     return Session(settings, ledger, graph, gateway, transport, record)

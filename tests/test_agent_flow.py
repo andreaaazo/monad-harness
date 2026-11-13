@@ -88,13 +88,13 @@ def production_spec() -> TicketSpec:
 def runner(config: Settings, responses: list[dict]) -> tuple[AgentRunner, ScriptedTransport, Ledger]:
     """Project `p`, with the cap the client would declare: without one the gateway spends nothing
     (ADR-0043)."""
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     ledger.set_project("p", 25.0)
     transport = ScriptedTransport(responses)
     index = CommandIndex.load(config.data_dir / "craft-index")
     return (
         AgentRunner(
-            ModelGateway(transport, ledger, config), ledger, config, index, FileStore(config.artifacts_dir)
+            ModelGateway(transport, ledger, config), ledger, config, index, FileStore(config.layout.artifacts)
         ),
         transport,
         ledger,
@@ -135,7 +135,7 @@ def test_author_cannot_deliver_without_master_then_can(tmp_path: Path) -> None:
 
 def test_schemas_have_no_identity_field(tmp_path: Path) -> None:
     config = settings(tmp_path)
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     context = ToolContext(
         "identity-designer",
         "p",
@@ -153,7 +153,7 @@ def test_schemas_have_no_identity_field(tmp_path: Path) -> None:
 
 def test_role_cannot_use_tools_outside_its_set(tmp_path: Path) -> None:
     config = settings(tmp_path)
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     ticket = ledger.open(production_spec(), "p")
     context = ToolContext(
         "critic",
@@ -171,7 +171,7 @@ def test_role_cannot_use_tools_outside_its_set(tmp_path: Path) -> None:
 
 def test_reviewer_writes_only_reports(tmp_path: Path) -> None:
     config = settings(tmp_path)
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     context = ToolContext(
         "critic",
         "p",
@@ -189,7 +189,7 @@ def test_reviewer_writes_only_reports(tmp_path: Path) -> None:
 
 def test_author_cannot_write_vectors_by_hand(tmp_path: Path) -> None:
     config = settings(tmp_path)
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     context = ToolContext(
         "identity-designer",
         "p",
@@ -206,7 +206,7 @@ def test_author_cannot_write_vectors_by_hand(tmp_path: Path) -> None:
 
 def test_path_outside_the_job_is_refused(tmp_path: Path) -> None:
     config = settings(tmp_path)
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     context = ToolContext(
         "critic",
         "p",
@@ -245,7 +245,7 @@ def test_interruption_resumes_without_repeating_effects(tmp_path: Path) -> None:
                 raise ConnectionError("process killed")
             return super().stream(params)
 
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     ledger.set_project("p", 25.0)
     spec = TicketSpec(
         title="Piano",
@@ -269,7 +269,7 @@ def test_interruption_resumes_without_repeating_effects(tmp_path: Path) -> None:
     dying = Dies([turn(use("open_ticket", "t1", **child))])
     index = CommandIndex([])
     first = AgentRunner(
-        ModelGateway(dying, ledger, config), ledger, config, index, FileStore(config.artifacts_dir)
+        ModelGateway(dying, ledger, config), ledger, config, index, FileStore(config.layout.artifacts)
     )
     with pytest.raises(ConnectionError):
         first.run(root)
@@ -277,7 +277,7 @@ def test_interruption_resumes_without_repeating_effects(tmp_path: Path) -> None:
     # It restarts from the transcript: no call repeated, no ticket opened twice.
     again = ScriptedTransport([turn(use("hand_off", "t2", note="attendo il segno"))])
     second = AgentRunner(
-        ModelGateway(again, ledger, config), ledger, config, index, FileStore(config.artifacts_dir)
+        ModelGateway(again, ledger, config), ledger, config, index, FileStore(config.layout.artifacts)
     )
     assert second.run(root).state == "handed_off"
     assert len(ledger.children(root)) == 1
@@ -289,7 +289,7 @@ def test_interruption_resumes_without_repeating_effects(tmp_path: Path) -> None:
 def test_interrupted_between_response_and_tools_does_not_duplicate(tmp_path: Path) -> None:
     config = settings(tmp_path)
     (config.projects_dir / "p/work").mkdir(parents=True)
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     ledger.set_project("p", 25.0)
     root = ledger.open(
         TicketSpec(
@@ -322,7 +322,11 @@ def test_interrupted_between_response_and_tools_does_not_duplicate(tmp_path: Pat
     )
     again = ScriptedTransport([turn(use("hand_off", "t2", note="attendo il segno"))])
     runner_ = AgentRunner(
-        ModelGateway(again, ledger, config), ledger, config, CommandIndex([]), FileStore(config.artifacts_dir)
+        ModelGateway(again, ledger, config),
+        ledger,
+        config,
+        CommandIndex([]),
+        FileStore(config.layout.artifacts),
     )
     assert runner_.run(root).state == "handed_off"
     assert len(ledger.children(root)) == 1
@@ -525,7 +529,7 @@ DIRECTOR = production_spec().model_copy(update={"assignee": "design-director"})
 
 def bare_context(tmp_path: Path, role: str) -> ToolContext:
     config = settings(tmp_path)
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     artifacts = FileStore(tmp_path / "artifacts")
     inputs = config.layout.ops_inputs(ProjectName("p"), "i")
     inputs.mkdir(parents=True, exist_ok=True)
@@ -654,7 +658,7 @@ def test_observe_needs_a_render_really_viewed(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
     Image.new("RGB", (100, 100), (200, 30, 30)).save(work / "a.png")
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     ticket = ledger.open(production_spec(), "p")
     context = ToolContext(
         "critic", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), FileStore(tmp_path / "artifacts")
@@ -673,7 +677,7 @@ def critic_box(tmp_path: Path) -> tuple[Toolbox, Path]:
     """A critic on a real ticket, with its own work folder."""
     work = tmp_path / "work"
     work.mkdir()
-    ledger = Ledger(settings(tmp_path).ledger_path)
+    ledger = Ledger(settings(tmp_path).layout.ledger)
     ticket = ledger.open(production_spec(), "p")
     artifacts = FileStore(tmp_path / "artifacts")
     context = ToolContext("critic", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), artifacts)
@@ -848,13 +852,13 @@ def test_compute_script_lives_outside_the_work_folder(tmp_path: Path) -> None:
         "    except OSError as error:\n"
         "        print(errno.errorcode[error.errno])\n"
     )
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     ledger.set_project("p", 25.0)
     transport = ScriptedTransport(
         [turn(use("compute", "c1", code=probe)), turn(use("block", "c2", reason="prova finita"))]
     )
     gateway = ModelGateway(transport, ledger, config)
-    run = AgentRunner(gateway, ledger, config, CommandIndex([]), FileStore(config.artifacts_dir))
+    run = AgentRunner(gateway, ledger, config, CommandIndex([]), FileStore(config.layout.artifacts))
     ticket = ledger.open(production_spec(), "p")
 
     run.run(ticket)
@@ -931,7 +935,7 @@ def test_big_images_are_reduced_and_rereads_are_allowed(tmp_path: Path) -> None:
     config = settings(tmp_path)
     Image.new("RGB", (3000, 400)).save(tmp_path / "big.png")
     Image.new("RGB", (400, 400)).save(tmp_path / "ok.png")
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     context = ToolContext(
         "critic",
         "p",
@@ -953,7 +957,7 @@ def test_big_images_are_reduced_and_rereads_are_allowed(tmp_path: Path) -> None:
 
 def test_child_ticket_outside_org_is_refused(tmp_path: Path) -> None:
     config = settings(tmp_path)
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     context = ToolContext(
         "design-director",
         "p",
@@ -1496,7 +1500,7 @@ def test_observe_accepts_an_image_really_viewed(tmp_path: Path) -> None:
 
     config = settings(tmp_path)
     Image.new("RGB", (100, 100), (20, 90, 200)).save(tmp_path / "tavola.png")
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     ticket = ledger.open(production_spec(), "p")
     context = ToolContext(
         "critic",
@@ -1525,7 +1529,7 @@ def test_redelivery_with_identical_outputs_is_refused(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
     (work / "nota.md").write_text("v1")
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     spec = TicketSpec(
         title="Nota",
         request="r",
@@ -1570,7 +1574,7 @@ def closing_box(
     config = settings(tmp_path)
     work = tmp_path / "work"
     work.mkdir()
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     ticket = ledger.open(spec, "p")
     context = ToolContext(
         actor, "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), FileStore(tmp_path / "artifacts")
@@ -1961,7 +1965,7 @@ def test_a_replayed_render_adds_no_second_render_row(tmp_path: Path, monkeypatch
 
 
 def test_add_render_keeps_a_new_source_version_and_a_new_proof(tmp_path: Path) -> None:
-    ledger = Ledger(settings(tmp_path).ledger_path)
+    ledger = Ledger(settings(tmp_path).layout.ledger)
     ledger.add_render("p", "a.png", "s1", ["x.png", "y.png"])
     ledger.add_render("p", "a.png", "s1", ["x.png", "y.png"])
     ledger.add_render("p", "a.png", "s2", ["x.png"])
@@ -1991,7 +1995,7 @@ def derivation(**changes: str) -> DerivationRow:
 
 
 def test_add_derivation_skips_only_an_identical_row(tmp_path: Path) -> None:
-    ledger = Ledger(settings(tmp_path).ledger_path)
+    ledger = Ledger(settings(tmp_path).layout.ledger)
     ledger.add_derivation(derivation())
     ledger.add_derivation(derivation(at="2026-02-02T00:00:00+00:00"))  # same link, written again later
     assert len(ledger.derivations("p", "e.svg")) == 1
@@ -2160,7 +2164,7 @@ def test_a_replayed_select_concepts_appends_no_second_concept_event(
 
 
 def test_update_concept_writes_only_a_change(tmp_path: Path) -> None:
-    ledger = Ledger(settings(tmp_path).ledger_path)
+    ledger = Ledger(settings(tmp_path).layout.ledger)
     row = ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="Z", card_json=CARD)
     ticket = ledger.open(production_spec(), "p", concept=row)
 

@@ -95,26 +95,6 @@ class Settings(BaseSettings):
     def layout(self) -> DataLayout:
         return DataLayout(self.data_dir)
 
-    @property
-    def ledger_path(self) -> Path:
-        return self.layout.ledger
-
-    @property
-    def checkpoints_path(self) -> Path:
-        return self.layout.checkpoints
-
-    @property
-    def artifacts_dir(self) -> Path:
-        return self.layout.artifacts
-
-    @property
-    def traces_path(self) -> Path:
-        return self.layout.traces
-
-    @property
-    def insights_path(self) -> Path:
-        return self.layout.insights
-
     def project_dir(self, slug: ProjectName) -> Path:
         return (self.projects_dir / slug).resolve()
 

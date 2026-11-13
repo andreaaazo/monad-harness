@@ -73,7 +73,7 @@ class FirstRequest:
 
 def prefix(phase: Phase, tmp_path: Path) -> str:
     settings = Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "projects", _env_file=None)  # type: ignore[call-arg]
-    ledger = Ledger(settings.ledger_path)
+    ledger = Ledger(settings.layout.ledger)
     ledger.set_project("prova", 25.0)  # without a declared cap the request would not go out (ADR-0043)
     transport = FirstRequest()
     runner = AgentRunner(
@@ -81,7 +81,7 @@ def prefix(phase: Phase, tmp_path: Path) -> str:
         ledger,
         settings,
         CommandIndex([]),
-        FileStore(settings.artifacts_dir),
+        FileStore(settings.layout.artifacts),
     )
     spec = TicketSpec(
         title="Prova",

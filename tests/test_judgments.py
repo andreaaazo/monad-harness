@@ -283,7 +283,7 @@ def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
         cli, "_board_renderer", FakeVectorcraft
     )  # the board, without depending on the machine
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
-    Ledger(settings.ledger_path)  # `judge` needs a registry to exist
+    Ledger(settings.layout.ledger)  # `judge` needs a registry to exist
     return settings
 
 
@@ -294,7 +294,7 @@ def unfaked_studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "projects"))
     monkeypatch.chdir(tmp_path)
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
-    Ledger(settings.ledger_path)  # `judge` needs a registry to exist
+    Ledger(settings.layout.ledger)  # `judge` needs a registry to exist
     return settings
 
 
@@ -326,7 +326,7 @@ def test_judge_records_blind_then_reveals_and_removes_the_copies(
     assert "tavola.png  i disegni alla stessa misura" in out
     assert "merlo" not in out.split("Registrati")[0]
     assert "Registrati 2 giudizi di andrea" in out
-    ledger = Ledger(studio.ledger_path)
+    ledger = Ledger(studio.layout.ledger)
     rows = ledger.judgments("merlo") + ledger.judgments("merlo3")
     assert sorted((row.level, row.best) for row in rows) == [("buono", True), ("ordinario", False)]
     best = next(row for row in rows if row.best)
@@ -343,7 +343,7 @@ def test_judged_files_are_kept_under_their_hash(
     for path in paths:  # the file in the project can change: the judged version stays
         path.write_text("sovrascritto", encoding="utf-8")
 
-    ledger, store = Ledger(studio.ledger_path), FileStore(studio.artifacts_dir)
+    ledger, store = Ledger(studio.layout.ledger), FileStore(studio.layout.artifacts)
     for project, original in (("merlo", MERLO), ("merlo3", MERLO3)):
         (judged,) = ledger.judgments(project)
         with store.open(judged.sha256) as handle:
@@ -374,7 +374,7 @@ def test_a_blind_copy_changed_during_the_judgment_records_nothing(
     assert cli.main(["judge", *map(str, paths)]) == 1
 
     assert "cambiat" in capsys.readouterr().out
-    ledger = Ledger(studio.ledger_path)
+    ledger = Ledger(studio.layout.ledger)
     assert ledger.judgments("merlo") + ledger.judgments("merlo3") == []
     assert ledger.artifacts("merlo") + ledger.artifacts("merlo3") == []
 
@@ -395,9 +395,9 @@ def test_interrupted_judgment_records_nothing_and_leaves_no_copies(
     assert cli.main(["judge", *map(str, paths)]) == 1
 
     assert "nulla registrato" in capsys.readouterr().out
-    ledger = Ledger(studio.ledger_path)
+    ledger = Ledger(studio.layout.ledger)
     assert ledger.judgments("merlo") == [] and ledger.judgments("merlo3") == []
-    assert ledger.artifacts("merlo") == [] and not studio.artifacts_dir.exists()
+    assert ledger.artifacts("merlo") == [] and not studio.layout.artifacts.exists()
     assert list(Path("data/blind").iterdir()) == []
 
 
@@ -436,7 +436,7 @@ def test_a_file_that_cannot_be_drawn_is_refused_before_any_question(
     assert "non ha niente di disegnato. Nulla registrato" in out
     assert "vuoto" not in out  # the refusal names the letter, not the project
     assert seen == []
-    assert Ledger(studio.ledger_path).judgments("merlo") == []
+    assert Ledger(studio.layout.ledger).judgments("merlo") == []
     assert list(Path("data/blind").iterdir()) == []
 
 

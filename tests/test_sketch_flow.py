@@ -691,7 +691,7 @@ def test_everything_delivered_or_shown_to_the_client_is_kept(tmp_path: Path) -> 
     session.decide("officina", True, "Mi piace la X", "X")
     session.decide("officina", True, "Approvato")
 
-    store, ledger = FileStore(config.artifacts_dir), session.ledger
+    store, ledger = FileStore(config.layout.artifacts), session.ledger
     rows = ledger.artifacts("officina")
     kept = {(row.ticket_id, row.path, row.sha256) for row in rows if row.origin == "consegna"}
     for ticket in ledger.tickets("officina"):
@@ -735,7 +735,7 @@ def test_insights_derives_the_phase_the_engine_recorded_for_every_call(tmp_path:
     session = open_session(config, Router(full_script()))
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "Mi piace la X", "X")
-    snapshot = ReadOnlyLedger(config.ledger_path).read()
+    snapshot = ReadOnlyLedger(config.layout.ledger).read()
     tickets, calls = snapshot.tickets, snapshot.usage
     assert len({call.phase for call in calls}) == 10
     for call in calls:

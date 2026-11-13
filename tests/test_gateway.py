@@ -59,7 +59,7 @@ def gateway(
 ) -> ModelGateway:
     """Project `p` of CONTEXT, with the cap the client declared. None: no cap."""
     settings = Settings(data_dir=tmp_path, _env_file=None)  # type: ignore[call-arg]
-    ledger = Ledger(settings.ledger_path)
+    ledger = Ledger(settings.layout.ledger)
     if budget is not None:
         ledger.set_project(CONTEXT.project, budget)
     return ModelGateway(transport, ledger, settings, clock=clock)

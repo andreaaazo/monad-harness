@@ -232,7 +232,7 @@ def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
 
 
 def kept(studio: Settings, tmp_path: Path, data: bytes, path: str = "source/segno.vectorcraft") -> str:
-    store, ledger = FileStore(studio.artifacts_dir), Ledger(studio.ledger_path)
+    store, ledger = FileStore(studio.layout.artifacts), Ledger(studio.layout.ledger)
     work = tmp_path / "projects/merlo4/work"
     write(work / path, data)
     return keeping.keep(
@@ -333,7 +333,7 @@ def test_restore_of_a_damaged_version_leaves_no_file(
     studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str], damage: str
 ) -> None:
     digest = kept(studio, tmp_path, b"master")
-    location = studio.artifacts_dir / digest[:2] / digest
+    location = studio.layout.artifacts / digest[:2] / digest
     location.chmod(0o644)
     if damage == "alterata":
         location.write_bytes(b"alterato")
@@ -351,7 +351,7 @@ def test_verify_finds_a_damaged_artifact(
     digest = kept(studio, tmp_path, b"master")
     assert cli.main(["verify"]) == 0
     assert "artefatti integri: 1" in capsys.readouterr().out
-    location = studio.artifacts_dir / digest[:2] / digest
+    location = studio.layout.artifacts / digest[:2] / digest
     location.chmod(0o644)
     location.write_bytes(b"alterato")
     assert cli.main(["verify"]) == 1

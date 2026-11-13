@@ -1911,7 +1911,15 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
       `graph/workflow.py:68` and `evaluation/blind.py:60`;
     - `tests/test_layout.py`.
   - Commit: `refactor(config): build every data path through DataLayout`.
-- [ ] **Task 6.12: one name for each data path.** Closes SIM-017.
+- [x] **Task 6.12: one name for each data path.** Closes SIM-017.
+  - Done: the five `Settings` proxies are deleted: `ledger_path`, `checkpoints_path`, `artifacts_dir`,
+    `traces_path` and `insights_path`. All 76 uses now spell `settings.layout.<path>` (26 in cli.py and
+    runtime.py, 50 in tests). The audit called this a preference. The /ce-simplify-code reviewers (reuse,
+    quality, test value) judged it real duplication: runtime.py and cli.py mixed both spellings inside the same
+    function, and any rename in DataLayout needed a matching one in Settings. No caller outside src/ and tests/
+    used the proxies; the Django server already used the layout. In tests/test_layout.py the block that pinned
+    the proxies is gone, because it can no longer be written. The rest of that test still pins every path
+    with independent literals, and still checks that `Settings.layout` is built from `data_dir`.
   - Files: `src/agency/config.py` (the five proxy properties are deleted, and callers use `settings.layout.<path>`),
     and every caller in `src/` and `tests/`.
   - Commit: `refactor(config): give each data path one name`.

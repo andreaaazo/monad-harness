@@ -55,14 +55,6 @@ def test_data_paths_under_a_root() -> None:
 
     settings = Settings(data_dir=Path("/r"), projects_dir=Path("/q"), _env_file=None)  # type: ignore[call-arg]
     assert paths(settings.layout) == paths(layout)
-    shortcuts = (
-        settings.ledger_path,
-        settings.checkpoints_path,
-        settings.artifacts_dir,
-        settings.traces_path,
-        settings.insights_path,
-    )
-    assert shortcuts == paths(layout)[:5]
     assert settings.project_dir(ProjectName("p")) == Path("/q/p")
 
 

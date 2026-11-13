@@ -330,13 +330,13 @@ def test_unexpected_tool_failure_goes_back_to_the_model(tmp_path: Path) -> None:
 def runner(config: Settings, responses: list[dict]) -> tuple[AgentRunner, ScriptedTransport, Ledger]:
     """Project `p`, with the cap the client would declare: without one the gateway spends nothing
     (ADR-0043)."""
-    ledger = Ledger(config.ledger_path)
+    ledger = Ledger(config.layout.ledger)
     ledger.set_project("p", 25.0)
     transport = ScriptedTransport(responses)
     index = CommandIndex([])
     return (
         AgentRunner(
-            ModelGateway(transport, ledger, config), ledger, config, index, FileStore(config.artifacts_dir)
+            ModelGateway(transport, ledger, config), ledger, config, index, FileStore(config.layout.artifacts)
         ),
         transport,
         ledger,

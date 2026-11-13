@@ -59,13 +59,13 @@ def _doctor(_: argparse.Namespace) -> int:
 
 def _verify(_: argparse.Namespace) -> int:
     settings = Settings()
-    ledger = Ledger.existing(settings.ledger_path)
+    ledger = Ledger.existing(settings.layout.ledger)
     mismatches = ledger.replay_mismatches()
     ok = ledger.verify_chain() and not mismatches
     print("registro integro" if ok else "REGISTRO ALTERATO")
     for mismatch in mismatches:
         print(f"  {report.plain(mismatch)}")  # ticket ids come from a table that may have been altered
-    broken = keeping.damaged(FileStore(settings.artifacts_dir), ledger)
+    broken = keeping.damaged(FileStore(settings.layout.artifacts), ledger)
     print(report.render_damaged(broken) if broken else f"artefatti integri: {keeping.versions(ledger)}")
     return 0 if ok and not broken else 1
 
@@ -95,7 +95,7 @@ def _busy_project(settings: Settings) -> str | None:
 
 def _migrate(_: argparse.Namespace) -> int:
     settings = Settings()
-    path = settings.ledger_path
+    path = settings.layout.ledger
     if not path.is_file():
         print("Nessun registro da aggiornare: si crea da solo alla prima apertura")
         return 0
@@ -126,10 +126,10 @@ def _migrate(_: argparse.Namespace) -> int:
 def _report_of(settings: Settings, project: str) -> ProjectReport:
     """The report goes through insights, like the dashboard's: the projection is rebuilt if the registry
     changed."""
-    projection = SqliteProjection(settings.insights_path)
+    projection = SqliteProjection(settings.layout.insights)
     insights.current(
-        ReadOnlyLedger(settings.ledger_path),
-        JsonlTraces(settings.traces_path),
+        ReadOnlyLedger(settings.layout.ledger),
+        JsonlTraces(settings.layout.traces),
         JsonlTranscripts(settings.layout),
         projection,
         now(),
@@ -268,7 +268,7 @@ def _resume(args: argparse.Namespace) -> int:
 def _resume_locked(args: argparse.Namespace) -> int:
     from agency.runtime import NothingToResume, open_session
 
-    if Ledger.existing(Settings().ledger_path).project(args.project) is None:
+    if Ledger.existing(Settings().layout.ledger).project(args.project) is None:
         print(f"Progetto sconosciuto: {args.project}")
         return 1
     if _scope_refused():
@@ -288,7 +288,7 @@ def _decide(args: argparse.Namespace) -> int:
 def _decide_locked(args: argparse.Namespace) -> int:
     from agency.runtime import open_session
 
-    Ledger.existing(Settings().ledger_path)
+    Ledger.existing(Settings().layout.ledger)
     if _scope_refused():
         return 1
     session = open_session(Settings(), record=args.record)
@@ -307,7 +307,7 @@ def _decide_locked(args: argparse.Namespace) -> int:
 
 
 def _budget(args: argparse.Namespace) -> int:
-    ledger = Ledger.existing(Settings().ledger_path)
+    ledger = Ledger.existing(Settings().layout.ledger)
     if ledger.project(args.project) is None:
         print(f"Progetto sconosciuto: {args.project}")
         return 1
@@ -317,19 +317,19 @@ def _budget(args: argparse.Namespace) -> int:
 
 
 def _report(args: argparse.Namespace) -> int:
-    require_registry(Settings().ledger_path)
+    require_registry(Settings().layout.ledger)
     view = _report_of(Settings(), args.project)
     print(view.model_dump_json(indent=2) if args.json else report.render(view))
     return 0
 
 
 def _runs(args: argparse.Namespace) -> int:
-    print(report.render_runs(Ledger.existing(Settings().ledger_path), args.project))
+    print(report.render_runs(Ledger.existing(Settings().layout.ledger), args.project))
     return 0
 
 
 def _compare(args: argparse.Namespace) -> int:
-    ledger = Ledger.existing(Settings().ledger_path)
+    ledger = Ledger.existing(Settings().layout.ledger)
     first, second = ledger.run(args.first), ledger.run(args.second)
     if first is None or second is None:
         missing = [f"#{seq}" for seq, row in ((args.first, first), (args.second, second)) if row is None]
@@ -379,8 +379,8 @@ def _board_renderer() -> board.Render | None:
 
 def _judge(args: argparse.Namespace) -> int:
     settings = Settings()
-    ledger = Ledger.existing(settings.ledger_path)
-    store = FileStore(settings.artifacts_dir)
+    ledger = Ledger.existing(settings.layout.ledger)
+    store = FileStore(settings.layout.artifacts)
     try:
         found = blind.candidates([Path(path) for path in args.files], settings.projects_dir)
     except blind.CannotCompare as exc:
@@ -431,14 +431,14 @@ def _judge(args: argparse.Namespace) -> int:
 
 
 def _artifacts(args: argparse.Namespace) -> int:
-    ledger = Ledger.existing(Settings().ledger_path)
+    ledger = Ledger.existing(Settings().layout.ledger)
     print(report.render_artifacts(ledger.artifacts(args.project), args.project))
     return 0
 
 
 def _restore(args: argparse.Namespace) -> int:
     settings = Settings()
-    ledger, store = Ledger.existing(settings.ledger_path), FileStore(settings.artifacts_dir)
+    ledger, store = Ledger.existing(settings.layout.ledger), FileStore(settings.layout.artifacts)
     destination = Path(args.destination)
     try:
         rows = keeping.restore(store, ledger, args.hash, destination, projects_dir=settings.projects_dir)
@@ -452,11 +452,11 @@ def _restore(args: argparse.Namespace) -> int:
 def _insights(_: argparse.Namespace) -> int:
     """Reads the registry read-only, so it can run while the engine works."""
     settings = Settings()
-    require_registry(settings.ledger_path)
-    registry, traces = ReadOnlyLedger(settings.ledger_path), JsonlTraces(settings.traces_path)
+    require_registry(settings.layout.ledger)
+    registry, traces = ReadOnlyLedger(settings.layout.ledger), JsonlTraces(settings.layout.traces)
     transcripts = JsonlTranscripts(settings.layout)
-    built = insights.rebuild(registry, traces, transcripts, SqliteProjection(settings.insights_path), now())
-    print(report.render_provenance(built, str(settings.insights_path)))
+    built = insights.rebuild(registry, traces, transcripts, SqliteProjection(settings.layout.insights), now())
+    print(report.render_provenance(built, str(settings.layout.insights)))
     return 0
 
 

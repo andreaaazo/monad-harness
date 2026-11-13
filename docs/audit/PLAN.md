@@ -2189,6 +2189,11 @@ Andrea chose to fix #2 by walking paths as the kernel does (R9, which also close
     projects folder), test_judgments.py (an alias names its project; a planted link through an alias and through
     `op/..` is refused) and `land` and `unlink_under` cases in test_safe_files.py. The five behaviour tests that
     reproduce #2 failed before the change.
+- [x] **R10: the spike's key probe has a positive control.** Testing gap of round 3: the probe printed `keyless`
+  whenever no `/proc/<pid>/environ` could be read, so dropping `--proc` would have passed it. It now also requires a
+  `PATH=` line in what it read. `bash spikes/sandbox_craft.sh`: 9 `ok`, exit 0. Temporary copies: reading a missing
+  folder instead of `/proc` makes the new probe `FAIL` (the old one printed `ok`), and dropping the `env -i` prefix
+  with a key exported makes it `FAIL`; both copies were deleted.
 - Deferred, for an ADR after this PR: #3 (`agency budget` re-reads the project row and re-binds it whole, so a
   hand edit of its model or effort stops showing in `agency verify`; the same holds for concept rows, which the
   engine updates in place), and the pre-existing "resume of a moved ticket spends the other client's budget"

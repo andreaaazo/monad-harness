@@ -60,7 +60,9 @@ probe() {  # probe <label> <word> <shell command that prints the word when the c
 probe "other folders invisible" hidden "test -e '$S/other' || echo hidden"
 probe "no network" offline "getent hosts anthropic.com >/dev/null || echo offline"
 probe "/usr read-only" readonly "touch /usr/x 2>/dev/null || echo readonly"
-# A fake key in this shell's environment must reach no process of the sandbox, bwrap's own included.
+# A fake key in this shell's environment must reach no process of the sandbox, bwrap's own included. The
+# environments must be readable (each holds a PATH=), or an empty read would pass for a clean one.
 ANTHROPIC_API_KEY=sk-ant-spike-canary probe "no key in the sandbox" keyless \
-  "cat /proc/[0-9]*/environ 2>/dev/null | tr '\\0' '\\n' | grep -q sk-ant-spike-canary || echo keyless"
+  "all=\$(cat /proc/[0-9]*/environ 2>/dev/null | tr '\\0' '\\n'); \
+   printf '%s\\n' \"\$all\" | grep -q '^PATH=' && ! printf '%s\\n' \"\$all\" | grep -q sk-ant-spike-canary && echo keyless"
 exit "$fail"

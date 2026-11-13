@@ -22,6 +22,7 @@ from sqlmodel import SQLModel
 from agency import cli
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger, LedgerOutdated, chain, schema
+from agency.ledger.models import TicketRow
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 
 REAL_SCHEMA = Path(__file__).parent / "fixtures" / "ledger_schema_0001.sql"
@@ -456,10 +457,10 @@ def test_v1_events_still_verify(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     migrate(path)
     ledger = Ledger(path)
     ledger.apply("T-0001", Action.BLOCK, "identity-designer", "manca il brief")
-    # 9 version-1 events, a baseline per ticket from 0006 and from 0007, and the block
+    # 9 version-1 events, a baseline per ticket from 0006, 0007 and 0009, and the block
     assert [version for (version,) in read(path, "SELECT version FROM events ORDER BY seq")] == [1] * 9 + [
         2
-    ] * 9
+    ] * 13
     assert ledger.verify_chain()
 
     def intact_after(statement: str) -> bool:
@@ -522,19 +523,7 @@ def test_migration_binds_every_contract_idea_gate_and_proof_into_the_chain(
     assert events[: len(before)] == before
     tickets = ledger.tickets("prova")
     assert [row.id for row in tickets] == [ticket for ticket, *_ in BEFORE_0006]
-    bound = [
-        (
-            ticket.id,
-            chain.ticket_binding(
-                ticket.status,
-                ticket.verdict,
-                json.loads(ticket.delivered_json),
-                ticket.spec_json,
-                ticket.inputs_json,
-            ),
-        )
-        for ticket in tickets
-    ]
+    bound: list[tuple[str, dict]] = [(ticket.id, without_project(binding(ticket))) for ticket in tickets]
     bound += [("-", {"concept": row.model_dump()}) for row in ledger.concepts("prova")]
     bound += [("-", {"gate": row.model_dump()}) for row in ledger.gates("prova")]
     bound += [("-", {"evidence": row.model_dump()}) for row in ledger.evidence("prova")]
@@ -548,7 +537,29 @@ def test_migration_binds_every_contract_idea_gate_and_proof_into_the_chain(
     (stamp,) = {row[2] for row in added}
     assert started <= datetime.fromisoformat(stamp) <= datetime.now(UTC)
     assert ledger.verify_chain()
-    assert ledger.replay_mismatches() == []
+    assert ledger.replay_mismatches() == unbound_projects(tickets)
+
+
+def binding(ticket: TicketRow) -> dict:
+    """What the code binds of `ticket` today."""
+    return chain.ticket_binding(
+        ticket.status,
+        ticket.verdict,
+        json.loads(ticket.delivered_json),
+        ticket.spec_json,
+        ticket.inputs_json,
+        ticket.project,
+    )
+
+
+def without_project(bound: dict) -> dict:
+    """A ticket binding as 0006-0008 wrote it: the project entered the chain with 0009 (ADR-0053)."""
+    return {key: value for key, value in bound.items() if key != "project"}
+
+
+def unbound_projects(tickets: list[TicketRow]) -> list[str]:
+    """What `agency verify` says of a registry before 0009: no event binds a ticket's project yet."""
+    return [f"{ticket.id}: progetto diverso dalla catena" for ticket in tickets]
 
 
 def at_revision_0007(path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -596,7 +607,10 @@ def test_migration_binds_every_cost_and_budget_into_the_chain(
     before, rows = read(path, columns), inserts(path)
     started = datetime.now(UTC).replace(microsecond=0)
 
-    assert migrate(path).revision == "0008"
+    with monkeypatch.context() as patch:
+        patch.setattr(schema, "MIGRATIONS", migrations_up_to(tmp_path, "0008"))
+        assert migrate(path).revision == "0008"
+        ledger = Ledger(path)
 
     after = inserts(path)
     assert [line for line in rows if line not in after] == []
@@ -604,7 +618,6 @@ def test_migration_binds_every_cost_and_budget_into_the_chain(
     assert [line.split(" VALUES")[0] for line in new] == ['INSERT INTO "events"'] * 4
     events = read(path, columns)
     assert events[: len(before)] == before
-    ledger = Ledger(path)
     bound = [{"usage": row.model_dump()} for row in ledger.usage("prova")]
     bound += [{"project": row.model_dump()} for row in map(ledger.project, ("prova", "zeta")) if row]
     added = events[len(before) :]
@@ -617,6 +630,47 @@ def test_migration_binds_every_cost_and_budget_into_the_chain(
     (stamp,) = {row[2] for row in added}
     assert started <= datetime.fromisoformat(stamp) <= datetime.now(UTC)
     assert ledger.verify_chain()
-    assert ledger.replay_mismatches() == []
+    assert ledger.replay_mismatches() == unbound_projects(ledger.tickets("prova"))
     triggers = read(path, "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'operations'")
     assert sorted(triggers) == [("operations_no_delete",), ("operations_no_update",)]
+
+
+def test_migration_binds_every_ticket_project_into_the_chain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One baseline event per ticket, in creation order, binds its state, its contract and now its project.
+    No row is rewritten, and afterwards the replay finds nothing (ADR-0053)."""
+    path = tmp_path / "l.sqlite"
+    at_revision_0007(path, tmp_path, monkeypatch)
+    with monkeypatch.context() as patch:
+        patch.setattr(schema, "MIGRATIONS", migrations_up_to(tmp_path, "0008"))
+        migrate(path)
+    with closing(sqlite3.connect(path)) as connection:  # a second client, so the order is not by project
+        connection.execute(
+            TICKET.replace("'prova'", "'zeta'"), ("T-0005", LOGO.model_dump_json(), "open", None, "{}")
+        )
+        connection.commit()
+    columns = f"SELECT {V1_COLUMNS}, version, payload_json FROM events ORDER BY seq"
+    before, rows = read(path, columns), inserts(path)
+    started = datetime.now(UTC).replace(microsecond=0)
+
+    assert migrate(path).revision == "0009"
+
+    after = inserts(path)
+    assert [line for line in rows if line not in after] == []
+    new = [line for line in after if line not in rows]
+    assert [line.split(" VALUES")[0] for line in new] == ['INSERT INTO "events"'] * 5
+    events = read(path, columns)
+    assert events[: len(before)] == before
+    ledger = Ledger(path)
+    tickets = ledger.tickets("prova") + ledger.tickets("zeta")
+    added = events[len(before) :]
+    assert [(row[1], row[3], row[4], row[5], row[8]) for row in added] == [
+        (ticket.id, "migrate", "baseline", "", 2) for ticket in tickets
+    ]
+    assert [row[9] for row in added] == [chain.canonical(binding(ticket)) for ticket in tickets]
+    assert [json.loads(row[9])["project"] for row in added] == ["prova"] * 4 + ["zeta"]
+    (stamp,) = {row[2] for row in added}
+    assert started <= datetime.fromisoformat(stamp) <= datetime.now(UTC)
+    assert ledger.verify_chain()
+    assert ledger.replay_mismatches() == []

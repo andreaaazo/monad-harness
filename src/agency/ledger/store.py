@@ -195,10 +195,10 @@ class Ledger:
         ticket: TicketRow | None,
         row: BoundRow | None = None,
     ) -> None:
-        """`ticket` is the row as this event leaves it: the event binds its state and the sha256 of its
-        contract into the chain (ADR-0047, ADR-0049). `row` is an idea, a gate, a proof, a paid call or a
-        project just written and flushed: the event binds it whole (ADR-0049, ADR-0050). An event with
-        neither binds an empty payload."""
+        """`ticket` is the row as this event leaves it: the event binds its state, the sha256 of its contract
+        and its project into the chain (ADR-0047, ADR-0049, ADR-0053). `row` is an idea, a gate, a proof, a
+        paid call or a project just written and flushed: the event binds it whole (ADR-0049, ADR-0050). An
+        event with neither binds an empty payload."""
         last = session.exec(select(EventRow).order_by(col(EventRow.seq).desc())).first()
         prev = last.hash if last else chain.GENESIS
         at = now()
@@ -210,6 +210,7 @@ class Ledger:
                 json.loads(ticket.delivered_json),
                 ticket.spec_json,
                 ticket.inputs_json,
+                ticket.project,
             )
         if row is not None:
             binding[BOUND_ROWS[type(row)][0]] = row.model_dump()
@@ -394,10 +395,10 @@ class Ledger:
             return chain.intact(session.exec(select(EventRow).order_by(col(EventRow.seq))).all())
 
     def replay_mismatches(self) -> list[str]:
-        """Each ticket against the state and contract its last event binds, and each idea, gate, proof, paid
-        call and project against the last event that binds it: those tables are projections of the chain,
-        and a difference is tampering (ADR-0047, ADR-0049, ADR-0050). One line per row the chain does not
-        bind, per field that differs, and per bound ticket or row that is gone."""
+        """Each ticket against the state, contract and project its last event binds, and each idea, gate,
+        proof, paid call and project against the last event that binds it: those tables are projections of
+        the chain, and a difference is tampering (ADR-0047, ADR-0049, ADR-0050, ADR-0053). One line per row
+        the chain does not bind, per field that differs, and per bound ticket or row that is gone."""
         with Session(self.engine) as session:
             events = session.exec(select(EventRow).order_by(col(EventRow.seq))).all()
             tickets = session.exec(select(TicketRow).order_by(literal_column("rowid"))).all()
@@ -420,6 +421,8 @@ class Ledger:
                 found.append(f"{ticket.id}: contratto diverso dalla catena")
             if bound.get("inputs_sha256") != chain.text_sha256(ticket.inputs_json):
                 found.append(f"{ticket.id}: hash d'apertura diversi dalla catena")
+            if bound.get("project") != ticket.project:
+                found.append(f"{ticket.id}: progetto diverso dalla catena")
         present = {ticket.id for ticket in tickets}
         found += [
             f"{ticket_id}: ticket mancante nel registro"

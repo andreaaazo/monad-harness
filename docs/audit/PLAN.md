@@ -2087,7 +2087,21 @@ Nothing that blocks a merge was introduced by the branch. Andrea chose to fix fo
   with `AGENCY_EXPLORERS=2 AGENCY_PROPOSAL_EFFORT=low AGENCY_MAX_PARALLEL=1`, `AGENCY_DATA_DIR` and
   `AGENCY_PROJECTS_DIR` on scratch folders and a fake `ANTHROPIC_API_KEY` exported (1172 passed), and wrote nothing
   into those folders.
-- [ ] **R4: the chain binds each ticket's project.** P2: `UPDATE tickets SET project = …` passed `agency verify`.
+- [x] **R4: the chain binds each ticket's project.** P2: `UPDATE tickets SET project = …` passed `agency verify`,
+  yet the project decides whose work folder a ticket's agents write (`AgentRunner` reads `ledger.project_of`) and
+  whose budget pays its calls (`CallContext.project`). New ADR-0053 (`docs/adr/0053-la-catena-lega-il-progetto-di-ogni-ticket.md`).
+  - `chain.ticket_binding` gains `project`; `Ledger._append` passes it; `replay_mismatches` reports
+    «progetto diverso dalla catena».
+  - Migration 0009 (`0009_chain_ticket_projects.py`) appends one baseline event per ticket, in creation order, with
+    its own copy of the formula. No schema change, no row rewritten.
+  - `insights.application.READS_REVISION` is 0009, and `web/e2e/run.spec.ts` expects «revisione 0009».
+  - Tests: `test_moving_a_ticket_to_another_project_breaks_verify` (test_ledger.py) and
+    `test_migration_binds_every_ticket_project_into_the_chain` (test_migrations.py), both red before the change.
+    The 0007 and 0008 migration tests now stop at their own revision and expect one «progetto diverso dalla
+    catena» per ticket from today's code, which is what a registry at those revisions gives until 0009 runs.
+  - On a scratch copy of the real registry (revision 0005, 35 tickets, 319 events): `agency migrate` reached 0009 and
+    `agency verify` exited 0; moving T-0021 from merlo3 to merlo2 made it exit 1 with that line. The real registry's
+    sha256 was the same before and after; the copy was deleted.
 
 ## Not planned in this refactor
 

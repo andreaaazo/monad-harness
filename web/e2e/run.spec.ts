@@ -16,7 +16,7 @@ test("the projects page lists the registry and says where the data comes from", 
   const row = page.getByRole("row", { name: new RegExp(PROJECT) });
   await expect(row).toContainText("10,80 $");
   await expect(row).toContainText("20,00 $");
-  await expect(page.getByLabel("Provenienza dei dati")).toContainText("revisione 0008");
+  await expect(page.getByLabel("Provenienza dei dati")).toContainText("revisione 0009");
 });
 
 test("run view: what it cost, how long it took, who worked when", async ({ page }) => {

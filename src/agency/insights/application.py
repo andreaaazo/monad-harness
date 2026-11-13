@@ -29,7 +29,7 @@ from agency.insights.views import ProjectReport, ProjectSummary, project_report,
 
 # The registry revision insights can read. A test compares it with the latest migration, so a new
 # migration forces a look at whether anything changes for the readers.
-READS_REVISION = "0008"
+READS_REVISION = "0009"
 
 
 class LedgerNotReadable(Exception):

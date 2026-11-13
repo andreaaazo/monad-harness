@@ -217,7 +217,12 @@ def test_every_new_event_binds_the_state_it_leaves(ledger: Ledger) -> None:
     ledger.apply(ticket, Action.REWORK, "design-director", "rifai la verifica")
 
     (row,) = ledger.tickets("default")
-    contract = {"inputs_sha256": EMPTY_SHA256, "spec_sha256": chain.text_sha256(row.spec_json)}
+    # What `open` fixes for good: the contract, the opening hashes and the project (ADR-0049, ADR-0053).
+    contract = {
+        "inputs_sha256": EMPTY_SHA256,
+        "project": "default",
+        "spec_sha256": chain.text_sha256(row.spec_json),
+    }
     delivered = {"delivered": DELIVERED, "status": "delivered", "verdict": "READY"} | contract
     (proof_row,) = ledger.evidence("default")
     events = ledger.history(ticket)
@@ -299,7 +304,7 @@ def test_a_version_1_event_binds_no_state_whatever_its_payload_says(ledger: Ledg
     ticket = ledger.open(production())
     (row,) = ledger.tickets("default")
     forged = chain.canonical(
-        chain.ticket_binding(row.status, row.verdict, {}, row.spec_json, row.inputs_json)
+        chain.ticket_binding(row.status, row.verdict, {}, row.spec_json, row.inputs_json, row.project)
     )
     with ledger.engine.begin() as conn:
         prev = conn.execute(text("SELECT hash FROM events ORDER BY seq DESC LIMIT 1")).scalar_one()
@@ -390,6 +395,27 @@ def test_changing_a_ticket_contract_breaks_verify(
     assert ledger.verify_chain()  # the events are untouched: the replay finds the change
     assert cli.main(["verify"]) == 1
     assert capsys.readouterr().out.splitlines()[:2] == ["REGISTRO ALTERATO", f"  {line}"]
+
+
+def test_moving_a_ticket_to_another_project_breaks_verify(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A ticket's project decides whose work folder its agents write and whose budget pays its calls. Nothing
+    changes it after `open`, and the chain binds it (ADR-0053)."""
+    ledger = Ledger(use_data_dir(tmp_path, monkeypatch))
+    ledger.open(production(), project="merlo")
+    assert cli.main(["verify"]) == 0
+    capsys.readouterr()
+
+    with ledger.engine.begin() as conn:
+        conn.execute(text("UPDATE tickets SET project = 'merlo4'"))
+
+    assert ledger.verify_chain()  # the events are untouched: the replay finds the change
+    assert cli.main(["verify"]) == 1
+    assert capsys.readouterr().out.splitlines()[:2] == [
+        "REGISTRO ALTERATO",
+        "  T-0001: progetto diverso dalla catena",
+    ]
 
 
 def idea(**extra: object) -> ConceptRow:
@@ -675,7 +701,7 @@ def test_every_cost_and_budget_write_binds_the_row(ledger: Ledger) -> None:
     ledger.set_project("default", 50.0, "claude-sonnet-5-5", "low")
 
     (row,) = ledger.tickets("default")
-    state = chain.ticket_binding(row.status, row.verdict, {}, row.spec_json, row.inputs_json)
+    state = chain.ticket_binding(row.status, row.verdict, {}, row.spec_json, row.inputs_json, row.project)
     first, second = ledger.usage("default")
     project = {"name": "default", "budget_usd": 30.0, "model": "", "effort": ""}
     chosen = {"name": "default", "budget_usd": 50.0, "model": "claude-sonnet-5-5", "effort": "low"}

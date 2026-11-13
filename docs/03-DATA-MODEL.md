@@ -43,17 +43,19 @@ l'evento di una prova (`evidence`) lega anche la prova. La migrazione 0007 ha le
 (ADR-0049). Dalla revisione 0008 anche ogni chiamata pagata (`usage`) e ogni scrittura di un progetto (`projects`)
 aggiungono un evento che lega la riga intera: la chiamata sul suo ticket, con lo stato del ticket, il progetto con
 ticket `-`. La migrazione 0008 ha legato così le righe di quel momento, e un secondo record di ripresa con lo stesso
-id non riscrive il primo (ADR-0050). `agency verify` ricontrolla la catena e confronta ogni ticket con lo stato e il
-contratto legati dal suo ultimo evento, e ogni idea, gate, prova, chiamata pagata e progetto con l'ultimo evento che
-la lega: una differenza, o un ticket o una riga legati che mancano, è un registro alterato.
+id non riscrive il primo (ADR-0050). Dalla revisione 0009 l'evento di un ticket lega anche il suo progetto, che decide
+in quale cartella lavorano i suoi agenti e quale budget paga le sue chiamate; la migrazione 0009 ha legato così i
+ticket di quel momento (ADR-0053). `agency verify` ricontrolla la catena e confronta ogni ticket con lo stato, il
+contratto e il progetto legati dal suo ultimo evento, e ogni idea, gate, prova, chiamata pagata e progetto con
+l'ultimo evento che la lega: una differenza, o un ticket o una riga legati che mancano, è un registro alterato.
 
 ### Tabelle
 
 | Tabella | Traguardo | Contenuto |
 |---|---|---|
 | `projects` | M1.5 | Budget, modello ed effort scelti dal cliente |
-| `tickets` | M0 | Contratto, stato, verdetto, hash consegnati: per stato, verdetto, consegna e contratto è una proiezione degli eventi (ADR-0047, ADR-0049) |
-| `events` | M0 | Chi ha fatto cosa, quando, con quale hash precedente. Dalla versione 2 anche lo stato del ticket dopo l'evento (ADR-0047), lo sha256 del suo contratto e l'idea, il gate o la prova scritti (ADR-0049) |
+| `tickets` | M0 | Contratto, stato, verdetto, hash consegnati: per stato, verdetto, consegna, contratto e progetto è una proiezione degli eventi (ADR-0047, ADR-0049, ADR-0053) |
+| `events` | M0 | Chi ha fatto cosa, quando, con quale hash precedente. Dalla versione 2 anche lo stato del ticket dopo l'evento (ADR-0047), lo sha256 del suo contratto e l'idea, il gate o la prova scritti (ADR-0049), e dalla revisione 0009 il progetto del ticket (ADR-0053) |
 | `evidence` | M1 | File, hash, controllo, esito, firma, prova, input confrontati |
 | `artifacts` | M1.6 | Versione conservata: hash, progetto, percorso, ticket, esecuzione, motivo, tipo MIME, dimensione (ADR-0028) |
 | `renders` | M1 | Prova di render di una versione precisa di un file |
@@ -110,7 +112,7 @@ li tiene fermi (CMT-008, Task 1.17).
 | `Lifecycle` (API) | `open`, `deliver`, `accept`, `rework`, `block`, `resume`, `cancel` |
 
 Oltre alle azioni del ciclo di vita, il registro scrive in `events.action` anche `evidence`, `baseline` (le
-migrazioni 0006-0008), `concept`, `gate`, `usage` e `project` (ADR-0047, ADR-0049, ADR-0050).
+migrazioni 0006-0009), `concept`, `gate`, `usage` e `project` (ADR-0047, ADR-0049, ADR-0050, ADR-0053).
 
 ## Ticket
 

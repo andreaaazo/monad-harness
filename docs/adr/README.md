@@ -53,7 +53,8 @@ vecchio. Date: 2026-10-31.
 | [0046](0046-i-limiti-della-sandbox.md) | I limiti della sandbox | Accettata, estende 0005: tetto di memoria e di task in uno scope cgroup |
 | [0047](0047-la-catena-copre-verdetti-e-consegne.md) | La catena copre verdetti e consegne | Accettata, estende 0001: eventi di versione 2 e `agency verify` che rifà il conto |
 | [0048](0048-le-esecuzioni-si-registrano-e-si-ripetono.md) | Le esecuzioni si registrano e si ripetono | Accettata, sostituisce il registratore di M1: chiave per richiesta, `--record`, ripetizione nei test |
-| [0049](0049-la-catena-copre-cio-che-decide-la-consegna.md) | La catena copre ciò che decide la consegna | Accettata, estende 0047: contratto dei ticket, idee, gate e prove legati nella catena |
+| [0049](0049-la-catena-copre-cio-che-decide-la-consegna.md) | La catena copre ciò che decide la consegna | Accettata, estende 0047: contratto dei ticket, idee, gate e prove legati nella catena; il progetto del ticket in 0053 |
 | [0050](0050-la-catena-copre-anche-i-costi.md) | La catena copre anche i costi | Accettata, estende 0049: chiamate pagate e progetti legati nella catena, `operations` solo in aggiunta |
 | [0051](0051-il-controllo-gira-da-solo.md) | Il controllo gira da solo | Accettata, estende 0039: hook pre-commit con `task check:fast`, `task check:clean` sull'indice, CI con il remoto |
 | [0052](0052-le-dipendenze-le-dichiara-il-codice-che-le-importa.md) | Le dipendenze le dichiara il codice che le importa | Accettata: `sqlalchemy`, `langchain-core` e `httpx2` dichiarati, `tests/test_dependencies.py` lo controlla |
+| [0053](0053-la-catena-lega-il-progetto-di-ogni-ticket.md) | La catena lega il progetto di ogni ticket | Accettata, estende 0049: il progetto di ogni ticket legato nella catena, migrazione 0009 |

@@ -34,13 +34,20 @@ def text_sha256(text: str) -> str:
 
 
 def ticket_binding(
-    status: str, verdict: str | None, delivered: dict[str, str], spec_json: str, inputs_json: str
+    status: str,
+    verdict: str | None,
+    delivered: dict[str, str],
+    spec_json: str,
+    inputs_json: str,
+    project: str,
 ) -> dict[str, Any]:
-    """What a version-2 event binds of its ticket: the state the event leaves (ADR-0047), and the sha256 of
-    the contract and of the opening hashes as stored, which no code changes after `open` (ADR-0049)."""
+    """What a version-2 event binds of its ticket: the state the event leaves (ADR-0047), the sha256 of the
+    contract and of the opening hashes as stored (ADR-0049), and the project (ADR-0053). No code changes the
+    last three after `open`."""
     return {
         "delivered": delivered,
         "inputs_sha256": text_sha256(inputs_json),
+        "project": project,
         "spec_sha256": text_sha256(spec_json),
         "status": status,
         "verdict": verdict,

@@ -645,9 +645,11 @@ def test_migration_binds_every_ticket_project_into_the_chain(
     with monkeypatch.context() as patch:
         patch.setattr(schema, "MIGRATIONS", migrations_up_to(tmp_path, "0008"))
         migrate(path)
-    with closing(sqlite3.connect(path)) as connection:  # a second client, so the order is not by project
+    # The last ticket created belongs to a client whose name sorts first: a baseline in project or name order
+    # would put it first, while creation order puts it last.
+    with closing(sqlite3.connect(path)) as connection:
         connection.execute(
-            TICKET.replace("'prova'", "'zeta'"), ("T-0005", LOGO.model_dump_json(), "open", None, "{}")
+            TICKET.replace("'prova'", "'alfa'"), ("T-0005", LOGO.model_dump_json(), "open", None, "{}")
         )
         connection.commit()
     columns = f"SELECT {V1_COLUMNS}, version, payload_json FROM events ORDER BY seq"
@@ -663,13 +665,13 @@ def test_migration_binds_every_ticket_project_into_the_chain(
     events = read(path, columns)
     assert events[: len(before)] == before
     ledger = Ledger(path)
-    tickets = ledger.tickets("prova") + ledger.tickets("zeta")
+    tickets = ledger.tickets("prova") + ledger.tickets("alfa")
     added = events[len(before) :]
     assert [(row[1], row[3], row[4], row[5], row[8]) for row in added] == [
         (ticket.id, "migrate", "baseline", "", 2) for ticket in tickets
     ]
     assert [row[9] for row in added] == [chain.canonical(binding(ticket)) for ticket in tickets]
-    assert [json.loads(row[9])["project"] for row in added] == ["prova"] * 4 + ["zeta"]
+    assert [json.loads(row[9])["project"] for row in added] == ["prova"] * 4 + ["alfa"]
     (stamp,) = {row[2] for row in added}
     assert started <= datetime.fromisoformat(stamp) <= datetime.now(UTC)
     assert ledger.verify_chain()

@@ -14,5 +14,5 @@ def operator_variables(names: Iterable[str]) -> list[str]:
     if not prefix:  # an empty prefix would match every name and empty the whole environment
         raise RuntimeError("Settings reads its variables without a prefix: list them here instead")
     return sorted(
-        name for name in names if name.upper().startswith(prefix.upper()) or name in API_KEY_VARIABLES
+        name for name in names if name.upper().startswith(prefix.upper()) or name.upper() in API_KEY_VARIABLES
     )

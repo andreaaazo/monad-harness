@@ -2128,6 +2128,17 @@ verify` (R7, finding #2, P2) and to fix the Craft spike's environment (R8, pre-e
     message as typed), two in test_judgments.py (`//` names its project, a climb through a planted link refused),
     and `parts_below` cases in test_safe_files.py. All six behaviour tests failed before the change.
 
+- [x] **R6: the test isolation and the 0009 test check what they claim.** Test-only.
+  - `support.environment.operator_variables` matches the key's names in any case, as the settings read them: an
+    exported `anthropic_api_key` reached every test's `Settings()` (#6).
+  - `test_a_shell_with_the_operator_variables_changes_nothing` runs `test_no_test_inherits_them` in a pytest
+    subprocess whose shell exports `AGENCY_EXPLORERS`, `AGENCY_PROPOSAL_EFFORT` and the key in both cases: in a clean
+    shell the in-process check passed even without the fixture.
+  - The 0009 migration test adds its last ticket under `alfa`, a client that sorts first, so a baseline in project
+    order would no longer pass.
+  - On a scratch copy: with the old `operator_variables` both environment tests fail; with 0009 ordered by project
+    the migration test fails; with the change all four pass.
+
 ## Not planned in this refactor
 
 | Finding | Why |

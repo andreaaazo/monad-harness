@@ -2103,6 +2103,31 @@ Nothing that blocks a merge was introduced by the branch. Andrea chose to fix fo
     `agency verify` exited 0; moving T-0021 from merlo3 to merlo2 made it exit 1 with that line. The real registry's
     sha256 was the same before and after; the copy was deleted.
 
+### Second review round (2026-11-13)
+
+`/ce-code-review` of the four fix commits `7948aed..fb3952b`, six reviewers and a validator; report in
+`/tmp/compound-engineering-1000/ce-code-review/20261113-053526-5534ec8f/report.md`. Nothing blocking. Three confirmed
+P3s were regressions of R2, one a gap in R3. Andrea chose to fix those, to compare every event's project in `agency
+verify` (R7, finding #2, P2) and to fix the Craft spike's environment (R8, pre-existing).
+
+- [x] **R5: one path rule for `agency judge` and `agency restore`.** R2 removed `..` as text from the whole typed
+  path, which went too far: outside the projects folder `restore` no longer read the path as the kernel does (#3);
+  the «esiste già» refusal printed the normalised absolute path instead of the typed one (#4); and `judge` decided
+  "outside" on the normalised text but then read the typed path through the kernel, so `work/link/../../../../../x`
+  was read through a planted link (#5, which `7948aed` refused). The leading `//` gap (#1, pre-existing) was the same
+  rule's blind spot.
+  - `contracts.files.parts_below(path, root)` reads the typed path as text: before it reaches the projects folder,
+    `..` and a leading `//` are read as a shell reads them; once inside, a `..` raises `OutsidePerimeter`, as the
+    no-follow helpers do. `blind._below` and `keeping._place` use it for both roots.
+  - Outside the projects folder both commands read the path as typed, through the kernel, as at `7948aed`.
+  - `restore` keeps the typed destination for its messages, and below the projects folder creates the file with
+    `open_under(..., O_WRONLY | O_CREAT | O_EXCL, mode=0o666)` after `ensure_dir_under`, so no folder it checked
+    can be swapped for a link before the open (the pre-existing check-then-open gap the reviewers named). The file
+    mode is the one `open` gives (0o666 less the umask; checked: 0o664 both ways).
+  - Tests: four in test_artifacts.py (`..` below the folder refused, `//` refused, `..` outside read by the kernel, the
+    message as typed), two in test_judgments.py (`//` names its project, a climb through a planted link refused),
+    and `parts_below` cases in test_safe_files.py. All six behaviour tests failed before the change.
+
 ## Not planned in this refactor
 
 | Finding | Why |

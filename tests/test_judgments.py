@@ -122,6 +122,26 @@ def test_a_path_through_dotdot_still_names_its_project(
     ]
 
 
+def test_a_path_with_two_leading_slashes_still_names_its_project(tmp_path: Path) -> None:
+    paths = [Path(f"/{path}") for path in two_projects(tmp_path)]
+    assert str(paths[0]).startswith("//")
+    found = blind.candidates(paths, tmp_path / "projects")
+    assert [c.judged.project for c in found] == ["merlo", "merlo3"]
+
+
+def test_a_path_that_climbs_out_through_a_planted_link_is_refused(tmp_path: Path) -> None:
+    # The kernel walks `link/..` from wherever the link points: here five levels up from d5 is tmp_path, and
+    # host/segno.svg is a file the sandbox chose. Below the projects folder a `..` is refused.
+    two_projects(tmp_path)
+    (tmp_path / "d1/d2/d3/d4/d5").mkdir(parents=True)
+    files(tmp_path, {"host/segno.svg": "<svg>scelto dal link</svg>"})
+    (tmp_path / "projects/merlo/work/link").symlink_to(tmp_path / "d1/d2/d3/d4/d5", target_is_directory=True)
+    typed = tmp_path / "projects/merlo/work/link/../../../../../host/segno.svg"
+    assert typed.is_file()
+    with pytest.raises(blind.CannotCompare, match="fuori dalla cartella del lavoro"):
+        blind.candidates([typed], tmp_path / "projects")
+
+
 def test_file_outside_the_projects_keeps_its_whole_path(tmp_path: Path) -> None:
     (outside,) = files(tmp_path, {"cli/segno.svg": "<svg>cli</svg>"})
     (candidate,) = blind.candidates([outside], tmp_path / "projects")

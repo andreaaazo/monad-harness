@@ -1179,3 +1179,28 @@ def test_the_production_node_copies_a_master_over_the_text_limit(tmp_path: Path)
     sparse(studio.work / "proposals/r1/z/proposta-z.vectorcraft", over(files.MAX_TEXT_FILE_BYTES))
     studio.node("start_production")(studio.state())
     assert (studio.work / TARGET).stat().st_size == over(files.MAX_TEXT_FILE_BYTES)
+
+
+@pytest.mark.parametrize(
+    ("path", "root", "parts"),
+    [
+        ("/r/projects/a/b.svg", "/r/projects", ("a", "b.svg")),
+        ("/r/elsewhere/../projects/a", "/r/projects", ("a",)),  # `..` before the folder is the operator's
+        ("//r/projects/a", "/r/projects", ("a",)),  # a leading `//` is `/` on Linux
+        ("/r/projects/a", "/r/x/../projects", ("a",)),  # the folder is read the same way
+        ("/r/projects", "/r/projects", ()),
+        ("/r/other/a", "/r/projects", None),
+        ("/r/projectsx/a", "/r/projects", None),
+    ],
+)
+def test_parts_below_reads_the_path_as_text(path: str, root: str, parts: tuple[str, ...] | None) -> None:
+    assert contract_files.parts_below(Path(path), Path(root)) == parts
+
+
+@pytest.mark.parametrize(
+    "path", ["/r/projects/a/../b", "/r/projects/..", "/r/elsewhere/../projects/a/../../x"]
+)
+def test_parts_below_refuses_dotdot_below_the_folder(path: str) -> None:
+    # Below the folder a sandbox can leave links: `..` there would walk from wherever a link points.
+    with pytest.raises(contract_files.OutsidePerimeter, match="fuori dalla cartella del lavoro"):
+        contract_files.parts_below(Path(path), Path("/r/projects"))

@@ -387,6 +387,63 @@ def test_restore_refuses_a_link_inside_the_projects_folder_named_through_dotdot(
     assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
 
 
+def test_restore_refuses_dotdot_below_the_projects_folder(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Below the projects folder only the no-follow helpers walk, and they take no `..`: as text it would land
+    # beside the link, while the kernel would go wherever the link points.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host/sotto"
+    host.mkdir(parents=True)
+    (tmp_path / "projects/merlo4/work/link").symlink_to(host, target_is_directory=True)
+    target = tmp_path / "projects/merlo4/work/link/../segno.vectorcraft"
+    assert cli.main(["restore", digest, str(target)]) == 1
+    assert list((tmp_path / "host").iterdir()) == [host]
+    assert not (tmp_path / "projects/merlo4/work/segno.vectorcraft").exists()
+    assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
+
+
+def test_restore_refuses_a_link_inside_the_projects_folder_named_with_two_slashes(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A leading `//` names the same folder as `/` on Linux, so the projects-folder rule must see it.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    (tmp_path / "projects/merlo4/work/exports").symlink_to(host, target_is_directory=True)
+    target = f"/{tmp_path}/projects/merlo4/work/exports/segno.vectorcraft"
+    assert target.startswith("//")
+    assert cli.main(["restore", digest, target]) == 1
+    assert list(host.iterdir()) == []
+    assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
+
+
+def test_restore_reads_dotdot_outside_the_projects_folder_as_the_kernel_does(
+    studio: Settings, tmp_path: Path
+) -> None:
+    # Outside the projects folder the path is the operator's own layout: `home/docs/..` is the folder that
+    # holds the link's target, as for any other program.
+    digest = kept(studio, tmp_path, b"master")
+    (tmp_path / "nas/u/docs").mkdir(parents=True)
+    (tmp_path / "home").mkdir()
+    (tmp_path / "home/docs").symlink_to(tmp_path / "nas/u/docs", target_is_directory=True)
+    assert cli.main(["restore", digest, str(tmp_path / "home/docs/../desktop/segno.vectorcraft")]) == 0
+    assert (tmp_path / "nas/u/desktop/segno.vectorcraft").read_bytes() == b"master"
+    assert not (tmp_path / "home/desktop").exists()
+
+
+def test_restore_names_an_existing_destination_as_it_was_typed(
+    studio: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    write(tmp_path / "esiste.vectorcraft", b"da non perdere")
+    monkeypatch.chdir(tmp_path)
+    assert cli.main(["restore", digest, "esiste.vectorcraft"]) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "Ripristino non possibile: esiste.vectorcraft esiste già: il ripristino non sovrascrive"
+    ]
+
+
 def test_restore_follows_a_link_outside_the_projects_folder(studio: Settings, tmp_path: Path) -> None:
     digest = kept(studio, tmp_path, b"master")
     real = tmp_path / "real-home"

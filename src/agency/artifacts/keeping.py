@@ -13,9 +13,10 @@ import os
 import re
 from collections.abc import Mapping
 from pathlib import Path
+from typing import BinaryIO
 
 from agency.contracts.artifact import ArtifactMissing, ArtifactStore, Origin
-from agency.contracts.files import OutsidePerimeter, ensure_dir_under, open_under
+from agency.contracts.files import OutsidePerimeter, ensure_dir_under, open_under, parts_below
 from agency.ledger import Ledger
 from agency.ledger.models import ArtifactRow
 from agency.ledger.store import now
@@ -95,9 +96,7 @@ def restore(
     of its content."""
     rows = find(ledger, prefix)
     digest = rows[0].sha256
-    # `..` removed as text, never by resolving a link, so that the folders and the file below are the same
-    # path the projects-folder rule of `_make_parents` checked.
-    destination = Path(os.path.normpath(destination.absolute()))
+    place = _place(destination, projects_dir)
     # The version first, then the destination: a missing version leaves no empty file behind.
     try:
         original = store.open(digest)
@@ -106,41 +105,55 @@ def restore(
             f"la versione {digest[:12]} manca dal deposito: agency verify dice quali"
         ) from None
     with original:
-        _make_parents(destination, projects_dir)
-        # Exclusive creation: no race with anyone writing the same path at the same moment.
-        try:
-            copy = destination.open("xb")
-        except FileExistsError:
-            raise CannotRestore(f"{destination} esiste già: il ripristino non sovrascrive") from None
+        copy = _create(destination, place)
         check = hashlib.sha256()
         with copy:
             while chunk := original.read(CHUNK):
                 check.update(chunk)
                 copy.write(chunk)
     if check.hexdigest() != digest:
-        destination.unlink()
+        (place[0] / place[1] if place else destination).unlink()
         raise CannotRestore(f"la versione {digest[:12]} nel deposito è danneggiata: agency verify dice quali")
     return rows
 
 
-def _make_parents(destination: Path, projects_dir: Path) -> None:
-    """Creates the folders of `destination`; a link a sandbox left below the projects folder is refused.
+def _place(destination: Path, projects_dir: Path) -> tuple[Path, str] | None:
+    """The projects folder and the destination below it, read as text, or None for a destination elsewhere.
 
-    Elsewhere the path is the operator's own layout (a symlinked home, say) and links are followed.
+    Below the projects folder a sandbox can leave links, so the destination is reached only through the
+    no-follow helpers, and a `..` there is refused. Elsewhere the path is the operator's own layout (a
+    symlinked home, say), and the kernel reads it as for any other program.
     """
-    parent = destination.absolute().parent
     for root in (projects_dir.absolute(), projects_dir.resolve()):
-        if parent == root or root in parent.parents:
-            parts = parent.relative_to(root).parts
-            try:
-                if parts:
-                    ensure_dir_under(root, "/".join(parts))
-                else:
-                    root.mkdir(parents=True, exist_ok=True)
-            except OutsidePerimeter as exc:
-                raise CannotRestore(str(exc)) from exc
-            return
-    parent.mkdir(parents=True, exist_ok=True)
+        try:
+            parts = parts_below(destination, root)
+        except OutsidePerimeter as exc:
+            raise CannotRestore(str(exc)) from exc
+        if parts:
+            return root, "/".join(parts)
+    return None
+
+
+def _create(destination: Path, place: tuple[Path, str] | None) -> BinaryIO:
+    """The new file, created exclusively with its missing folders: no race with anyone writing the same path
+    at the same moment. Messages name the destination as the operator typed it."""
+    try:
+        if place is None:
+            destination.absolute().parent.mkdir(parents=True, exist_ok=True)
+            return destination.open("xb")
+        root, relative = place
+        folder = relative.rpartition("/")[0]
+        if folder:
+            ensure_dir_under(root, folder)
+        else:
+            root.mkdir(parents=True, exist_ok=True)
+        # The same file mode as `open`: 0o666, less the umask.
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        return os.fdopen(open_under(root, relative, flags, mode=0o666), "wb")
+    except FileExistsError:
+        raise CannotRestore(f"{destination} esiste già: il ripristino non sovrascrive") from None
+    except OutsidePerimeter as exc:
+        raise CannotRestore(str(exc)) from exc
 
 
 def damaged(store: ArtifactStore, ledger: Ledger) -> list[ArtifactRow]:

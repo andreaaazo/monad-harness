@@ -232,6 +232,36 @@ def glob_under(root: Path, pattern: str) -> list[str]:
     return sorted(found)
 
 
+def _walked(path: Path, stop_at: list[str] | None = None) -> tuple[list[str], bool]:
+    """The parts of the absolute `path` with each `..` applied as text, and whether the walk reached
+    `stop_at`. Past `stop_at` a `..` raises `OutsidePerimeter`: it would walk through what that folder
+    holds."""
+    walked: list[str] = []
+    entered = False
+    for part in path.absolute().parts[1:]:  # parts[0] is the root folder, `/` or `//`
+        if part == "..":
+            if entered:
+                raise OutsidePerimeter(f"{path} è fuori dalla cartella del lavoro")
+            if walked:
+                walked.pop()
+        else:
+            walked.append(part)
+        entered = entered or (stop_at is not None and walked[: len(stop_at)] == stop_at)
+    return walked, entered
+
+
+def parts_below(path: Path, root: Path) -> tuple[str, ...] | None:
+    """The parts of `path` below `root`, read as text, or None when `path` never reaches `root`.
+
+    Until the path reaches `root`, `..` and a leading `//` are read as a shell reads a typed path, without
+    looking at the disk: that part is the operator's own layout. Below `root` a sandbox can leave links, so a
+    `..` there raises `OutsidePerimeter`, as the no-follow helpers that walk below `root` do.
+    """
+    top, _ = _walked(root)
+    walked, entered = _walked(path, top)
+    return tuple(walked[len(top) :]) if entered else None
+
+
 def inside(work: Path, relative: str) -> Path:
     """`work / relative` with every link resolved, or `OutsidePerimeter` when that lands outside `work`."""
     target = (work / relative).resolve()

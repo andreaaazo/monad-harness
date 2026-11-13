@@ -1923,7 +1923,7 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Files: `src/agency/config.py` (the five proxy properties are deleted, and callers use `settings.layout.<path>`),
     and every caller in `src/` and `tests/`.
   - Commit: `refactor(config): give each data path one name`.
-- [ ] **Task 6.13: the key names and e2e values have one owner.** Closes STR-011 (the code part).
+- [x] **Task 6.13: the key names and e2e values have one owner.** Closes STR-011 (the code part).
   - Python part done: `API_KEY_VARIABLES` in a new contracts/secrets.py replaces the two copies of the names. The
     copies were `AliasChoices(...)` in config.py and `SECRETS` in entrypoints/server/serve.py. The order is kept,
     because the first variable set wins. The coupling is real: the server must drop exactly the names the engine
@@ -1931,9 +1931,17 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     because the server may not import agency.config, which reads .env. doctor.py:113 stays as it is: it
     checks whether the key is present, a different fact. test_server and test_layout pin both names; dropping the
     second from the tuple fails both on a scratch copy.
-  - Still to do, as its own test unit: tests/test_consistency.py. It guards the copies that cannot import
-    Python: the names in web/package.json, playwright.config.ts and check-defenses.mjs, and port 18765 and
-    `.next-e2e` across package.json, playwright.config.ts, e2e/run.spec.ts, tsconfig.json and .gitignore.
+  - The guard for the copies that cannot import Python is tests/test_consistency.py, in its own test unit. Each
+    test reads the values with a pattern, not as a fixed snippet:
+    - every `env -u …` in web/package.json, playwright.config.ts and check-defenses.mjs removes exactly
+      `API_KEY_VARIABLES`;
+    - Playwright plants the fake key in each of those names;
+    - the e2e Django port baked into `build:e2e` is the one Playwright calls, the one `agency-server` listens on,
+      and run.spec.ts's `DJANGO_PORT`;
+    - the e2e build folder of `AGENCY_NEXT_DIST` is the one Playwright serves, run.spec.ts scans,
+      tsconfig.json includes and .gitignore ignores.
+    Six mutations fail: a third name only in Python, the defense check on one name, one canary, the server on
+    another port, and tsconfig or .gitignore on another folder.
   - Files:
     - create `src/agency/contracts/secrets.py` (`API_KEY_VARIABLES`);
     - `src/agency/config.py:26`, `src/agency/entrypoints/server/serve.py:19`;

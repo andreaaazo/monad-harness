@@ -7,9 +7,10 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from agency import registry
 from agency.artifacts import FileStore
 from agency.contracts.registry import read_checks, read_org, read_roles
-from agency.contracts.ticket import REVIEWERS, Medium, TicketSpec, TicketType
+from agency.contracts.ticket import Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.tools.craft import CommandIndex
 from agency.tools.sandbox import Sandbox
@@ -94,7 +95,10 @@ def test_tool_declarations_match_the_org_chart() -> None:
     assert set(kinds.values()) <= KINDS
     assert {name for name, kind in kinds.items() if kind in {"director", "router"}} == set(can_open_rows())
     assert [name for name, kind in kinds.items() if kind == "router"] == ["router"]
-    assert {name for name, kind in kinds.items() if kind == "reviewer"} == REVIEWERS
+    # The reviewers judge the work and never edit it: a role joins them only by a deliberate edit here.
+    reviewers = {name for name, kind in kinds.items() if kind == "reviewer"}
+    assert reviewers == {"qa-inspector", "critic", "legal-reviewer"}
+    assert reviewers == registry.REVIEWERS
     assert all("department" not in config for config in roles.values())
 
 

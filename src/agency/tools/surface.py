@@ -27,7 +27,6 @@ from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import parse_project_name
 from agency.contracts.registry import CheckKind
 from agency.contracts.ticket import (
-    REVIEWERS,
     RUNNABLE,
     Action,
     Medium,
@@ -329,7 +328,7 @@ def list_files(ctx: ToolContext, a: ListFiles, _: str) -> dict:
 
 def write_file(ctx: ToolContext, a: WriteFile, _: str) -> dict:
     _text_only(a.path)
-    if ctx.actor in REVIEWERS and not a.path.startswith("reviews/"):
+    if ctx.actor in registry.REVIEWERS and not a.path.startswith("reviews/"):
         raise Refused("un revisore scrive solo in reviews/: non modifica il lavoro che giudica")
     folder = PurePosixPath(a.path).parent
     if folder.parts:
@@ -569,7 +568,7 @@ def record_requirement(ctx: ToolContext, a: RecordRequirement, operation_id: str
 def _coming(ctx: ToolContext) -> set[str]:
     """The files this work plans to produce; those asked of reviewers do not count."""
     specs = [ctx.ledger.spec(ticket) for ticket in (ctx.ticket_id, *ctx.ledger.children(ctx.ticket_id))]
-    return {output for spec in specs if spec.assignee not in REVIEWERS for output in spec.outputs}
+    return {output for spec in specs if spec.assignee not in registry.REVIEWERS for output in spec.outputs}
 
 
 def open_ticket(ctx: ToolContext, a: OpenTicket, operation_id: str) -> dict:

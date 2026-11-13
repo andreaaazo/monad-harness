@@ -87,7 +87,6 @@ NO_CHECK_TYPES = frozenset(
 )
 AUTHOR_TYPES = frozenset({TicketType.PRODUCTION, TicketType.SKETCH, TicketType.PROPOSAL})
 REVIEW_TYPES = frozenset({TicketType.QA, TicketType.REVIEW})
-REVIEWERS = frozenset({"qa-inspector", "critic", "legal-reviewer"})
 
 
 class TicketSpec(BaseModel):

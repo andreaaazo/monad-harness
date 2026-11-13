@@ -1356,12 +1356,19 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
     - test_ledger's chain test binds its second concept through `Ledger.open`.
     - No test was dropped: the suite keeps 1165 tests, and Playwright keeps 24, the compare and scroll-region
       characterization included.
-- [ ] **Task 2.F61: `REVIEWERS` is a second list of the reviewer roles.** contracts/ticket.py:79 (as of Task 2.34).
+- [x] **Task 2.F61: `REVIEWERS` is a second list of the reviewer roles.** contracts/ticket.py:79 (as of Task 2.34).
   Task 2.34 made `roles.json` declare `"tools": "reviewer"` for `qa-inspector`, `critic` and `legal-reviewer`, but
   `REVIEWERS` still hard-codes the same three names and is read by tools/surface.py:318 and :518 and qa/delivery.py:96.
   Only `test_tool_declarations_match_the_org_chart` keeps the two equal. Fix: derive the set from the registry (after
   Task 2.35 types it), or give the contract a single owner. Found in Task 2.34. Not covered by a planned task.
   - Moved to Phase 6 (2026-11-10): a second owner of a rule, refactor rather than bug.
+  - Done after Phase 6 (2026-11-13): `roles.json` is the only owner. `agency.registry.REVIEWERS` is derived from
+    the roles whose `tools` is `"reviewer"`, and the hard-coded set left `contracts/ticket.py`, which never used
+    it. tools/surface.py (2 uses) and qa/delivery.py (1 use) read `registry.REVIEWERS`, which they already imported.
+    - `test_tool_declarations_match_the_org_chart` now pins the three names, so a role joins the reviewers only
+      by a deliberate edit of the test, and checks the derived set against them.
+    - Mutation check in a scratch copy, baseline 379 passed: an empty set fails 9 tests (the write refusal, the
+      review validation, the registry), and a set without `legal-reviewer` fails the registry test.
 - [ ] **Task 2.F62: `plan_exploration` builds the direction role names from a letter.** tools/surface.py:640-645
   (`f"direction-{letter}"` over `"abcde"`, as of Task 2.34). The five direction roles are listed in `roles.json`, but
   the code derives them from the position in a string, so a renamed or added direction in the registry is not seen.

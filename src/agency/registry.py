@@ -9,6 +9,8 @@ PROMPTS = REPO_ROOT / "prompts"
 ROLES: dict[str, dict] = read_roles(REPO_ROOT / "registry/roles.json")
 ORG: dict[str, list[str]] = read_org(REPO_ROOT / "registry/org.json")
 CHECKS: dict[str, dict] = read_checks(REPO_ROOT / "registry/checks.json")
+# The roles that judge the work and never edit it: those roles.json gives the reviewer's tool set.
+REVIEWERS = frozenset(name for name, spec in ROLES.items() if spec["tools"] == "reviewer")
 
 
 def skill_names() -> list[str]:

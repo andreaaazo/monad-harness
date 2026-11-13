@@ -12,7 +12,6 @@ from agency.contracts.ticket import (
     AUTHOR_TYPES,
     NO_CHECK_TYPES,
     REVIEW_TYPES,
-    REVIEWERS,
     Medium,
     TicketSpec,
     Verdict,
@@ -97,7 +96,7 @@ def validate_review(spec: TicketSpec, work: Path, coming: set[str]) -> None:
 
     `coming` are the files others are producing: a review can be opened before they exist.
     """
-    if spec.assignee not in REVIEWERS:
+    if spec.assignee not in registry.REVIEWERS:
         return
     absent = [
         output

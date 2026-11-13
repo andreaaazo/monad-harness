@@ -41,7 +41,7 @@ sono emersi tre fatti che ADR-0024 non prevedeva:
     assente nei processi dei server, intestazioni, cache, file statici serviti, Django spento.
   - `node --test`, in `make web`, prova la logica pura: formati, scala del lavoro, controllo dell'`Host`.
 - Le prove usano i server veri e la build di produzione in `.next-e2e`, su porte proprie, con un registro di prova inventato
-  (`tests/dashboard_fixture.py`). Un secondo server Next.js punta a una porta dove Django non c'è. Ogni server parte da un
+  (`tests/support/dashboard_fixture.py`). Un secondo server Next.js punta a una porta dove Django non c'è. Ogni server parte da un
   ambiente con una chiave finta, che il suo comando deve togliere. Tracce, video e schermate di Playwright restano spenti:
   conterrebbero i dati delle pagine.
 - I tipi generati stanno in `src/api/schema.ts`. I tipi di Next.js 16 usano `URLPattern`, che TypeScript 5.9 non ha ancora, quindi
@@ -56,7 +56,7 @@ sono emersi tre fatti che ADR-0024 non prevedeva:
 **Conseguenze.**
 - ADR-0024 resta valida. Le sue difese diventano sei: si aggiungono il controllo dell'`Host` e `no-store` sulle pagine statiche,
   e per il server standalone `-H 127.0.0.1` diventa `HOSTNAME=127.0.0.1`.
-- Quando arriveranno i clienti (M6), l'elenco degli host ammessi cambierà in Django e in `src/loopback.ts` insieme.
+- Quando arriveranno i clienti (M6), l'elenco degli host ammessi cambierà in Django e in `src/lib/loopback.ts` insieme.
 - `make check` costruisce Next.js e avvia quattro server: dura circa un minuto, ma le difese si provano a ogni modifica.
 - La porta di Django nei `rewrites` si fissa quando si costruisce: le prove costruiscono per le loro porte, in una cartella propria.
 - La prova sulla chiave legge `/proc`, quindi gira su Linux; altrove si salta e lo dice.

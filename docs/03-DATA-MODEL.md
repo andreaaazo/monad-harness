@@ -12,6 +12,8 @@ Ogni dato ha un solo proprietario.
 | Artefatti, da M1.6 | `.data/artifacts/<ab>/<sha256>` | `agency.artifacts` | Perdita grave |
 | Master di lavoro | `projects/<slug>/work/` | l'agente del ticket | Da M1.6 recuperabile dagli artefatti |
 | Trascrizioni delle istanze | `.data/runs/<slug>/` | `agency.agents` | Perdita grave: servono a ripresa e replay |
+| Cassette delle esecuzioni registrate con `--record` | `.data/cassettes/<slug>/<esecuzione>.jsonl`, una riga per ogni risposta del modello (ADR-0048) | `agency.gateway` | Quell'esecuzione non si ripete più nei test |
+| Ingressi delle sandbox e registro della ripresa | `.data/ops/<slug>/<istanza>/`; gli ingressi in `in/`, montata in sola lettura in `/ops` (ADR-0044) | `agency.tools` | Un `craft_run` interrotto rifà i passi, anche se il master li aveva già ricevuti |
 | Indice dei comandi Craft | `.data/craft-index/` | `agency.tools.craft` | Rigenerabile |
 | Indice visivo | `.data/lancedb/` | `agency.context` | Rigenerabile |
 | Proiezioni del cruscotto | `.data/insights.sqlite`; in Docker in memoria (ADR-0040) | `agency.insights` | Rigenerabile |
@@ -20,26 +22,46 @@ Ogni dato ha un solo proprietario.
 
 `.data/` e `projects/` non sono versionati.
 
+Tutti e due stanno nella radice del checkout da cui gira il codice, la stessa di `prompts/` e `registry/`, da qualunque
+cartella parta il comando: ogni worktree ha i suoi. `AGENCY_DATA_DIR` e `AGENCY_PROJECTS_DIR` li spostano, ma solo con
+un percorso assoluto; uno relativo ferma il motore e il server con la stessa riga. Il motore e il server risolvono la
+radice in un solo punto, `data_root()` di `agency.contracts.layout` (ADR-0045).
+
 ## Registro: solo in aggiunta
 
 `events` non si può modificare: lo impediscono i trigger SQLite, e la catena di hash rileva chi li
-aggira. Gli stessi trigger proteggono `usage`, `evidence`, `renders`, `derivations`, `gates`, `runs`, `judgments` e
-`artifacts`.
-`tickets` è una vista di comodo dello stato; la verità è la storia degli eventi. `agency verify`
-ricontrolla la catena.
+aggira. Gli stessi trigger proteggono `usage`, `evidence`, `renders`, `derivations`, `gates`, `runs`, `judgments`,
+`artifacts` e, dalla revisione 0008, `operations`.
+`tickets` tiene lo stato attuale dei ticket; per stato, verdetto e consegna è una proiezione della storia degli eventi,
+che è la verità. Dalla revisione 0006 ogni evento nuovo è di
+versione 2 e lega nella catena lo stato del suo ticket dopo l'evento: stato, verdetto e hash consegnati, in
+`payload_json`. Gli eventi precedenti restano di versione 1 e si verificano con la loro formula, e la migrazione ha
+aggiunto un evento `baseline` per ticket con lo stato di quel momento (ADR-0047). Dalla revisione 0007 l'evento di un
+ticket lega anche lo sha256 del suo contratto (`spec_json`) e dei suoi hash d'apertura (`inputs_json`), e ogni
+scrittura di un'idea (`concepts`) o di un gate (`gates`) aggiunge un evento con ticket `-` che lega la riga intera;
+l'evento di una prova (`evidence`) lega anche la prova. La migrazione 0007 ha legato così le righe di quel momento
+(ADR-0049). Dalla revisione 0008 anche ogni chiamata pagata (`usage`) e ogni scrittura di un progetto (`projects`)
+aggiungono un evento che lega la riga intera: la chiamata sul suo ticket, con lo stato del ticket, il progetto con
+ticket `-`. La migrazione 0008 ha legato così le righe di quel momento, e un secondo record di ripresa con lo stesso
+id non riscrive il primo (ADR-0050). Dalla revisione 0009 l'evento di un ticket lega anche il suo progetto, che decide
+in quale cartella lavorano i suoi agenti e quale budget paga le sue chiamate; la migrazione 0009 ha legato così i
+ticket di quel momento (ADR-0053). `agency verify` ricontrolla la catena e confronta ogni ticket con lo stato, il
+contratto e il progetto legati dal suo ultimo evento, e il progetto anche con quello di ogni altro evento del ticket
+(ADR-0054); confronta poi ogni idea, gate, prova, chiamata pagata e progetto con l'ultimo evento che la lega: una
+differenza, o un ticket o una riga legati che mancano, è un registro alterato.
 
 ### Tabelle
 
 | Tabella | Traguardo | Contenuto |
 |---|---|---|
 | `projects` | M1.5 | Budget, modello ed effort scelti dal cliente |
-| `tickets` | M0 | Contratto, stato, verdetto |
-| `events` | M0 | Chi ha fatto cosa, quando, con quale hash precedente |
+| `tickets` | M0 | Contratto, stato, verdetto, hash consegnati: per stato, verdetto, consegna, contratto e progetto è una proiezione degli eventi (ADR-0047, ADR-0049, ADR-0053) |
+| `events` | M0 | Chi ha fatto cosa, quando, con quale hash precedente. Dalla versione 2 anche lo stato del ticket dopo l'evento (ADR-0047), lo sha256 del suo contratto e l'idea, il gate o la prova scritti (ADR-0049), e dalla revisione 0009 il progetto del ticket (ADR-0053) |
 | `evidence` | M1 | File, hash, controllo, esito, firma, prova, input confrontati |
 | `artifacts` | M1.6 | Versione conservata: hash, progetto, percorso, ticket, esecuzione, motivo, tipo MIME, dimensione (ADR-0028) |
 | `renders` | M1 | Prova di render di una versione precisa di un file |
 | `derivations` | M1 | Master → export, con entrambi gli hash |
-| `usage` | M1 | Chiamata, ticket, ruolo, modello, token per tipo, costo. Da M1.6 anche esecuzione, fase, effort, durata, TTFT, ragionamento |
+| `usage` | M1 | Chiamata, ticket, ruolo, modello, token per tipo, costo. Da M1.6 anche esecuzione, fase, effort, durata, TTFT, ragionamento. Una riga per chiamata: le colonne dei token sono l'uso del tentativo che ha dato la risposta (il contesto che la corsa ha usato davvero), mentre `cost_usd` copre tutti i tentativi |
 | `operations` | M1 | `operation_id` degli effetti, per la ripresa senza duplicati |
 | `concepts` | M1.5 | Scheda dell'idea, leva, schizzo, lettera anonima, esito della selezione |
 | `gates` | M1.5 | Decisione del cliente: parole testuali, scelta, hash dei file |
@@ -67,6 +89,31 @@ proiezione: la vista Replay legge quella di un'istanza quando la si apre, e ogni
 
 Django non possiede il registro (ADR-0020). Quando nasceranno utenti e organizzazioni avrà un database proprio, con le sue
 migrazioni. `checkpoints.sqlite` lo gestisce LangGraph.
+
+## Vocabolario
+
+Gli identificatori sono in inglese; i valori salvati e quelli che viaggiano sono parole italiane, o le sigle di
+sempre. Stanno nelle righe del registro, nelle trascrizioni, nei record di ripresa e nella proiezione, arrivano al
+modello negli schemi degli strumenti e all'interfaccia come enum di `schemas/openapi.json`. Sembrano da tradurre e
+non lo sono: un valore salvato cambia solo con una migrazione, mai con una rinomina, e `tests/test_vocabulary.py`
+li tiene fermi (CMT-008, Task 1.17).
+
+| Tipo | Valori |
+|---|---|
+| `TicketType` | `produzione`, `consulenza`, `revisione`, `ricerca`, `qa`, `consegna`, `disaccordo`, `idea`, `schizzo`, `proposta` |
+| `Medium` | `vettoriale`, `motion`, `immagine`, `interfaccia`, `3d`, `nessuno` |
+| `Verdict` | `READY`, `REVISE`, `NOT_VERIFIED` |
+| `Status` | `open`, `delivered`, `accepted`, `rework`, `blocked`, `cancelled` |
+| `Action` | `deliver`, `accept`, `rework`, `block`, `resume`, `cancel` |
+| `Level` | `ordinario`, `buono`, `eccellente` |
+| `RunCommand` | `run`, `resume`, `decide` |
+| `OutcomeState` | `delivered`, `handed_off`, `selected`, `no_concept`, `presented`, `concept_rejected`, `blocked` |
+| `Compared` (API) | `entrambe`, `manca prima`, `manca dopo`, `nessuna` |
+| `Alignment` (API) | `per richiesta`, `per ordine`, `nessuna` |
+| `Lifecycle` (API) | `open`, `deliver`, `accept`, `rework`, `block`, `resume`, `cancel` |
+
+Oltre alle azioni del ciclo di vita, il registro scrive in `events.action` anche `evidence`, `baseline` (le
+migrazioni 0006-0009), `concept`, `gate`, `usage` e `project` (ADR-0047, ADR-0049, ADR-0050, ADR-0053).
 
 ## Ticket
 

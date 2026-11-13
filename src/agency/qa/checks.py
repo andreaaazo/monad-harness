@@ -1,14 +1,17 @@
-"""Controlli eseguibili: il sistema li lancia, legge l'esito e firma con l'attore reale."""
+"""Runnable checks: the system runs them, reads the result, and signs with the real actor."""
 
 from __future__ import annotations
 
+import glob
+from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 
+from agency.contracts.files import ensure_dir_under, glob_under, is_file_under, sha256_under
 from agency.ledger import Ledger
 from agency.qa import evidence
 from agency.tools import master
-from agency.tools.files import clip, inside, sha256
+from agency.tools.files import clip
+from agency.tools.render import _stem
 from agency.tools.sandbox import JOB, QA_MOUNT, Sandbox
 
 RUNNABLE = ("master_open", "svg_audit", "svg_parity", "logo_proof", "optical_check")
@@ -16,6 +19,9 @@ RUNNABLE = ("master_open", "svg_audit", "svg_parity", "logo_proof", "optical_che
 
 @dataclass(frozen=True)
 class CheckOutcome:
+    """A check's result, its detail, and the proof files it made. A `PROOF` result is not recorded: whoever
+    looks at the proof signs the result."""
+
     result: str
     detail: str
     proofs: tuple[str, ...] = ()
@@ -27,6 +33,7 @@ def _script(sandbox: Sandbox, name: str, *args: str) -> tuple[int, str]:
 
 
 def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
+    """Runs one check on `file` in the sandbox, without recording anything."""
     target = f"{JOB}/{file}"
     if check == "master_open":
         why = master.problem(sandbox, file)
@@ -35,39 +42,47 @@ def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
         code, output = _script(sandbox, check, target)
         return CheckOutcome("FAIL" if code else "PASS", clip(output, 1800))
     if check == "optical_check":
-        stem = Path(file).stem
-        proof = f"proofs/optical/{stem}.png"
-        inside(sandbox.work, proof).parent.mkdir(parents=True, exist_ok=True)
+        proof = f"proofs/optical/{_stem(file)}.png"
+        ensure_dir_under(sandbox.work, "proofs/optical")
         code, output = _script(sandbox, check, target, "--out", f"{JOB}/{proof}")
-        if code:  # una misura che non è riuscita non è una prova
+        if code:  # a measurement that failed is not a proof
             return CheckOutcome("FAIL", clip(output, 1800))
-        # È una misura: dice cosa c'è, non che vada bene.
+        # It is a measurement: it says what is there, not that it is right.
         return CheckOutcome("MEASURED", clip(output, 1800), (proof,))
     if check == "logo_proof":
-        folder = f"proofs/logo/{Path(file).stem}"
-        inside(sandbox.work, folder).mkdir(parents=True, exist_ok=True)
+        folder = f"proofs/logo/{_stem(file)}"
+        ensure_dir_under(sandbox.work, folder)
         code, output = _script(sandbox, check, "proof", target, "--out", f"{JOB}/{folder}")
         if code:
             return CheckOutcome("FAIL", clip(output, 1800))
-        found = sorted(
-            str(path.relative_to(sandbox.work)) for path in inside(sandbox.work, folder).glob("*.png")
-        )
-        # L'esito lo decide chi guarda il foglio: qui si produce soltanto la prova.
+        found = glob_under(sandbox.work, f"{glob.escape(folder)}/*.png")
+        # Whoever looks at the sheet decides the result: this only produces the proof.
         return CheckOutcome("PROOF", clip(output, 800), tuple(found))
-    raise ValueError(f"controllo non eseguibile: {check}")
+    raise ValueError(f"not a runnable check: {check}")
 
 
 def run(
-    sandbox: Sandbox, ledger: Ledger, project: str, ticket_id: str, actor: str, check: str, file: str
+    sandbox: Sandbox,
+    ledger: Ledger,
+    project: str,
+    ticket_id: str,
+    actor: str,
+    check: str,
+    file: str,
+    resume: Callable[[CheckOutcome], tuple[str, str, str, str]] | None = None,
 ) -> CheckOutcome:
+    """Runs a runnable check and records its proof, signed by `actor`.
+
+    `resume` makes the tool call's resume record from the outcome; it is written with the evidence row.
+    """
     if check not in RUNNABLE:
         raise evidence.EvidenceRefused(f"{check} non si esegue: usa observe, judge o record_requirement")
     evidence.guard(ledger, project, file, check, actor)
-    if not inside(sandbox.work, file).exists():
+    if not is_file_under(sandbox.work, file):
         raise evidence.EvidenceRefused(f"file inesistente: {file}")
     outcome = execute(sandbox, check, file)
     if outcome.proofs:
-        ledger.add_render(project, file, sha256(inside(sandbox.work, file)), outcome.proofs)
+        ledger.add_render(project, file, sha256_under(sandbox.work, file), outcome.proofs)
     if outcome.result != "PROOF":
         evidence.record(
             ledger,
@@ -80,5 +95,6 @@ def run(
             ticket_id,
             proof=outcome.proofs[0] if outcome.proofs else "",
             note=outcome.detail[:400],
+            operation=resume(outcome) if resume else None,
         )
     return outcome

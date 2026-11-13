@@ -1,4 +1,4 @@
-"""La vista Fasi: dalle idee alla consegna, dove il lavoro si è fermato o è tornato indietro."""
+"""The phases view: from the ideas to the delivery, where the work stopped or went back."""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def ticket(id_: str, type_: str, assignee: str, status: str, minute: int, prompt
 
 
 def event(seq: int, minute: int, ticket_id: str, actor: str, action: Lifecycle) -> EventRecord:
-    """Come lo legge il registro: il motivo c'è solo per un passo indietro."""
+    """As the registry reads it: the reason is there only for a step back."""
     reason = f"Motivo del passo {seq}" if action in SETBACKS else None
     return EventRecord(
         seq=seq,
@@ -125,9 +125,9 @@ def data(**extra: object) -> ProjectData:
 
 
 def test_phases_follow_the_work_from_the_first_call_and_a_ticket_belongs_to_the_phase_of_its_prompt() -> None:
-    """L'ordine è quello del lavoro, non del costo. La fase di un ticket è la regola del motore: il prompt,
-    poi il ruolo. Una fase senza chiamate, come un QA appena aperto, viene quando si apre il suo ticket. La
-    consegna al cliente non è una fase: è il progetto, e il suo stato sta nell'esito."""
+    """The order is the work's, not the cost's. A ticket's phase is the engine's rule: the prompt, then the
+    role. A phase without calls, like a QA just opened, comes when its ticket opens. The delivery to the
+    client is not a phase: it is the project, and its status is in the outcome."""
     report = flow.flow_report("officina", data())
     assert [(item.phase, item.started_at, item.tickets) for item in report.phases] == [
         ("director-plan", at(0), 0),
@@ -146,8 +146,8 @@ def test_a_delivery_without_calls_of_its_own_phase_adds_no_empty_phase() -> None
 
 
 def test_work_after_the_first_rework_is_redone_and_a_blocked_ticket_has_no_outcome() -> None:
-    """Il rimando del minuto 30: le due chiamate dopo sono lavoro rifatto. La revisione bloccata è costata
-    senza un esito. Il nome dell'istanza non conta: il direttore ne apre una nuova a ogni turno."""
+    """The rework at minute 30: the two calls after it are redone work. The blocked review cost money
+    without a result. The instance name does not matter: the director opens a new one at every turn."""
     report = flow.flow_report("officina", data())
     phases = {item.phase: item for item in report.phases}
     finisher, critic, director = phases["finisher"], phases["critic"], phases["design-director"]
@@ -172,7 +172,7 @@ def test_work_after_the_first_rework_is_redone_and_a_blocked_ticket_has_no_outco
 
 
 def test_redone_work_starts_at_the_first_rework_not_the_last() -> None:
-    """Due rimandi: è rifatto tutto ciò che viene dopo il primo, anche fra il primo e il secondo."""
+    """Two reworks: everything after the first one is redone, including what lies between the two."""
     tickets = [ticket("T-0004", "produzione", "identity-designer", "accepted", 0, "finisher")]
     calls = [
         call(1, 1, "T-0004", "identity-designer", "finisher", 1.0, "T-0004-a1"),
@@ -207,9 +207,19 @@ def test_setbacks_are_every_step_back_in_order_with_how_many_deliveries_came_bef
     assert report.setbacks[0].title == "Titolo T-0005"
 
 
+def test_tickets_and_unfinished_keep_the_incoming_order_past_ten_thousand() -> None:
+    tickets = [
+        ticket("T-9999", "qa", "critic", "open", 1),
+        ticket("T-10000", "qa", "critic", "open", 2),
+    ]
+    report = flow.flow_report("officina", data(tickets=tickets, calls=[], events=[]))
+    assert [item.id for item in report.tickets] == ["T-9999", "T-10000"]
+    assert report.outcome.unfinished == ["T-9999", "T-10000"]
+
+
 def test_the_outcome_says_where_the_project_stopped() -> None:
-    """La consegna al cliente è aperta; restano il QA appena aperto. Consegnato e accettato è finito, come
-    bloccato: il blocco sta fra i passi indietro."""
+    """The delivery to the client is open; what remains is the QA just opened. Delivered and accepted is
+    finished, and so is blocked: the block is among the steps back."""
     outcome = flow.flow_report("officina", data()).outcome
     assert (outcome.delivery_id, outcome.delivery_status) == ("T-0001", "open")
     assert outcome.unfinished == ["T-0006"]

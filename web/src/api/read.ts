@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { ApiError } from "./client";
 
 /**
- * Una lettura per una pagina. Un 404 è la pagina del progetto sconosciuto; ogni altro errore dell'API torna
- * indietro, perché la pagina dica cosa è successo. Un errore che non viene dall'API resta un errore.
+ * One read for a page. A 404 becomes the unknown-project page; every other API error comes back, so the page can
+ * say what happened. An error that does not come from the API stays an error.
  */
 export async function readForPage<T>(read: () => Promise<T>): Promise<T | ApiError> {
   try {

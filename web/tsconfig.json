@@ -13,10 +13,10 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noEmit": true,
-    // Le prove unitarie girano con node --test, che vuole l'estensione negli import.
+    // The unit tests run with node --test, which wants the extension in the imports.
     "allowImportingTsExtensions": true,
-    // I tipi di Next.js 16 usano URLPattern, che la libreria di TypeScript 5.9 non ha ancora: si saltano i .d.ts
-    // delle librerie, come fa Next.js. I tipi dell'API sono in src/api/schema.ts, quindi si controllano lo stesso.
+    // Next.js 16's types use URLPattern, which the TypeScript 5.9 library does not have yet: the libraries' .d.ts
+    // files are skipped, as Next.js does. The API types are in src/api/schema.ts, so they are checked anyway.
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,

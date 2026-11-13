@@ -1,4 +1,4 @@
-"""Tracce OpenTelemetry su file locale. I costi veri stanno nel registro, non qui."""
+"""OpenTelemetry traces in a local file. The real costs are in the registry, not here."""
 
 from agency.telemetry.setup import configure
 

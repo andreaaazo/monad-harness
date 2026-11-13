@@ -1,17 +1,17 @@
-"""Il processo dello studio: prima si cerca l'idea, poi si costruisce.
+"""The studio's process: first the idea is found, then it is built.
 
-dentro lo studio: esploratori che pensano disegnando, in parallelo → tavola anonima → primo sguardo del
-critico → scelta delle idee → proposte in parallelo
-davanti al cliente: presentazione → gate `concept` → rifinitura → revisioni → gate `final`
+inside the studio: explorers who think by drawing, in parallel → anonymous board → the critic's first
+look → choice of ideas → proposals in parallel
+in front of the client: presentation → `concept` gate → finishing → revisions → `final` gate
 
-Il grafo sa dove siamo; il registro sa cosa è successo. Alla ripresa un nodo si riesegue da capo: il
-lavoro già concluso non si ripete perché ogni istanza ha un nome stabile e una trascrizione propria.
+The graph knows where the work is; the registry knows what happened. On resume a node runs again from the
+start: finished work is not repeated, because each instance has a stable name and its own transcript.
 """
 
 from __future__ import annotations
 
 import json
-import shutil
+from pathlib import Path, PurePosixPath
 from typing import Any, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -21,24 +21,33 @@ from langgraph.types import Send, interrupt
 
 from agency.agents.loop import AgentRunner
 from agency.config import Settings
-from agency.contracts.concept import ConceptCard
+from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.gate import ConceptGate, Decision, FinalGate
 from agency.contracts.outcome import OutcomeState
-from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
+from agency.contracts.project import parse_project_name
+from agency.contracts.ticket import RUNNABLE, Action, Medium, Status, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.ledger.models import GateRow
 from agency.ledger.store import now
 from agency.qa import delivery
 from agency.tools import board, presentation
-from agency.tools.files import sha256
+from agency.tools.files import (
+    MAX_DOCUMENT_BYTES,
+    MAX_IMAGE_FILE_BYTES,
+    MAX_TEXT_FILE_BYTES,
+    ensure_dir_under,
+    read_under,
+    replace_under,
+    sha256_under,
+)
 from agency.tools.sandbox import Sandbox
 from agency.tools.surface import PresentConcepts, SelectConcepts
 
-RUNNABLE = (Status.OPEN, Status.REWORK)
-SKETCH_CHECKS = {"*.vectorcraft": ["master_open"], "*.png": ["visual_review"]}
-
 
 class ProjectState(TypedDict):
+    """The graph's state, kept in the checkpoint. Any `outcome` text ends the run; `route` is a node's choice
+    of the next one."""
+
     project: str
     root: str
     round: int
@@ -61,13 +70,22 @@ def _rework_note(ledger: Ledger, ticket: str) -> str:
 type Graph = CompiledStateGraph[ProjectState, None, ProjectState, ProjectState]
 
 
+def _copy(work: Path, source: str, target: str, limit: int) -> None:
+    """A copy inside the work folder: a sandbox may leave a link at either end, and none is followed.
+
+    The source is read whole, so a file over `limit` is refused."""
+    replace_under(work, target, read_under(work, source, limit))
+
+
 def build(
     runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer: BaseCheckpointSaver
 ) -> Graph:
-    def work_dir(project: str):
-        return settings.project_dir(project) / "work"
+    """The compiled studio graph. `checkpointer` keeps its state, so a run stopped at a gate resumes."""
 
-    # Esplorazione
+    def work_dir(project: str):
+        return settings.work_dir(parse_project_name(project))
+
+    # Exploration
 
     def plan(state: ProjectState) -> dict:
         turn = state["exploration"] + 1
@@ -92,7 +110,7 @@ def build(
         runner.run(state["ticket"], _attempt(ledger, state["ticket"]))
         return {}
 
-    # Scelta
+    # Selection
 
     def make_board(state: ProjectState) -> dict:
         project, turn = state["project"], state["exploration"]
@@ -111,7 +129,7 @@ def build(
                 ledger.apply(row.idea_ticket, Action.ACCEPT, "design-director", "passa alla tavola")
         folder = f"board/r{turn}"
         board.build(items, work / folder / "tavola.png")
-        shutil.copyfile(work / "brief.md", work / folder / "brief.md")
+        _copy(work, "brief.md", f"{folder}/brief.md", MAX_TEXT_FILE_BYTES)
         return {}
 
     def after_board(state: ProjectState) -> str:
@@ -144,7 +162,7 @@ def build(
         return {}
 
     def select(state: ProjectState) -> dict:
-        """La scelta tra gli schizzi è dello studio: il cliente non li vede mai."""
+        """The choice among the sketches is the studio's: the client never sees them."""
         project, turn = state["project"], state["exploration"]
         work = work_dir(project)
         lines = ["# Schede delle idee", ""]
@@ -154,12 +172,18 @@ def build(
                 lines += [f"## {row.anon}", card.concept, f"Fatto: {card.client_fact}", ""]
                 lines += [f"Non ovvia: {card.why_not_obvious}", f"Sostituzione: {card.substitution}", ""]
         folder = f"board/r{turn}"
-        (work / folder / "schede.md").write_text("\n".join(lines), encoding="utf-8")
-        (work / folder / "fogli").mkdir(exist_ok=True)
+        replace_under(work, f"{folder}/schede.md", "\n".join(lines).encode("utf-8"))
+        ensure_dir_under(work, f"{folder}/fogli")
         for row in ledger.concepts(project, turn):
-            sheet = work / f"explorations/r{turn}/{row.letter}/foglio-{row.letter}.png"
-            if row.anon and sheet.exists():
-                shutil.copyfile(sheet, work / folder / "fogli" / f"{row.anon}.png")
+            if not row.anon:
+                continue
+            try:  # a missing sheet is skipped; a link is refused, not followed
+                sheet = read_under(
+                    work, f"explorations/r{turn}/{row.letter}/foglio-{row.letter}.png", MAX_IMAGE_FILE_BYTES
+                )
+            except FileNotFoundError:
+                continue
+            replace_under(work, f"{folder}/fogli/{row.anon}.png", sheet)
         note = (
             f"Tavola: {folder}/tavola.png. Primo sguardo: {folder}/reviews/valutazione.json. "
             f"Critica: {folder}/reviews/selezione.md. Schede: {folder}/schede.md. "
@@ -177,7 +201,7 @@ def build(
             return {"route": "plan", "client_note": f"Le idee precedenti non reggono: {reasons}"}
         return {"route": END, "outcome": f"bloccato: {outcome.note[:300]}"}
 
-    # Proposte: le idee scelte diventano lavoro presentabile, nel loro contesto
+    # Proposals: the chosen ideas become presentable work, in their context
 
     def _proposal_tickets(state: ProjectState) -> list[str]:
         suffix = f"r{state['exploration']}"
@@ -192,21 +216,21 @@ def build(
         work = work_dir(project)
         existing = {ledger.spec(ticket).title for ticket in _proposal_tickets(state)}
         applications = json.loads(
-            (work / f"explorations/r{turn}/applicazioni.json").read_text(encoding="utf-8")
+            read_under(work, f"explorations/r{turn}/applicazioni.json", MAX_TEXT_FILE_BYTES).decode("utf-8")
         )
-        chosen = [row for row in ledger.concepts(project, turn) if row.status == "selezionata"]
+        chosen = [row for row in ledger.concepts(project, turn) if row.status == ConceptStatus.SELECTED]
         for row in sorted(chosen, key=lambda item: item.anon):
             title = f"Proposta {row.anon} r{turn}"
-            if title in existing:
+            if title in existing:  # a replay: the ticket was opened, the status may not have been set
+                ledger.update_concept(row.idea_ticket, status=ConceptStatus.IN_DEVELOPMENT)
                 continue
             letter = row.anon.lower()
             workspace = f"proposals/r{turn}/{letter}"
-            folder = work / workspace
-            folder.mkdir(parents=True, exist_ok=True)
-            source = work / f"explorations/r{turn}/{row.letter}"
-            shutil.copyfile(work / "brief.md", folder / "brief.md")
-            shutil.copyfile(source / "scheda.json", folder / "scheda.json")
-            shutil.copyfile(work / row.sketch_file, folder / "schizzo.png")
+            ensure_dir_under(work, workspace)
+            source = f"explorations/r{turn}/{row.letter}"
+            _copy(work, "brief.md", f"{workspace}/brief.md", MAX_TEXT_FILE_BYTES)
+            _copy(work, f"{source}/scheda.json", f"{workspace}/scheda.json", MAX_TEXT_FILE_BYTES)
+            _copy(work, row.sketch_file, f"{workspace}/schizzo.png", MAX_IMAGE_FILE_BYTES)
             names = "\n".join(f"- {item['name']}: {item['size']}" for item in applications)
             spec = TicketSpec(
                 title=title,
@@ -232,9 +256,9 @@ def build(
                 prompt="proposer",
                 effort=settings.proposal_effort,
             )
-            hashes = {path: sha256(folder / path) for path in spec.inputs}
+            hashes = {path: sha256_under(work, f"{workspace}/{path}") for path in spec.inputs}
             ledger.open(spec, project, hashes)
-            ledger.update_concept(row.idea_ticket, status="in-sviluppo")
+            ledger.update_concept(row.idea_ticket, status=ConceptStatus.IN_DEVELOPMENT)
         return {}
 
     def send_proposals(state: ProjectState) -> list[Send] | str:
@@ -257,8 +281,10 @@ def build(
             if ledger.status(ticket)[0] is not Status.ACCEPTED:
                 continue
             row = concepts[title]
-            ledger.update_concept(row.idea_ticket, status="proposta")
-            mark, applications = presentation.proposal_files(work_dir(project), turn, row.anon)
+            ledger.update_concept(row.idea_ticket, status=ConceptStatus.PROPOSAL)
+            mark, applications = presentation.proposal_files(
+                work_dir(project), turn, row.anon, ledger.delivered(ticket)
+            )
             view = f"proposals/r{turn}/insieme-{row.anon.lower()}.png"
             presentation.sheet(mark, applications, work_dir(project) / view)
             card = ConceptCard.model_validate_json(row.card_json)
@@ -269,13 +295,11 @@ def build(
                 f"Fatto: {card.client_fact}",
                 "",
             ]
-        ready = [row for row in ledger.concepts(project, turn) if row.status == "proposta"]
+        ready = [row for row in ledger.concepts(project, turn) if row.status == ConceptStatus.PROPOSAL]
         if not ready:
             return {"route": END, "outcome": "bloccato: nessuna proposta è stata sviluppata"}
         outcome = runner.run(root, turn, "\n".join(lines), mode="present")
-        if (
-            outcome.state is OutcomeState.PRESENTED
-        ):  # il PDF esiste già: il direttore ne ha guardato ogni pagina
+        if outcome.state is OutcomeState.PRESENTED:  # the PDF exists, and the director viewed every page
             return {"route": "concept_gate", "client_note": outcome.note}
         if outcome.state is OutcomeState.NO_CONCEPT:
             reasons = PresentConcepts.model_validate_json(outcome.note).reasons
@@ -285,10 +309,8 @@ def build(
     def concept_gate(state: ProjectState) -> dict:
         project, turn = state["project"], state["exploration"]
         selection = PresentConcepts.model_validate_json(state["client_note"])
-        if (
-            selection.recommended is None
-        ):  # draft_presentation non manda al cliente proposte senza raccomandazione
-            raise ValueError("presentazione senza raccomandazione: non si arriva al gate")
+        if selection.recommended is None:  # draft_presentation refuses a draft without a recommendation
+            raise ValueError("a presentation without a recommendation never reaches the gate")
         options = [item.letter for item in selection.proposals]
         file = presentation.pdf_of(turn)
         gate = ConceptGate(
@@ -299,7 +321,7 @@ def build(
             reasons=selection.reasons,
         )
         decision = Decision.model_validate(interrupt(gate.model_dump(mode="json")))
-        digest = {file: sha256(work_dir(project) / file)}
+        digest = {file: sha256_under(work_dir(project), file)}
         choice = decision.choice
         approved = decision.approved and choice in options
         recorded = {gate.files_json for gate in ledger.gates(project) if gate.gate == "concept"}
@@ -322,23 +344,24 @@ def build(
     def follow_route(state: ProjectState) -> str:
         return state["route"]
 
-    # Produzione
+    # Production
 
     def start_production(state: ProjectState) -> dict:
-        """Il finisher parte dalla proposta approvata: il suo master è già quello scelto dal cliente."""
+        """The finisher starts from the approved proposal: its master is already the one the client chose."""
         project, turn, root = state["project"], state["exploration"], state["root"]
         spec = ledger.spec(root)
         row = next(item for item in ledger.concepts(project, turn) if item.anon == state["chosen"])
-        ledger.update_concept(row.idea_ticket, status="scelta")
-        title = f"Rifinitura {row.anon} r{turn}"  # un concetto bocciato lascia il posto al nuovo
+        ledger.update_concept(row.idea_ticket, status=ConceptStatus.CHOSEN)
+        title = f"Rifinitura {row.anon} r{turn}"  # per round: a rejected concept makes way for the new one
         if any(ledger.spec(ticket).title == title for ticket in ledger.children(root)):
             return {"client_note": ""}
         letter = row.anon.lower()
         folder = f"proposals/r{turn}/{letter}"
         work = work_dir(project)
         target = next(path for path in spec.outputs if path.endswith(".vectorcraft"))
-        (work / target).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(work / folder / f"proposta-{letter}.vectorcraft", work / target)
+        if PurePosixPath(target).parent.parts:
+            ensure_dir_under(work, str(PurePosixPath(target).parent))
+        _copy(work, f"{folder}/proposta-{letter}.vectorcraft", target, MAX_DOCUMENT_BYTES)
         production = TicketSpec(
             title=title,
             request=f"{spec.request}\n\nCONCETTO SCELTO DAL CLIENTE\n{row.card_json}\n\n"
@@ -357,7 +380,7 @@ def build(
             parent=root,
             prompt="finisher",
         )
-        hashes = {path: sha256(work / path) for path in production.inputs}
+        hashes = {path: sha256_under(work, path) for path in production.inputs}
         ledger.open(production, project, hashes)
         return {"client_note": ""}
 
@@ -365,7 +388,7 @@ def build(
         root, turn = state["root"], state["round"] + 1
         status, _ = ledger.status(root)
         if status in RUNNABLE:
-            # Ogni turno del direttore è una nuova istanza: nessuno resta fermo ad aspettare.
+            # Each of the director's turns is a new instance: nobody sits waiting.
             outcome = runner.run(root, turn, state["client_note"])
             if outcome.state is OutcomeState.BLOCKED:
                 return {"round": turn, "outcome": f"bloccato: {outcome.note}"}

@@ -1,1 +1,1 @@
-"""Gli adattatori di insights: registro in sola lettura, tracce JSONL, proiezione SQLite."""
+"""The insights adapters: read-only registry, JSONL traces, JSONL transcripts, SQLite projection."""

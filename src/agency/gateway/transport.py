@@ -1,11 +1,9 @@
-"""Trasporti verso il modello. Il gateway non sa se parla con l'API o con una risposta registrata."""
+"""Transports to the model. The gateway does not know whether it talks to the API or to a recorded answer."""
 
 from __future__ import annotations
 
-import json
 import time
-from collections.abc import Callable, Iterable
-from pathlib import Path
+from collections.abc import Callable
 from typing import Protocol
 
 import anthropic
@@ -14,7 +12,7 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
 class Transport(Protocol):
-    """`stream` restituisce il messaggio come dict, più `_request_id` e, se misurato, `_ttft_ms`."""
+    """`stream` returns the message as a dict, plus `_request_id` and, when measured, `_ttft_ms`."""
 
     def count_tokens(self, params: dict) -> int: ...
 
@@ -22,7 +20,7 @@ class Transport(Protocol):
 
 
 class AnthropicTransport:
-    """L'unica classe che apre una connessione verso l'API."""
+    """The only class that opens a connection to the API."""
 
     def __init__(
         self,
@@ -38,7 +36,7 @@ class AnthropicTransport:
         return self.client.messages.count_tokens(**fields).input_tokens
 
     def stream(self, params: dict) -> dict:
-        """Il TTFT si conta fino al primo `content_block_delta`, come nelle tracce dell'SDK."""
+        """TTFT is measured up to the first `content_block_delta`, as in the SDK's traces."""
         started = self.clock()
         first: float | None = None
         with self.client.beta.messages.stream(**params, betas=[FALLBACK_BETA], fallbacks="default") as stream:
@@ -51,45 +49,3 @@ class AnthropicTransport:
         data["_request_id"] = request_id
         data["_ttft_ms"] = round((first - started) * 1000) if first is not None else None
         return data
-
-
-class ScriptedTransport:
-    """Risposte preparate o registrate: i test non spendono."""
-
-    def __init__(self, responses: Iterable[dict], tokens: int = 1000) -> None:
-        self.responses = list(responses)
-        self.tokens = tokens
-        self.requests: list[dict] = []
-
-    def count_tokens(self, params: dict) -> int:
-        return self.tokens
-
-    def stream(self, params: dict) -> dict:
-        self.requests.append(json.loads(json.dumps(params)))
-        if not self.responses:
-            raise AssertionError("risposte registrate esaurite")
-        return self.responses.pop(0)
-
-    @classmethod
-    def from_cassette(cls, path: Path) -> ScriptedTransport:
-        lines = path.read_text(encoding="utf-8").splitlines()
-        return cls(json.loads(line)["response"] for line in lines if line.strip())
-
-
-class RecordingTransport:
-    """Avvolge un trasporto reale e salva ogni scambio, per ripeterlo poi nei test."""
-
-    def __init__(self, inner: Transport, path: Path) -> None:
-        self.inner = inner
-        self.path = path
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-    def count_tokens(self, params: dict) -> int:
-        return self.inner.count_tokens(params)
-
-    def stream(self, params: dict) -> dict:
-        response = self.inner.stream(params)
-        record = {"model": params.get("model"), "response": response}
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-        return response

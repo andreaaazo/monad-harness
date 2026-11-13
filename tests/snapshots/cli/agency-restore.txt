@@ -1,0 +1,8 @@
+usage: agency restore [-h] hash destination
+
+positional arguments:
+  hash         lo sha256, o le sue prime cifre (almeno 8)
+  destination  il file da creare: se esiste già, non si tocca
+
+options:
+  -h, --help   show this help message and exit

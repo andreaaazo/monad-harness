@@ -1,13 +1,13 @@
-"""La vista Replay: un'istanza turno per turno, con le misure di ogni chiamata e le risposte scartate.
+"""The replay view: an instance turn by turn, with each call's measures and the discarded answers.
 
-La trascrizione dice cosa ha scritto il modello e cosa gli hanno risposto gli strumenti; `usage` dice quanto è
-costata ogni chiamata. Si legano per `request_id`, che il motore scrive accanto a ogni risposta dalle
-trascrizioni di M1.6. Per quelle di prima si legano per ordine: il ciclo dell'agente non mette in
-trascrizione una risposta troncata (`max_tokens`), che richiede, né un rifiuto (`refusal`), dopo cui blocca
-il ticket (agents/loop.py). Tolte quelle, ogni chiamata è un turno; se i conti non tornano, nessun turno
-prende le misure di un altro.
+The transcript says what the model wrote and what the tools answered; `usage` says what each call cost.
+They are matched by `request_id`, which the engine writes next to every answer in transcripts from M1.6 on.
+Older ones are matched by order: the agent loop keeps out of the transcript a truncated answer
+(`max_tokens`), which it asks for again, and a refusal (`refusal`), after which it blocks the ticket
+(agents/loop.py). With those removed, each call is a turn; if the counts differ, no turn takes another's
+measures.
 
-Una chiamata senza turno si mostra dove è avvenuta: prima del turno che la segue, o in fondo.
+A call without a turn is shown where it happened: before the turn that follows it, or at the end.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ class _View(BaseModel):
 
 
 class Alignment(StrEnum):
-    """Come si sono legati turni e chiamate."""
+    """How turns and calls were matched."""
 
     BY_REQUEST = "per richiesta"
     BY_ORDER = "per ordine"
@@ -35,7 +35,7 @@ class Alignment(StrEnum):
 
 
 class Measured(_View):
-    """Una chiamata: quanto è costata, quanto contesto ha letto, quanto ha aspettato, perché si è fermata."""
+    """One call: what it cost, how much context it read, how long it waited, why it stopped."""
 
     seq: int
     cost_usd: float
@@ -58,8 +58,8 @@ class ReplayTool(_View):
 
 
 class ReplayTurn(_View):
-    """Un turno: la chiamata che lo ha prodotto, quelle scartate prima, ciò che il modello ha pensato,
-    scritto e chiesto, e i messaggi dell'harness che lo seguono."""
+    """One turn: the call that produced it, the ones discarded before it, what the model thought, wrote and
+    asked for, and the harness messages that follow it."""
 
     number: int
     measured: Measured | None
@@ -104,7 +104,7 @@ def _measured(call: Call) -> Measured:
 
 
 def _match(record: TranscriptRecord, calls: list[Call]) -> tuple[Alignment, list[Call | None]]:
-    """La chiamata di ogni turno, o None."""
+    """Each turn's call, or None."""
     ids = [turn.request_id for turn in record.turns]
     if any(ids):
         by_id = {call.request_id: call for call in calls}
@@ -119,7 +119,7 @@ def replay_report(record: TranscriptRecord, calls: list[Call]) -> ReplayReport:
     calls = sorted(calls, key=lambda call: call.seq)
     alignment, matched = _match(record, calls)
     used = {call.seq for call in matched if call is not None}
-    # Le chiamate senza turno, ognuna davanti al primo turno che viene dopo di lei.
+    # The calls without a turn, each placed before the first turn that comes after it.
     waiting = [call for call in calls if call.seq not in used] if alignment is not Alignment.NONE else []
     turns: list[ReplayTurn] = []
     for number, (turn, call) in enumerate(zip(record.turns, matched, strict=True), start=1):

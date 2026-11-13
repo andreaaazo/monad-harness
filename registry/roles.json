@@ -2,55 +2,55 @@
   "$comment": "Ruoli dello studio. model ed effort sono valori di partenza, da tarare con le valutazioni (docs/05-COSTS.md). craft: applicazioni che il ruolo può usare. direction-d e direction-e non esistono nel setup precedente: servono alle 5 direzioni interne (ADR-0013).",
   "roles": {
     "router": {
-      "department": "direzione",
+      "tools": "router",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": []
     },
     "art-director": {
-      "department": "creativo",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": []
     },
     "brand-strategist": {
-      "department": "strategia",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "medium",
       "craft": []
     },
     "copywriter": {
-      "department": "strategia",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "medium",
       "craft": []
     },
     "creative-director": {
-      "department": "creativo",
+      "tools": "director",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": []
     },
     "critic": {
-      "department": "creativo",
+      "tools": "reviewer",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": []
     },
     "design-director": {
-      "department": "design",
+      "tools": "director",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": []
     },
     "digital-director": {
-      "department": "digitale",
+      "tools": "director",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": []
     },
     "direction-a": {
-      "department": "creativo",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": [
@@ -61,7 +61,7 @@
       ]
     },
     "direction-b": {
-      "department": "creativo",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": [
@@ -72,7 +72,7 @@
       ]
     },
     "direction-c": {
-      "department": "creativo",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": [
@@ -83,7 +83,7 @@
       ]
     },
     "editorial-designer": {
-      "department": "design",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "medium",
       "craft": [
@@ -93,7 +93,7 @@
       ]
     },
     "identity-designer": {
-      "department": "design",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": [
@@ -103,7 +103,7 @@
       ]
     },
     "illustrator": {
-      "department": "design",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "medium",
       "craft": [
@@ -113,13 +113,13 @@
       ]
     },
     "legal-reviewer": {
-      "department": "produzione",
+      "tools": "reviewer",
       "model": "claude-sonnet-5-5",
       "effort": "medium",
       "craft": []
     },
     "mockup-artist": {
-      "department": "design",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "medium",
       "craft": [
@@ -129,7 +129,7 @@
       ]
     },
     "motion-designer": {
-      "department": "design",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "medium",
       "craft": [
@@ -139,7 +139,7 @@
       ]
     },
     "packaging-designer": {
-      "department": "design",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "medium",
       "craft": [
@@ -149,37 +149,37 @@
       ]
     },
     "production-director": {
-      "department": "produzione",
+      "tools": "director",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": []
     },
     "production-manager": {
-      "department": "produzione",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "medium",
       "craft": []
     },
     "qa-inspector": {
-      "department": "produzione",
+      "tools": "reviewer",
       "model": "claude-sonnet-5-5",
       "effort": "medium",
       "craft": []
     },
     "researcher": {
-      "department": "strategia",
+      "tools": "author",
       "model": "claude-sonnet-5-5",
       "effort": "medium",
       "craft": []
     },
     "strategy-director": {
-      "department": "strategia",
+      "tools": "director",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": []
     },
     "typographer": {
-      "department": "design",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "medium",
       "craft": [
@@ -189,7 +189,7 @@
       ]
     },
     "ui-designer": {
-      "department": "digitale",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "medium",
       "craft": [
@@ -198,7 +198,7 @@
       ]
     },
     "ux-designer": {
-      "department": "digitale",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "medium",
       "craft": [
@@ -207,7 +207,7 @@
       ]
     },
     "direction-d": {
-      "department": "creativo",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": [
@@ -218,7 +218,7 @@
       ]
     },
     "direction-e": {
-      "department": "creativo",
+      "tools": "author",
       "model": "claude-opus-5-5",
       "effort": "high",
       "craft": [

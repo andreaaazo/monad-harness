@@ -1,12 +1,11 @@
-"""Prende l'impronta di un'esecuzione dai file del repository e dalle CLI installate.
+"""Takes a run's fingerprint from the repository's files and the installed CLIs.
 
-Le CLI si interrogano solo con `--version`, come fa già l'indice dei comandi Craft: sono quelle di
-`docs/04-TOOLS.md`, mai programmi sconosciuti. Ricevono solo `PATH`: la chiave API non esce dal gateway.
+The CLIs are asked only for `--version`, as the Craft command index already does: they are the ones in
+`docs/04-TOOLS.md`, never unknown programs. They receive only `PATH`: the API key never leaves the gateway.
 """
 
 from __future__ import annotations
 
-import hashlib
 import os
 import platform
 import shutil
@@ -15,6 +14,7 @@ from functools import cache
 from pathlib import Path
 
 from agency.config import REPO_ROOT, Settings
+from agency.contracts.files import file_sha256
 from agency.contracts.run import Fingerprint
 
 TOOLS = ("vectorcraft-cli", "effectcraft-cli", "photocraft-cli", "figcraft-cli", "blender")
@@ -23,7 +23,7 @@ VERSION_SECONDS = 30
 
 @cache
 def version(binary: str) -> str:
-    """La prima riga di `--version`. Una CLI non cambia mentre il processo lavora: si chiede una volta."""
+    """The first line of `--version`. A CLI does not change while the process works, so it is asked once."""
     if shutil.which(binary) is None:
         return "assente"
     try:
@@ -45,11 +45,7 @@ def _hashes(root: Path, folder: str) -> dict[str, str]:
     files = sorted(
         path for path in (root / folder).rglob("*") if path.is_file() and "__pycache__" not in path.parts
     )
-    return {path.relative_to(root).as_posix(): _sha256(path) for path in files}
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return {path.relative_to(root).as_posix(): file_sha256(path) for path in files}
 
 
 def take(
@@ -59,7 +55,7 @@ def take(
     root: Path = REPO_ROOT,
     tools: tuple[str, ...] = TOOLS,
 ) -> Fingerprint:
-    """`model` ed `effort` sono le scelte del cliente, salvate nel progetto."""
+    """`model` and `effort` are the client's choices, saved with the project."""
     return Fingerprint(
         model=model,
         effort=effort,
@@ -70,7 +66,7 @@ def take(
         prompts=_hashes(root, "prompts"),
         registry=_hashes(root, "registry"),
         code=_hashes(root, "src/agency"),
-        lock=_sha256(root / "uv.lock"),
+        lock=file_sha256(root / "uv.lock"),
         python=platform.python_version(),
         tools={binary: version(binary) for binary in tools},
     )

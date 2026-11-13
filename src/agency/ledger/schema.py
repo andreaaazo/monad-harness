@@ -1,9 +1,9 @@
-"""Lo schema del registro: nasce dalle migrazioni e si aggiorna solo su richiesta (ADR-0022).
+"""The registry schema: it comes from the migrations and is updated only on request (ADR-0022, ADR-0025).
 
-Un registro nuovo si crea da solo. Uno esistente non si tocca mai aprendolo: aggiornarlo è un'azione
-esplicita, che fa prima una copia e lavora in una sola transazione. Alembic su SQLite non è transazionale
-di suo: lo diventa perché riceve una connessione con la transazione già aperta, e il commit avviene qui,
-solo a catena verificata.
+A new registry creates itself. An existing one is never touched when it is opened: updating it is an
+explicit action, which first makes a copy and works in a single transaction. Alembic on SQLite is not
+transactional on its own: it becomes so because it receives a connection whose transaction is already open,
+and the commit happens here, only once the chain is verified.
 """
 
 from __future__ import annotations
@@ -25,24 +25,29 @@ from agency.ledger import chain
 MIGRATIONS = Path(__file__).parent / "migrations"
 BASELINE = "0001"
 BUSY_SECONDS = 30
-EVENTS = "SELECT ticket_id, at, actor, action, note, prev_hash, hash FROM events ORDER BY seq"
+EVENTS = (
+    "SELECT ticket_id, at, actor, action, note, prev_hash, hash, version, payload_json"
+    " FROM events ORDER BY seq"
+)
 CATALOG = "SELECT type, name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
 
 
 class LedgerOutdated(Exception):
-    """Il registro non è alla revisione del codice: si aggiorna con `agency migrate`."""
+    """The registry is not at the code's revision: `agency migrate` updates it."""
 
 
 class LedgerMismatch(Exception):
-    """Lo schema non è quello atteso: non si adotta un registro che non si riconosce."""
+    """The schema is not the expected one: a registry that is not recognised is not adopted."""
 
 
 class ChainBroken(Exception):
-    """La catena di hash non regge: la migrazione non si conferma."""
+    """The hash chain does not hold: the migration is not committed."""
 
 
 @dataclass(frozen=True)
 class Migration:
+    """A finished `migrate`: the revision reached, and the backup made first (None if nothing changed)."""
+
     revision: str
     backup: Path | None
 
@@ -55,35 +60,38 @@ def _config(connection: Connection | None = None) -> Config:
 
 
 def head() -> str:
+    """The revision of the latest migration: the one the code wants."""
     revision = ScriptDirectory.from_config(_config()).get_current_head()
     if revision is None:
-        raise RuntimeError("nessuna migrazione trovata")
+        raise RuntimeError("no migration found")
     return revision
 
 
 def revision_of(connection: Connection) -> str | None:
+    """The registry's Alembic revision, or None for a registry from before the migrations."""
     return MigrationContext.configure(connection).get_current_revision()
 
 
 def objects(connection: Connection) -> dict[tuple[str, str], str]:
-    """Tabelle, indici e trigger, con gli spazi normalizzati: `alembic_version` è di Alembic."""
+    """Tables, indexes and triggers, whitespace normalised; `alembic_version` belongs to Alembic."""
     rows = connection.exec_driver_sql(CATALOG)
     return {(kind, name): " ".join(sql.split()) for kind, name, sql in rows if name != "alembic_version"}
 
 
 def baseline() -> dict[tuple[str, str], str]:
-    """Lo schema di partenza, ricavato dalla sua migrazione su un database vuoto."""
+    """The starting schema, derived from its migration on an empty database."""
     with create_engine("sqlite://").begin() as connection:
         command.upgrade(_config(connection), BASELINE)
         return objects(connection)
 
 
 def ensure_current(engine: Engine) -> None:
+    """Creates an empty registry at the head; an existing one at another revision raises `LedgerOutdated`."""
     with engine.connect() as connection:
         if revision_of(connection) == head():
             return
     with engine.begin() as connection:
-        connection.exec_driver_sql("BEGIN IMMEDIATE")  # due processi possono aprire il registro insieme
+        connection.exec_driver_sql("BEGIN IMMEDIATE")  # two processes can open the registry at the same time
         found = revision_of(connection)
         if not objects(connection):
             command.upgrade(_config(connection), "head")
@@ -110,6 +118,8 @@ def _backup(path: Path, revision: str | None) -> Path:
 
 
 def migrate(path: Path) -> Migration:
+    """Brings the registry to the head: a backup first, then one transaction, committed only if the chain
+    holds. A registry from before Alembic is adopted only if its schema is the baseline's."""
     engine = create_engine(f"sqlite:///{path}", connect_args={"timeout": BUSY_SECONDS})
     try:
         with engine.connect() as connection:

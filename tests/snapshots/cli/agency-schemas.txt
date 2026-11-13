@@ -1,0 +1,11 @@
+usage: agency-schemas [-h] [--output OUTPUT] [--check]
+
+Lo schema OpenAPI del cruscotto, generato dai modelli di insights: `uv run agency-schemas`
+(ADR-0022). Si versiona in `schemas/openapi.json`, e da lì nascono i tipi TypeScript
+dell'interfaccia. Le chiavi sono in ordine e il file finisce con un a capo: due generazioni uguali
+danno lo stesso file, e il diff si legge.
+
+options:
+  -h, --help       show this help message and exit
+  --output OUTPUT
+  --check          non scrive: fallisce se non è allineato

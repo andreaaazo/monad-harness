@@ -1,4 +1,4 @@
-"""L'impronta di un file sorgente: nome, dimensione e ora di modifica. Basta a capire se è cambiato."""
+"""A source file's stamp: name, size and modification time. Enough to tell whether it changed."""
 
 from __future__ import annotations
 

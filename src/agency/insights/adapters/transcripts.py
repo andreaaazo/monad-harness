@@ -1,9 +1,9 @@
-"""Le trascrizioni delle istanze, nei percorsi di `DataLayout`: in sola lettura.
+"""The instances' transcripts, at the `DataLayout` paths: read-only.
 
-Per la proiezione se ne leggono solo gli strumenti usati e i loro rifiuti (ADR-0036). Per il Replay si legge
-un'istanza intera quando la si apre, e niente se ne copia (ADR-0038). Le righe sono messaggi dell'API
-Messages: il modello chiede uno strumento con `tool_use`, l'harness risponde con `tool_result`, e `is_error`
-dice che lo strumento ha detto no. Una riga tagliata da un motore che sta scrivendo si conta e si salta.
+For the projection only the tools used and their refusals are read (ADR-0036). For the replay view a whole
+instance is read when it is opened, and nothing is copied from it (ADR-0038). The lines are Messages API
+messages: the model asks for a tool with `tool_use`, the harness answers with `tool_result`, and `is_error`
+says the tool said no. A line cut short by an engine that is still writing is counted and skipped.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from pathlib import Path
 
 from agency.contracts import phase
 from agency.contracts.layout import DataLayout
+from agency.contracts.project import parse_project_name
 from agency.insights.domain import (
     AssistantTurn,
     ImageRef,
@@ -27,15 +28,15 @@ from agency.insights.domain import (
 )
 from agency.insights.ports import TranscriptReading
 
-# Quanto di un rifiuto si tiene nella proiezione. Il motivo sta in testa ("consegna rifiutata: …") o,
-# nell'uscita di un programma come craft_run, in fondo: di un testo lungo restano l'inizio e la fine.
+# How much of a refusal the projection keeps. The reason is at the start ("consegna rifiutata: …") or, in
+# the output of a program such as craft_run, at the end: a long text keeps its start and its end.
 REFUSAL_CHARS = 2000
 HEAD = 1200
-# Nel Replay un risultato si legge quasi intero: si accorcia solo l'uscita lunghissima di un programma.
+# In the replay view a result reads almost whole: only a program's very long output is shortened.
 RESULT_CHARS = 20000
 RESULT_HEAD = 12000
 CUT = "\n[…]\n"
-# Le immagini che il cruscotto serve: niente SVG, che può contenere script.
+# The images the dashboard serves: no SVG, which can hold scripts.
 IMAGE_TYPES = frozenset({"image/png", "image/jpeg", "image/gif", "image/webp"})
 
 
@@ -62,12 +63,14 @@ def _blocks(message: object) -> list[dict]:
 
 
 def _pictures(content: object) -> Iterator[dict]:
-    """Le immagini di un risultato, in ordine: la loro posizione le numera in tutta la trascrizione."""
+    """A result's images, in order: their position numbers them across the whole transcript."""
     if isinstance(content, list):
         yield from (part for part in content if isinstance(part, dict) and part.get("type") == "image")
 
 
 class JsonlTranscripts:
+    """The `TranscriptReader` on the JSONL files under `DataLayout.transcripts`."""
+
     def __init__(self, layout: DataLayout) -> None:
         self.layout = layout
         self.root = layout.transcripts
@@ -76,10 +79,14 @@ class JsonlTranscripts:
         return sorted(self.root.glob("*/*.jsonl")) if self.root.is_dir() else []
 
     def _path(self, project: str, instance: str) -> Path | None:
-        """Il file di un'istanza: solo per un nome d'istanza, e solo dentro la cartella delle trascrizioni."""
+        """An instance's file: only for an instance name, and only inside the transcripts folder."""
         if phase.INSTANCE.fullmatch(instance) is None:
             return None
-        path = self.layout.transcript(project, instance).resolve()
+        try:
+            name = parse_project_name(project)
+        except ValueError:
+            return None
+        path = self.layout.transcript(name, instance).resolve()
         if not path.is_relative_to(self.root.resolve()) or not path.is_file():
             return None
         return path
@@ -87,12 +94,12 @@ class JsonlTranscripts:
     @staticmethod
     def _entries(path: Path) -> tuple[list[dict], int]:
         entries, unreadable = [], 0
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in path.read_bytes().splitlines():
             if not line.strip():
                 continue
             try:
-                entry = json.loads(line)
-            except ValueError:
+                entry = json.loads(line.decode("utf-8"))
+            except ValueError:  # UnicodeDecodeError is a ValueError: a torn line is counted, not fatal
                 unreadable += 1
                 continue
             if isinstance(entry, dict):
@@ -117,9 +124,8 @@ class JsonlTranscripts:
             entries, broken = self._entries(path)
             unreadable += broken
             turn = 0
-            asked: dict[
-                str, tuple[int, str]
-            ] = {}  # tool_use_id -> (turno, strumento), in attesa della risposta
+            # tool_use_id -> (turn, tool), until its answer arrives
+            asked: dict[str, tuple[int, str]] = {}
             answers: dict[str, str | None] = {}
             order: list[str] = []
             for entry in entries:
@@ -156,7 +162,7 @@ class JsonlTranscripts:
         entries, unreadable = self._entries(path)
         task: list[str] = []
         turns: list[dict] = []
-        tools: dict[str, dict] = {}  # tool_use_id -> lo scambio, finché arriva la risposta
+        tools: dict[str, dict] = {}  # tool_use_id -> the exchange, until its answer arrives
         outcome: dict = {}
         images = 0
         for entry in entries:

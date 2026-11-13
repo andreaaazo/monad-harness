@@ -1,4 +1,4 @@
-"""Le tracce restano sulla macchina e non contengono testo dei materiali."""
+"""The traces stay on this machine and hold no text from the client's materials."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, Sp
 
 
 class JsonlExporter(SpanExporter):
+    """Appends each finished span to the file as one JSON line: name, start, end, trace id and attributes."""
+
     def __init__(self, path: Path) -> None:
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -34,6 +36,7 @@ _configured = False
 
 
 def configure(traces: Path) -> None:
+    """Installs the JSONL exporter once per process; a later call does nothing."""
     global _configured
     if _configured:
         return

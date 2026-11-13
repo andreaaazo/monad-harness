@@ -1,4 +1,4 @@
-"""Le URL del server: solo l'API, sotto /api/."""
+"""The server's URLs: only the API, under /api/."""
 
 from __future__ import annotations
 

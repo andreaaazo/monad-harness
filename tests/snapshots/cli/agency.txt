@@ -1,0 +1,24 @@
+usage: agency [-h]
+              {doctor,verify,migrate,run,resume,decide,budget,report,runs,compare,judge,artifacts,restore,insights} ...
+
+Comandi dell'harness.
+
+positional arguments:
+  {doctor,verify,migrate,run,resume,decide,budget,report,runs,compare,judge,artifacts,restore,insights}
+    doctor              controlla strumenti e configurazione
+    verify              verifica la catena di hash del registro
+    migrate             aggiorna il registro, dopo averne fatto una copia
+    run                 esegue un brief di logo fino al gate del cliente
+    resume              riprende un progetto interrotto
+    decide              registra la decisione del cliente al gate
+    budget              cambia il tetto di spesa di un progetto
+    report              costi, fasi e stato di un progetto
+    runs                le esecuzioni di un progetto e cosa è cambiato dall'una all'altra
+    compare             cosa cambia tra due esecuzioni, anche di progetti diversi
+    judge               giudizio alla cieca: file anonimi, poi il voto, poi l'origine
+    artifacts           le versioni conservate di un progetto, con il loro hash
+    restore             riporta una versione conservata in un file nuovo
+    insights            rigenera la proiezione per report e cruscotto, senza scrivere il registro
+
+options:
+  -h, --help            show this help message and exit

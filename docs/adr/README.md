@@ -5,16 +5,16 @@ vecchio. Date: 2026-10-31.
 
 | ADR | Decisione | Stato |
 |---|---|---|
-| [0001](0001-registro-sqlite.md) | Registro su SQLite + SQLModel, niente Kitsu | Accettata, da rivedere prima di M7 (0023) |
+| [0001](0001-registro-sqlite.md) | Registro su SQLite + SQLModel, niente Kitsu | Accettata, da rivedere prima di M7 (0023); la catena copre verdetti e consegne (0047) |
 | [0002](0002-langgraph-processo.md) | LangGraph solo per il processo | Accettata |
 | [0003](0003-loop-proprio.md) | Loop proprio sulla Messages API, niente smolagents | Accettata |
 | [0004](0004-indice-comandi.md) | Tre strumenti e un indice per i comandi Craft | Accettata |
-| [0005](0005-sandbox-bwrap.md) | Sandbox `bwrap` e istanze per lavoro | Accettata |
+| [0005](0005-sandbox-bwrap.md) | Sandbox `bwrap` e istanze per lavoro | Accettata; i file dell'harness stanno fuori da `/job` (0044); i limiti di risorse in 0046 |
 | [0006](0006-niente-litellm.md) | Anthropic diretto, niente LiteLLM | Accettata |
 | [0007](0007-openusd-rimandato.md) | Master nativi, OpenUSD rimandato | Accettata |
 | [0008](0008-dspy-separato.md) | DSPy tardi e in ambiente separato | Accettata |
 | [0009](0009-comfyui-limitato.md) | ComfyUI solo per esplorazione e texture | Accettata, rivedibile |
-| [0010](0010-osservabilita.md) | OpenTelemetry subito, Langfuse self-hosted | Accettata, cruscotto anticipato da 0019 |
+| [0010](0010-osservabilita.md) | OpenTelemetry subito, Langfuse self-hosted | Accettata, cruscotto anticipato da 0019; il pacchetto `langfuse` non è più un extra: si dichiara con M4 |
 | [0011](0011-esplorazione-a-schizzi.md) | Esplorazione a schizzi prima della produzione | Accettata, gate cambiato da 0012, istanze da 0014 |
 | [0012](0012-il-cliente-vede-proposte.md) | Il cliente vede proposte, non schizzi | Accettata |
 | [0013](0013-cinque-direzioni-interne.md) | Cinque direzioni interne | Accettata |
@@ -43,8 +43,19 @@ vecchio. Date: 2026-10-31.
 | [0036](0036-la-vista-strumenti-e-qa.md) | La vista Strumenti e QA | Accettata |
 | [0037](0037-la-vista-confronto.md) | La vista Confronto | Accettata |
 | [0038](0038-la-vista-replay.md) | La vista Replay | Accettata, rovescia le trascrizioni nella proiezione di 0029 |
-| [0039](0039-taskfile-come-ingresso-unico.md) | Taskfile come ingresso unico | Accettata |
-| [0040](0040-il-cruscotto-in-docker.md) | Il cruscotto in Docker | Accettata |
+| [0039](0039-taskfile-come-ingresso-unico.md) | Taskfile come ingresso unico | Accettata; `check` comincia con i controlli veloci dell'hook (0051) |
+| [0040](0040-il-cruscotto-in-docker.md) | Il cruscotto in Docker | Accettata, il nome della variabile dell'host passa a 0045 |
 | [0041](0041-la-tavola-del-giudizio.md) | La tavola del giudizio e il migliore coerente | Accettata, aggiunge a 0027 |
 | [0042](0042-il-riferimento-di-qualita-e-merlo3.md) | Il riferimento di qualità di E1 è `merlo3` | Accettata, sostituisce `merlo` in `07-EVALS.md` |
 | [0043](0043-il-tetto-si-dichiara-all-avvio.md) | Il tetto di spesa si dichiara all'avvio | Accettata, toglie il budget di default a 0015 |
+| [0044](0044-i-file-dell-harness-fuori-dalla-sandbox.md) | I file dell'harness fuori dalla sandbox | Accettata, estende 0005 |
+| [0045](0045-una-radice-dei-dati-e-env-solo-per-i-segreti.md) | Una radice dei dati, e `.env` solo per i segreti | Accettata, si attua in tre passi (Task 2.15–2.17 di `docs/audit/PLAN.md`) |
+| [0046](0046-i-limiti-della-sandbox.md) | I limiti della sandbox | Accettata, estende 0005: tetto di memoria e di task in uno scope cgroup |
+| [0047](0047-la-catena-copre-verdetti-e-consegne.md) | La catena copre verdetti e consegne | Accettata, estende 0001: eventi di versione 2 e `agency verify` che rifà il conto |
+| [0048](0048-le-esecuzioni-si-registrano-e-si-ripetono.md) | Le esecuzioni si registrano e si ripetono | Accettata, sostituisce il registratore di M1: chiave per richiesta, `--record`, ripetizione nei test |
+| [0049](0049-la-catena-copre-cio-che-decide-la-consegna.md) | La catena copre ciò che decide la consegna | Accettata, estende 0047: contratto dei ticket, idee, gate e prove legati nella catena; il progetto del ticket in 0053 |
+| [0050](0050-la-catena-copre-anche-i-costi.md) | La catena copre anche i costi | Accettata, estende 0049: chiamate pagate e progetti legati nella catena, `operations` solo in aggiunta |
+| [0051](0051-il-controllo-gira-da-solo.md) | Il controllo gira da solo | Accettata, estende 0039: hook pre-commit con `task check:fast`, `task check:clean` sull'indice, CI con il remoto |
+| [0052](0052-le-dipendenze-le-dichiara-il-codice-che-le-importa.md) | Le dipendenze le dichiara il codice che le importa | Accettata: `sqlalchemy`, `langchain-core` e `httpx2` dichiarati, `tests/test_dependencies.py` lo controlla |
+| [0053](0053-la-catena-lega-il-progetto-di-ogni-ticket.md) | La catena lega il progetto di ogni ticket | Accettata, estende 0049: il progetto di ogni ticket legato nella catena, migrazione 0009; ogni evento confrontato in 0054 |
+| [0054](0054-agency-verify-confronta-il-progetto-di-ogni-evento.md) | `agency verify` confronta il progetto di ogni evento | Accettata, estende 0053: il progetto di ogni evento di versione 2 del ticket, non solo dell'ultimo |

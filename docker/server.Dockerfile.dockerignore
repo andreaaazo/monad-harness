@@ -1,5 +1,5 @@
-# Il contesto è la radice del repo, che contiene .env, il registro in .data e i progetti del cliente. Entra solo
-# ciò che serve a installare il pacchetto: tutto il resto è escluso dalla prima riga (ADR-0040).
+# The context is the repository root, which holds .env, the registry in .data and the client's projects. Only
+# what installing the package needs gets in: the first line excludes everything else (ADR-0040).
 *
 !pyproject.toml
 !uv.lock

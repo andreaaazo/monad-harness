@@ -1,13 +1,21 @@
-"""La tavola anonima: stesse condizioni per tutte le idee, a misura grande e piccola."""
+"""The anonymous board: the same conditions for every idea, at a large size and at small ones."""
 
 from __future__ import annotations
 
 import hashlib
+import io
 import random
 from pathlib import Path
 from typing import cast
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
+
+from agency.contracts.media import open_image
+from agency.tools.files import MAX_IMAGE_FILE_BYTES, ensure_dir_under, read_under, replace_under
+
+# The callers pass absolute paths under a work folder they resolved, so no component may be a link: each
+# file is reached from the filesystem root through the no-follow helpers.
+ROOT = Path("/")
 
 CELL = 480
 MARGIN = 30
@@ -16,19 +24,23 @@ COLUMNS = 3
 ROW = CELL + 180
 SMALL = (96, 48, 24)
 WHITE = (255, 255, 255)
-LIGHT = 200  # un angolo più chiaro di così è sfondo; più scuro è il segno che arriva al bordo
-INK = [0] * 11 + [255] * 245  # tutto ciò che si stacca dallo sfondo
-GRID = 160  # lato su cui si contano i gruppi di inchiostro
-REACH = 7  # raggruppa ciò che dista meno del 3% circa: le lettere di una parola restano un solo segno
-MAIN_SHARE = 0.75  # il segno principale occupa almeno questa parte del file
+LIGHT = 200  # a corner lighter than this is background; a darker one is the mark reaching the edge
+INK = [0] * 11 + [255] * 245  # everything that stands out from the background
+GRID = 160  # the side of the grid on which the ink groups are counted
+REACH = 7  # joins what is closer than about 3%: the letters of a word stay one mark
+MAIN_SHARE = 0.75  # the main mark spans at least this share of the inked area's longer side
 
 
 def assign_letters(project: str, round_: int, letters: list[str]) -> dict[str, str]:
-    """Rimescola in modo stabile: la lettera anonima non rivela l'esploratore, e la ripresa non la cambia."""
+    """A stable shuffle: the anonymous letter does not give the explorer away, and a resume keeps it."""
     seed = int(hashlib.sha256(f"{project}:{round_}".encode()).hexdigest()[:12], 16)
     shuffled = list(ANON[-len(letters) :])
     random.Random(seed).shuffle(shuffled)
     return dict(zip(letters, shuffled, strict=True))
+
+
+def _open(path: Path) -> Image.Image:
+    return open_image(read_under(ROOT, str(path.relative_to(ROOT)), MAX_IMAGE_FILE_BYTES))
 
 
 def _flat(image: Image.Image) -> Image.Image:
@@ -38,7 +50,7 @@ def _flat(image: Image.Image) -> Image.Image:
 
 
 def _mask(rgb: Image.Image) -> Image.Image:
-    """Ciò che si stacca dallo sfondo. Un fondo chiaro uniforme è sfondo, non parte del segno."""
+    """What stands out from the background. A uniform light ground is background, not part of the mark."""
     right, bottom = rgb.width - 1, rgb.height - 1
     corners = {rgb.getpixel(point) for point in ((0, 0), (right, 0), (0, bottom), (right, bottom))}
     background = WHITE
@@ -51,7 +63,7 @@ def _mask(rgb: Image.Image) -> Image.Image:
 
 
 def _ink(image: Image.Image) -> Image.Image:
-    """Ritaglia sul segno e toglie il fondo: tutti gli schizzi si vedono nelle stesse condizioni."""
+    """Crops to the mark and removes the ground, so every sketch is seen in the same conditions."""
     rgb = _flat(image)
     mask = _mask(rgb)
     box = mask.getbbox()
@@ -63,7 +75,7 @@ def _ink(image: Image.Image) -> Image.Image:
 
 
 def _groups(mask: Image.Image) -> list[int]:
-    """Il lato maggiore di ogni gruppo di inchiostro separato, su una griglia ridotta."""
+    """The longer side of each separate ink group, on a reduced grid."""
     box = mask.getbbox()
     if box is None:
         return []
@@ -100,24 +112,27 @@ def _groups(mask: Image.Image) -> list[int]:
 
 
 def mark_problem(path: Path) -> str | None:
-    """La tavola rimpicciolisce tutto il file: più segni insieme sembrerebbero più piccoli degli altri.
+    """The board scales the whole inked area down at once: several marks side by side would look smaller
+    than the others. The share is measured on the inked area's longer side, not on the file.
 
-    È una stima: una parola a lettere staccate può sembrare più segni. Per questo chi riceve l'avviso può
-    riconsegnare lo stesso file: sbagliare costa una chiamata, non blocca mai il lavoro.
+    It is an estimate: a word with separate letters can look like several marks. That is why whoever gets the
+    warning can deliver the same file again: a mistake costs one call, and never blocks the work.
     """
-    with Image.open(path) as image:
+    with _open(path) as image:
         sides = _groups(_mask(_flat(image)))
     if len(sides) < 2 or max(sides) / GRID >= MAIN_SHARE:
         return None
     return (
         f"il file sembra contenere {len(sides)} segni separati, e il maggiore occupa solo il "
-        f"{max(sides) / GRID:.0%} della larghezza. La tavola lo rimpicciolisce tutto insieme, quindi "
-        "verrebbe giudicato più piccolo degli altri. Lascia un solo segno, senza varianti né riduzioni: "
-        "quelle stanno nel foglio. Se è davvero un solo segno in più parti, consegnalo di nuovo così com'è."
+        f"{max(sides) / GRID:.0%} del lato più lungo del disegno. La tavola lo rimpicciolisce tutto "
+        "insieme, quindi verrebbe giudicato più piccolo degli altri. Lascia un solo segno, senza varianti "
+        "né riduzioni: quelle stanno nel foglio. Se è davvero un solo segno in più parti, consegnalo di "
+        "nuovo così com'è."
     )
 
 
 def build(items: list[tuple[str, Path]], output: Path) -> None:
+    """The board: each sketch under its anonymous letter, cropped to its mark, large and at `SMALL` sizes."""
     columns = min(len(items), COLUMNS)
     rows = (len(items) + COLUMNS - 1) // COLUMNS
     width = columns * (CELL + MARGIN) + MARGIN
@@ -126,7 +141,7 @@ def build(items: list[tuple[str, Path]], output: Path) -> None:
     for position, (anon, path) in enumerate(sorted(items)):
         left = MARGIN + (position % COLUMNS) * (CELL + MARGIN)
         top = (position // COLUMNS) * ROW
-        with Image.open(path) as image:
+        with _open(path) as image:
             mark = _ink(image)
         big = mark.copy()
         big.thumbnail((CELL - 60, CELL - 60), Image.Resampling.LANCZOS)
@@ -142,5 +157,7 @@ def build(items: list[tuple[str, Path]], output: Path) -> None:
             tiny.thumbnail((side, side), Image.Resampling.LANCZOS)
             board.paste(tiny, (x, top + CELL + 60))
             x += side + 40
-    output.parent.mkdir(parents=True, exist_ok=True)
-    board.save(output)
+    ensure_dir_under(ROOT, str(output.parent.relative_to(ROOT)))
+    buffer = io.BytesIO()
+    board.save(buffer, format=Image.registered_extensions().get(output.suffix.lower()))
+    replace_under(ROOT, str(output.relative_to(ROOT)), buffer.getvalue())

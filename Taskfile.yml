@@ -1,12 +1,15 @@
 version: "3"
 
-# L'ingresso unico dei comandi (ADR-0020, ADR-0039): `task` elenca tutto, `make` ne è l'alias. Docker: ADR-0040.
-# Gli strumenti hanno le versioni di mise.toml: con mise attivo nella shell sono nel PATH, altrimenti
-# `mise exec -- task …`. Niente dotenv: la chiave API sta in .env e la legge solo il gateway; qui arriverebbe a
-# ogni comando, Next.js compreso.
+# The single entry point for commands (ADR-0020, ADR-0039): `task` lists everything, `make` is its alias. Docker:
+# ADR-0040. The tools have the versions of mise.toml: with mise active in the shell they are on PATH, otherwise
+# `mise exec -- task …`. No dotenv: the API key is in .env and only the gateway reads it; here it would reach
+# every command, Next.js included.
 
 env:
   NEXT_TELEMETRY_DISABLED: "1"
+  # A stale uv.lock fails every command instead of being rewritten (DX-004). Not in mise.toml, which would reach
+  # the shell, where `uv add` and `uv lock` must keep working.
+  UV_LOCKED: "1"
 
 tasks:
   default:
@@ -18,24 +21,60 @@ tasks:
   setup:
     desc: Le dipendenze dai lock, Python con uv e web/ con pnpm
     cmds:
-      - uv sync
+      - uv sync --locked
       - pnpm --dir web install --frozen-lockfile
+      # The hook is Andrea's to enable (ADR-0051): setup only says how, once, and changes no git setting.
+      - cmd: >-
+          test "$(git config core.hooksPath 2>/dev/null)" = .githooks ||
+          echo "Per i controlli veloci a ogni commit (ADR-0051), una volta sola: git config core.hooksPath .githooks"
+        silent: true
 
   check:
-    desc: "Tutti i controlli prima di dichiarare finito un lavoro: Python, interfaccia, prove Playwright"
+    desc: "Tutti i controlli prima di dichiarare finito un lavoro: i veloci, poi le prove di Python, interfaccia e Playwright"
+    # The fast checks come first, so the pre-commit hook runs exactly the start of the gate (ADR-0051).
     cmds:
+      - task: check:fast
+      - task: test
+      - task: web:unit
+      - task: e2e
+
+  check:fast:
+    desc: "I controlli veloci dell'hook pre-commit: lock, Ruff, confini, tipi, interfaccia senza prove"
+    cmds:
+      - uv lock --check
       - task: lint
       - task: imports
       - task: types
-      - task: test
-      - task: web
-      - task: e2e
+      - task: web:static
+
+  check:clean:
+    desc: "setup e check su una copia di ciò che git ha nell'indice: un file che c'è solo sul disco non conta"
+    # The copy is the index, so it is HEAD plus what is staged: what the next commit would hold (DX-009). Neither
+    # command writes git's history or index, and the folder goes away even when a check fails.
+    preconditions:
+      - sh: git rev-parse --is-inside-work-tree >/dev/null 2>&1
+        msg: "check:clean copia l'indice di git: serve un clone git"
+    cmds:
+      - |
+        set -e
+        copy="$(mktemp -d)"
+        trap 'rm -rf "$copy"' EXIT
+        git checkout-index --all --prefix="$copy/"
+        cd "$copy"
+        {{.TASK_EXE}} setup
+        {{.TASK_EXE}} check
 
   lint:
     desc: Le regole e il formato di Ruff
     cmds:
       - uv run ruff check .
       - uv run ruff format --check .
+
+  format:
+    desc: "Corregge e formatta il Python con Ruff: ciò che lint segnala e si sistema da solo"
+    cmds:
+      - uv run ruff check --fix .
+      - uv run ruff format .
 
   imports:
     desc: I confini tra moduli, con import-linter
@@ -53,15 +92,26 @@ tasks:
       - uv run pytest {{.CLI_ARGS}}
 
   web:
-    desc: "L'interfaccia senza server: tipi dallo schema, TypeScript, prove unitarie, difese di ADR-0024"
+    desc: "L'interfaccia senza server: tipi dallo schema, TypeScript, difese di ADR-0024, prove unitarie"
+    cmds:
+      - task: web:static
+      - task: web:unit
+
+  web:static:
+    internal: true
     preconditions: &modules
       - sh: test -d web/node_modules
         msg: "web/node_modules manca: esegui task setup"
     cmds:
       - pnpm --dir web run api:check
       - pnpm --dir web run typecheck
-      - pnpm --dir web run test
       - pnpm --dir web run defenses
+
+  web:unit:
+    internal: true
+    preconditions: *modules
+    cmds:
+      - pnpm --dir web run test
 
   e2e:
     desc: "Le prove Playwright, sui server veri e sulla build di produzione; per una sola: task e2e -- e2e/run.spec.ts"
@@ -83,7 +133,7 @@ tasks:
 
   dashboard:
     desc: "Il cruscotto: API su http://127.0.0.1:8000/api/, interfaccia su http://127.0.0.1:3000"
-    # Se uno dei due si ferma, si ferma anche l'altro: un'interfaccia senza API mostrerebbe solo un errore.
+    # If one of the two stops, so does the other: an interface without the API would show only an error.
     failfast: true
     deps: [dashboard:api, dashboard:ui]
 
@@ -119,9 +169,19 @@ tasks:
       - pnpm --dir web run start
 
   docker:up:
-    desc: "Il cruscotto in Docker su http://127.0.0.1:3000; il registro è .data, o AGENCY_DATA se lo dai"
+    desc: "Il cruscotto in Docker su http://127.0.0.1:3000; il registro è .data, o AGENCY_DATA_DIR se lo dai"
+    # The same rules as the engine and the server (ADR-0045): Compose would resolve a relative path against
+    # docker/, and the old name would be ignored silently.
+    preconditions:
+      - sh: test -z "${AGENCY_DATA+x}"
+        msg: "AGENCY_DATA non si usa più: il registro si indica con AGENCY_DATA_DIR, un percorso assoluto"
+      - sh: 'case "${AGENCY_DATA_DIR:-/}" in /*) ;; *) exit 1 ;; esac'
+        msg: "AGENCY_DATA_DIR deve essere un percorso assoluto"
+      # A bind mount of a missing folder fails only after both images are built (DX-010).
+      - sh: test -d '{{.AGENCY_DATA_DIR | default (printf "%s/.data" .ROOT_DIR)}}'
+        msg: 'Il registro {{.AGENCY_DATA_DIR | default (printf "%s/.data" .ROOT_DIR)}} non esiste: avvia prima un progetto con agency run, o indica la cartella con AGENCY_DATA_DIR'
     env: &compose
-      AGENCY_DATA: '{{.AGENCY_DATA | default (printf "%s/.data" .ROOT_DIR)}}'
+      AGENCY_DATA_DIR: '{{.AGENCY_DATA_DIR | default (printf "%s/.data" .ROOT_DIR)}}'
       AGENCY_UID:
         sh: id -u
       AGENCY_GID:

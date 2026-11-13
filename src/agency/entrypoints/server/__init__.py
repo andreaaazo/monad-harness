@@ -1,5 +1,5 @@
-"""Il server del cruscotto: Django con Django Ninja, in sola lettura, in un processo suo (ADR-0019, ADR-0020).
+"""The dashboard server: Django with Django Ninja, read-only, in a process of its own (ADR-0019, ADR-0020).
 
-Legge attraverso `agency.insights` e non importa il motore né `agency.config`, che legge `.env`: lo impone
-`import-linter`. Non ha modelli né database: Django non possiede il registro.
+It reads through `agency.insights` and imports neither the engine nor `agency.config`, which reads `.env`;
+`import-linter` enforces this. It has no models and no database: Django does not own the registry.
 """

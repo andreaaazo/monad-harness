@@ -4,9 +4,10 @@ import type { BlindComparison, CompareReport, Execution, FingerprintDiff, Projec
 import { ApiError, api } from "../../api/client";
 import { readForPage } from "../../api/read";
 import { Said } from "../../components/said";
+import { ScrollRegion } from "../../components/scroll-region";
 import { Unavailable } from "../../components/unavailable";
-import { count, counted, minutes, share, signed, usd, when } from "../../format";
-import { fingerprintValue, status } from "../../labels";
+import { count, counted, minutes, share, signed, usd, when } from "../../lib/format";
+import { fingerprintValue, status } from "../../lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -15,12 +16,12 @@ export const metadata: Metadata = { title: "Confronto" };
 const one = (value: string | string[] | undefined): string | undefined =>
   typeof value === "string" && value !== "" ? value : undefined;
 
-/** La vista Confronto: è meglio di prima? Due progetti affiancati, le loro impronte, i giudizi alla cieca. */
+/** The compare view: is it better than before? Two projects side by side, their fingerprints, the blind judgments. */
 export default async function Compare({ searchParams }: PageProps<"/compare">) {
   const query = await searchParams;
   const projects = await readForPage(() => api.projects());
   if (projects instanceof ApiError) return <Unavailable error={projects} />;
-  // Senza una scelta, i due progetti che hanno lavorato per ultimi: quello di prima e quello di dopo.
+  // Without a choice, the two projects that worked last: the earlier one and the later one.
   const recent = [...projects].sort((a, b) => (b.last_at ?? "").localeCompare(a.last_at ?? ""));
   const before = one(query.before) ?? recent[1]?.name;
   const after = one(query.after) ?? recent[0]?.name;
@@ -96,6 +97,11 @@ type Row = {
   readonly delta?: string;
 };
 
+/** A measure both projects have: its two values, and how much it changed from the first to the second. */
+function measured(label: string, before: number, after: number, format: (value: number) => string): Row {
+  return { label, before: format(before), after: format(after), delta: signed(after - before, format) };
+}
+
 function rows(a: Side, b: Side): Row[] {
   const presentation = (side: Side) =>
     side.to_presentation === null
@@ -110,57 +116,22 @@ function rows(a: Side, b: Side): Row[] {
       after: b.delivery_status === null ? "–" : status(b.delivery_status),
     },
     { label: "Modello · effort", before: choice(a), after: choice(b) },
-    { label: "Costo", before: usd(a.cost_usd), after: usd(b.cost_usd), delta: signed(b.cost_usd - a.cost_usd, usd) },
+    measured("Costo", a.cost_usd, b.cost_usd, usd),
     {
       label: "Budget",
       before: a.budget_usd === null ? "–" : usd(a.budget_usd),
       after: b.budget_usd === null ? "–" : usd(b.budget_usd),
     },
-    { label: "Chiamate", before: count(a.calls), after: count(b.calls), delta: signed(b.calls - a.calls, count) },
-    {
-      label: "Istanze",
-      before: count(a.instances),
-      after: count(b.instances),
-      delta: signed(b.instances - a.instances, count),
-    },
-    {
-      label: "Lavoro",
-      before: minutes(a.working_minutes),
-      after: minutes(b.working_minutes),
-      delta: signed(b.working_minutes - a.working_minutes, minutes),
-    },
-    {
-      label: "Attese del cliente",
-      before: minutes(a.waiting_minutes),
-      after: minutes(b.waiting_minutes),
-      delta: signed(b.waiting_minutes - a.waiting_minutes, minutes),
-    },
+    measured("Chiamate", a.calls, b.calls, count),
+    measured("Istanze", a.instances, b.instances, count),
+    measured("Lavoro", a.working_minutes, b.working_minutes, minutes),
+    measured("Attese del cliente", a.waiting_minutes, b.waiting_minutes, minutes),
     { label: "Fino alla presentazione", before: presentation(a), after: presentation(b) },
     { label: "Cache", before: share(a.cache_hit), after: share(b.cache_hit) },
-    {
-      label: "Contesto medio",
-      before: count(a.mean_context),
-      after: count(b.mean_context),
-      delta: signed(b.mean_context - a.mean_context, count),
-    },
-    {
-      label: "Contesto massimo",
-      before: count(a.peak_context),
-      after: count(b.peak_context),
-      delta: signed(b.peak_context - a.peak_context, count),
-    },
-    {
-      label: "Rifatto",
-      before: usd(a.redone_usd),
-      after: usd(b.redone_usd),
-      delta: signed(b.redone_usd - a.redone_usd, usd),
-    },
-    {
-      label: "Senza esito",
-      before: usd(a.blocked_usd),
-      after: usd(b.blocked_usd),
-      delta: signed(b.blocked_usd - a.blocked_usd, usd),
-    },
+    measured("Contesto medio", a.mean_context, b.mean_context, count),
+    measured("Contesto massimo", a.peak_context, b.peak_context, count),
+    measured("Rifatto", a.redone_usd, b.redone_usd, usd),
+    measured("Senza esito", a.blocked_usd, b.blocked_usd, usd),
     {
       label: "Controlli al primo colpo",
       before: `${count(a.first_pass)} di ${count(a.subjects)}`,
@@ -180,7 +151,7 @@ function Sides({ report }: { readonly report: CompareReport }) {
     <section aria-labelledby="sides">
       <h2 id="sides">Affiancati</h2>
       <p className="aside">La differenza è sempre dopo meno prima.</p>
-      <div className="scroll" role="region" aria-label="Tabella dei due progetti, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella dei due progetti, scorre in orizzontale">
         <table aria-label="Affiancati">
           <thead>
             <tr>
@@ -207,7 +178,7 @@ function Sides({ report }: { readonly report: CompareReport }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }
@@ -221,7 +192,7 @@ function Phases({ report }: { readonly report: CompareReport }) {
         Per nome di fase, in ordine di lavoro del progetto di dopo. Un trattino: la fase da quella parte non c&apos;è.
         Nei progetti di prima di M1.5 la fase porta il nome del ruolo.
       </p>
-      <div className="scroll" role="region" aria-label="Tabella delle fasi affiancate, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella delle fasi affiancate, scorre in orizzontale">
         <table aria-label="Fasi affiancate">
           <thead>
             <tr>
@@ -250,7 +221,7 @@ function Phases({ report }: { readonly report: CompareReport }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }
@@ -278,7 +249,7 @@ function Fingerprints({ report }: { readonly report: CompareReport }) {
             {fingerprint.changes.length === 0 ? "nessuna differenza." : `${counted(fingerprint.changes.length, "differenza", "differenze")}.`}
           </p>
           {fingerprint.changes.length > 0 ? (
-            <div className="scroll" role="region" aria-label="Differenze di impronta, scorrono in orizzontale" tabIndex={0}>
+            <ScrollRegion label="Differenze di impronta, scorrono in orizzontale">
               <table aria-label="Differenze di impronta">
                 <thead>
                   <tr>
@@ -305,7 +276,7 @@ function Fingerprints({ report }: { readonly report: CompareReport }) {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
           ) : null}
         </>
       )}
@@ -381,7 +352,7 @@ function Judged({ judged }: { readonly judged: BlindComparison }) {
           di {judged.judge}, {when(judged.at)}
         </span>
       </h3>
-      <div className="scroll" role="region" aria-label={`Voti del confronto ${judged.comparison}`} tabIndex={0}>
+      <ScrollRegion label={`Voti del confronto ${judged.comparison}`}>
         <table aria-label={`Voti del confronto ${judged.comparison}`}>
           <thead>
             <tr>
@@ -412,7 +383,7 @@ function Judged({ judged }: { readonly judged: BlindComparison }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </div>
   );
 }

@@ -5,9 +5,10 @@ import { ApiError, api } from "../../../../api/client";
 import { readForPage } from "../../../../api/read";
 import { ProjectHeader } from "../../../../components/project-header";
 import { Said } from "../../../../components/said";
+import { ScrollRegion } from "../../../../components/scroll-region";
 import { SetbackList } from "../../../../components/setbacks";
 import { Unavailable } from "../../../../components/unavailable";
-import { count, counted, share, when } from "../../../../format";
+import { count, counted, share, when } from "../../../../lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: PageProps<"/projects/[name]/q
   return { title: `${name}: strumenti e QA` };
 }
 
-/** La vista Strumenti e QA: dove sbaglia, con le parole di chi ha detto no. */
+/** The tools and QA view: where the work goes wrong, in the words of whoever said no. */
 export default async function Quality({ params }: PageProps<"/projects/[name]/quality">) {
   const { name } = await params;
   const report = await readForPage(() => api.quality(name));
@@ -74,7 +75,7 @@ function Checks({ report }: { readonly report: QualityReport }) {
         Un controllo passa al primo colpo su un file quando la sua prima prova su quel file non è FAIL. PASS,
         NOT_APPLICABLE e MEASURED non bocciano.
       </p>
-      <div className="scroll" role="region" aria-label="Tabella dei controlli, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella dei controlli, scorre in orizzontale">
         <table aria-label="Controlli">
           <thead>
             <tr>
@@ -99,7 +100,7 @@ function Checks({ report }: { readonly report: QualityReport }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
       <h3>Prove fallite, per controllo</h3>
       {report.failures.length === 0 ? (
         <p>Nessuna prova FAIL.</p>
@@ -141,7 +142,7 @@ function Tools({ report }: { readonly report: QualityReport }) {
         Dalle trascrizioni delle istanze: ogni richiesta del modello a uno strumento, e quando lo strumento ha detto
         no, il suo testo.
       </p>
-      <div className="scroll" role="region" aria-label="Tabella degli strumenti, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella degli strumenti, scorre in orizzontale">
         <table aria-label="Strumenti">
           <thead>
             <tr>
@@ -164,7 +165,7 @@ function Tools({ report }: { readonly report: QualityReport }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
       <h3>Rifiuti, per strumento</h3>
       {report.refusals.length === 0 ? (
         <p>Nessuno strumento ha detto no.</p>

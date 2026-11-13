@@ -1,13 +1,22 @@
-"""Rende un output in un'immagine da guardare e registra quale versione è stata resa."""
+"""Renders an output into an image to look at, and records which version was rendered."""
 
 from __future__ import annotations
 
-from pathlib import Path
+import io
+from pathlib import Path, PurePosixPath
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
+from agency.contracts.media import open_image
 from agency.ledger import Ledger
-from agency.tools.files import inside, sha256
+from agency.tools.files import (
+    MAX_IMAGE_FILE_BYTES,
+    ensure_dir_under,
+    inside,
+    read_under,
+    replace_under,
+    sha256_under,
+)
 from agency.tools.sandbox import JOB, Sandbox
 
 DEFAULT_SIZE = 1200
@@ -18,7 +27,18 @@ RENDERABLE = (*VECTORS, *IMAGES)
 
 
 def _stem(relative: str) -> str:
-    return relative.replace("/", "_").rsplit(".", 1)[0]
+    return relative.replace("/", "_")
+
+
+def _open(work: Path, relative: str) -> Image.Image:
+    return open_image(read_under(work, relative, MAX_IMAGE_FILE_BYTES))
+
+
+def _save(image: Image.Image, work: Path, relative: str) -> None:
+    """Encodes by the name's suffix, as `Image.save` does, then replaces the file without following it."""
+    buffer = io.BytesIO()
+    image.save(buffer, format=Image.registered_extensions().get(PurePosixPath(relative).suffix.lower()))
+    replace_under(work, relative, buffer.getvalue())
 
 
 def render_one(
@@ -28,13 +48,13 @@ def render_one(
     relative: str,
     zooms: list[tuple[float, float, float, float]] | None = None,
 ) -> list[str]:
+    """Renders the file to a PNG proof, plus one crop per zoom box (fractions of the width and height), and
+    records which version of the file they show. Returns the proofs' paths."""
     source = inside(sandbox.work, relative)
     if not source.exists():
         raise FileNotFoundError(relative)
-    folder = inside(sandbox.work, PROOFS)
-    folder.mkdir(parents=True, exist_ok=True)
+    ensure_dir_under(sandbox.work, PROOFS)
     proof = f"{PROOFS}/{_stem(relative)}.png"
-    target = inside(sandbox.work, proof)
     extension = source.suffix.lower()
     if extension in VECTORS:
         done = sandbox.run(
@@ -43,12 +63,13 @@ def render_one(
         if done.code:
             raise RuntimeError(done.output.strip()[:300])
     elif extension in IMAGES:
-        Image.open(source).convert("RGBA").save(target)
+        with _open(sandbox.work, relative) as image:
+            _save(image.convert("RGBA"), sandbox.work, proof)
     else:
         raise ValueError(f"{extension}: render non disponibile in M1")
-    with Image.open(target) as image:
+    with _open(sandbox.work, proof) as image:
         full = image.convert("RGBA")
-    # Fondo bianco: un segno nero su trasparenza altrimenti non si vede.
+    # A white ground: otherwise a black mark on transparency cannot be seen.
     canvas = Image.new("RGBA", full.size, (255, 255, 255, 255))
     canvas.alpha_composite(full)
     flat = canvas.convert("RGB")
@@ -62,31 +83,13 @@ def render_one(
         )
         crop = flat.crop(box)
         crop.thumbnail((DEFAULT_SIZE, DEFAULT_SIZE))
-        zoom_path = f"{PROOFS}/{_stem(relative)}_zoom_{x:.2f}_{y:.2f}.png"
-        crop.save(inside(sandbox.work, zoom_path))
+        zoom_path = f"{PROOFS}/{_stem(relative)}_zoom_{x:.2f}_{y:.2f}_{w:.2f}_{h:.2f}.png"
+        _save(crop, sandbox.work, zoom_path)
         proofs.append(zoom_path)
     flat.thumbnail((DEFAULT_SIZE, DEFAULT_SIZE))
-    flat.save(target)
-    ledger.add_render(project, relative, sha256(source), proofs)
+    _save(flat, sandbox.work, proof)
+    ledger.add_render(project, relative, sha256_under(sandbox.work, relative), proofs)
     return proofs
 
 
-def contact_sheet(sandbox: Sandbox, images: list[str], output: str, cell: int = 300) -> str:
-    columns = 4
-    rows = (len(images) + columns - 1) // columns
-    board = Image.new("RGB", (columns * cell, rows * (cell + 22)), (240, 240, 240))
-    for position, relative in enumerate(images):
-        with Image.open(inside(sandbox.work, relative)) as image:
-            thumb = image.convert("RGB")
-        thumb.thumbnail((cell, cell))
-        tile = Image.new("RGB", (cell, cell + 22), (255, 255, 255))
-        tile.paste(thumb, ((cell - thumb.width) // 2, (cell - thumb.height) // 2))
-        ImageDraw.Draw(tile).text((6, cell + 5), Path(relative).stem[-44:], fill=(40, 40, 40))
-        board.paste(tile, ((position % columns) * cell, (position // columns) * (cell + 22)))
-    target = inside(sandbox.work, output)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    board.save(target)
-    return output
-
-
-__all__ = ["DEFAULT_SIZE", "contact_sheet", "render_one"]
+__all__ = ["DEFAULT_SIZE", "render_one"]

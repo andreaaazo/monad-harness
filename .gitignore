@@ -5,8 +5,8 @@ __pycache__/
 .ruff_cache/
 .env
 .data/
-# I materiali del cliente non si versionano, ovunque stiano. L'unica eccezione è la rotta del cruscotto con lo
-# stesso nome: sono pagine, non materiali.
+# The client's materials are never versioned, wherever they are. The only exception is the dashboard route with
+# the same name: those are pages, not materials.
 projects/
 !/web/src/app/projects/
 models/
@@ -14,11 +14,11 @@ models/
 /.claude/sessions/
 /.claude/state/
 /.claude/settings.local.json
-# Le impronte delle fonti con cui Task decide se rifare la build: si rigenerano.
+# The source fingerprints Task uses to decide whether to rebuild: they are regenerated.
 /.task/
 /.worktrees/
 
-# Interfaccia: le dipendenze si rimettono con make setup, dal lock versionato.
+# Interface: the dependencies come back with make setup, from the versioned lock.
 /web/node_modules/
 /web/.next/
 /web/.next-e2e/

@@ -7,8 +7,8 @@ import { readForPage } from "../../../../../api/read";
 import { ProjectHeader } from "../../../../../components/project-header";
 import { Said } from "../../../../../components/said";
 import { Unavailable } from "../../../../../components/unavailable";
-import { count, counted, seconds, usd } from "../../../../../format";
-import { outcome, stop } from "../../../../../labels";
+import { count, counted, seconds, usd } from "../../../../../lib/format";
+import { outcome, stop } from "../../../../../lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ const ALIGNMENTS: Readonly<Record<ReplayReport["alignment"], string>> = {
   nessuna: "turni e chiamate non si allineano: le misure dei turni non si mostrano",
 };
 
-/** La vista Replay: un'istanza turno per turno, con le misure di ogni chiamata e le immagini. */
+/** The replay view: an instance turn by turn, with each call's measures and the images. */
 export default async function Replay({ params }: PageProps<"/projects/[name]/replay/[instance]">) {
   const { name, instance } = await params;
   const report = await readForPage(() => api.replay(name, instance));
@@ -160,7 +160,7 @@ function Tool({ tool, report }: { readonly tool: ReplayTool; readonly report: Re
         <pre className="text">{tool.input}</pre>
       </details>
       {tool.answered && tool.result !== "" ? <Said text={tool.result} /> : null}
-      {/* Un <img> semplice e non next/image: le immagini del registro non si ottimizzano (ADR-0024). */}
+      {/* A plain <img>, not next/image: the registry's images are not optimized (ADR-0024). */}
       {tool.images.map((image) =>
         image.servable ? (
           <img

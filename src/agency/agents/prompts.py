@@ -1,34 +1,15 @@
-"""Compone il prefisso stabile di ogni ruolo e il pacchetto del ticket."""
+"""Builds each role's stable system prompt and the ticket packet an instance starts from."""
 
 from __future__ import annotations
 
 import json
 
-from agency.config import REPO_ROOT
 from agency.ledger import Ledger
-
-PROMPTS = REPO_ROOT / "prompts"
-ROLES: dict[str, dict] = json.loads((REPO_ROOT / "registry/roles.json").read_text(encoding="utf-8"))["roles"]
-ORG: dict[str, list[str]] = json.loads((REPO_ROOT / "registry/org.json").read_text(encoding="utf-8"))[
-    "can_open"
-]
-
-
-def skill_names() -> list[str]:
-    return sorted(path.parent.name for path in (PROMPTS / "skills").glob("*/SKILL.md"))
-
-
-def skills_index() -> str:
-    return ", ".join(skill_names())
-
-
-def has_prompt(role: str) -> bool:
-    """Un ruolo senza prompt non è ancora stato portato: non può ricevere lavoro."""
-    return (PROMPTS / "roles" / f"{role}.md").is_file()
+from agency.registry import PROMPTS, skills_index
 
 
 def system_prompt(name: str) -> str:
-    """Testo identico tra istanze dello stesso ruolo: niente date né identificativi, o la cache salta."""
+    """Identical across the instances of a role: no dates or ids, or the prompt cache misses."""
     common = (PROMPTS / "common.md").read_text(encoding="utf-8")
     body = (PROMPTS / "roles" / f"{name}.md").read_text(encoding="utf-8")
     return (
@@ -38,6 +19,7 @@ def system_prompt(name: str) -> str:
 
 
 def packet(ledger: Ledger, ticket_id: str, rework_note: str = "") -> str:
+    """An instance's first message: the ticket's contract, the note of this turn, and its children's state."""
     spec = ledger.spec(ticket_id)
     lines = [
         "Scrivi note, referti e documenti in italiano.",
@@ -70,8 +52,3 @@ def _child_line(ledger: Ledger, ticket_id: str) -> str:
     note = next((e.note for e in reversed(ledger.history(ticket_id)) if e.note), "")
     outcome = f"{status.value}" + (f" · {verdict.value}" if verdict else "")
     return f"- {ticket_id} {spec.type.value} → {spec.assignee} [{outcome}] {spec.title}: {note[:900]}"
-
-
-def can_open(sender: str, assignee: str) -> bool:
-    allowed = ORG.get(sender, [])
-    return "*" in allowed or assignee in allowed

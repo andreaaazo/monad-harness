@@ -1,4 +1,4 @@
-"""Il rapporto di un progetto: un modello solo per il testo, il JSON e il cruscotto (M1.6, punto 10)."""
+"""A project's report: one model for the text, the JSON and the dashboard (M1.6, item 10)."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ from agency.insights.domain import (
 from agency.insights.ports import ProjectData
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow, GateRow, UsageRow
+from support.concepts import open_idea
 
 PROVENANCE = Provenance(
     built_at="2026-11-02T12:00:00+00:00",
@@ -107,7 +108,7 @@ def data(calls: list[Call], **extra: object) -> ProjectData:
 T0, T1, T2, T3 = (f"2026-11-02T10:{minute:02d}:00+00:00" for minute in (0, 10, 30, 45))
 
 
-# I numeri
+# The numbers
 
 
 def test_cost_calls_cache_and_context_of_a_project() -> None:
@@ -140,7 +141,7 @@ def test_no_approved_concept_gate_means_no_milestone() -> None:
 
 
 def test_peak_counts_instances_working_together() -> None:
-    """a lavora da T0 a T2, b da T1 a T3: insieme solo per la loro durata. c arriva quando a ha finito."""
+    """a works from T0 to T2, b from T1 to T3: together only while both run. c arrives when a has finished."""
     plan = [(T0, "a"), (T2, "a"), (T1, "b"), (T3, "b"), (T3, "c")]
     calls = [call(seq, at, instance=name) for seq, (at, name) in enumerate(plan, start=1)]
     assert views.project_report("merlo3", data(calls), PROVENANCE).parallel == 2
@@ -208,7 +209,7 @@ def test_phases_say_how_the_model_worked_and_how_much_was_measured() -> None:
         None,
         None,
     )
-    assert list(phases) == ["critic", "explorer"]  # per costo: 3,00 $ contro 3,00 $, poi in ordine di nome
+    assert list(phases) == ["critic", "explorer"]  # by cost: $3.00 against $3.00, then by name
 
 
 def test_ideas_judgments_and_tickets_are_part_of_the_report() -> None:
@@ -249,7 +250,7 @@ def test_ideas_judgments_and_tickets_are_part_of_the_report() -> None:
 
 
 def test_the_run_has_its_start_its_end_and_a_timeline_of_instances() -> None:
-    """In ordine di inizio, non di nome: T-0001-a1-present precede T-0002-a1 solo in ordine alfabetico."""
+    """In order of start, not of name: T-0001-a1-present comes before T-0002-a1 only alphabetically."""
     director = {"instance": "T-0001-a1-plan", "phase": "director-plan", "cost_usd": 0.5}
     explorer = {"instance": "T-0002-a1", "ticket_id": "T-0002", "role": "direction-a", "phase": "explorer"}
     present = {"instance": "T-0001-a1-present", "phase": "director-present", "cost_usd": 0.25}
@@ -290,7 +291,7 @@ def gate(seq: int, at: str, *, approved: bool = True) -> GateRecord:
 
 
 def test_waiting_for_the_client_is_not_work() -> None:
-    """Il run si ferma dopo la presentazione e riparte alla decisione: l'attesa si conta a parte."""
+    """The run stops after the presentation and starts again at the decision: the wait counts apart."""
     decided = "2026-11-02T10:40:00+00:00"
     calls = [call(1, T0), call(2, T1), call(3, T3)]
     report = views.project_report("merlo3", data(calls, gates=[gate(1, decided)]), PROVENANCE)
@@ -301,8 +302,8 @@ def test_waiting_for_the_client_is_not_work() -> None:
 
 
 def test_waits_never_overlap_and_a_decision_without_a_restart_is_not_a_wait() -> None:
-    """Respinto alle 10:20, approvato alle 10:25 senza lavoro in mezzo: la seconda attesa parte dalla prima
-    decisione. Una decisione dopo l'ultima chiamata non ferma niente: il run non è ripartito."""
+    """Rejected at 10:20, approved at 10:25 with no work in between: the second wait starts from the first
+    decision. A decision after the last call stops nothing: the run did not start again."""
     calls = [call(1, T0), call(2, T1), call(3, T2)]
     gates = [
         gate(1, "2026-11-02T10:20:00+00:00", approved=False),
@@ -348,7 +349,7 @@ def test_a_project_without_calls_has_a_report_of_zeros() -> None:
     assert (report.elapsed_minutes, report.working_minutes, report.waits) == (0.0, 0.0, [])
 
 
-# Il comando, dal registro al testo e al JSON
+# The command, from the registry to the text and the JSON
 
 
 def usage(seq: int, at: str, **extra: object) -> UsageRow:
@@ -391,8 +392,9 @@ def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ledger:
         GateRow(at=T1, project="officina", gate="concept", approved=True, choice="X", files_json="{}")
     )
     ledger.record_usage(usage(3, T2, instance="T-0001-a2"))
-    ledger.add_concept(
-        ConceptRow(project="officina", round=1, letter="a", lever="il nome", idea_ticket="T-0001", anon="X")
+    open_idea(
+        ledger,
+        ConceptRow(project="officina", round=1, letter="a", lever="il nome", idea_ticket="", anon="X"),
     )
     judgment = Judgment(
         judge="andrea", ratings=[Rating(letter="A", level=Level.GOOD, specific=True, why="Regge")]

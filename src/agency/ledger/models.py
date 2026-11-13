@@ -1,13 +1,15 @@
-"""Le tabelle viste dal codice. Lo schema nasce dalle migrazioni: un test verifica che coincidano."""
+"""The tables as the code sees them. The schema comes from the migrations: a test checks that they match."""
 
 from __future__ import annotations
 
 from sqlalchemy import Index
 from sqlmodel import Field, SQLModel
 
+from agency.contracts.concept import ConceptStatus
+
 
 class ProjectRow(SQLModel, table=True):
-    """Le scelte del cliente per un progetto: restano valide anche dopo un'interruzione."""
+    """The client's choices for a project: they still hold after an interruption."""
 
     __tablename__ = "projects"  # type: ignore[assignment]
 
@@ -18,6 +20,9 @@ class ProjectRow(SQLModel, table=True):
 
 
 class TicketRow(SQLModel, table=True):
+    """A ticket: its contract as opened (`spec_json`, `inputs_json`) and its current state, which the chain
+    binds (ADR-0047, ADR-0049)."""
+
     __tablename__ = "tickets"  # type: ignore[assignment]
 
     id: str = Field(primary_key=True)
@@ -31,6 +36,8 @@ class TicketRow(SQLModel, table=True):
 
 
 class EventRow(SQLModel, table=True):
+    """One link of the hash chain: an action on a ticket, or a row written outside any ticket (`-`)."""
+
     __tablename__ = "events"  # type: ignore[assignment]
 
     seq: int | None = Field(default=None, primary_key=True)
@@ -41,10 +48,14 @@ class EventRow(SQLModel, table=True):
     note: str = ""
     prev_hash: str
     hash: str
+    # Version 1 binds no ticket state; version 2 binds the state the event leaves, in `payload_json`
+    # (ADR-0047).
+    version: int = 1
+    payload_json: str = ""
 
 
 class UsageRow(SQLModel, table=True):
-    """Una chiamata al modello: la fonte dei costi, indipendente dalla telemetria."""
+    """A model call: the source of the costs, independent of the telemetry."""
 
     __tablename__ = "usage"  # type: ignore[assignment]
 
@@ -63,10 +74,8 @@ class UsageRow(SQLModel, table=True):
     cost_usd: float = 0.0
     stop_reason: str = ""
     request_id: str = ""
-    # Da M1.6. Vuoto vuol dire non misurato: le righe precedenti restano così, e non valgono zero.
-    run: int | None = Field(
-        default=None, index=True
-    )  # senza chiave esterna: una chiamata pagata si registra sempre
+    # From M1.6. Empty means not measured: earlier rows stay that way, and do not count as zero.
+    run: int | None = Field(default=None, index=True)  # no foreign key: a paid call is always recorded
     phase: str | None = None
     effort: str | None = None
     duration_ms: int | None = None
@@ -75,7 +84,7 @@ class UsageRow(SQLModel, table=True):
 
 
 class EvidenceRow(SQLModel, table=True):
-    """Una prova su una versione precisa di un file. La firma la mette l'harness."""
+    """A proof on an exact version of a file. The harness signs it."""
 
     __tablename__ = "evidence"  # type: ignore[assignment]
 
@@ -94,6 +103,8 @@ class EvidenceRow(SQLModel, table=True):
 
 
 class RenderRow(SQLModel, table=True):
+    """A proof rendered from one version of a source file, found again by the source's sha256."""
+
     __tablename__ = "renders"  # type: ignore[assignment]
 
     seq: int | None = Field(default=None, primary_key=True)
@@ -105,6 +116,8 @@ class RenderRow(SQLModel, table=True):
 
 
 class DerivationRow(SQLModel, table=True):
+    """An export, and the exact version of the master it was derived from."""
+
     __tablename__ = "derivations"  # type: ignore[assignment]
 
     seq: int | None = Field(default=None, primary_key=True)
@@ -118,7 +131,7 @@ class DerivationRow(SQLModel, table=True):
 
 
 class ConceptRow(SQLModel, table=True):
-    """Un'idea esplorata: la lettera anonima sta qui, non sulle tavole."""
+    """An explored idea: the anonymous letter lives here, not on the boards."""
 
     __tablename__ = "concepts"  # type: ignore[assignment]
 
@@ -132,11 +145,11 @@ class ConceptRow(SQLModel, table=True):
     idea_ticket: str
     sketch_ticket: str = ""
     sketch_file: str = ""
-    status: str = "idea"
+    status: str = ConceptStatus.IDEA
 
 
 class GateRow(SQLModel, table=True):
-    """Una decisione del cliente: parole testuali e versione dei file su cui è stata presa."""
+    """A client decision: the exact words, and the version of the files it was made on."""
 
     __tablename__ = "gates"  # type: ignore[assignment]
 
@@ -151,7 +164,7 @@ class GateRow(SQLModel, table=True):
 
 
 class OperationRow(SQLModel, table=True):
-    """Esito di uno strumento: alla ripresa un'operazione conclusa non si riesegue."""
+    """A tool's result: on resume, a finished operation does not run again."""
 
     __tablename__ = "operations"  # type: ignore[assignment]
 
@@ -163,7 +176,7 @@ class OperationRow(SQLModel, table=True):
 
 
 class RunRow(SQLModel, table=True):
-    """Un'esecuzione del grafo con l'impronta di ciò che ne decide il comportamento. Solo in aggiunta."""
+    """A graph run, with the fingerprint of what decides its behaviour. Append-only."""
 
     __tablename__ = "runs"  # type: ignore[assignment]
 
@@ -176,7 +189,7 @@ class RunRow(SQLModel, table=True):
 
 
 class JudgmentRow(SQLModel, table=True):
-    """Il voto di una persona su una versione precisa di un file, senza saperne l'origine. Solo aggiunte."""
+    """A person's vote on an exact version of a file, without knowing where it came from. Append-only."""
 
     __tablename__ = "judgments"  # type: ignore[assignment]
 
@@ -195,10 +208,10 @@ class JudgmentRow(SQLModel, table=True):
 
 
 class ArtifactRow(SQLModel, table=True):
-    """Una versione conservata: da quale file, per quale ticket ed esecuzione, perché. Solo in aggiunta.
+    """A kept version: of which file, for which ticket and run, and why. Append-only.
 
-    Il contenuto sta nel deposito sotto il suo sha256. La stessa versione dello stesso file per lo stesso
-    motivo si registra una volta sola: la ripresa ripete il passo, il registro no.
+    The content is in the store under its sha256. The same version of the same file for the same reason is
+    recorded only once: a resume repeats the step, the registry does not.
     """
 
     __tablename__ = "artifacts"  # type: ignore[assignment]
@@ -208,7 +221,7 @@ class ArtifactRow(SQLModel, table=True):
 
     seq: int | None = Field(default=None, primary_key=True)
     at: str
-    sha256: str  # l'indice unico comincia da qui: basta per cercare per hash
+    sha256: str  # the unique index starts with it, which is enough to search by hash
     project: str = Field(index=True)
     path: str
     ticket_id: str

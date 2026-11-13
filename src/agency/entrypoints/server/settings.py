@@ -1,21 +1,22 @@
-"""Le impostazioni di Django per il cruscotto: solo lettura, solo loopback, nessun database, nessuna chiave.
+"""The dashboard's Django settings: read-only, loopback only, no database, no key.
 
-Si leggono una volta, all'avvio, da due sole variabili d'ambiente: `AGENCY_DATA_DIR`, dove sta il registro, e
-`AGENCY_PROJECTION_DIR`, dove sta la proiezione se non accanto al registro. Il server non legge `.env`.
+They are read once, at startup, from two environment variables only: `AGENCY_DATA_DIR`, where the registry
+lives, and `AGENCY_PROJECTION_DIR`, where the projection lives if not beside the registry. The server does not
+read `.env`.
 """
 
 from __future__ import annotations
 
-import os
 import secrets
-from pathlib import Path
+
+from agency.contracts.layout import data_root, projection_root
 
 DEBUG = False
-# Nessuna sessione, nessun utente, niente da firmare: una chiave nuova a ogni avvio, mai scritta.
+# No sessions, no users, nothing to sign: a new key at every start, never written down.
 SECRET_KEY = secrets.token_urlsafe(50)
-# Contro il DNS rebinding: un nome esterno fatto puntare a 127.0.0.1 da una pagina web non passa.
+# Against DNS rebinding: an outside name that a web page points at 127.0.0.1 does not get through.
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
-# Nessuna app e nessun database: Django non possiede il registro (ADR-0020).
+# No apps and no database: Django does not own the registry (ADR-0020).
 INSTALLED_APPS: list[str] = []
 DATABASES: dict[str, dict[str, str]] = {}
 MIDDLEWARE = [
@@ -28,8 +29,8 @@ X_FRAME_OPTIONS = "DENY"
 USE_TZ = True
 TIME_ZONE = "UTC"
 
-AGENCY_DATA_DIR = Path(os.environ.get("AGENCY_DATA_DIR", ".data")).resolve()
-# Senza la variabile la proiezione sta accanto al registro, qualunque esso sia quando la si usa: None, non una
-# cartella fissata all'avvio.
-_PROJECTION = os.environ.get("AGENCY_PROJECTION_DIR")
-AGENCY_PROJECTION_DIR = Path(_PROJECTION).resolve() if _PROJECTION else None
+# The engine's resolver: the same root, and the same refusal of a relative one (ADR-0045).
+AGENCY_DATA_DIR = data_root()
+# Without the variable the projection lives beside the registry, whichever that is when it is used: None, not
+# a folder fixed at startup.
+AGENCY_PROJECTION_DIR = projection_root()

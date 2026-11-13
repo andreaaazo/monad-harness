@@ -1,4 +1,4 @@
-"""Gate, decisioni ed esiti hanno tipi propri, non dict né stringhe libere (M1.6, punto 8; ADR-0021)."""
+"""Gates, decisions and outcomes have their own types, not dicts or free strings (M1.6, item 8; ADR-0021)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from agency.tools.craft import CommandIndex
 from agency.tools.sandbox import Sandbox
 from agency.tools.surface import TOOLS, Toolbox, ToolContext
 
-# I payload come li ha sempre scritti il grafo: un checkpoint in pausa deve ancora leggersi.
+# The payloads as the graph has always written them: a paused checkpoint must still read.
 CONCEPT_PAYLOAD = {
     "gate": "concept",
     "ticket": "T-0001",
@@ -48,7 +48,7 @@ def test_a_gate_is_written_exactly_as_before() -> None:
     "payload",
     [
         {"gate": "intermedio", "ticket": "T-0001", "files": []},
-        CONCEPT_PAYLOAD | {"options": []},  # senza proposte non c'è scelta
+        CONCEPT_PAYLOAD | {"options": []},  # without proposals there is no choice
         FINAL_PAYLOAD | {"options": ["X"]},
     ],
 )
@@ -61,7 +61,9 @@ def test_decision_is_what_the_client_said() -> None:
     decision = Decision(approved=True, text="Mi piace la X", choice="X")
     assert decision.model_dump() == {"approved": True, "text": "Mi piace la X", "choice": "X"}
     assert Decision(approved=False, text="Troppo freddo").choice == ""
-    with pytest.raises(ValidationError):  # una stringa non diventa un sì: la decisione arriva solo dal codice
+    with pytest.raises(
+        ValidationError
+    ):  # a string does not become a yes: the decision comes only from the code
         Decision.model_validate({"approved": "true", "text": ""})
 
 
@@ -76,7 +78,7 @@ def test_outcome_on_disk_keeps_its_old_shape(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("state", ["delivered", "handed_off", "blocked", "selected", "presented"])
 def test_outcomes_of_past_projects_still_read(tmp_path: Path, state: str) -> None:
-    """Gli stati che compaiono nelle trascrizioni di merlo, merlo2 e merlo3."""
+    """The states that appear in the transcripts of merlo, merlo2 and merlo3."""
     path = tmp_path / "i.jsonl"
     path.write_text(f'{{"outcome": {{"state": "{state}", "note": "fatto"}}}}\n', encoding="utf-8")
     assert Transcript(path).outcome() == Outcome(state=OutcomeState(state), note="fatto")
@@ -129,7 +131,7 @@ PRESENTED = json.dumps({"proposals": [PROPOSAL], "recommended": "X", "reasons": 
 def test_a_closing_tool_already_run_closes_again_on_resume(
     tmp_path: Path, tool: str, stored: str, state: OutcomeState, note: str | None
 ) -> None:
-    """La ripresa non riesegue l'effetto: rilegge l'esito registrato e chiude allo stesso modo."""
+    """A resume does not run the effect again: it rereads the recorded outcome and closes the same way."""
     ledger = Ledger(tmp_path / "l.sqlite")
     context = ToolContext(
         "design-director",

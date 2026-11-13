@@ -1,8 +1,9 @@
-"""Artefatti per hash: ogni versione consegnata, presentata o giudicata resta recuperabile (M1.6, punto 7)."""
+"""Artifacts by hash: every delivered, presented or judged version stays recoverable (M1.6, item 7)."""
 
 from __future__ import annotations
 
 import hashlib
+import os
 import stat
 from pathlib import Path
 
@@ -11,7 +12,7 @@ import pytest
 from agency import cli
 from agency.artifacts import FileStore, keeping
 from agency.config import Settings
-from agency.contracts.artifact import ArtifactMissing, Origin
+from agency.contracts.artifact import ArtifactMissing, Blob, Origin
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.tools.craft import CommandIndex
@@ -29,12 +30,17 @@ def write(path: Path, data: bytes) -> Path:
     return path
 
 
-# Il deposito
+def put(store: FileStore, source: Path) -> Blob:
+    with source.open("rb") as handle:
+        return store.put(handle)
+
+
+# The store
 
 
 def test_a_kept_file_lives_under_its_hash_and_cannot_be_changed(tmp_path: Path) -> None:
     store = FileStore(tmp_path / "artifacts")
-    blob = store.put(write(tmp_path / "segno.svg", b"<svg>uno</svg>"))
+    blob = put(store, write(tmp_path / "segno.svg", b"<svg>uno</svg>"))
     assert (blob.sha256, blob.size) == (sha(b"<svg>uno</svg>"), 14)
     location = tmp_path / "artifacts" / blob.sha256[:2] / blob.sha256
     assert location.read_bytes() == b"<svg>uno</svg>"
@@ -45,16 +51,16 @@ def test_a_kept_file_lives_under_its_hash_and_cannot_be_changed(tmp_path: Path) 
 
 def test_the_same_content_is_kept_once(tmp_path: Path) -> None:
     store = FileStore(tmp_path / "artifacts")
-    first = store.put(write(tmp_path / "a/segno.svg", b"stesso"))
-    second = store.put(write(tmp_path / "b/altro.svg", b"stesso"))
+    first = put(store, write(tmp_path / "a/segno.svg", b"stesso"))
+    second = put(store, write(tmp_path / "b/altro.svg", b"stesso"))
     assert first == second
     assert [path.name for path in (tmp_path / "artifacts").rglob("*") if path.is_file()] == [first.sha256]
 
 
 def test_a_large_file_is_hashed_as_a_whole_and_leaves_nothing_half_written(tmp_path: Path) -> None:
-    data = bytes(range(256)) * 20_000  # 5 MB: più blocchi di lettura
+    data = bytes(range(256)) * 20_000  # 5 MB: several read blocks
     store = FileStore(tmp_path / "artifacts")
-    blob = store.put(write(tmp_path / "scena.blend", data))
+    blob = put(store, write(tmp_path / "scena.blend", data))
     assert blob.sha256 == sha(data) and blob.size == len(data)
     assert list((tmp_path / "artifacts" / ".incoming").iterdir()) == []
 
@@ -71,7 +77,7 @@ def test_unknown_hash_is_missing_and_a_malformed_one_is_refused(tmp_path: Path) 
 
 def test_intact_notices_a_damaged_or_missing_blob(tmp_path: Path) -> None:
     store = FileStore(tmp_path / "artifacts")
-    blob = store.put(write(tmp_path / "segno.svg", b"originale"))
+    blob = put(store, write(tmp_path / "segno.svg", b"originale"))
     assert store.intact(blob.sha256)
     location = tmp_path / "artifacts" / blob.sha256[:2] / blob.sha256
     location.chmod(0o644)
@@ -84,23 +90,30 @@ def test_intact_notices_a_damaged_or_missing_blob(tmp_path: Path) -> None:
 def test_keeping_again_repairs_a_damaged_blob(tmp_path: Path) -> None:
     store = FileStore(tmp_path / "artifacts")
     source = write(tmp_path / "segno.svg", b"originale")
-    blob = store.put(source)
+    blob = put(store, source)
     location = tmp_path / "artifacts" / blob.sha256[:2] / blob.sha256
     location.chmod(0o644)
     location.write_bytes(b"rotto")
-    assert store.put(source) == blob
+    assert put(store, source) == blob
     assert store.intact(blob.sha256)
 
 
-# Conservare e registrare
+# Keeping and recording
 
 
 def test_keep_stores_and_records_where_each_version_came_from(tmp_path: Path) -> None:
     store, ledger = FileStore(tmp_path / "artifacts"), Ledger(tmp_path / "l.sqlite")
     work = tmp_path / "work"
-    files = {"exports/segno.svg": write(work / "exports/segno.svg", b"<svg/>")}
+    write(work / "exports/segno.svg", b"<svg/>")
     hashes = keeping.keep(
-        store, ledger, files, project="merlo4", origin=Origin.DELIVERY, ticket_id="T-0008", run=None
+        store,
+        ledger,
+        work,
+        {"exports/segno.svg": "exports/segno.svg"},
+        project="merlo4",
+        origin=Origin.DELIVERY,
+        ticket_id="T-0008",
+        run=None,
     )
     assert hashes == {"exports/segno.svg": sha(b"<svg/>")}
     (row,) = ledger.artifacts("merlo4")
@@ -116,9 +129,12 @@ def test_keep_stores_and_records_where_each_version_came_from(tmp_path: Path) ->
 
 def test_keeping_the_same_version_twice_records_it_once(tmp_path: Path) -> None:
     store, ledger = FileStore(tmp_path / "artifacts"), Ledger(tmp_path / "l.sqlite")
-    files = {"segno.svg": write(tmp_path / "segno.svg", b"<svg/>")}
-    for _ in range(2):  # la ripresa ripete il passo
-        keeping.keep(store, ledger, files, project="p", origin=Origin.DELIVERY, ticket_id="T-1", run=None)
+    write(tmp_path / "segno.svg", b"<svg/>")
+    files = {"segno.svg": "segno.svg"}
+    for _ in range(2):  # the resume repeats the step
+        keeping.keep(
+            store, ledger, tmp_path, files, project="p", origin=Origin.DELIVERY, ticket_id="T-1", run=None
+        )
     assert len(ledger.artifacts("p")) == 1
 
 
@@ -139,13 +155,16 @@ def test_media_type_does_not_depend_on_the_machine(name: str, expected: str) -> 
 @pytest.mark.parametrize("statement", ["UPDATE artifacts SET path = 'altro'", "DELETE FROM artifacts"])
 def test_artifacts_are_append_only(tmp_path: Path, statement: str) -> None:
     store, ledger = FileStore(tmp_path / "artifacts"), Ledger(tmp_path / "l.sqlite")
-    files = {"segno.svg": write(tmp_path / "segno.svg", b"<svg/>")}
-    keeping.keep(store, ledger, files, project="p", origin=Origin.DELIVERY, ticket_id="T-1", run=None)
+    write(tmp_path / "segno.svg", b"<svg/>")
+    files = {"segno.svg": "segno.svg"}
+    keeping.keep(
+        store, ledger, tmp_path, files, project="p", origin=Origin.DELIVERY, ticket_id="T-1", run=None
+    )
     with ledger.engine.begin() as connection, pytest.raises(Exception, match="solo in aggiunta"):
         connection.exec_driver_sql(statement)
 
 
-# Le consegne
+# The deliveries
 
 
 def note_ticket(tmp_path: Path) -> tuple[Toolbox, ToolContext, Ledger, Path, str]:
@@ -203,7 +222,7 @@ def test_a_refused_delivery_keeps_nothing(tmp_path: Path) -> None:
     assert not (tmp_path / "artifacts").exists()
 
 
-# I comandi
+# The commands
 
 
 @pytest.fixture
@@ -214,10 +233,18 @@ def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Settings:
 
 
 def kept(studio: Settings, tmp_path: Path, data: bytes, path: str = "source/segno.vectorcraft") -> str:
-    store, ledger = FileStore(studio.artifacts_dir), Ledger(studio.ledger_path)
-    files = {path: write(tmp_path / "projects/merlo4/work" / path, data)}
+    store, ledger = FileStore(studio.layout.artifacts), Ledger(studio.layout.ledger)
+    work = tmp_path / "projects/merlo4/work"
+    write(work / path, data)
     return keeping.keep(
-        store, ledger, files, project="merlo4", origin=Origin.DELIVERY, ticket_id="T-0008", run=None
+        store,
+        ledger,
+        work,
+        {path: path},
+        project="merlo4",
+        origin=Origin.DELIVERY,
+        ticket_id="T-0008",
+        run=None,
     )[path]
 
 
@@ -242,7 +269,7 @@ def test_restore_brings_back_an_overwritten_master(
     assert cli.main(["restore", digest[:12], str(target)]) == 0
 
     assert target.read_bytes() == b"master buono"
-    assert target.stat().st_mode & stat.S_IWUSR  # la copia ripristinata si può lavorare
+    assert target.stat().st_mode & stat.S_IWUSR  # the restored copy can be worked on
     assert "consegna di T-0008, merlo4: source/segno.vectorcraft" in capsys.readouterr().out
 
 
@@ -272,14 +299,15 @@ def test_restore_explains_an_unknown_or_malformed_hash(
 
 
 def sharing_the_first_digit() -> tuple[bytes, bytes]:
-    """Due contenuti con la stessa prima cifra dell'hash: tra 17 ce ne sono per forza, le cifre sono 16."""
+    """Two contents whose hashes share the first hex digit: 17 contents always hold such a pair, as there are
+    only 16 digits."""
     seen: dict[str, bytes] = {}
     for number in range(17):
         data = f"versione {number}".encode()
         if (digit := sha(data)[0]) in seen:
             return seen[digit], data
         seen[digit] = data
-    raise AssertionError("diciassette hash in sedici cifre: due coincidono sempre")
+    raise AssertionError("seventeen hashes over sixteen digits: two always share one")
 
 
 def test_restore_refuses_an_ambiguous_prefix(
@@ -306,7 +334,7 @@ def test_restore_of_a_damaged_version_leaves_no_file(
     studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str], damage: str
 ) -> None:
     digest = kept(studio, tmp_path, b"master")
-    location = studio.artifacts_dir / digest[:2] / digest
+    location = studio.layout.artifacts / digest[:2] / digest
     location.chmod(0o644)
     if damage == "alterata":
         location.write_bytes(b"alterato")
@@ -324,9 +352,222 @@ def test_verify_finds_a_damaged_artifact(
     digest = kept(studio, tmp_path, b"master")
     assert cli.main(["verify"]) == 0
     assert "artefatti integri: 1" in capsys.readouterr().out
-    location = studio.artifacts_dir / digest[:2] / digest
+    location = studio.layout.artifacts / digest[:2] / digest
     location.chmod(0o644)
     location.write_bytes(b"alterato")
     assert cli.main(["verify"]) == 1
     out = capsys.readouterr().out
     assert "ARTEFATTI DANNEGGIATI" in out and digest[:12] in out and "source/segno.vectorcraft" in out
+
+
+def test_restore_refuses_a_link_inside_the_projects_folder(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    (tmp_path / "projects/merlo4/work/exports").symlink_to(host, target_is_directory=True)
+    target = tmp_path / "projects/merlo4/work/exports/nuova/segno.vectorcraft"
+    assert cli.main(["restore", digest, str(target)]) == 1
+    assert list(host.iterdir()) == []
+    assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
+
+
+def test_restore_refuses_a_link_inside_the_projects_folder_named_through_dotdot(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A `..` in the typed path must not move the destination out of the projects folder's no-follow rule.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    (tmp_path / "projects/merlo4/work/exports").symlink_to(host, target_is_directory=True)
+    (tmp_path / "elsewhere").mkdir()
+    target = tmp_path / "elsewhere/../projects/merlo4/work/exports/segno.vectorcraft"
+    assert cli.main(["restore", digest, str(target)]) == 1
+    assert list(host.iterdir()) == []
+    assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
+
+
+def test_restore_refuses_dotdot_below_the_projects_folder(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Below the projects folder only the no-follow helpers walk, and they take no `..`: as text it would land
+    # beside the link, while the kernel would go wherever the link points.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host/sotto"
+    host.mkdir(parents=True)
+    (tmp_path / "projects/merlo4/work/link").symlink_to(host, target_is_directory=True)
+    target = tmp_path / "projects/merlo4/work/link/../segno.vectorcraft"
+    assert cli.main(["restore", digest, str(target)]) == 1
+    assert list((tmp_path / "host").iterdir()) == [host]
+    assert not (tmp_path / "projects/merlo4/work/segno.vectorcraft").exists()
+    assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
+
+
+def test_restore_refuses_a_link_inside_the_projects_folder_named_with_two_slashes(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A leading `//` names the same folder as `/` on Linux, so the projects-folder rule must see it.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    (tmp_path / "projects/merlo4/work/exports").symlink_to(host, target_is_directory=True)
+    target = f"/{tmp_path}/projects/merlo4/work/exports/segno.vectorcraft"
+    assert target.startswith("//")
+    assert cli.main(["restore", digest, target]) == 1
+    assert list(host.iterdir()) == []
+    assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
+
+
+def test_restore_reads_dotdot_outside_the_projects_folder_as_the_kernel_does(
+    studio: Settings, tmp_path: Path
+) -> None:
+    # Outside the projects folder the path is the operator's own layout: `home/docs/..` is the folder that
+    # holds the link's target, as for any other program.
+    digest = kept(studio, tmp_path, b"master")
+    (tmp_path / "nas/u/docs").mkdir(parents=True)
+    (tmp_path / "home").mkdir()
+    (tmp_path / "home/docs").symlink_to(tmp_path / "nas/u/docs", target_is_directory=True)
+    assert cli.main(["restore", digest, str(tmp_path / "home/docs/../desktop/segno.vectorcraft")]) == 0
+    assert (tmp_path / "nas/u/desktop/segno.vectorcraft").read_bytes() == b"master"
+    assert not (tmp_path / "home/desktop").exists()
+
+
+def test_restore_names_an_existing_destination_as_it_was_typed(
+    studio: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    write(tmp_path / "esiste.vectorcraft", b"da non perdere")
+    monkeypatch.chdir(tmp_path)
+    assert cli.main(["restore", digest, "esiste.vectorcraft"]) == 1
+    assert capsys.readouterr().out.splitlines() == [
+        "Ripristino non possibile: esiste.vectorcraft esiste già: il ripristino non sovrascrive"
+    ]
+
+
+@pytest.mark.parametrize("shape", ["alias", "link then dotdot"])
+def test_restore_refuses_a_planted_link_reached_through_the_operators_links(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str], shape: str
+) -> None:
+    # The operator's own links are followed, as the kernel follows them; a link that sits below the projects
+    # folder is refused, whatever spelling of the path reaches it.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    (tmp_path / "projects/merlo4/work/exports").symlink_to(host, target_is_directory=True)
+    if shape == "alias":
+        (tmp_path / "m").symlink_to(tmp_path / "projects/merlo4", target_is_directory=True)
+        target = tmp_path / "m/work/exports/segno.vectorcraft"
+    else:
+        (tmp_path / "sub/inner").mkdir(parents=True)
+        (tmp_path / "op").symlink_to(tmp_path / "sub/inner", target_is_directory=True)
+        target = tmp_path / "op/../../projects/merlo4/work/exports/segno.vectorcraft"
+    assert cli.main(["restore", digest, str(target)]) == 1
+    assert list(host.iterdir()) == []
+    assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("spelling", ["plink", "real-projects"])
+def test_restore_into_a_symlinked_projects_folder_by_either_spelling(
+    studio: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, spelling: str
+) -> None:
+    # AGENCY_PROJECTS_DIR may itself be a link: both its spelling and the real folder get the no-follow rule.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    (tmp_path / "real-projects/merlo4/work").mkdir(parents=True)
+    (tmp_path / "real-projects/merlo4/work/exports").symlink_to(host, target_is_directory=True)
+    (tmp_path / "plink").symlink_to(tmp_path / "real-projects", target_is_directory=True)
+    monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "plink"))
+    work = tmp_path / spelling / "merlo4/work"
+    assert cli.main(["restore", digest, str(work / "exports/segno.vectorcraft")]) == 1
+    assert list(host.iterdir()) == []
+    assert cli.main(["restore", digest, str(work / "nuova/segno.vectorcraft")]) == 0
+    assert (tmp_path / "real-projects/merlo4/work/nuova/segno.vectorcraft").read_bytes() == b"master"
+
+
+@pytest.mark.parametrize("where", ["projects/merlo4/work/copia.vectorcraft", "fuori/copia.vectorcraft"])
+def test_a_restored_file_has_the_mode_a_new_file_gets(studio: Settings, tmp_path: Path, where: str) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    previous = os.umask(0o022)
+    try:
+        assert cli.main(["restore", digest, str(tmp_path / where)]) == 0
+    finally:
+        os.umask(previous)
+    assert stat.S_IMODE((tmp_path / where).stat().st_mode) == 0o644
+
+
+def test_a_damaged_version_restored_below_the_projects_folder_leaves_no_file(
+    studio: Settings, tmp_path: Path
+) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    location = studio.layout.artifacts / digest[:2] / digest
+    location.chmod(0o644)
+    location.write_bytes(b"alterato")
+    target = tmp_path / "projects/merlo4/work/ripristino.vectorcraft"
+    assert cli.main(["restore", digest, str(target)]) == 1
+    assert not target.exists()
+
+
+def test_restore_refuses_a_destination_that_is_a_dangling_link(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Exclusive creation of the typed name: a link there, even one to nothing, is something already there.
+    digest = kept(studio, tmp_path, b"master")
+    (tmp_path / "home").mkdir()
+    (tmp_path / "home/dang.vectorcraft").symlink_to(tmp_path / "home/nowhere/target.vectorcraft")
+    assert cli.main(["restore", digest, str(tmp_path / "home/dang.vectorcraft")]) == 1
+    assert not (tmp_path / "home/nowhere").exists()
+    assert "esiste già" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("where", ["projects/merlo4/work/master.vectorcraft", "fuori/master.vectorcraft"])
+def test_restore_refuses_dotdot_after_a_file(studio: Settings, tmp_path: Path, where: str) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    write(tmp_path / where, b"un file, non una cartella")
+    assert cli.main(["restore", digest, f"{tmp_path / where}/../copia.vectorcraft"]) == 1
+    assert not (tmp_path / where).with_name("copia.vectorcraft").exists()
+
+
+def test_restore_writes_where_it_landed_not_where_the_path_leads_later(
+    studio: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Once the path has landed outside the projects folder, a sandbox that swaps a folder it walked through
+    # for a link cannot move the write: restore acts on the landing, not on the typed path again.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    exports = tmp_path / "projects/merlo4/work/exports"
+    exports.mkdir(parents=True, exist_ok=True)
+    landed = keeping.land
+
+    def swapped(path: Path, root: Path) -> object:
+        landing = landed(path, root)
+        exports.rmdir()
+        exports.symlink_to(host, target_is_directory=True)
+        return landing
+
+    monkeypatch.setattr(keeping, "land", swapped)
+    typed = exports / "../../../../fuori/copia.vectorcraft"
+    assert cli.main(["restore", digest, str(typed)]) == 0
+    assert (tmp_path / "fuori/copia.vectorcraft").read_bytes() == b"master"
+    assert list(host.iterdir()) == []
+
+
+def test_restore_follows_a_link_outside_the_projects_folder(studio: Settings, tmp_path: Path) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    real = tmp_path / "real-home"
+    real.mkdir()
+    (tmp_path / "home").symlink_to(real, target_is_directory=True)
+    assert cli.main(["restore", digest, str(tmp_path / "home/nuova/segno.vectorcraft")]) == 0
+    assert (real / "nuova/segno.vectorcraft").read_bytes() == b"master"
+
+
+def test_restore_creates_the_missing_folders_inside_the_projects_folder(
+    studio: Settings, tmp_path: Path
+) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    assert cli.main(["restore", digest, str(tmp_path / "projects/merlo4/work/nuova/segno.vectorcraft")]) == 0
+    assert cli.main(["restore", digest, str(tmp_path / "projects/segno.vectorcraft")]) == 0
+    assert (tmp_path / "projects/merlo4/work/nuova/segno.vectorcraft").read_bytes() == b"master"
+    assert (tmp_path / "projects/segno.vectorcraft").read_bytes() == b"master"

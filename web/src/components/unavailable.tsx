@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import type { ApiError } from "../api/client";
 
-/** Cosa dire per ogni motivo noto; ogni altro stato è una risposta che il cruscotto non si aspetta. */
+/** What to say for each known reason; any other status is an answer the dashboard does not expect. */
 const REASONS: Readonly<Record<number, { readonly title: string; readonly hint: ReactNode }>> = {
   502: {
     title: "Django non risponde",
@@ -23,7 +23,7 @@ const REASONS: Readonly<Record<number, { readonly title: string; readonly hint: 
   },
 };
 
-/** Quando l'API non risponde, o il registro non si legge: si dice perché, senza nascondere il motivo. */
+/** When the API does not answer, or the registry cannot be read: say why, without hiding the reason. */
 export function Unavailable({ error }: { readonly error: ApiError }) {
   const reason = REASONS[error.status];
   return (

@@ -1,21 +1,21 @@
-"""La vista Confronto: due progetti affiancati, cosa è cambiato nell'impronta, e i giudizi alla cieca.
+"""The compare view: two projects side by side, what changed in the fingerprint, and the blind judgments.
 
-Un progetto è il lavoro su un brief, fatto da una o più esecuzioni (`run`, `resume`, `decide`), ognuna con
-la sua impronta (ADR-0026). I numeri di ogni lato vengono dalle viste Run, Fasi, Modello e Strumenti e QA:
-qui non si ricalcola niente. Le impronte confrontate sono l'ultima del progetto di prima e la prima di
-quello di dopo: le differenze dicono cosa è cambiato fra la fine dell'uno e l'inizio dell'altro.
+A project is the work on one brief, done by one or more runs (`run`, `resume`, `decide`), each with its own
+fingerprint (ADR-0026). Each side's numbers come from the run, phases, model, and tools and QA views:
+nothing is computed again here. The fingerprints compared are the last one of the earlier project and the
+first one of the later: the differences say what changed between the end of one and the start of the other.
 
-Un giudizio alla cieca conta per il confronto quando contiene file di tutti e due i progetti; si mostra con
-tutti i suoi voti, anche quelli su file di altri progetti o esterni.
+A blind judgment counts for the comparison when it holds files from both projects; it is shown with all its
+votes, including those on files from other projects or from outside.
 """
 
 from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict
 
-from agency.contracts.run import Fingerprint, changes
+from agency.contracts.run import Fingerprint, changes, read_fingerprint
 from agency.insights import sums
 from agency.insights.behaviour import behaviour_report
 from agency.insights.domain import Call, JudgmentRecord, Provenance, RunRecord
@@ -30,7 +30,7 @@ class _View(BaseModel):
 
 
 class Compared(StrEnum):
-    """Quali impronte ci sono: le esecuzioni prima di M1.6 non la hanno."""
+    """Which fingerprints exist: runs from before M1.6 have none."""
 
     BOTH = "entrambe"
     NOT_BEFORE = "manca prima"
@@ -39,8 +39,8 @@ class Compared(StrEnum):
 
 
 class Execution(_View):
-    """Un'esecuzione: il comando, l'impronta, quanto ha speso, e quante differenze ha dalla precedente
-    leggibile. `readable` è falso per un'impronta di una forma che questa versione non conosce."""
+    """One run: the command, the fingerprint, what it spent, and how many differences it has from the previous
+    readable one. `readable` is false for a fingerprint of a shape this version does not know."""
 
     seq: int
     at: str
@@ -53,8 +53,8 @@ class Execution(_View):
 
 
 class Side(_View):
-    """Un progetto: `model` ed `effort` vuoti sono i predefiniti, `None` un progetto senza la sua riga, di
-    prima di M1.5."""
+    """A project: empty `model` and `effort` mean the defaults; `None` is a project without its row, from
+    before M1.5."""
 
     project: str
     model: str | None
@@ -81,7 +81,7 @@ class Side(_View):
 
 
 class ChangeView(_View):
-    """Una differenza fra due impronte: `None` vuol dire che da quella parte l'elemento non c'è."""
+    """A difference between two fingerprints: `None` means the item is absent on that side."""
 
     part: str
     item: str
@@ -97,7 +97,7 @@ class FingerprintDiff(_View):
 
 
 class PhasePair(_View):
-    """Una fase dei due lati: `None` vuol dire che da quella parte la fase non c'è."""
+    """One phase on both sides: `None` means that side has no such phase."""
 
     phase: str
     before_usd: float | None
@@ -129,19 +129,12 @@ class CompareReport(_View):
     judgments: list[BlindComparison]
 
 
-def _fingerprint(run: RunRecord) -> Fingerprint | None:
-    try:
-        return Fingerprint.model_validate_json(run.fingerprint_json)
-    except ValidationError:
-        return None
-
-
 def _executions(runs: list[RunRecord], calls: list[Call]) -> list[Execution]:
     by_run = sums.groups((call for call in calls if call.run is not None), lambda call: str(call.run))
     executions: list[Execution] = []
     previous: Fingerprint | None = None
     for run in sorted(runs, key=lambda run: run.seq):
-        current = _fingerprint(run)
+        current = read_fingerprint(run.fingerprint_json)
         spent = by_run.get(str(run.seq), [])
         executions.append(
             Execution(
@@ -193,7 +186,7 @@ def _side(name: str, data: ProjectData, provenance: Provenance) -> Side:
 
 
 def _readable(runs: list[RunRecord]) -> list[tuple[RunRecord, Fingerprint]]:
-    found = [(run, _fingerprint(run)) for run in sorted(runs, key=lambda run: run.seq)]
+    found = [(run, read_fingerprint(run.fingerprint_json)) for run in sorted(runs, key=lambda run: run.seq)]
     return [(run, print_) for run, print_ in found if print_ is not None]
 
 

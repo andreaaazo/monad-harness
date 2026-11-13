@@ -1,4 +1,6 @@
-"""Il caso d'uso di insights: rigenerare la proiezione da registro e tracce."""
+"""The insights use cases: `rebuild` and `current` keep the projection in step with the registry, the
+traces and the transcripts; each of the others reads one view from it.
+"""
 
 from __future__ import annotations
 
@@ -14,10 +16,10 @@ from agency.insights.domain import (
 )
 from agency.insights.flow import FlowReport, flow_report
 from agency.insights.ports import (
+    LedgerReader,
     ProjectionReader,
     ProjectionStore,
     ProjectionWriter,
-    RegistryReader,
     TraceReader,
     TranscriptReader,
 )
@@ -25,17 +27,17 @@ from agency.insights.quality import QualityReport, quality_report
 from agency.insights.replay import ReplayReport, replay_report
 from agency.insights.views import ProjectReport, ProjectSummary, project_report, project_summaries
 
-# La revisione del registro che insights sa leggere. Un test la confronta con l'ultima migrazione:
-# una migrazione nuova obbliga a guardare se cambia qualcosa per chi legge.
-READS_REVISION = "0005"
+# The registry revision insights can read. A test compares it with the latest migration, so a new
+# migration forces a look at whether anything changes for the readers.
+READS_REVISION = "0009"
 
 
-class RegistryNotReadable(Exception):
-    """Il registro non c'è, oppure non è alla revisione che insights sa leggere."""
+class LedgerNotReadable(Exception):
+    """The registry is missing, or not at the revision insights can read."""
 
 
 class ProjectionOutdated(Exception):
-    """La proiezione non c'è, oppure ha uno schema vecchio: si rigenera con agency insights."""
+    """The projection is missing, or has an old schema: `agency insights` rebuilds it."""
 
 
 def _why(revision: str | None) -> str:
@@ -48,25 +50,23 @@ def _why(revision: str | None) -> str:
     return f"registro alla revisione {revision}, più nuova della {READS_REVISION}: aggiorna insights"
 
 
-def _stamps(
-    registry: RegistryReader, traces: TraceReader, transcripts: TranscriptReader
-) -> list[SourceStamp]:
+def _stamps(registry: LedgerReader, traces: TraceReader, transcripts: TranscriptReader) -> list[SourceStamp]:
     return registry.stamp() + traces.stamp() + transcripts.stamp()
 
 
 def rebuild(
-    registry: RegistryReader,
+    registry: LedgerReader,
     traces: TraceReader,
     transcripts: TranscriptReader,
     projection: ProjectionWriter,
     built_at: str,
 ) -> Provenance:
-    sources = _stamps(
-        registry, traces, transcripts
-    )  # prima di leggere: una scrittura nel frattempo si vedrà dopo
+    """Rebuilds the whole projection, or raises `LedgerNotReadable` for a registry at another revision."""
+    # Stamped before reading: a write in the meantime shows up as a change next time.
+    sources = _stamps(registry, traces, transcripts)
     revision = registry.revision()
     if revision != READS_REVISION:
-        raise RegistryNotReadable(_why(revision))
+        raise LedgerNotReadable(_why(revision))
     snapshot, reading, conversations = registry.read(), traces.read(), transcripts.read()
     calls = project_calls(snapshot.usage, snapshot.tickets, reading.measures)
     projected = Projected(
@@ -94,13 +94,13 @@ def rebuild(
 
 
 def current(
-    registry: RegistryReader,
+    registry: LedgerReader,
     traces: TraceReader,
     transcripts: TranscriptReader,
     projection: ProjectionStore,
     built_at: str,
 ) -> Provenance:
-    """La proiezione aggiornata: si rigenera solo se registro, tracce o trascrizioni sono cambiati."""
+    """The up-to-date projection: rebuilt only if the registry, the traces or the transcripts changed."""
     try:
         known: Provenance | None = projection.provenance()
     except ProjectionOutdated:
@@ -111,27 +111,27 @@ def current(
 
 
 def report(projection: ProjectionReader, project: str) -> ProjectReport:
-    """Il rapporto di un progetto dalla proiezione: un progetto sconosciuto ha un rapporto vuoto."""
+    """A project's report from the projection: an unknown project has an empty report."""
     return project_report(project, projection.project(project), projection.provenance())
 
 
 def flow(projection: ProjectionReader, project: str) -> FlowReport:
-    """La vista Fasi: dalle idee alla consegna, i passi indietro e dove si è fermato."""
+    """The phases view: from the ideas to the delivery, the steps back, and where the work stopped."""
     return flow_report(project, projection.project(project))
 
 
 def behaviour(projection: ProjectionReader, project: str) -> BehaviourReport:
-    """La vista Modello: ruolo per ruolo e turno per turno."""
+    """The model view: role by role and turn by turn."""
     return behaviour_report(project, projection.project(project))
 
 
 def quality(projection: ProjectionReader, project: str) -> QualityReport:
-    """La vista Strumenti e QA: controlli, rifiuti degli strumenti e passi indietro, con il loro motivo."""
+    """The tools and QA view: checks, tool refusals and steps back, with their reasons."""
     return quality_report(project, projection.project(project))
 
 
 def compare(projection: ProjectionReader, before: str, after: str) -> CompareReport:
-    """La vista Confronto: due progetti affiancati, le loro impronte, i giudizi alla cieca fra loro."""
+    """The compare view: two projects side by side, their fingerprints, the blind judgments between them."""
     return compare_report(
         before,
         projection.project(before),
@@ -145,7 +145,7 @@ def compare(projection: ProjectionReader, before: str, after: str) -> CompareRep
 def replay(
     projection: ProjectionReader, transcripts: TranscriptReader, project: str, instance: str
 ) -> ReplayReport | None:
-    """La vista Replay di un'istanza, o None se non ha trascrizione: la trascrizione si legge ora, intera."""
+    """An instance's replay view, or None without a transcript: the transcript is read now, whole."""
     record = transcripts.transcript(project, instance)
     if record is None:
         return None
@@ -153,8 +153,10 @@ def replay(
 
 
 def image(transcripts: TranscriptReader, project: str, instance: str, index: int) -> TranscriptImage | None:
+    """Image `index` of the transcript, or None if it is missing or of a type the dashboard never serves."""
     return transcripts.image(project, instance, index)
 
 
 def projects(projection: ProjectionReader) -> list[ProjectSummary]:
+    """The project list: every project the registry knows, with its totals."""
     return project_summaries(projection.projects(), projection.calls())

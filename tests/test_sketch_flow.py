@@ -1,4 +1,4 @@
-"""L'esplorazione con Craft veri e risposte registrate: nessuna chiamata all'API."""
+"""The exploration with real Craft and recorded answers: no API call."""
 
 from __future__ import annotations
 
@@ -13,16 +13,17 @@ import pytest
 from PIL import Image, ImageDraw
 
 from agency.artifacts import FileStore
-from agency.config import Settings
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import ConceptGate
+from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, changes
-from agency.contracts.ticket import Medium, Status, TicketSpec, TicketType
+from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.gateway import BudgetExceeded
-from agency.insights.adapters.registry import ReadOnlyRegistry
+from agency.insights.adapters.ledger import ReadOnlyLedger
 from agency.insights.domain import derive_phase
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
+from agency.qa import delivery
 from agency.runtime import Session, open_session
 from agency.tools import board, presentation
 from agency.tools.craft import CommandIndex
@@ -39,6 +40,9 @@ from agency.tools.surface import (
     ToolContext,
     tools_for,
 )
+from support.concepts import open_idea
+from support.scripted import turn
+from support.settings import settings
 
 pytestmark = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="serve VectorCraft")
 MASTER, SVG = "source/segno.vectorcraft", "exports/segno.svg"
@@ -62,15 +66,6 @@ def use(name: str, **arguments: object) -> dict:
 use.count = 0  # type: ignore[attr-defined]
 
 
-def turn(*blocks: dict, output: int = 20) -> dict:
-    return {
-        "content": list(blocks),
-        "stop_reason": "tool_use",
-        "model": "claude-opus-5-5",
-        "usage": {"input_tokens": 100, "output_tokens": output},
-    }
-
-
 def card(text: str) -> dict:
     return {
         "concept": text,
@@ -82,7 +77,7 @@ def card(text: str) -> dict:
 
 
 class Router:
-    """Risponde per istanza: l'ordine tra agenti paralleli non conta."""
+    """Answers per instance: the order among parallel agents does not matter."""
 
     def __init__(self, script: dict[str, list[dict]]) -> None:
         self.script = script
@@ -112,15 +107,11 @@ class Router:
             self.requests[key].append(json.loads(json.dumps(params)))
             if not self.script.get(key):
                 last = str(params["messages"][-1]["content"])[:600]
-                raise AssertionError(f"risposte esaurite per {key}: {last}")
+                raise AssertionError(f"no answers left for {key}: {last}")
             return self.script[key].pop(0)
 
 
-BUDGET = 1000.0  # il tetto che ogni prova dichiara all'avvio, come agency run --budget (ADR-0043)
-
-
-def settings(tmp_path: Path, **extra: object) -> Settings:
-    return Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "projects", _env_file=None, **extra)  # type: ignore[call-arg]
+BUDGET = 1000.0  # the cap every test declares at the start, like agency run --budget (ADR-0043)
 
 
 def brief(tmp_path: Path) -> Path:
@@ -198,7 +189,7 @@ def proposal_turns(anon: str) -> list[dict]:
 
 
 def present_turn(*letters: str, round_: int = 1, pages: int = 0) -> list[dict]:
-    """Bozza, sguardo a ogni pagina, invio: tre pagine per proposta più la raccomandazione."""
+    """Draft, a look at each page, sending: three pages per proposal plus the recommendation."""
     texts = [
         {"letter": letter, "title": f"Titolo {letter}", "idea": "Idea", "why": "Perché sì", "risk": "Limite"}
         for letter in letters
@@ -215,7 +206,7 @@ def present_turn(*letters: str, round_: int = 1, pages: int = 0) -> list[dict]:
 
 
 def exploration(first: int = 2, count: int = 3) -> dict[str, list[dict]]:
-    """Ticket a partire da `first`: gli esploratori, poi la tavola."""
+    """Tickets from `first` on: the explorers, then the board."""
     script: dict[str, list[dict]] = {}
     for offset, letter in enumerate("abcde"[:count]):
         script[f"T-{first + offset:04d}"] = explorer_turns(letter)
@@ -224,7 +215,7 @@ def exploration(first: int = 2, count: int = 3) -> dict[str, list[dict]]:
 
 
 def to_the_gate() -> dict[str, list[dict]]:
-    """Dall'inizio alla presentazione: due proposte sviluppate, T-0006 e T-0007."""
+    """From the start to the presentation: two developed proposals, T-0006 and T-0007."""
     script = exploration()
     script["T-0001:plan"] = plan_turn()
     script["T-0001:select"] = [turn(use("select_concepts", chosen=["X", "Y"], reasons="Si leggono da sole"))]
@@ -235,7 +226,7 @@ def to_the_gate() -> dict[str, list[dict]]:
 
 
 def full_script() -> dict[str, list[dict]]:
-    production = [  # il master parte dalla proposta approvata
+    production = [  # the master starts from the approved proposal
         turn(use("export_master", master=MASTER, output=SVG)),
         turn(use("write_file", path="construction.md", content="unità u")),
         turn(
@@ -278,7 +269,7 @@ def full_script() -> dict[str, list[dict]]:
     ]
     script["T-0010"] = [
         turn(use("render", path=SVG)),
-        turn(use("view_image", path="proofs/render/exports_segno.png")),
+        turn(use("view_image", path="proofs/render/exports_segno.svg.png")),
         turn(use("judge", file=SVG, compare=["construction.md"], why=WHY, result="PASS")),
         turn(use("deliver", note="regge", verdict="READY")),
     ]
@@ -320,7 +311,7 @@ def test_client_only_sees_developed_proposals_then_production_starts(tmp_path: P
     assert isinstance(gate, ConceptGate)
     assert (gate.gate, gate.options, gate.recommended) == ("concept", ["X", "Y"], "X")
     assert gate.files == ["presentation/r1/presentazione.pdf"]
-    work = config.project_dir("officina") / "work"
+    work = config.project_dir(ProjectName("officina")) / "work"
     assert (work / gate.files[0]).read_bytes()[:4] == b"%PDF"
     concepts = session.ledger.concepts("officina", 1)
     assert {row.anon: row.status for row in concepts} == {"X": "proposta", "Y": "proposta", "Z": "schizzo"}
@@ -329,6 +320,8 @@ def test_client_only_sees_developed_proposals_then_production_starts(tmp_path: P
     session.decide("officina", True, "Mi piace la X", "X")
     assert session.pending("officina")[0].gate == "final"
     assert session.ledger.gates("officina")[0].choice == "X"
+    after = {row.anon: row.status for row in session.ledger.concepts("officina", 1)}
+    assert after == {"X": "scelta", "Y": "proposta", "Z": "schizzo"}  # production marks the client's choice
     spec = session.ledger.spec("T-0008")
     chosen = next(row for row in concepts if row.anon == "X")
     assert chosen.card_json in spec.request and "proposals/r1/x/proposta-x.png" in spec.inputs
@@ -337,6 +330,28 @@ def test_client_only_sees_developed_proposals_then_production_starts(tmp_path: P
     assert session.ledger.verify_chain()
     assert transport.requests["T-0002"][0]["output_config"] == {"effort": "high"}
     assert transport.requests["T-0006"][0]["output_config"] == {"effort": "high"}
+
+
+def test_a_crash_after_the_concept_decision_records_one_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On resume the gate node runs again from the start: the client's decision is recorded once (TST-015)."""
+    session = open_session(settings(tmp_path), Router(full_script()))
+    session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
+    record = session.ledger.add_gate
+
+    def die_after_recording(row: object) -> None:
+        record(row)  # type: ignore[arg-type]
+        raise RuntimeError("the process died after recording the gate")
+
+    monkeypatch.setattr(session.ledger, "add_gate", die_after_recording)
+    with pytest.raises(RuntimeError, match="died after recording the gate"):
+        session.decide("officina", True, "Mi piace la X", "X")
+    monkeypatch.setattr(session.ledger, "add_gate", record)
+    session.decide("officina", True, "Mi piace la X", "X")
+    assert session.pending("officina")[0].gate == "final"
+    concept = [row for row in session.ledger.gates("officina") if row.gate == "concept"]
+    assert [(row.approved, row.choice) for row in concept] == [(True, "X")]
 
 
 def test_explorers_think_and_draw_in_one_instance(tmp_path: Path) -> None:
@@ -381,7 +396,7 @@ def test_finisher_starts_from_the_approved_proposal(tmp_path: Path) -> None:
     session = open_session(config, Router(script))
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "La Y", "Y")
-    work = config.project_dir("officina") / "work"
+    work = config.project_dir(ProjectName("officina")) / "work"
     assert (work / MASTER).read_bytes() == (work / "proposals/r1/y/proposta-y.vectorcraft").read_bytes()
 
 
@@ -442,7 +457,7 @@ def test_presentation_has_pages_for_each_proposal_and_the_recommendation(tmp_pat
     ]
     pages = presentation.build(items, "X", "Regge meglio", tmp_path / "out")
     assert (tmp_path / "out/presentazione.pdf").read_bytes()[:4] == b"%PDF"
-    assert len(pages) == 7  # segno, applicazioni e motivi per ogni proposta, poi la raccomandazione
+    assert len(pages) == 7  # mark, applications and reasons for each proposal, then the recommendation
     with Image.open(tmp_path / "out/pagina-1.png") as page:
         assert max(page.size) <= 1600
 
@@ -459,13 +474,13 @@ def test_presentation_font_has_italian_accents() -> None:
 
 def test_present_refuses_what_was_not_developed(tmp_path: Path) -> None:
     ctx = context(tmp_path, "design-director")
-    ctx.ledger.add_concept(
-        ConceptRow(
-            project="p", round=1, letter="a", lever="l", idea_ticket="T-1", anon="X", status="proposta"
-        )
+    open_idea(
+        ctx.ledger,
+        ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="X", status="proposta"),
     )
-    ctx.ledger.add_concept(
-        ConceptRow(project="p", round=1, letter="b", lever="l", idea_ticket="T-2", anon="Y", status="schizzo")
+    open_idea(
+        ctx.ledger,
+        ConceptRow(project="p", round=1, letter="b", lever="l", idea_ticket="", anon="Y", status="schizzo"),
     )
     box = Toolbox(ctx, [TOOLS["draft_presentation"]])
     folder = tmp_path / "proposals/r1/x"
@@ -490,7 +505,7 @@ def test_five_directions_run_together_and_reach_the_board(tmp_path: Path) -> Non
         def stream(self, params: dict) -> dict:
             key = self.key(params)
             if key in ("T-0002", "T-0003", "T-0004", "T-0005", "T-0006") and not self.requests[key]:
-                together.wait()  # scade se non girano tutte e cinque insieme
+                together.wait()  # it times out unless all five run together
             return super().stream(params)
 
     script = exploration(count=5)
@@ -504,7 +519,7 @@ def test_five_directions_run_together_and_reach_the_board(tmp_path: Path) -> Non
     assert {session.ledger.spec(row.idea_ticket).assignee for row in concepts} == {
         f"direction-{letter}" for letter in "abcde"
     }
-    work = config.project_dir("officina") / "work"
+    work = config.project_dir(ProjectName("officina")) / "work"
     with Image.open(work / "board/r1/tavola.png") as image:
         assert max(image.size) <= 1600
     assert sorted(path.stem for path in (work / "board/r1/fogli").glob("*.png")) == list("VWXYZ")
@@ -578,7 +593,7 @@ def test_agents_never_hear_about_budget(tmp_path: Path) -> None:
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=1000)
     calls = [call for calls in transport.requests.values() for call in calls]
     assert calls
-    for call in calls:  # gli schemi degli strumenti contengono `$ref`: conta ciò che l'agente legge
+    for call in calls:  # the tool schemas hold `$ref`: what counts is what the agent reads
         readable = json.dumps([call["system"], call["messages"]], ensure_ascii=False).lower()
         assert "budget" not in readable and "quota" not in readable
         assert " $" not in readable
@@ -610,7 +625,7 @@ def test_budget_end_pauses_the_project_and_an_increase_resumes_it(tmp_path: Path
     again = open_session(config, session_transport := Router(to_the_gate()))
     again.resume("officina")
     assert again.pending("officina")[0].gate == "concept"
-    assert "T-0001:plan" not in session_transport.requests  # il piano già fatto non si ripaga
+    assert "T-0001:plan" not in session_transport.requests  # the plan already made is not paid for again
 
 
 def fingerprints(ledger: Ledger, project: str) -> list[Fingerprint]:
@@ -665,7 +680,7 @@ def test_everything_delivered_or_shown_to_the_client_is_kept(tmp_path: Path) -> 
     session.decide("officina", True, "Mi piace la X", "X")
     session.decide("officina", True, "Approvato")
 
-    store, ledger = FileStore(config.artifacts_dir), session.ledger
+    store, ledger = FileStore(config.layout.artifacts), session.ledger
     rows = ledger.artifacts("officina")
     kept = {(row.ticket_id, row.path, row.sha256) for row in rows if row.origin == "consegna"}
     for ticket in ledger.tickets("officina"):
@@ -704,12 +719,12 @@ def test_client_refusing_the_final_work_sends_it_back_with_their_words(tmp_path:
 
 
 def test_insights_derives_the_phase_the_engine_recorded_for_every_call(tmp_path: Path) -> None:
-    """La regola che ricava la fase delle chiamate vecchie è quella che il motore usa per le nuove."""
+    """The rule that derives the phase of old calls is the one the engine uses for new ones."""
     config = settings(tmp_path)
     session = open_session(config, Router(full_script()))
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
     session.decide("officina", True, "Mi piace la X", "X")
-    snapshot = ReadOnlyRegistry(config.ledger_path).read()
+    snapshot = ReadOnlyLedger(config.layout.ledger).read()
     tickets, calls = snapshot.tickets, snapshot.usage
     assert len({call.phase for call in calls}) == 10
     for call in calls:
@@ -749,6 +764,53 @@ def test_excluded_cannot_ban_a_client_asset(tmp_path: Path) -> None:
     arguments = plan_arguments() | {"excluded": ["sagoma di Merlo nero", "ruota dentata", "chiave inglese"]}
     result = Toolbox(ctx, [TOOLS["plan_exploration"]]).call("a", "plan_exploration", arguments)
     assert result["is_error"] and "risorsa del cliente" in result["content"]
+
+
+def test_each_lever_goes_to_its_own_direction_in_order(tmp_path: Path) -> None:
+    """The first lever goes to direction-a, which draws in folder a under files named a, and so on to e."""
+    ctx = context(tmp_path, "design-director")
+    ctx.ticket_id = ctx.ledger.open(
+        TicketSpec(
+            title="Radice",
+            request="r",
+            type=TicketType.PRODUCTION,
+            sender="design-director",
+            assignee="design-director",
+            outputs=["x.png"],
+            checks={"*.png": ["visual_review"]},
+            media=[Medium.IMAGE],
+        ),
+        "p",
+    )
+    (ctx.work / "brief.md").write_text("il brief", encoding="utf-8")
+
+    result = Toolbox(ctx, [TOOLS["plan_exploration"]]).call("a", "plan_exploration", plan_arguments(5))
+
+    assert not result.get("is_error"), result
+    rows = ctx.ledger.concepts("p", 1)
+    assert [(row.letter, row.lever) for row in rows] == [
+        ("a", "il nome"),
+        ("b", "il gesto"),
+        ("c", "la materia"),
+        ("d", "le persone"),
+        ("e", "la convenzione rovesciata"),
+    ]
+    specs = [ctx.ledger.spec(row.idea_ticket) for row in rows]
+    assert [spec.assignee for spec in specs] == [
+        "direction-a",
+        "direction-b",
+        "direction-c",
+        "direction-d",
+        "direction-e",
+    ]
+    assert [(spec.title, spec.workspace, spec.outputs) for spec in specs] == [
+        (
+            f"Esplorazione {letter.upper()}",
+            f"explorations/r1/{letter}",
+            ["scheda.json", f"schizzi-{letter}.vectorcraft", f"foglio-{letter}.png", f"schizzo-{letter}.png"],
+        )
+        for letter in "abcde"
+    ]
 
 
 def test_board_letters_are_stable_and_shuffled_by_project() -> None:
@@ -792,8 +854,9 @@ def test_critic_judges_blind(tmp_path: Path) -> None:
 def test_every_letter_must_be_rated(tmp_path: Path) -> None:
     ctx = context(tmp_path)
     for letter, anon in (("a", "X"), ("b", "Y")):
-        ctx.ledger.add_concept(
-            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket=f"T-{letter}", anon=anon)
+        open_idea(
+            ctx.ledger,
+            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
         )
     box = Toolbox(ctx, [TOOLS["rate_board"]])
     partial = {"ratings": [{"letter": "X", "first_look": "Un merlo", "passes": True}]}
@@ -803,12 +866,13 @@ def test_every_letter_must_be_rated(tmp_path: Path) -> None:
 def test_director_cannot_choose_what_failed_the_first_look(tmp_path: Path) -> None:
     ctx = context(tmp_path, "design-director")
     for letter, anon in (("a", "X"), ("b", "Y")):
-        ctx.ledger.add_concept(
-            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket=f"T-{letter}", anon=anon)
+        open_idea(
+            ctx.ledger,
+            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
         )
     box = Toolbox(ctx, [TOOLS["select_concepts"]])
     assert box.call("a", "select_concepts", {"chosen": ["X"], "reasons": "r"})["is_error"]
-    verdicts = tmp_path / "board/r1/reviews/valutazione.json"
+    verdicts = settings(tmp_path).layout.ratings(ProjectName("p"), 1)
     verdicts.parent.mkdir(parents=True)
     rated = [
         {"letter": "X", "first_look": "Un tasto", "passes": False},
@@ -855,11 +919,120 @@ def test_choice_outside_the_options_is_not_approved(tmp_path: Path) -> None:
 
 def test_select_refuses_unknown_letters(tmp_path: Path) -> None:
     ctx = context(tmp_path, "design-director")
-    ctx.ledger.add_concept(
-        ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="T-1", anon="X")
-    )
+    open_idea(ctx.ledger, ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="X"))
     box = Toolbox(ctx, [TOOLS["select_concepts"]])
     assert box.call("a", "select_concepts", {"chosen": ["Q"], "reasons": "perché sì"})["is_error"]
+
+
+def test_select_concepts_refuses_more_than_three(tmp_path: Path) -> None:
+    """Every letter passed the first look, so only the limit of three stops this choice."""
+    ctx = context(tmp_path, "design-director")
+    anons = {"a": "W", "b": "X", "c": "Y", "d": "Z"}
+    for letter, anon in anons.items():
+        open_idea(
+            ctx.ledger,
+            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
+        )
+    verdicts = settings(tmp_path).layout.ratings(ProjectName("p"), 1)
+    verdicts.parent.mkdir(parents=True)
+    passed = [{"letter": anon, "first_look": "Un segno", "passes": True} for anon in anons.values()]
+    verdicts.write_text(json.dumps(passed))
+    box = Toolbox(ctx, [TOOLS["select_concepts"]])
+
+    result = box.call("a", "select_concepts", {"chosen": list(anons.values()), "reasons": "tutte reggono"})
+
+    assert result["is_error"]
+    assert result["content"] == "si sviluppano al massimo 3 idee: sceglierne di più significa non aver scelto"
+
+
+def test_judge_refuses_a_file_against_itself(tmp_path: Path) -> None:
+    """The same file under another spelling is still itself. The file was viewed, so nothing else refuses."""
+    ctx = context(tmp_path)
+    Image.new("RGB", (60, 60), (20, 20, 20)).save(tmp_path / "segno.png")
+    box = Toolbox(ctx, [TOOLS["view_image"], TOOLS["judge"]])
+    box.call("a", "view_image", {"path": "segno.png"})
+
+    arguments = {"file": "segno.png", "compare": ["./segno.png"], "why": WHY, "result": "PASS"}
+    result = box.call("b", "judge", arguments)
+
+    assert result["is_error"]
+    assert result["content"] == "un file non si confronta con se stesso"
+
+
+def test_export_master_refuses_unknown_options(tmp_path: Path) -> None:
+    ctx = context(tmp_path, "identity-designer")
+    box = Toolbox(ctx, [TOOLS["export_master"]])
+    options = ["--scale", "2", "--plugin", "x.js"]
+
+    result = box.call("a", "export_master", {"master": MASTER, "output": SVG, "options": options})
+
+    assert result["is_error"]
+    assert result["content"] == "opzioni non ammesse: ['--plugin']"
+
+
+def test_a_hidden_image_never_reaches_the_presentation(tmp_path: Path) -> None:
+    """A dot-file left in a proposal's applications is never delivered, so no page may show it."""
+    folder = tmp_path / "proposals/r1/v"
+    applications = folder / "applicazioni-v"
+    applications.mkdir(parents=True)
+    Image.new("RGB", (300, 300), (30, 60, 200)).save(folder / "proposta-v.png")
+    Image.new("RGB", (300, 300), (240, 240, 240)).save(applications / "insegna.png")
+    Image.new("RGB", (300, 300), (13, 201, 77)).save(applications / ".zz.png")
+    ctx = context(tmp_path, "design-director", "T-0001")
+    root = ctx.ledger.open(
+        TicketSpec(
+            title="Radice",
+            request="r",
+            type=TicketType.PRODUCTION,
+            sender="design-director",
+            assignee="design-director",
+            outputs=["x.png"],
+            checks={"*.png": ["visual_review"]},
+            media=[Medium.IMAGE],
+        ),
+        "p",
+    )
+    spec = TicketSpec(
+        title="Proposta V r1",
+        request="Sviluppa la proposta",
+        type=TicketType.PROPOSAL,
+        sender="design-director",
+        assignee="identity-designer",
+        outputs=["proposta-v.png", "applicazioni-v/*.png"],
+        checks={"*.png": ["visual_review"]},
+        media=[Medium.IMAGE],
+        parent=root,
+        workspace="proposals/r1/v",
+    )
+    delivered, _ = delivery.expected(spec, folder)
+    assert delivered == ["proposta-v.png", "applicazioni-v/insegna.png"]
+    ticket = ctx.ledger.open(spec, "p")
+    ctx.ledger.apply(
+        ticket,
+        Action.DELIVER,
+        "identity-designer",
+        "consegna",
+        None,
+        {path: sha256(folder / path) for path in delivered},
+    )
+    open_idea(
+        ctx.ledger,
+        ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="V", status="proposta"),
+    )
+    text = {"letter": "V", "title": "T", "idea": "I", "why": "W", "risk": "R"}
+
+    done = Toolbox(ctx, [TOOLS["draft_presentation"]]).call(
+        "a", "draft_presentation", {"proposals": [text], "recommended": "V", "reasons": "r"}
+    )
+
+    assert not done.get("is_error"), done
+    colours = set()
+    for page in sorted(tmp_path.glob("presentation/r1/pagina-*.png")):
+        with Image.open(page) as image:
+            counted = image.convert("RGB").getcolors(presentation.WIDTH * presentation.HEIGHT) or []
+            colours |= {colour for _, colour in counted}
+    assert (30, 60, 200) in colours  # the delivered mark is shown
+    assert (13, 201, 77) not in colours
 
 
 def test_finisher_cannot_explore(tmp_path: Path) -> None:
@@ -877,9 +1050,11 @@ def test_finisher_cannot_explore(tmp_path: Path) -> None:
     )
     ticket = ledger.open(spec, "p")
     index = CommandIndex.load(tmp_path / "index")
-    ctx = ToolContext(
-        "identity-designer", "p", ticket, "i", ledger, Sandbox(tmp_path), index, FileStore(tmp_path / "a")
-    )
+    config = settings(tmp_path)
+    inputs = config.layout.ops_inputs(ProjectName("p"), "i")
+    inputs.mkdir(parents=True)
+    sandbox, store = Sandbox(tmp_path, ops=inputs), FileStore(tmp_path / "a")
+    ctx = ToolContext("identity-designer", "p", ticket, "i", ledger, sandbox, index, store, settings=config)
     box = Toolbox(ctx)
     refused = box.call("a", "craft_run", {"document": "source/prova.vectorcraft", "steps": DRAW})
     assert refused["is_error"] and "niente file di esplorazione" in refused["content"]
@@ -916,7 +1091,7 @@ def test_interrupted_exploration_resumes_without_repeating_work(tmp_path: Path) 
     class Dies(Router):
         def stream(self, params: dict) -> dict:
             if self.key(params) == "T-0005":
-                raise ConnectionError("processo ucciso")
+                raise ConnectionError("process killed")
             return super().stream(params)
 
     dying = Dies(script)
@@ -933,7 +1108,8 @@ def test_interrupted_exploration_resumes_without_repeating_work(tmp_path: Path) 
 
 
 def test_second_exploration_is_rated_on_its_own_letters(tmp_path: Path) -> None:
-    """Un secondo giro con meno leve ha lettere diverse dal primo: il critico deve vedere quelle giuste."""
+    """A second round with fewer levers has letters other than the first's: the critic must see the right
+    ones."""
     script = exploration()
     script["T-0005"] = board_turns("XYZ", failing="XYZ")
     script["T-0001:plan"] = [*plan_turn(), *plan_turn(2)]
@@ -944,13 +1120,13 @@ def test_second_exploration_is_rated_on_its_own_letters(tmp_path: Path) -> None:
     ]
     session = open_session(settings(tmp_path), Router(script))
     session.start("officina", brief(tmp_path), OUTPUTS, CHECKS, budget=BUDGET)
-    work = settings(tmp_path).project_dir("officina") / "work"
+    work = settings(tmp_path).project_dir(ProjectName("officina")) / "work"
     rated = json.loads((work / "board/r2/reviews/valutazione.json").read_text())
     assert {item["letter"] for item in rated} == {"Y", "Z"}
 
 
 def test_new_concept_after_a_rejection_gets_its_own_production(tmp_path: Path) -> None:
-    """La seconda rifinitura parte dal nuovo master approvato, non da quello della prima idea."""
+    """The second finishing ticket starts from the new approved master, not from the first idea's."""
     script = to_the_gate()
     script["T-0008"] = [turn(use("block", reason="Il concetto non regge a piccola scala"))]
     script["T-0001"] = [
@@ -975,7 +1151,7 @@ def test_new_concept_after_a_rejection_gets_its_own_production(tmp_path: Path) -
     session.decide("officina", True, "Mi piace la X", "X")
     session.decide("officina", True, "Mi piace la Y", "Y")
     assert session.ledger.spec("T-0014").prompt == "finisher"
-    work = settings(tmp_path).project_dir("officina") / "work"
+    work = settings(tmp_path).project_dir(ProjectName("officina")) / "work"
     assert sha256(work / MASTER) == sha256(work / "proposals/r2/y/proposta-y.vectorcraft")
 
 
@@ -1014,7 +1190,7 @@ def test_no_line_is_wider_than_its_column() -> None:
 
 
 def test_merlo3_texts_are_entirely_inside_the_document(tmp_path: Path) -> None:
-    """Il caso reale: 541 caratteri di motivo e 772 di limite finivano fuori pagina."""
+    """The real case: 541 characters of reasons and a 772 limit ran off the page."""
     long = "Il segno nasce da due cose che ha solo la vostra officina e dal lavoro che la distingue. " * 9
     item = proposal(long, tmp=tmp_path / "file")
     pages = presentation.build([item], "V", long, tmp_path / "pdf")
@@ -1036,12 +1212,12 @@ def test_a_shorter_draft_leaves_no_old_pages(tmp_path: Path) -> None:
 
 
 def test_presentation_cannot_reach_the_client_unseen(tmp_path: Path) -> None:
-    """Nessuno aveva guardato il PDF di merlo3: il testo era tagliato e nessuno se ne è accorto."""
+    """Nobody had looked at merlo3's PDF: the text was cut and nobody noticed."""
     script = to_the_gate()
     views = present_turn("X", "Y")
     script["T-0001:present"] = [
         views[0],
-        turn(use("present_concepts")),  # rifiutato: non ha guardato nulla
+        turn(use("present_concepts")),  # refused: it looked at nothing
         views[1],
         turn(
             use(
@@ -1051,7 +1227,7 @@ def test_presentation_cannot_reach_the_client_unseen(tmp_path: Path) -> None:
                 reasons="Ci abbiamo ripensato, questa regge meglio",
             )
         ),
-        turn(use("present_concepts")),  # rifiutato: l'ultima pagina è cambiata
+        turn(use("present_concepts")),  # refused: the last page changed
         turn(use("view_image", path="presentation/r1/pagina-7.png")),
         turn(use("present_concepts")),
     ]
@@ -1117,12 +1293,12 @@ def test_board_ignores_a_light_background(tmp_path: Path) -> None:
     write_sketch(tmp_path / "fondo.png", (500, 300, 700, 500), background="#f4f1ea")
     board.build([("V", tmp_path / "fondo.png")], tmp_path / "tavola.png")
     with Image.open(tmp_path / "tavola.png") as image:
-        outside_the_mark = image.convert("RGB").getpixel((65, 145))  # era beige, dentro il riquadro
+        outside_the_mark = image.convert("RGB").getpixel((65, 145))  # it was beige, inside the frame
     assert outside_the_mark == (255, 255, 255)
 
 
 def test_explorer_is_warned_once_then_can_insist(tmp_path: Path) -> None:
-    """È una stima: un segno vero in più parti non deve restare bloccato."""
+    """It is an estimate: a real mark in several parts must not stay blocked."""
     ledger = Ledger(tmp_path / "l.sqlite")
     spec = TicketSpec(
         title="Esplorazione A",
@@ -1136,8 +1312,8 @@ def test_explorer_is_warned_once_then_can_insist(tmp_path: Path) -> None:
         media=[Medium.NONE],
         medium_why="prova senza master",
     )
-    ticket = ledger.open(spec, "p")
-    ledger.add_concept(ConceptRow(project="p", round=1, letter="a", lever="il nome", idea_ticket=ticket))
+    concept = ConceptRow(project="p", round=1, letter="a", lever="il nome", idea_ticket="")
+    ticket = ledger.open(spec, "p", concept=concept)
     work = tmp_path / "work"
     work.mkdir()
     write_sketch(work / "schizzo-a.png", (20, 300, 240, 520), (920, 300, 1140, 520))

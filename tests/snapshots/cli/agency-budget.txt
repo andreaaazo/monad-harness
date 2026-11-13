@@ -1,0 +1,8 @@
+usage: agency budget [-h] project usd
+
+positional arguments:
+  project
+  usd         il nuovo tetto, in dollari
+
+options:
+  -h, --help  show this help message and exit

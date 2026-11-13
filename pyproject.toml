@@ -12,17 +12,13 @@ dependencies = [
   "pydantic-settings>=2.6",
   "sqlmodel>=0.0.22",
   "opentelemetry-sdk>=1.30",
-  "opentelemetry-exporter-otlp-proto-http>=1.30",
   "pillow>=11",
   "alembic>=1.20.0",
   "django>=5.2,<5.3",
   "django-ninja>=1.4",
+  "sqlalchemy>=2.1.5",
+  "langchain-core>=1.6.12",
 ]
-
-[project.optional-dependencies]
-context = ["lancedb>=0.20", "pillow>=11", "transformers>=4.50", "torch>=2.6"]
-qa = ["trimesh>=4.5", "openimageio>=3.0"]
-telemetry = ["langfuse>=3"]
 
 [project.scripts]
 agency = "agency.cli:main"
@@ -36,6 +32,7 @@ dev = [
     "pyright>=1.1.390",
     "import-linter>=2.15",
     "django-stubs>=5.2,<5.3",
+    "httpx2>=2.13.1",
 ]
 
 [build-system]
@@ -46,7 +43,7 @@ build-backend = "hatchling.build"
 packages = ["src/agency"]
 
 [tool.uv]
-# Nessun pacchetto pubblicato da meno di due settimane: difesa dalle compromissioni della supply chain (ADR-0006).
+# No package published less than two weeks ago: a defense against supply-chain compromise (ADR-0006).
 exclude-newer = "2026-10-17T00:00:00Z"
 
 [tool.ruff]
@@ -56,7 +53,8 @@ extend-exclude = ["legacy", "src/agency/qa/scripts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
-ignore = ["RUF001", "RUF002", "RUF003"]  # testi in italiano con ×, – e simili
+# The multiplication sign of sizes ("98 × 118.5 px") is meant; every other look-alike character still fails.
+allowed-confusables = ["×"]
 
 [tool.pyright]
 include = ["src", "tests"]
@@ -65,6 +63,10 @@ typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]
+markers = [
+  "sandbox: runs a command in the engine's bwrap sandbox; the session stops at once if the sandbox does not work",
+]
 addopts = "-q"
 
 [tool.importlinter]
@@ -72,18 +74,22 @@ root_package = "agency"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "insights legge e basta: niente motore, niente Ledger, niente librerie del motore (ADR-0019)"
+name = "insights only reads: no engine, no Ledger, no engine libraries (ADR-0019)"
 type = "forbidden"
 source_modules = ["agency.insights"]
 forbidden_modules = [
   "agency.agents",
   "agency.artifacts",
   "agency.cli",
+  "agency.config",
+  "agency.context",
+  "agency.doctor",
   "agency.evaluation",
   "agency.gateway",
   "agency.graph",
   "agency.ledger",
   "agency.qa",
+  "agency.registry",
   "agency.runtime",
   "agency.telemetry",
   "agency.tools",
@@ -95,9 +101,9 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "il motore non importa Django né il server: Django legge attraverso insights (ADR-0020)"
+name = "the engine imports neither Django nor the server: Django reads through insights (ADR-0020)"
 type = "forbidden"
-# Ogni pacchetto tranne gli ingressi, elencato a mano: un test verifica che non ne manchi nessuno.
+# Every package but the entry points, listed by hand: a test checks that none is missing.
 source_modules = [
   "agency.agents",
   "agency.artifacts",
@@ -112,6 +118,7 @@ source_modules = [
   "agency.insights",
   "agency.ledger",
   "agency.qa",
+  "agency.registry",
   "agency.runtime",
   "agency.telemetry",
   "agency.tools",
@@ -119,7 +126,7 @@ source_modules = [
 forbidden_modules = ["django", "ninja", "agency.entrypoints"]
 
 [[tool.importlinter.contracts]]
-name = "il server legge e basta: niente motore, niente Ledger, niente .env (ADR-0019)"
+name = "the server only reads: no engine, no Ledger, no .env (ADR-0019)"
 type = "forbidden"
 source_modules = ["agency.entrypoints.server"]
 forbidden_modules = [
@@ -127,11 +134,14 @@ forbidden_modules = [
   "agency.artifacts",
   "agency.cli",
   "agency.config",
+  "agency.context",
+  "agency.doctor",
   "agency.evaluation",
   "agency.gateway",
   "agency.graph",
   "agency.ledger",
   "agency.qa",
+  "agency.registry",
   "agency.runtime",
   "agency.telemetry",
   "agency.tools",
@@ -143,7 +153,7 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "il giudizio dipende solo dai contratti: niente motore, niente registro (ADR-0027)"
+name = "the judgment depends only on the contracts: no engine, no registry (ADR-0027)"
 type = "forbidden"
 source_modules = ["agency.evaluation"]
 forbidden_modules = [
@@ -158,6 +168,7 @@ forbidden_modules = [
   "agency.insights",
   "agency.ledger",
   "agency.qa",
+  "agency.registry",
   "agency.runtime",
   "agency.telemetry",
   "agency.tools",
@@ -167,3 +178,30 @@ forbidden_modules = [
   "sqlalchemy",
   "sqlmodel",
 ]
+
+[[tool.importlinter.contracts]]
+name = "only the gateway imports anthropic: the API calls and the key stay in one place (ADR-0021)"
+type = "forbidden"
+# Every package but the gateway, listed by hand: a test checks that none is missing.
+source_modules = [
+  "agency.agents",
+  "agency.artifacts",
+  "agency.cli",
+  "agency.config",
+  "agency.context",
+  "agency.contracts",
+  "agency.doctor",
+  "agency.entrypoints",
+  "agency.evaluation",
+  "agency.graph",
+  "agency.insights",
+  "agency.ledger",
+  "agency.qa",
+  "agency.registry",
+  "agency.runtime",
+  "agency.telemetry",
+  "agency.tools",
+]
+forbidden_modules = ["anthropic"]
+# The CLI catches the gateway's re-export of the API error: importing anthropic through it is allowed.
+allow_indirect_imports = true

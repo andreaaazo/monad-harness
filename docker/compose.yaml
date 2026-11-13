@@ -1,11 +1,11 @@
-# Il cruscotto in Docker (ADR-0040): l'API Django e l'interfaccia Next.js, nello stesso spazio di rete. Il motore resta
-# sull'host. Si avvia con `task docker:up`, che dà AGENCY_DATA, AGENCY_UID e AGENCY_GID.
+# The dashboard in Docker (ADR-0040): the Django API and the Next.js interface, in the same network namespace. The
+# engine stays on the host. It starts with `task docker:up`, which provides AGENCY_DATA_DIR, AGENCY_UID and AGENCY_GID.
 #
-# Questo file sta in docker/ e non nella radice: Compose legge da solo il .env della cartella del progetto per le sue
-# variabili, e quello della radice contiene la chiave API. Qui non ci sono .env, env_file né chiavi.
+# This file is in docker/ and not at the root: Compose reads the project folder's .env by itself for its
+# variables, and the root one holds the API key. There is no .env, env_file or key here.
 name: design-agency-dashboard
 
-# Ogni container senza privilegi, con il disco di sola lettura e un init che inoltra i segnali.
+# Every container without privileges, with a read-only disk and an init that forwards signals.
 x-hardened: &hardened
   read_only: true
   cap_drop: [ALL]
@@ -19,24 +19,24 @@ services:
       context: ..
       dockerfile: docker/server.Dockerfile
     image: design-agency/dashboard-api:local
-    # L'utente dell'host: i file che SQLite crea leggendo il registro restano suoi, e il motore li riscrive.
+    # The host's user: the files SQLite creates while reading the registry stay theirs, and the engine rewrites them.
     user: "${AGENCY_UID:?AGENCY_UID manca. Si avvia con task docker:up}:${AGENCY_GID:?AGENCY_GID manca. Si avvia con task docker:up}"
     environment:
       AGENCY_DATA_DIR: /data
       AGENCY_PROJECTION_DIR: /projection
     volumes:
-      # Il registro, le tracce e le trascrizioni. Non in sola lettura: per leggere un registro WAL chiuso dal motore,
-      # SQLite deve crearne il -shm, e su un mount di sola lettura non lo apre (ADR-0040). Il server non scrive
-      # altro: connessione mode=ro, query_only, API solo GET, come quando gira sull'host.
+      # The registry, the traces and the transcripts. Not read-only: to read a WAL registry closed by the engine,
+      # SQLite must create its -shm, and on a read-only mount it cannot open it (ADR-0040). The server writes nothing
+      # else: a mode=ro connection, query_only, a GET-only API, as when it runs on the host.
       - type: bind
-        source: "${AGENCY_DATA:?AGENCY_DATA, la cartella del registro, manca. Si avvia con task docker:up}"
+        source: "${AGENCY_DATA_DIR:?AGENCY_DATA_DIR, la cartella del registro, manca. Si avvia con task docker:up}"
         target: /data
-    # La proiezione di insights sta in memoria: si rifà a ogni avvio, e il container non aggiunge file al registro.
+    # The insights projection lives in memory: it is rebuilt at every start, and the container adds no file to the registry.
     tmpfs:
       - /projection
       - /tmp
-    # La porta dell'interfaccia, solo su 127.0.0.1 della macchina: web condivide la rete di questo servizio, e
-    # Django resta su 127.0.0.1 del container, senza porta pubblicata.
+    # The interface's port, only on the machine's 127.0.0.1: web shares this service's network, and
+    # Django stays on the container's 127.0.0.1, with no published port.
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:

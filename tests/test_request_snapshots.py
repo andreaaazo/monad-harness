@@ -1,8 +1,8 @@
-"""Il prefisso di ogni richiesta, byte per byte: strumenti e system prompt per ogni fase.
+"""The prefix of every request, byte for byte: the tools and the system prompt of each phase.
 
-È ciò che la cache riusa e ciò che il modello vede per primo. Un byte cambiato invalida la cache e cambia il
-comportamento, e nessun altro test se ne accorgerebbe (ADR-0021). Il confronto è sul testo: l'uguaglianza tra
-dizionari ignorerebbe l'ordine delle chiavi, che invece cambia i byte inviati.
+It is what the cache reuses and what the model sees first. A changed byte invalidates the cache and changes
+the behaviour, and no other test would notice (ADR-0021). The comparison is on the text: equality between
+dicts would ignore the order of the keys, which does change the bytes sent.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ UPDATE = "UPDATE_SNAPSHOTS=1 uv run pytest tests/test_request_snapshots.py"
 
 @dataclass(frozen=True)
 class Phase:
-    """Una fase reale del lavoro. Il nome è quello del prompt che riceve, uno per fase."""
+    """A real phase of the work. Its name is that of the prompt it receives, one per phase."""
 
     name: str
     assignee: str
@@ -54,11 +54,11 @@ PHASES = (
 
 
 class Stop(Exception):
-    """La prima richiesta è tutto ciò che serve: il lavoro finisce lì."""
+    """The first request is all that is needed: the work ends there."""
 
 
 class FirstRequest:
-    """Prende il posto dell'API: tiene la richiesta così come arriva dal gateway."""
+    """Takes the API's place: it keeps the request as it comes from the gateway."""
 
     def __init__(self) -> None:
         self.params: dict = {}
@@ -73,15 +73,15 @@ class FirstRequest:
 
 def prefix(phase: Phase, tmp_path: Path) -> str:
     settings = Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "projects", _env_file=None)  # type: ignore[call-arg]
-    ledger = Ledger(settings.ledger_path)
-    ledger.set_project("prova", 25.0)  # senza un tetto dichiarato la richiesta non partirebbe (ADR-0043)
+    ledger = Ledger(settings.layout.ledger)
+    ledger.set_project("prova", 25.0)  # without a declared cap the request would not go out (ADR-0043)
     transport = FirstRequest()
     runner = AgentRunner(
         ModelGateway(transport, ledger, settings),
         ledger,
         settings,
         CommandIndex([]),
-        FileStore(settings.artifacts_dir),
+        FileStore(settings.layout.artifacts),
     )
     spec = TicketSpec(
         title="Prova",
@@ -108,8 +108,10 @@ def test_request_prefix_stays_byte_identical(phase: Phase, tmp_path: Path) -> No
         snapshot.parent.mkdir(parents=True, exist_ok=True)
         snapshot.write_text(actual, encoding="utf-8")
         return
-    assert snapshot.is_file(), f"manca lo snapshot di {phase.name}. Se è voluto: {UPDATE}"
-    assert actual == snapshot.read_text(encoding="utf-8"), f"prefisso cambiato. Se è voluto: {UPDATE}"
+    assert snapshot.is_file(), f"no snapshot for {phase.name}. If that is intended: {UPDATE}"
+    assert actual == snapshot.read_text(encoding="utf-8"), (
+        f"the prefix changed. If that is intended: {UPDATE}"
+    )
 
 
 def test_every_role_prompt_has_a_phase_and_a_snapshot() -> None:

@@ -1,0 +1,7 @@
+usage: agency runs [-h] project
+
+positional arguments:
+  project
+
+options:
+  -h, --help  show this help message and exit

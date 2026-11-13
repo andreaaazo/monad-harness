@@ -1,7 +1,7 @@
-"""Il cruscotto in Docker (ADR-0040): cosa si pubblica, cosa si monta, cosa resta fuori dalle immagini.
+"""The dashboard in Docker (ADR-0040): what is published, what is mounted, what stays out of the images.
 
-La configurazione si legge come la legge Compose, con `docker compose config`, che non ha bisogno del demone.
-Docker serve al cruscotto, non al motore: su una macchina senza il client queste prove si saltano e lo dicono.
+The configuration is read as Compose reads it, with `docker compose config`, which needs no daemon. Docker
+serves the dashboard, not the engine: on a machine without the client these tests are skipped, and say so.
 """
 
 from __future__ import annotations
@@ -28,19 +28,19 @@ DIGEST = r"@sha256:[0-9a-f]{64}"
 
 
 def compose(tmp_path: Path, *arguments: str, **variables: str) -> subprocess.CompletedProcess[str]:
-    """Compose con le variabili di `task docker:up`, più una chiave finta nell'ambiente di chi lo avvia."""
+    """Compose with the variables of `task docker:up`, plus a fake key in the environment that starts it."""
     environment = {"PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", str(tmp_path))}
     environment |= {"ANTHROPIC_API_KEY": CANARY, "AGENCY_ANTHROPIC_API_KEY": CANARY}
-    environment |= {"AGENCY_DATA": str(tmp_path), "AGENCY_UID": "1000", "AGENCY_GID": "1000"} | variables
+    environment |= {"AGENCY_DATA_DIR": str(tmp_path), "AGENCY_UID": "1000", "AGENCY_GID": "1000"} | variables
     environment = {key: value for key, value in environment.items() if value}
     command = [str(DOCKER), "compose", "-f", str(COMPOSE), *arguments]
     return subprocess.run(command, env=environment, capture_output=True, text=True, check=False)
 
 
-def rendered(tmp_path: Path) -> dict:
-    done = compose(tmp_path, "config", "--format", "json")
+def rendered(tmp_path: Path, **variables: str) -> dict:
+    done = compose(tmp_path, "config", "--format", "json", **variables)
     assert done.returncode == 0, done.stderr
-    assert CANARY not in done.stdout, "la chiave dell'ambiente è finita nella configurazione"
+    assert CANARY not in done.stdout, "the key from the environment ended up in the configuration"
     return json.loads(done.stdout)
 
 
@@ -54,7 +54,7 @@ def rules(name: str) -> list[str]:
 
 
 def test_only_the_interface_is_published_and_only_on_loopback(tmp_path: Path) -> None:
-    """web condivide la rete di api: la porta dell'interfaccia si pubblica lì, e Django non ne ha una."""
+    """web shares api's network: the interface's port is published there, and Django has none."""
     services = rendered(tmp_path)["services"]
     assert set(services) == {"api", "web"}
     published = [
@@ -74,18 +74,32 @@ def test_the_api_mounts_the_registry_as_the_host_user_and_keeps_its_projection_i
     assert [(volume["type"], volume["source"], volume["target"]) for volume in api["volumes"]] == [
         ("bind", str(tmp_path), "/data")
     ]
-    # Non in sola lettura: un registro WAL chiuso dal motore non si apre senza creare il suo -shm
+    # Not read-only: a WAL registry closed by the engine does not open without creating its -shm
     # (tests/test_insights.py, test_a_registry_that_cannot_be_opened_is_explained_not_crashed).
     assert not api["volumes"][0].get("read_only", False)
     assert api["user"] == "1000:1000"
     assert api["environment"] == {"AGENCY_DATA_DIR": "/data", "AGENCY_PROJECTION_DIR": "/projection"}
     assert "/projection" in api["tmpfs"]
-    # L'interfaccia non ha dati: niente volumi, niente variabili.
+    # The interface has no data: no volumes, no variables.
     assert ("volumes" not in web, "environment" not in web) == (True, True)
 
 
+def test_compose_mounts_agency_data_dir(tmp_path: Path) -> None:
+    """The host data root is AGENCY_DATA_DIR, like every other process; AGENCY_DATA is ignored (ADR-0045)."""
+    elsewhere = tmp_path / "elsewhere"
+    old = str(tmp_path / "old")
+    api = rendered(tmp_path, AGENCY_DATA_DIR=str(elsewhere), AGENCY_DATA=old)["services"]["api"]
+    assert [(volume["source"], volume["target"]) for volume in api["volumes"]] == [(str(elsewhere), "/data")]
+
+
+def test_compose_names_agency_data_dir_when_missing(tmp_path: Path) -> None:
+    done = compose(tmp_path, "config", AGENCY_DATA_DIR="", AGENCY_DATA=str(tmp_path))
+    assert done.returncode != 0
+    assert "AGENCY_DATA_DIR" in done.stderr and "task docker:up" in done.stderr
+
+
 def test_no_key_and_no_env_file_reach_the_containers(tmp_path: Path) -> None:
-    """Compose legge da solo il .env della cartella del progetto: per questo il file non sta nella radice."""
+    """Compose reads the .env of the project folder by itself: that is why the file is not at the root."""
     services = rendered(tmp_path)["services"]
     assert not any("env_file" in service for service in services.values())
     assert COMPOSE.parent != REPO_ROOT
@@ -105,18 +119,16 @@ def test_every_container_is_hardened(tmp_path: Path) -> None:
 
 
 def test_without_the_variables_of_task_compose_refuses_to_start(tmp_path: Path) -> None:
-    for missing in ("AGENCY_DATA", "AGENCY_UID", "AGENCY_GID"):
+    for missing in ("AGENCY_DATA_DIR", "AGENCY_UID", "AGENCY_GID"):
         done = compose(tmp_path, "config", **{missing: ""})
         assert done.returncode != 0 and "task docker:up" in done.stderr, missing
 
 
 def test_images_are_pinned_by_digest_and_match_the_local_tools() -> None:
-    """Le stesse versioni di mise.toml e di .python-version, e immagini che non cambiano sotto i piedi."""
+    """The same versions as mise.toml and .python-version, and images that do not change underfoot."""
     server, web = dockerfile("server.Dockerfile"), dockerfile("web.Dockerfile")
     python = (REPO_ROOT / ".python-version").read_text(encoding="utf-8").strip()
-    assert re.search(
-        rf"^ARG PYTHON=python:{re.escape(python)}\.\d+-slim-trixie{DIGEST}$", server, re.MULTILINE
-    )
+    assert re.search(rf"^ARG PYTHON=python:{re.escape(python)}-slim-trixie{DIGEST}$", server, re.MULTILINE)
     assert re.search(rf"^ARG UV=ghcr\.io/astral-sh/uv:{re.escape(MISE['uv'])}{DIGEST}$", server, re.MULTILINE)
     assert re.search(rf"^ARG NODE=node:{re.escape(MISE['node'])}-trixie-slim{DIGEST}$", web, re.MULTILINE)
     assert re.search(rf"^ARG PNPM={re.escape(MISE['pnpm'])}$", web, re.MULTILINE)
@@ -129,12 +141,19 @@ def test_the_containers_never_run_as_root_and_django_stays_on_loopback() -> None
     assert re.findall(r"^USER (.+)$", server, re.MULTILINE)[-1] == "10001:10001"
     assert re.findall(r"^USER (.+)$", web, re.MULTILINE)[-1] == "node"
     assert 'CMD ["--host", "127.0.0.1", "--port", "8000"]' in server
-    # Next.js ascolta su tutte le interfacce del suo spazio di rete; fuori si pubblica solo su loopback.
+    # Next.js listens on every interface of its network namespace; outside, it is published only on loopback.
     assert "HOSTNAME=0.0.0.0" in web and "HOSTNAME" not in server
 
 
+def test_the_api_image_installs_the_lock_as_it_is() -> None:
+    """`--frozen` would install a stale lock without a word; `--locked` stops the build instead (DX-004)."""
+    server = dockerfile("server.Dockerfile")
+    syncs = [line for line in server.splitlines() if "uv sync" in line]
+    assert syncs and all("--locked" in line and "--frozen" not in line for line in syncs)
+
+
 def test_build_contexts_let_in_only_what_each_image_needs() -> None:
-    """Il contesto è la radice, con .env, .data e i progetti del cliente: tutto escluso, poi si riammette."""
+    """The context is the root, with .env, .data and the client's projects: all excluded, then let back in."""
     server, web = rules("server.Dockerfile"), rules("web.Dockerfile")
     assert server[0] == "*" and web[0] == "*"
     assert {rule for rule in server if rule.startswith("!")} == {

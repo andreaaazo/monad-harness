@@ -1,0 +1,11 @@
+usage: agency-server [-h] [--host HOST] [--port PORT]
+
+Il processo del cruscotto: `uv run agency-server`. Solo loopback, e senza chiave nell'ambiente. Un
+server WSGI della libreria standard, con un thread per richiesta: basta per un solo operatore su
+questa macchina (06-SECURITY.md). Come raggiungerlo da fuori lo decide un ADR in M6, non questo
+file.
+
+options:
+  -h, --help   show this help message and exit
+  --host HOST  indirizzo di loopback, di solito 127.0.0.1
+  --port PORT  0 sceglie una porta libera

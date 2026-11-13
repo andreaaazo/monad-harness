@@ -5,9 +5,10 @@ import { ApiError, api } from "../../../../api/client";
 import { readForPage } from "../../../../api/read";
 import { InstanceTurnsView } from "../../../../components/context-chart";
 import { ProjectHeader } from "../../../../components/project-header";
+import { ScrollRegion } from "../../../../components/scroll-region";
 import { Unavailable } from "../../../../components/unavailable";
-import { count, counted, seconds, share, usd } from "../../../../format";
-import { stop } from "../../../../labels";
+import { count, counted, seconds, share, usd } from "../../../../lib/format";
+import { stop } from "../../../../lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: PageProps<"/projects/[name]/m
   return { title: `${name}: modello` };
 }
 
-/** La vista Modello: come ha lavorato il modello, ruolo per ruolo e turno per turno. */
+/** The model view: how the model worked, role by role and turn by turn. */
 export default async function Model({ params }: PageProps<"/projects/[name]/model">) {
   const { name } = await params;
   const report = await readForPage(() => api.behaviour(name));
@@ -62,7 +63,7 @@ function Roles({ report }: { readonly report: BehaviourReport }) {
         Il contesto è ciò che il modello legge a ogni turno: ingresso, cache letta e cache scritta. Durata, TTFT,
         ragionamento ed effort sono misurati su {count(measured)} di {counted(calls, "chiamata", "chiamate")}.
       </p>
-      <div className="scroll" role="region" aria-label="Tabella dei ruoli, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella dei ruoli, scorre in orizzontale">
         <table aria-label="Ruoli">
           <thead>
             <tr>
@@ -97,13 +98,13 @@ function Roles({ report }: { readonly report: BehaviourReport }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }
 
 function Turns({ instances }: { readonly instances: readonly InstanceTurns[] }) {
-  // Una scala sola per tutte le istanze: le altezze si confrontano.
+  // One scale for every instance, so the heights compare.
   const max = Math.max(0, ...instances.map((item) => item.peak_context));
   return (
     <section aria-labelledby="turns">

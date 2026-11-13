@@ -1,11 +1,11 @@
-"""La vista Fasi: dalle idee alla consegna, dove il lavoro si è fermato o è tornato indietro.
+"""The phases view: from the ideas to the delivery, where the work stopped or went back.
 
-Tutto viene dalla storia dei ticket nel registro. Un rimando del direttore è lavoro da rifare: ciò che il
-ticket costa dopo il primo rimando è lavoro rifatto. Un ticket bloccato è costato senza dare un esito. Il nome
-delle istanze non dice niente di questo, perché il direttore ne apre una nuova a ogni turno.
+Everything comes from the tickets' history in the registry. A rework from the director is work to redo:
+what a ticket costs after its first rework is redone work. A blocked ticket cost money without a result.
+The instance names say nothing about this, because the director opens a new instance at every turn.
 
-La fase di un ticket è quella del motore: il prompt del ticket, poi il ruolo di chi lo riceve. La consegna
-al cliente non sta in una fase: è il progetto, e il suo stato è l'esito.
+A ticket's phase is the engine's: the ticket's prompt, else its assignee's role. The delivery to the client
+is in no phase: it is the project, and its status is the outcome.
 """
 
 from __future__ import annotations
@@ -20,8 +20,8 @@ from agency.insights import sums
 from agency.insights.domain import SETBACKS, Call, EventRecord, Lifecycle, TicketRecord
 from agency.insights.ports import ProjectData
 
-# Un ticket non ha finito finché è aperto, da rifare o consegnato senza essere accettato. La consegna al
-# cliente fa eccezione: consegnata, il progetto è finito.
+# A ticket is not finished while it is open, to be redone, or delivered without being accepted. The delivery
+# to the client is the exception: once it is delivered, the project is done.
 UNFINISHED = frozenset({Status.OPEN, Status.REWORK, Status.DELIVERED})
 
 
@@ -30,7 +30,7 @@ class _View(BaseModel):
 
 
 class Step(_View):
-    """Un passo nella storia di un ticket. `setback`: un rimando, un blocco o un annullamento."""
+    """One step in a ticket's history. `setback`: a rework, a block or a cancellation."""
 
     at: str
     action: Lifecycle
@@ -39,7 +39,7 @@ class Step(_View):
 
 
 class TicketFlow(_View):
-    """Un ticket dall'apertura all'ultimo passo. `redone_usd`: ciò che è costato dopo il primo rimando."""
+    """A ticket from its opening to its last step. `redone_usd`: what it cost after its first rework."""
 
     id: str
     title: str
@@ -57,7 +57,7 @@ class TicketFlow(_View):
 
 
 class PhaseFlow(_View):
-    """Una fase: quanto è costata e quanto lavoro è tornato indietro. `started_at` è la prima chiamata."""
+    """A phase: what it cost and how much work went back. `started_at` is its first call."""
 
     phase: str
     started_at: str | None
@@ -73,8 +73,8 @@ class PhaseFlow(_View):
 
 
 class Setback(_View):
-    """Un passo indietro: un ticket rimandato, bloccato o annullato, dopo quante consegne, e perché, con le
-    parole di chi lo ha fatto."""
+    """A step back: a ticket sent back for rework, blocked or cancelled, after how many deliveries, and why,
+    in the words of whoever did it."""
 
     at: str
     action: Lifecycle
@@ -87,7 +87,7 @@ class Setback(_View):
 
 
 class Outcome(_View):
-    """Dove si è fermato il progetto: la consegna al cliente, ciò che resta da finire, l'ultimo passo."""
+    """Where the project stopped: the delivery to the client, what is left to finish, the last step."""
 
     delivery_id: str | None
     delivery_status: str | None
@@ -153,7 +153,7 @@ def _phase(name: str, calls: list[Call], tickets: list[TicketFlow]) -> PhaseFlow
 
 
 def setbacks(events: list[EventRecord], tickets: dict[str, TicketRecord]) -> list[Setback]:
-    """I passi indietro in ordine di tempo: li leggono la vista Fasi e la vista Strumenti e QA."""
+    """The steps back in time order: the phases view and the tools and QA view read them."""
     setbacks: list[Setback] = []
     delivered: dict[str, int] = {}
     for event in sorted(events, key=lambda event: event.seq):
@@ -183,11 +183,11 @@ def _outcome(tickets: list[TicketRecord], events: list[EventRecord]) -> Outcome:
     return Outcome(
         delivery_id=delivery.id if delivery else None,
         delivery_status=delivery.status if delivery else None,
-        unfinished=sorted(
+        unfinished=[
             ticket.id
             for ticket in tickets
             if ticket.type != TicketType.DELIVERY and ticket.status in UNFINISHED
-        ),
+        ],
         last_at=last.at if last else None,
         last_action=last.action if last else None,
         last_ticket_id=last.ticket_id if last else None,
@@ -201,16 +201,16 @@ def flow_report(name: str, data: ProjectData) -> FlowReport:
     )
     tickets = [
         _ticket(ticket, calls_by_ticket.get(ticket.id, []), events_by_ticket.get(ticket.id, []))
-        for ticket in sorted(data.tickets, key=lambda ticket: ticket.id)
+        for ticket in data.tickets
     ]
     calls_by_phase = sums.groups(data.calls, lambda call: call.phase)
-    # La consegna al cliente è il progetto, non una fase: il suo stato sta nell'esito.
+    # The delivery to the client is the project, not a phase: its status is in the outcome.
     worked = [ticket for ticket in tickets if ticket.type != TicketType.DELIVERY]
     tickets_by_phase = sums.groups(worked, lambda ticket: ticket.phase)
     opened = {ticket.id: ticket.created_at for ticket in data.tickets}
 
     def begins(name: str) -> datetime:
-        """In ordine di lavoro: dalla prima chiamata, o dall'apertura del primo ticket se non ne ha."""
+        """In order of work: from the first call, or from the opening of the first ticket if it has none."""
         moments = [call.at for call in calls_by_phase.get(name, [])] or [
             opened[ticket.id] for ticket in tickets_by_phase.get(name, [])
         ]

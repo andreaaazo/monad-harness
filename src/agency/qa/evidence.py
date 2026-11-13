@@ -1,4 +1,4 @@
-"""Prove legate alla versione di un file. La firma è sempre l'attore reale dell'harness."""
+"""Proofs bound to a version of a file. The signer is always the real actor the harness knows."""
 
 from __future__ import annotations
 
@@ -6,25 +6,23 @@ import fnmatch
 import json
 from pathlib import Path
 
-from agency.config import REPO_ROOT
+from agency.contracts.files import is_file_under, sha256_under
+from agency.contracts.registry import CheckKind
 from agency.contracts.ticket import AUTHOR_TYPES
 from agency.ledger import Ledger
 from agency.ledger.models import EvidenceRow
 from agency.ledger.store import now
-from agency.tools.files import inside, sha256
+from agency.registry import CHECKS
 
-CHECKS: dict[str, dict] = json.loads((REPO_ROOT / "registry/checks.json").read_text(encoding="utf-8"))[
-    "checks"
-]
-ROLES: dict[str, dict] = json.loads((REPO_ROOT / "registry/roles.json").read_text(encoding="utf-8"))["roles"]
-MEASUREMENTS = {name for name, spec in CHECKS.items() if spec["kind"] == "measure"}
+MEASUREMENTS = {name for name, spec in CHECKS.items() if spec["kind"] == CheckKind.MEASURE}
 
 
 class EvidenceRefused(Exception):
-    """La prova non si può registrare: motivo nel messaggio."""
+    """The proof cannot be recorded; the message says why."""
 
 
 def check_problem(name: str) -> str | None:
+    """Why `name` is not a check, or None for a registry check or a project requirement (`req:<name>`)."""
     if name in CHECKS or (name.startswith("req:") and len(name) > 4):
         return None
     return (
@@ -33,15 +31,17 @@ def check_problem(name: str) -> str | None:
 
 
 def is_independent(name: str) -> bool:
+    """Whether the check must be signed by someone other than the file's author."""
     return bool(CHECKS.get(name, {}).get("independent"))
 
 
 def accepted(name: str) -> tuple[str, ...]:
+    """The results that let a file pass the check; a measurement also passes as MEASURED."""
     return ("PASS", "NOT_APPLICABLE", "MEASURED") if name in MEASUREMENTS else ("PASS", "NOT_APPLICABLE")
 
 
 def authors(ledger: Ledger, project: str, file: str) -> set[str]:
-    """Chi ha prodotto il file: i destinatari dei ticket di produzione che lo dichiarano."""
+    """Who made the file: the assignees of the authoring tickets that declare it or delivered it."""
     found = set()
     for row in ledger.tickets(project):
         spec = ledger.spec(row.id)
@@ -54,6 +54,8 @@ def authors(ledger: Ledger, project: str, file: str) -> set[str]:
 
 
 def guard(ledger: Ledger, project: str, file: str, check: str, actor: str) -> None:
+    """Refuses an unknown check, and an independent one signed by the file's author or by a role it does not
+    allow."""
     why = check_problem(check)
     if why:
         raise EvidenceRefused(why)
@@ -77,32 +79,36 @@ def record(
     proof: str = "",
     note: str = "",
     inputs: list[str] | None = None,
+    operation: tuple[str, str, str, str] | None = None,
 ) -> EvidenceRow:
+    """Records a proof on the file's current version, and on the current sha256 of each of `inputs`.
+
+    `operation` is the resume record of the tool call behind this proof: it is written with the proof.
+    """
     guard(ledger, project, file, check, actor)
-    target = inside(work, file)
-    if not target.exists():
+    if not is_file_under(work, file):
         raise EvidenceRefused(f"file inesistente: {file}")
-    if CHECKS.get(check, {}).get("kind") == "measure" and result == "PASS":
+    if check in MEASUREMENTS and result == "PASS":
         result = "MEASURED"
     row = EvidenceRow(
         at=now(),
         project=project,
         file=file,
-        sha256=sha256(target),
+        sha256=sha256_under(work, file),
         check_name=check,
         result=result,
         signer=actor,
         ticket_id=ticket_id,
         proof=proof,
         note=note,
-        inputs_json=json.dumps({path: sha256(inside(work, path)) for path in inputs or []}),
+        inputs_json=json.dumps({path: sha256_under(work, path) for path in inputs or []}),
     )
-    ledger.add_evidence(row)
+    ledger.add_evidence(row, operation)
     return row
 
 
 def latest(ledger: Ledger, project: str, signer: str | None = None) -> dict[tuple[str, str], EvidenceRow]:
-    """Esito per file e controllo: sulla stessa versione un FAIL resta finché lo cambia chi l'ha dato."""
+    """The result per file and check: on the same version, a FAIL stands until its signer changes it."""
     versions: dict[tuple[str, str], tuple[str, dict[str, EvidenceRow]]] = {}
     for row in ledger.evidence(project):
         if signer and row.signer != signer:
@@ -122,13 +128,12 @@ def latest(ledger: Ledger, project: str, signer: str | None = None) -> dict[tupl
 
 
 def freshness(row: EvidenceRow, work: Path) -> str:
-    target = inside(work, row.file)
-    if not target.exists():
+    """`fresh`; `STALE` if the file or one of its inputs changed or is gone; `MISSING` without the file."""
+    if not is_file_under(work, row.file):
         return "MISSING"
-    if sha256(target) != row.sha256:
+    if sha256_under(work, row.file) != row.sha256:
         return "STALE"
     for path, digest in json.loads(row.inputs_json).items():
-        source = inside(work, path)
-        if not source.exists() or sha256(source) != digest:
+        if not is_file_under(work, path) or sha256_under(work, path) != digest:
             return "STALE"
     return "fresh"

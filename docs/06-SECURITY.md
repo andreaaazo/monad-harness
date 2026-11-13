@@ -14,6 +14,7 @@ fino a M7 (ADR-0023).
 | Alterazione dei registri | Modifica di una prova | Trigger, catena di hash, nessuno strumento scrive i registri |
 | Fuga della chiave | La chiave finisce in un log o in una risposta | Solo nel gateway, `SecretStr`, assente dall'ambiente delle sandbox, `.env` fuori dalla portata di ogni strumento |
 | Fuga fuori dal perimetro | Path traversal | `bwrap` per ciò che gira in sandbox. Gli strumenti che girano nell'harness non hanno quella difesa: passano da `inside()` o da un elenco chiuso (`read_skill`, `list_files`) |
+| Stato dell'harness falsificato | Il codice di `compute` riscrive il risultato salvato di un `craft_run`, e la ripresa lo copia nel master | Gli ingressi dell'harness stanno in `/ops`, in sola lettura. Il registro della ripresa sta in `.data/ops/`, fuori da ogni sandbox, e la ripresa legge solo da lì (ADR-0044). Test |
 | Dipendenza compromessa | Il caso LiteLLM di marzo 2026 | Quarantena di due settimane, lock con hash, poche dipendenze, anche per JavaScript |
 | Scrittura dal cruscotto | Una richiesta altera il registro | API solo `GET` in M1.6, connessione `mode=ro`, nessun modello Django sul registro |
 | Cruscotto esposto in rete | Materiali del cliente leggibili da fuori | Django e Next.js solo su loopback, porta pubblicata su `127.0.0.1`, verificato da un test |
@@ -38,6 +39,32 @@ bwrap --ro-bind /usr /usr --ro-bind /etc /etc --symlink usr/bin /bin --symlink u
 
 Provato: i Craft e Blender funzionano; le altre cartelle non esistono; rete assente; `/usr` non scrivibile.
 `/etc` è montato per i font e la configurazione di sistema: in M1 va ridotto al necessario.
+
+`/job` è l'unica cartella scrivibile, e l'harness non vi tiene nulla che poi rilegga come suo (ADR-0044). Gli ingressi
+che scrive per la sandbox dell'agente, lo script di `compute` e il piano di `craft_run`, stanno in
+`.data/ops/<progetto>/<istanza>/in/`, montata in sola lettura:
+
+```sh
+--ro-bind .data/ops/<progetto>/<istanza>/in /ops
+```
+
+Il registro della ripresa di `craft_run` sta nella cartella sopra, `.data/ops/<progetto>/<istanza>/`, che nessuna
+sandbox vede. In `/job` restano solo le uscite degli strumenti, come l'esportazione in `/job/.partial/`.
+
+Nell'ambiente della sandbox non c'è alcun segreto. `--clearenv` svuota solo l'ambiente del comando: bwrap, che dentro la
+sandbox è il processo 1, conserva quello con cui è partito, e ogni processo della sandbox lo legge da `/proc/1/environ`.
+Per questo `systemd-run` e bwrap partono con le sole `PATH`, `XDG_RUNTIME_DIR` e `DBUS_SESSION_BUS_ADDRESS` dell'harness
+(`HOST_VARIABLES`), quanto serve a `systemd-run` per raggiungere il gestore utente. La chiave resta fuori anche quando
+l'operatore la esporta nella shell, e `test_no_process_in_the_sandbox_holds_the_key` la cerca in ogni `/proc/<pid>/environ`.
+
+Ogni comando ha anche dei limiti di risorse (ADR-0046, SEC-005):
+- `/tmp` è una tmpfs da 2 GiB, `/home` e `/dev/shm` da 256 MiB, e nessun file scritto supera i 2 GiB (`prlimit --fsize`);
+- l'harness tiene al massimo 8 MiB di ciascuna uscita del comando, stdout e stderr: oltre, ferma il comando (codice 125);
+- il comando gira in uno scope cgroup dell'utente, `systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 -p
+  TasksMax=512 -- bwrap …`: 8 GiB di memoria, tmpfs comprese, niente swap, 512 task. Il tetto è il doppio del picco
+  misurato su Blender e sulle CLI Craft;
+- senza uno scope la sandbox non parte: `Sandbox.run` alza `SandboxUnavailable`, e `agency doctor` lo segnala nella
+  riga `limiti sandbox`. Serve quindi una sessione utente di systemd con i controller `memory` e `pids`.
 
 ## Dati del cliente
 
@@ -88,6 +115,6 @@ Chiave API, materiali del cliente e sandbox non cambiano regole: cambiano le dif
 - Nessun servizio ascolta su interfacce diverse da loopback, fino all'ADR che in M6 deciderà come il cliente raggiunge
   l'interfaccia.
 - Nessun launcher sconosciuto: `doctor` interroga solo CLI note.
-- La tavola del giudizio passa a `vectorcraft-cli` solo `PATH` e `HOME`: la chiave non gli arriva nemmeno se è nell'ambiente di
-  chi giudica, e un test lo verifica (ADR-0041).
+- La tavola del giudizio rende gli SVG dentro la sandbox, su una copia privata del file: `vectorcraft-cli` non legge file
+  dell'host e non riceve segreti (vedi Sandbox), e `test_judge_board_cannot_draw_host_files` lo verifica (ADR-0041).
 - `.env` non si versiona.

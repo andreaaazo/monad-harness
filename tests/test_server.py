@@ -1,4 +1,4 @@
-"""Il server del cruscotto: solo GET, solo loopback, senza chiave, senza database (M1.6, punto 11)."""
+"""The dashboard server: GET only, loopback only, no key, no database (M1.6, item 11)."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-# Django prima di tutto: Django Ninja legge le impostazioni già all'import.
+# Django first: Django Ninja reads the settings on import.
 os.environ["DJANGO_SETTINGS_MODULE"] = "agency.entrypoints.server.settings"
 import django
 
@@ -27,9 +27,11 @@ from django.conf import settings  # noqa: E402
 from django.http import HttpRequest, HttpResponse  # noqa: E402
 from django.test import Client, RequestFactory, override_settings  # noqa: E402
 
+from agency import cli  # noqa: E402
 from agency.agents.transcript import Transcript  # noqa: E402
 from agency.config import REPO_ROOT  # noqa: E402
 from agency.contracts.layout import DataLayout  # noqa: E402
+from agency.contracts.project import ProjectName  # noqa: E402
 from agency.contracts.ticket import TicketSpec, TicketType  # noqa: E402
 from agency.entrypoints.server import serve  # noqa: E402
 from agency.entrypoints.server.middleware import ReadOnly  # noqa: E402
@@ -90,7 +92,16 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-# Cosa risponde
+# What it answers
+
+
+def test_the_request_log_line_loses_control_characters(capsys: pytest.CaptureFixture[str]) -> None:
+    handler = serve._Handler.__new__(serve._Handler)
+    handler.client_address = ("127.0.0.1", 1)
+    handler.log_message("%s", "GET /\x1b]0;forged\x07 HTTP/1.1")
+    err = capsys.readouterr().err
+    assert "\x1b" not in err and "\x07" not in err
+    assert err.endswith("\n")
 
 
 def test_projects_lists_what_the_registry_knows(client: Client) -> None:
@@ -133,12 +144,34 @@ def test_compare_puts_two_projects_side_by_side_and_refuses_one_with_itself(
         assert client.post("/api/compare?before=bottega&after=officina").status_code == 405
 
 
+def test_a_stored_name_the_rule_rejects_is_a_404_and_the_list_still_answers(
+    tmp_path: Path, studio: Ledger
+) -> None:
+    """A registry written before the name rule may hold `Merlo`: its routes refuse it (COR-013)."""
+    studio.set_project("Merlo", 5)
+    studio.record_usage(usage(3, project="Merlo"))
+    studio.engine.dispose()
+    with override_settings(AGENCY_DATA_DIR=tmp_path):
+        client = Client(HTTP_HOST="127.0.0.1")
+        listing = client.get("/api/projects")
+        assert listing.status_code == 200
+        assert {item["name"] for item in listing.json()} == {"Merlo", "officina"}
+        for route in ["report", "flow", "behaviour", "quality", "instances/T-0001-a1/replay"]:
+            refused = client.get(f"/api/projects/Merlo/{route}")
+            assert refused.status_code == 404, route
+            assert "Merlo" in refused.json()["detail"], route
+        assert client.get("/api/projects/Merlo/instances/T-0001-a1/images/0").status_code == 404
+        assert client.get("/api/compare?before=Merlo&after=officina").status_code == 404
+        assert client.get("/api/compare?before=officina&after=Merlo").status_code == 404
+        assert client.get("/api/projects/officina/report").status_code == 200
+
+
 PNG = b"\x89PNG\r\n\x1a\n un pixel"
 
 
 def replayable(tmp_path: Path) -> None:
-    """L'istanza T-0001-a1 di officina, come la scrive il motore: un'immagine PNG e una SVG."""
-    transcript = Transcript(DataLayout(tmp_path).transcript("officina", "T-0001-a1"))
+    """Instance T-0001-a1 of officina, as the engine writes it: one PNG image and one SVG."""
+    transcript = Transcript(DataLayout(tmp_path).transcript(ProjectName("officina"), "T-0001-a1"))
     transcript.append({"role": "user", "content": "Il compito"})
     transcript.append(
         {
@@ -229,9 +262,9 @@ def test_the_dashboard_follows_the_engine_and_rebuilds_only_when_something_chang
     assert client.get("/api/provenance").status_code == 200
     built = projection.stat().st_ino
     assert client.get("/api/projects").status_code == 200
-    assert projection.stat().st_ino == built  # niente è cambiato: la proiezione non si rifà
+    assert projection.stat().st_ino == built  # nothing changed: the projection is not rebuilt
     ledger = Ledger(tmp_path / "ledger.sqlite")
-    ledger.record_usage(usage(3, cost=2.0))  # il motore lavora, e resta aperto: la riga nuova sta nel WAL
+    ledger.record_usage(usage(3, cost=2.0))  # the engine works and stays open: the new row is in the WAL
     try:
         report = ProjectReport.model_validate(client.get("/api/projects/officina/report").json())
     finally:
@@ -251,7 +284,7 @@ def test_an_outdated_registry_is_explained_not_hidden(tmp_path: Path) -> None:
     assert "agency migrate" in response.json()["detail"]
 
 
-# Cosa non fa
+# What it does not do
 
 
 ROUTES = [
@@ -279,7 +312,7 @@ def test_the_api_cannot_write_and_the_registry_stays_intact(
 
 @pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
 def test_writes_stop_before_any_view_even_one_that_would_accept_them(method: str) -> None:
-    """La seconda difesa da sola: anche una route futura scritta per sbaglio non riceve una scrittura."""
+    """The second defence alone: even a future route written by mistake gets no write."""
     reached: list[str] = []
 
     def careless_view(request: HttpRequest) -> HttpResponse:
@@ -309,12 +342,12 @@ def test_no_docs_page_that_loads_scripts_from_a_cdn(client: Client) -> None:
 
 def test_django_owns_no_model_and_no_database() -> None:
     assert apps.get_models() == []
-    assert settings.DATABASES["default"]["ENGINE"] == "django.db.backends.dummy"  # cioè nessun database
+    assert settings.DATABASES["default"]["ENGINE"] == "django.db.backends.dummy"  # that is, no database
     assert settings.DEBUG is False
     assert settings.ALLOWED_HOSTS == ["127.0.0.1", "localhost"]
 
 
-# Il processo
+# The process
 
 
 @pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.10", "10.0.0.1", "example.com", "::", "localhost"])
@@ -326,8 +359,10 @@ def test_the_server_refuses_anything_but_loopback(host: str) -> None:
 def test_a_busy_port_is_explained_not_dumped_as_a_traceback(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Un altro cruscotto acceso: lo si dice, e si dice come sceglierne un'altra."""
-    monkeypatch.setattr(serve.os, "environ", dict(os.environ))  # il server ripulisce l'ambiente: una copia
+    """Another dashboard is running: say so, and say how to choose another port."""
+    monkeypatch.setattr(
+        serve.os, "environ", dict(os.environ)
+    )  # the server scrubs the environment: pass a copy
     with socket.socket() as taken:
         taken.bind(("127.0.0.1", 0))
         taken.listen()
@@ -366,7 +401,7 @@ def test_the_server_listens_on_loopback_and_answers(
 
 
 def test_the_server_never_reads_dotenv_nor_loads_the_engine_settings(tmp_path: Path) -> None:
-    """In un processo nuovo, con un .env che contiene una chiave: il server non la vede."""
+    """In a new process, with a .env that holds a key: the server does not see it."""
     (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-dal-dotenv\n", encoding="utf-8")
     probe = (
         "import os, sys\n"
@@ -411,11 +446,105 @@ def test_the_server_runs_as_its_own_process(tmp_path: Path, studio: Ledger) -> N
         process.wait(timeout=10)
 
 
-# I confini
+RELATIVE = (
+    "{name} deve essere un percorso assoluto, non {value!r}: uno relativo dipende dalla cartella da cui parte"
+    " il comando"
+)
+
+
+def test_a_relative_data_root_is_refused_by_engine_and_server(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`AGENCY_DATA_DIR=.data task dashboard`: neither process starts, and both say why in the same line."""
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("AGENCY_")}
+    for key in set(os.environ) - set(environment):
+        monkeypatch.delenv(key)
+    monkeypatch.chdir(tmp_path)
+    line = RELATIVE.format(name="AGENCY_DATA_DIR", value=".data") + "\n"
+
+    monkeypatch.setenv("AGENCY_DATA_DIR", ".data")
+    assert (cli.main(["verify"]), capsys.readouterr().out) == (1, line)
+    monkeypatch.delenv("AGENCY_DATA_DIR")
+    monkeypatch.setenv("AGENCY_PROJECTS_DIR", "projects")  # the projects folder follows the same rule
+    projects = RELATIVE.format(name="AGENCY_PROJECTS_DIR", value="projects") + "\n"
+    assert (cli.main(["verify"]), capsys.readouterr().out) == (1, projects)
+
+    server = subprocess.run(
+        [sys.executable, "-m", "agency.entrypoints.server", "--port", "0"],
+        cwd=tmp_path,
+        env=environment | {"AGENCY_DATA_DIR": ".data"},
+        capture_output=True,
+        text=True,
+        timeout=30,  # a server that accepts the root serves until this kills it
+    )
+    assert (server.returncode, server.stderr) == (1, line)
+    assert not (tmp_path / ".data").exists()
+
+
+def clean_environment(**variables: str) -> dict[str, str]:
+    """The process environment without any AGENCY_* variable of the machine, plus the given ones."""
+    return {key: value for key, value in os.environ.items() if not key.startswith("AGENCY_")} | variables
+
+
+def test_a_relative_projection_dir_is_refused_by_the_server(tmp_path: Path) -> None:
+    """2.F35: `AGENCY_PROJECTION_DIR` follows the rule of the data root, not the server's current folder."""
+    server = subprocess.run(
+        [sys.executable, "-m", "agency.entrypoints.server", "--port", "0"],
+        cwd=tmp_path,
+        env=clean_environment(AGENCY_DATA_DIR=str(tmp_path), AGENCY_PROJECTION_DIR="projection"),
+        capture_output=True,
+        text=True,
+        timeout=30,  # a server that accepts the folder serves until this kills it
+    )
+    line = RELATIVE.format(name="AGENCY_PROJECTION_DIR", value="projection") + "\n"
+    assert (server.returncode, server.stderr) == (1, line)
+    assert not (tmp_path / "projection").exists()
+
+
+def test_an_absolute_projection_dir_is_taken_as_given(tmp_path: Path) -> None:
+    from agency.contracts.layout import projection_root
+
+    assert projection_root({}) is None
+    assert projection_root({"AGENCY_PROJECTION_DIR": str(tmp_path)}) == tmp_path
+
+
+SCHEMAS = "import sys; from agency.entrypoints.server import schema; sys.exit(schema.main(sys.argv[1:]))"
+
+
+def run_schemas(folder: Path, *arguments: str, **variables: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-c", SCHEMAS, *arguments],
+        cwd=folder,
+        env=clean_environment(**({"AGENCY_DATA_DIR": str(folder)} | variables)),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+
+def test_agency_schemas_checks_the_schema_of_the_checkout_from_any_folder(tmp_path: Path) -> None:
+    """2.F34: `uv run agency-schemas` from `web/` must not look for, or write, `web/schemas/openapi.json`."""
+    done = run_schemas(tmp_path, "--check")
+    assert (done.returncode, done.stdout) == (0, f"schema allineato: {REPO_ROOT / 'schemas/openapi.json'}\n")
+    assert not (tmp_path / "schemas").exists()
+
+
+@pytest.mark.parametrize("name", ["AGENCY_DATA_DIR", "AGENCY_PROJECTION_DIR"])
+def test_agency_schemas_prints_the_refusal_of_a_relative_folder(tmp_path: Path, name: str) -> None:
+    """2.F34: the settings load while the schema renders; the refusal is one line, not a traceback."""
+    done = run_schemas(tmp_path, "--check", **{name: "relativo"})
+    assert (done.returncode, done.stdout, done.stderr) == (
+        1,
+        RELATIVE.format(name=name, value="relativo") + "\n",
+        "",
+    )
+
+
+# The boundaries
 
 
 def test_every_engine_package_is_forbidden_to_import_django() -> None:
-    """Il contratto elenca i pacchetti a mano: un pacchetto nuovo non deve sfuggirgli."""
+    """The contract lists the packages by hand: a new package must not slip past it."""
     config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     contracts = config["tool"]["importlinter"]["contracts"]
     (engine,) = [contract for contract in contracts if "django" in contract["forbidden_modules"]]
@@ -427,8 +556,44 @@ def test_every_engine_package_is_forbidden_to_import_django() -> None:
     assert {module.removeprefix("agency.") for module in engine["source_modules"]} == present
 
 
+# What each read-only slice may import from the engine. Every other package on disk must be forbidden.
+SLICE_ALLOWED = {
+    "agency.insights": {"contracts"},
+    "agency.entrypoints.server": {"contracts", "insights"},
+    "agency.evaluation": {"contracts"},
+}
+
+
+def test_every_slice_contract_forbids_every_engine_package() -> None:
+    """A new engine package must reach every slice's forbidden list, not only the Django contract's."""
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    contracts = config["tool"]["importlinter"]["contracts"]
+    source = REPO_ROOT / "src" / "agency"
+    present = {
+        path.stem for path in source.iterdir() if path.suffix == ".py" or (path / "__init__.py").exists()
+    } - {"__init__", "entrypoints"}
+    for slice_, allowed in SLICE_ALLOWED.items():
+        (contract,) = [contract for contract in contracts if contract["source_modules"] == [slice_]]
+        forbidden = {module.removeprefix("agency.") for module in contract["forbidden_modules"]}
+        unforbidden = present - forbidden - allowed - {slice_.removeprefix("agency.")}
+        assert not unforbidden, f"{slice_} does not forbid {sorted(unforbidden)}"
+
+
+def test_every_package_but_the_gateway_is_forbidden_to_import_anthropic() -> None:
+    """The anthropic contract lists the packages by hand: a new package must not slip past it."""
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    contracts = config["tool"]["importlinter"]["contracts"]
+    (contract,) = [contract for contract in contracts if contract["forbidden_modules"] == ["anthropic"]]
+    source = REPO_ROOT / "src" / "agency"
+    present = {
+        path.stem for path in source.iterdir() if path.suffix == ".py" or (path / "__init__.py").exists()
+    } - {"__init__"}
+    assert {module.removeprefix("agency.") for module in contract["source_modules"]} == present - {"gateway"}
+
+
 def test_the_projection_can_live_away_from_the_registry(client: Client, tmp_path: Path) -> None:
-    """In Docker la proiezione sta in memoria: il server la scrive lì, e accanto al registro niente."""
+    """In Docker the projection lives in memory: the server writes it there, and nothing beside the
+    registry."""
     elsewhere = tmp_path / "in-memoria"
     elsewhere.mkdir()
     with override_settings(AGENCY_PROJECTION_DIR=elsewhere):
@@ -445,7 +610,12 @@ def test_by_default_the_projection_sits_next_to_the_registry(client: Client, tmp
 
 def test_the_data_layout_has_one_owner() -> None:
     layout = DataLayout(Path("/dati"))
-    assert (layout.ledger, layout.traces, layout.insights, layout.transcript("merlo", "T-0002-a1")) == (
+    assert (
+        layout.ledger,
+        layout.traces,
+        layout.insights,
+        layout.transcript(ProjectName("merlo"), "T-0002-a1"),
+    ) == (
         Path("/dati/ledger.sqlite"),
         Path("/dati/traces.jsonl"),
         Path("/dati/insights.sqlite"),

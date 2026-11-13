@@ -1,6 +1,8 @@
 import json
+import threading
 import time
 from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import anthropic
@@ -15,11 +17,13 @@ from agency.gateway import (
     CallContext,
     ModelGateway,
     ModelRequest,
-    ScriptedTransport,
+    ModelResponse,
+    Transport,
 )
-from agency.gateway.pricing import cost_usd
+from agency.gateway.pricing import PRICES, cost_usd
 from agency.ledger import Ledger
 from agency.telemetry import fingerprint
+from support.scripted import ScriptedTransport
 
 CONTEXT = CallContext(project="p", ticket_id="T-0001", role="critic", instance="i1", phase="critic-board")
 
@@ -49,13 +53,13 @@ def request() -> ModelRequest:
 
 def gateway(
     tmp_path: Path,
-    transport: ScriptedTransport,
+    transport: Transport,
     clock: Callable[[], float] = time.monotonic,
     budget: float | None = 25.0,
 ) -> ModelGateway:
-    """Il progetto `p` di CONTEXT, con il tetto che il cliente ha dichiarato. None: nessun tetto."""
+    """Project `p` of CONTEXT, with the cap the client declared. None: no cap."""
     settings = Settings(data_dir=tmp_path, _env_file=None)  # type: ignore[call-arg]
-    ledger = Ledger(settings.ledger_path)
+    ledger = Ledger(settings.layout.ledger)
     if budget is not None:
         ledger.set_project(CONTEXT.project, budget)
     return ModelGateway(transport, ledger, settings, clock=clock)
@@ -89,8 +93,88 @@ def test_call_records_usage_and_request_shape(tmp_path: Path) -> None:
         assert forbidden not in sent
 
 
+def test_a_fallback_call_is_charged_for_both_attempts(tmp_path: Path) -> None:
+    """Shaped like the claude-api reference: opus-5-5 declines mid-stream and opus-5 serves the answer.
+
+    `usage.iterations` holds both attempts; the top-level `usage` covers only the one that served, but the
+    declined attempt is billed too, so the recorded cost is the sum of both at their own models' rates.
+    """
+    declined = {
+        "type": "message",
+        "model": "claude-opus-5-5",
+        "input_tokens": 50_000,
+        "output_tokens": 6_000,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+    }
+    served = declined | {"type": "fallback_message", "model": "claude-opus-5", "output_tokens": 3_000}
+    answer = {
+        "content": [
+            {"type": "fallback", "from": {"model": "claude-opus-5-5"}, "to": {"model": "claude-opus-5"}},
+            {"type": "text", "text": "ok"},
+        ],
+        "stop_reason": "end_turn",
+        "model": "claude-opus-5",
+        "usage": {
+            "input_tokens": 50_000,
+            "output_tokens": 3_000,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "iterations": [declined, served],
+        },
+    }
+    gw = gateway(tmp_path, ScriptedTransport([answer]))
+
+    response = gw.call(CONTEXT, request())
+
+    declined_attempt = cost_usd("claude-opus-5-5", {"input_tokens": 50_000, "output_tokens": 6_000})
+    serving_attempt = cost_usd("claude-opus-5", {"input_tokens": 50_000, "output_tokens": 3_000})
+    assert declined_attempt == pytest.approx(0.32)
+    assert serving_attempt == pytest.approx(0.325)
+    assert response.cost_usd == pytest.approx(0.645)
+    assert gw.ledger.spent("p") == pytest.approx(0.645)
+    (row,) = gw.ledger.usage("p")
+    assert row.cost_usd == pytest.approx(0.645)
+    assert (row.input_tokens, row.output_tokens) == (50_000, 3_000)  # token columns stay the top-level usage
+
+
+def test_a_declined_attempt_on_an_unlisted_model_is_charged_at_the_unknown_rate(tmp_path: Path) -> None:
+    tokens = {"input_tokens": 1_000, "output_tokens": 1_000, "cache_read_input_tokens": 0}
+    declined = {"type": "message", "model": "claude-future-9"} | tokens
+    served = {"type": "fallback_message", "model": "claude-opus-5-5"} | tokens
+    answer = reply() | {"usage": tokens | {"iterations": [declined, served]}}
+    gw = gateway(tmp_path, ScriptedTransport([answer]))
+
+    response = gw.call(CONTEXT, request())
+
+    # 1k in and 1k out: 0.06 $ at the unknown model's 10 and 50 $/M, plus 0.024 $ at opus-5-5.
+    assert response.cost_usd == pytest.approx(0.084)
+
+
+def test_an_attempt_without_a_model_is_charged_at_the_requested_model(tmp_path: Path) -> None:
+    tokens = {"input_tokens": 1_000, "output_tokens": 1_000, "cache_read_input_tokens": 0}
+    answer = reply() | {"usage": tokens | {"iterations": [{"type": "message"} | tokens]}}
+    gw = gateway(tmp_path, ScriptedTransport([answer]))
+
+    response = gw.call(CONTEXT, request())
+
+    assert response.cost_usd == pytest.approx(cost_usd(request().model, tokens))
+
+
+def test_a_call_without_iterations_costs_what_its_top_level_usage_costs(tmp_path: Path) -> None:
+    for iterations in (None, []):
+        answer = reply(input_tokens=2_000, output=500, read=10_000)
+        if iterations is not None:
+            answer["usage"] = answer["usage"] | {"iterations": iterations}
+        gw = gateway(tmp_path / str(iterations), ScriptedTransport([answer]))
+
+        response = gw.call(CONTEXT, request())
+
+        assert response.cost_usd == pytest.approx(cost_usd("claude-opus-5-5", answer["usage"]))
+
+
 class Slow(ScriptedTransport):
-    """Una risposta che arriva dopo 2,5 secondi di un orologio finto."""
+    """An answer that arrives after 2.5 seconds of a fake clock."""
 
     def __init__(self, responses: list[dict], now: list[float]) -> None:
         super().__init__(responses)
@@ -155,7 +239,7 @@ SSE = [
 
 
 def test_anthropic_transport_measures_the_first_chunk_without_calling_the_api() -> None:
-    """Lo stream arriva un evento alla volta e l'orologio avanza con lui: il testo arriva dopo 500 ms."""
+    """The stream arrives one event at a time and the clock moves with it: the text arrives after 500 ms."""
     now = [100.0]
     arrives = {"message_start": 0.1, "content_block_delta": 0.4}
 
@@ -181,6 +265,172 @@ def test_anthropic_transport_measures_the_first_chunk_without_calling_the_api() 
     assert data["usage"]["output_tokens_details"] == {"thinking_tokens": 25}
 
 
+def test_live_transport_sends_the_gateway_params_through_the_sdk(tmp_path: Path) -> None:
+    """The real SDK builds both requests and httpx2.MockTransport answers them: nothing leaves the machine."""
+    seen: list[httpx2.Request] = []
+
+    def answer(sent: httpx2.Request) -> httpx2.Response:
+        seen.append(sent)
+        if sent.url.path == "/v1/messages/count_tokens":
+            return httpx2.Response(200, json={"input_tokens": 1000})
+        stream = b"".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n".encode() for e in SSE)
+        return httpx2.Response(200, headers={"content-type": "text/event-stream"}, content=stream)
+
+    http = anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(answer))
+    client = anthropic.Anthropic(api_key="chiave-finta", http_client=http, max_retries=0)
+    gw = gateway(tmp_path, AnthropicTransport(client=client))
+    with_tools = request()
+    with_tools.tools = [{"name": "consegna", "description": "d", "input_schema": {"type": "object"}}]
+
+    gw.call(CONTEXT, request())
+    gw.call(CONTEXT, with_tools)
+
+    assert [sent.url.path for sent in seen] == ["/v1/messages/count_tokens", "/v1/messages"] * 2
+    counted = [json.loads(sent.content) for sent in seen[0::2]]
+    assert [set(body) for body in counted] == [
+        {"model", "system", "messages"},
+        {"model", "system", "tools", "messages"},
+    ]
+    streamed = seen[3]
+    body = json.loads(streamed.content)
+    assert set(body) == {
+        "model",
+        "max_tokens",
+        "system",
+        "messages",
+        "tools",
+        "thinking",
+        "output_config",
+        "cache_control",
+        "fallbacks",
+        "stream",
+    }
+    assert body["thinking"] == {"type": "adaptive"}
+    assert body["output_config"] == {"effort": "high"}
+    assert body["cache_control"] == {"type": "ephemeral"}
+    assert body["fallbacks"] == "default"
+    assert "server-side-fallback-2026-07-01" in streamed.headers["anthropic-beta"].split(",")
+
+
+def test_estimate_after_the_first_call_prices_context_and_new_tokens(tmp_path: Path) -> None:
+    """The context is re-read from the cache; only the last message is new. An image counts 2,500 tokens."""
+    context = {"input_tokens": 1_000, "cache_read_input_tokens": 90_000, "cache_creation_input_tokens": 9_000}
+    previous = ModelResponse(
+        content=[],
+        stop_reason="tool_use",
+        stop_details=None,
+        usage=context,
+        model="claude-opus-5-5",
+        cost_usd=0.0,
+        request_id="",
+    )
+    image = {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "A" * 30_000}}
+    text = {"type": "text", "text": "x" * 3_000}
+    result = {"type": "tool_result", "tool_use_id": "t1", "content": [text, image]}
+    follow_up = request()
+    follow_up.messages = [{"role": "user", "content": [result]}]
+    gw = gateway(tmp_path, ScriptedTransport([]))
+
+    estimate = gw.estimate_usd(follow_up, previous)
+
+    price = PRICES["claude-opus-5-5"]
+    fresh = 1_000 + 2_500
+    expected = (100_000 * price.cache_read + fresh * price.cache_write_5m + 4_000 * price.output) / 1e6
+    assert estimate == pytest.approx(expected)
+
+
+def test_a_cap_crossed_only_by_the_input_part_stops_the_call(tmp_path: Path) -> None:
+    """The follow-up's expected output alone fits the cap; its 100,000 context tokens push it over."""
+    first = reply(input_tokens=1_000, output=100, read=90_000, write=9_000)
+    transport = ScriptedTransport([first, reply()])
+    gw = gateway(tmp_path, transport, budget=0.16)
+    previous = gw.call(CONTEXT, request())
+    assert previous.context_tokens == 100_000
+    output_part = 4_000 * PRICES["claude-opus-5-5"].output / 1e6
+    assert gw.ledger.spent("p") + output_part <= 0.16  # without the input part the call would go out
+
+    with pytest.raises(BudgetExceeded, match="spesi"):
+        gw.call(CONTEXT, request(), previous)
+    assert len(transport.requests) == 1
+
+
+def test_parallel_calls_cannot_overspend_the_cap(tmp_path: Path) -> None:
+    """Five calls at once against a 0.20 $ cap, each costing exactly its 0.085 $ estimate.
+
+    The five threads leave a barrier together. A call that passes the check waits inside `stream` until all
+    five have been decided, so no usage is recorded while the others are checked: only the estimates of the
+    calls in flight can stop them. Two fit in the cap and three are refused, in whatever order the threads
+    run.
+    """
+    calls = 5
+    start = threading.Barrier(calls, timeout=10)  # the timeouts here only guard against a hang
+    decided = threading.Semaphore(0)
+    release = threading.Event()
+
+    class HeldInFlight(ScriptedTransport):
+        def stream(self, params: dict) -> dict:
+            decided.release()
+            assert release.wait(timeout=10)
+            return super().stream(params)
+
+    transport = HeldInFlight([reply(input_tokens=0, output=4_000, write=1_000) for _ in range(calls)])
+    gw = gateway(tmp_path, transport, budget=0.20)
+    assert gw.estimate_usd(request(), None) == pytest.approx(0.085)
+
+    def one_call() -> ModelResponse | BudgetExceeded:
+        start.wait()
+        try:
+            return gw.call(CONTEXT, request())
+        except BudgetExceeded as refused:
+            decided.release()
+            return refused
+
+    with ThreadPoolExecutor(calls) as pool:
+        futures = [pool.submit(one_call) for _ in range(calls)]
+        for _ in range(calls):
+            assert decided.acquire(timeout=10)
+        release.set()
+        outcomes = [future.result() for future in futures]
+
+    streamed = [outcome for outcome in outcomes if isinstance(outcome, ModelResponse)]
+    refused = [outcome for outcome in outcomes if isinstance(outcome, BudgetExceeded)]
+    assert len(transport.requests) == 2
+    assert (len(streamed), len(refused)) == (2, 3)
+    assert [response.cost_usd for response in streamed] == pytest.approx([0.085, 0.085])
+    assert gw.ledger.spent("p") <= 0.20
+    assert gw.ledger.spent("p") == pytest.approx(0.17)
+
+
+def test_a_call_that_fails_while_streaming_releases_its_reservation(tmp_path: Path) -> None:
+    """The first call reserves its 0.085 $ estimate, then the connection drops while it streams.
+
+    It spent nothing, so under a 0.20 $ cap two more calls still fit, one after the other.
+    """
+
+    class DropsFirst(ScriptedTransport):
+        drops = 1
+
+        def stream(self, params: dict) -> dict:
+            if self.drops:
+                self.drops -= 1
+                dropped = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+                raise anthropic.APIConnectionError(request=dropped)
+            return super().stream(params)
+
+    transport = DropsFirst([reply(input_tokens=0, output=4_000, write=1_000) for _ in range(2)])
+    gw = gateway(tmp_path, transport, budget=0.20)
+    assert gw.estimate_usd(request(), None) == pytest.approx(0.085)
+    with pytest.raises(anthropic.APIConnectionError):
+        gw.call(CONTEXT, request())
+    assert gw.ledger.spent("p") == 0
+
+    gw.call(CONTEXT, request())
+    gw.call(CONTEXT, request())
+
+    assert len(transport.requests) == 2
+    assert gw.ledger.spent("p") == pytest.approx(0.17)
+
+
 def test_project_ceiling_stops_before_the_call(tmp_path: Path) -> None:
     transport = ScriptedTransport([reply()])
     gw = gateway(tmp_path, transport, budget=0.01)
@@ -199,7 +449,7 @@ def test_project_ceiling_counts_previous_spend(tmp_path: Path) -> None:
 
 
 def test_a_project_without_a_declared_budget_spends_nothing(tmp_path: Path) -> None:
-    """Prima valeva il tetto delle impostazioni: ora senza un tetto dichiarato non parte nulla (ADR-0043)."""
+    """The settings' cap used to apply: now nothing goes out without a declared cap (ADR-0043)."""
     counted: list[dict] = []
 
     class Counting(ScriptedTransport):
@@ -211,7 +461,7 @@ def test_a_project_without_a_declared_budget_spends_nothing(tmp_path: Path) -> N
     gw = gateway(tmp_path, transport, budget=None)
     with pytest.raises(BudgetExceeded, match="p non ha un tetto dichiarato"):
         gw.call(CONTEXT, request())
-    assert transport.requests == [] and counted == []  # niente esce, nemmeno per contare i token
+    assert transport.requests == [] and counted == []  # nothing goes out, not even to count the tokens
 
 
 def test_malformed_tool_json_is_retried(tmp_path: Path) -> None:
@@ -221,10 +471,111 @@ def test_malformed_tool_json_is_retried(tmp_path: Path) -> None:
         def stream(self, params: dict) -> dict:
             if self.fails:
                 self.fails -= 1
-                raise ValueError("JSON illeggibile")
+                raise ValueError("unreadable JSON")
             return super().stream(params)
 
     assert gateway(tmp_path, Flaky([reply()])).call(CONTEXT, request()).stop_reason == "end_turn"
+
+
+class MalformedThenOk(ScriptedTransport):
+    """Raises the SDK's malformed-tool-JSON `ValueError` for the first `fails` streams."""
+
+    def __init__(self, fails: int, responses: list[dict]) -> None:
+        super().__init__(responses)
+        self.fails = fails
+
+    def stream(self, params: dict) -> dict:
+        if self.fails:
+            self.fails -= 1
+            self.requests.append(params)
+            raise ValueError("unreadable JSON")
+        return super().stream(params)
+
+
+def count_authorizations(gw: ModelGateway) -> list[float]:
+    """Wrap `authorize` on the instance and return the list its estimates are appended to."""
+    estimates: list[float] = []
+    real = gw.authorize
+
+    def counting(context: CallContext, limit: float, estimate: float) -> None:
+        estimates.append(estimate)
+        real(context, limit, estimate)
+
+    gw.authorize = counting  # type: ignore[method-assign]
+    return estimates
+
+
+def test_a_malformed_stream_retry_is_authorized_and_recorded(tmp_path: Path) -> None:
+    """Each failed attempt is billed by the API: it is authorized first and leaves a usage row."""
+    transport = MalformedThenOk(2, [reply()])
+    gw = gateway(tmp_path, transport)
+    estimate = gw.estimate_usd(request(), None)
+    authorized = count_authorizations(gw)
+    taken = fingerprint.take(Settings(_env_file=None), "", "", tools=())  # type: ignore[call-arg]
+    run = gw.ledger.record_run("p", RunCommand.RUN, taken)
+    gw.belongs_to(run)
+
+    response = gw.call(CONTEXT, request())
+
+    assert response.stop_reason == "end_turn"
+    assert len(transport.requests) == 3
+    assert authorized == [estimate] * 3
+    rows = gw.ledger.usage("p")
+    assert [row.stop_reason for row in rows] == ["malformed_stream", "malformed_stream", "end_turn"]
+    assert [row.run for row in rows] == [run] * 3
+    for failed in rows[:2]:
+        assert failed.cost_usd == estimate
+        assert (failed.input_tokens, failed.output_tokens) == (0, 0)
+        cache = (failed.cache_read_tokens, failed.cache_write_5m_tokens, failed.cache_write_1h_tokens)
+        assert cache == (0, 0, 0)
+        assert (failed.model, failed.request_id) == ("claude-opus-5-5", "")
+        assert failed.ttft_ms is None and failed.reasoning_tokens is None
+        who = (failed.project, failed.ticket_id, failed.role, failed.instance)
+        assert who == ("p", "T-0001", "critic", "i1")
+        assert (failed.phase, failed.effort) == ("critic-board", "high")
+        assert failed.duration_ms is not None
+    assert gw.ledger.spent("p") == pytest.approx(2 * estimate + response.cost_usd)
+    assert gw._reserved["p"] == pytest.approx(0)  # every attempt released its own reservation, once
+
+
+def test_a_malformed_stream_failure_records_its_own_duration(tmp_path: Path) -> None:
+    ticks = iter(range(0, 100, 3))  # each clock read is 3 s after the last
+    gw = gateway(tmp_path, MalformedThenOk(1, [reply()]), clock=lambda: float(next(ticks)))
+    gw.call(CONTEXT, request())
+    failed, ok = gw.ledger.usage("p")
+    assert failed.duration_ms == 3000 and ok.duration_ms == 3000
+
+
+def test_a_retry_over_the_cap_is_refused_after_the_failed_attempt_is_recorded(tmp_path: Path) -> None:
+    probe = gateway(tmp_path / "probe", ScriptedTransport([]))
+    estimate = probe.estimate_usd(request(), None)
+    transport = MalformedThenOk(2, [reply()])
+    gw = gateway(tmp_path, transport, budget=1.5 * estimate)  # one call fits, two do not
+
+    with pytest.raises(BudgetExceeded, match="spesi"):
+        gw.call(CONTEXT, request())
+
+    assert len(transport.requests) == 1  # the retry never went out
+    rows = gw.ledger.usage("p")
+    assert [row.stop_reason for row in rows] == ["malformed_stream"]
+    assert rows[0].cost_usd == estimate
+    assert gw._reserved["p"] == pytest.approx(0)
+
+
+def test_the_last_malformed_stream_failure_is_recorded_and_raised(tmp_path: Path) -> None:
+    transport = MalformedThenOk(3, [reply()])
+    gw = gateway(tmp_path, transport)
+    estimate = gw.estimate_usd(request(), None)
+    authorized = count_authorizations(gw)
+
+    with pytest.raises(ValueError, match="unreadable JSON"):
+        gw.call(CONTEXT, request())
+
+    assert len(transport.requests) == 3 and len(transport.responses) == 1
+    assert authorized == [estimate] * 3
+    assert [row.stop_reason for row in gw.ledger.usage("p")] == ["malformed_stream"] * 3
+    assert gw.ledger.spent("p") == pytest.approx(3 * estimate)
+    assert gw._reserved["p"] == pytest.approx(0)
 
 
 def test_key_reaches_settings_from_the_documented_variable(monkeypatch: pytest.MonkeyPatch) -> None:

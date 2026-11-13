@@ -1,18 +1,22 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig, devices } from "@playwright/test";
 
 import { CANARY } from "./e2e/canary";
 
 /**
- * Le prove di fumo del cruscotto (07-EVALS.md): i due server veri, la build di produzione di Next.js, un
- * registro di prova inventato. Porte proprie, così un cruscotto già aperto non disturba.
+ * The dashboard's smoke tests (07-EVALS.md): the two real servers, the Next.js production build, an invented
+ * test registry. Ports of their own, so a dashboard already running does not get in the way.
  */
 const NEXT = "http://127.0.0.1:13765";
 const DJANGO = "http://127.0.0.1:18765";
-/** La stessa build, puntata su una porta dove Django non c'è: com'è il cruscotto quando l'API è spenta. */
+/** The same build, pointed at a port with no Django: the dashboard as it is when the API is down. */
 const NOBODY = "http://127.0.0.1:18766";
 const withoutKey = "env -u ANTHROPIC_API_KEY -u AGENCY_ANTHROPIC_API_KEY";
-/** Ogni server parte da un ambiente con la chiave finta: `withoutKey` deve toglierla. */
+/** Every server starts from an environment holding the fake key: `withoutKey` must remove it. */
 const withCanary = { ANTHROPIC_API_KEY: CANARY, AGENCY_ANTHROPIC_API_KEY: CANARY };
+/** The test registry, as an absolute path: the server refuses a relative AGENCY_DATA_DIR (ADR-0045). */
+const DATA = fileURLToPath(new URL("e2e/.data", import.meta.url));
 
 export default defineConfig({
   testDir: "e2e",
@@ -22,20 +26,20 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   reporter: [["list"]],
-  // Niente tracce, video o schermate: conterrebbero i dati delle pagine.
+  // No traces, videos or screenshots: they would hold the pages' data.
   use: { ...devices["Desktop Chrome"], baseURL: NEXT, trace: "off", video: "off", screenshot: "off" },
   webServer: [
     {
       command:
-        `uv run python ../tests/dashboard_fixture.py e2e/.data && ` +
-        `${withoutKey} AGENCY_DATA_DIR=e2e/.data uv run agency-server --port 18765`,
+        `uv run python ../tests/support/dashboard_fixture.py ${DATA} && ` +
+        `${withoutKey} AGENCY_DATA_DIR=${DATA} uv run agency-server --port 18765`,
       url: `${DJANGO}/api/provenance`,
       env: withCanary,
       reuseExistingServer: false,
       timeout: 120_000,
     },
     {
-      // Il server standalone, lo stesso che girerà in Docker. Senza HOSTNAME ascolterebbe su 0.0.0.0.
+      // The standalone server, the same one that runs in Docker. Without HOSTNAME it would listen on 0.0.0.0.
       command:
         `${withoutKey} NEXT_TELEMETRY_DISABLED=1 HOSTNAME=127.0.0.1 PORT=13765 AGENCY_API_ORIGIN=${DJANGO} ` +
         `node .next-e2e/standalone/server.js`,
@@ -48,7 +52,7 @@ export default defineConfig({
       command:
         `${withoutKey} NEXT_TELEMETRY_DISABLED=1 HOSTNAME=127.0.0.1 PORT=13766 AGENCY_API_ORIGIN=${NOBODY} ` +
         `node .next-e2e/standalone/server.js`,
-      // Pronto quando lo dice, non quando risponde: la sua prima pagina è proprio ciò che si prova.
+      // Ready when it says so, not when it answers: its first page is exactly what is tested.
       wait: { stdout: /Ready in/ },
       env: withCanary,
       reuseExistingServer: false,

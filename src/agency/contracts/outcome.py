@@ -1,4 +1,4 @@
-"""L'esito di un'istanza: come si è chiuso il suo lavoro. Il grafo decide il passo successivo da qui."""
+"""An instance's outcome: how its work closed. The graph decides the next step from it."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class OutcomeState(StrEnum):
+    """Set by the closing tool the instance called, or `blocked` when the ticket was blocked."""
+
     DELIVERED = "delivered"
     HANDED_OFF = "handed_off"
     SELECTED = "selected"
@@ -18,9 +20,9 @@ class OutcomeState(StrEnum):
 
 
 class Outcome(BaseModel):
-    """`note` è il testo di chiusura. Per selezione e presentazione è il JSON degli argomenti dello strumento.
+    """`note` is the closing text. For selection and presentation it is the JSON of the tool's arguments.
 
-    Su disco, nelle trascrizioni, resta `{"state": ..., "note": ...}`: la forma di sempre.
+    On disk, in the transcripts, it stays `{"state": ..., "note": ...}`: the shape it always had.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

@@ -1,11 +1,11 @@
 import type { InstanceView, WaitView } from "../api";
-import { counted, minutes, seconds, usd, when } from "../format";
-import { between, workScale } from "../timescale";
+import { counted, minutes, seconds, usd, when } from "../lib/format";
+import { between, workScale } from "../lib/timescale";
 
 /**
- * Ogni istanza è una barra, dalla prima all'ultima chiamata, sulla scala del lavoro: le attese del cliente non
- * occupano spazio, hanno una riga loro. Le barre sono solo un aiuto visivo: ciò che dicono è scritto anche in
- * testo, per chi non le vede.
+ * Each instance is a bar, from its first call to its last, on the scale of the work: the client's waits take no
+ * space, they have a row of their own. The bars are only a visual aid: what they say is also written as text, for
+ * whoever cannot see them.
  */
 export function Timeline({
   instances,
@@ -19,7 +19,7 @@ export function Timeline({
   readonly end: string;
 }) {
   const place = workScale(start, end, waits);
-  // Istanze e attese in ordine di inizio; a pari istante prima l'istanza, che è ciò che l'attesa interrompe.
+  // Instances and waits in order of start; at the same instant the instance first, as it is what the wait interrupts.
   const rows = [
     ...instances.map((instance) => ({ at: Date.parse(instance.started_at), order: 0, instance })),
     ...waits.map((wait) => ({ at: Date.parse(wait.started_at), order: 1, wait })),

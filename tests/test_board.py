@@ -1,21 +1,26 @@
-"""La tavola del giudizio alla cieca: ogni disegno alla stessa misura, grande e alle misure d'uso (ADR-0041).
+"""The blind-judgment board: every drawing at the same size, large and at the sizes it is used at
+(ADR-0041).
 
-Le tele sono quelle dei due `segno.svg` reali: 98 × 118,5 px con il disegno al 91%, 800 × 600 px con
-il disegno al 76%. Messi nello stesso riquadro per la loro tela, il primo sembrerebbe più grande di un
-quinto.
+The canvases are those of the two real `segno.svg` files: 98 × 118.5 px with the drawing at 91%, 800 × 600 px
+with the drawing at 76%. Put in the same frame by their canvas, the first would look a fifth larger.
 """
 
 from __future__ import annotations
 
 import shutil
-from pathlib import Path
+from collections.abc import Callable
+from pathlib import Path, PurePosixPath
 
 import pytest
 from PIL import Image
 
+from agency import cli
+from agency.contracts.files import MAX_IMAGE_FILE_BYTES
 from agency.evaluation import board
 from agency.evaluation.blind import CannotCompare
-from drawings import INK, FakeVectorcraft, svg
+from agency.tools import sandbox
+from agency.tools.sandbox import Completed, Sandbox
+from support.drawings import INK, FakeVectorcraft, red_pixels, svg
 
 TIGHT = svg((98, 118.5), (6, 6, 86, 108))
 LOOSE = svg((800, 600), (99, 115, 609, 355))
@@ -36,7 +41,7 @@ def longest(image: Image.Image) -> int:
 
 
 def ink_box(image: Image.Image) -> tuple[int, int, int, int] | None:
-    """Dove c'è inchiostro su una tavola bianca."""
+    """Where there is ink on a white board."""
     return Image.eval(image.convert("L"), lambda value: 255 if value < 128 else 0).getbbox()
 
 
@@ -50,10 +55,10 @@ def test_every_drawing_has_the_same_size_whatever_its_canvas(tmp_path: Path) -> 
 
 
 def test_small_sizes_are_rendered_at_their_own_scale_not_reduced_from_the_large_one(tmp_path: Path) -> None:
-    """Come in logo_proof: a 16 px conta cosa resta di un disegno reso a 16 px."""
+    """As in logo_proof: at 16 px, what counts is what remains of a drawing rendered at 16 px."""
     render = FakeVectorcraft()
     board.drawn(write(tmp_path / "A.svg", TIGHT), render, tmp_path)
-    for size in SIZES:  # il lato più lungo del disegno è 108 px della tela
+    for size in SIZES:  # the drawing's longest side is 108 px of the canvas
         assert any(abs(scale - size / 108) <= size / 108 / 100 for scale in render.scales), size
 
 
@@ -75,7 +80,7 @@ def test_the_board_puts_every_letter_in_the_same_square_on_white(tmp_path: Path)
     assert sorted(path.name for path in folder.iterdir()) == ["A.svg", "B.svg", "tavola.png"]
     with Image.open(sheet) as opened:
         assert (opened.format, opened.mode, opened.size) == ("PNG", "RGB", (2 * board.CELL, board.ROW))
-        assert not opened.info.keys() - {"dpi"}, opened.info  # nessun testo: né titoli né percorsi
+        assert not opened.info.keys() - {"dpi"}, opened.info  # no text: neither titles nor paths
         image = opened.copy()
     assert image.getpixel((0, 0)) == (255, 255, 255)
     for column in range(2):
@@ -122,55 +127,139 @@ def test_a_speck_on_a_huge_canvas_is_refused_before_an_enormous_render(tmp_path:
     render = FakeVectorcraft()
     with pytest.raises(CannotCompare, match="parte troppo piccola"):
         board.drawn(write(tmp_path / "A.svg", svg((2000, 2000), (0, 0, 1, 1))), render, tmp_path)
-    assert max(render.scales) <= 1  # la tela misurata, non quella enorme
+    assert max(render.scales) <= 1  # the measured canvas, not the huge one
 
 
-# Il renderer vero
+# The real renderer
 
 
-@pytest.fixture
-def fake_binary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Un vectorcraft-cli finto che annota il suo ambiente e fallisce come fallirebbe su un file rotto.
+needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="manca vectorcraft-cli")
 
-    Prima di fallire lascia un'uscita a metà: conta il codice d'uscita, non l'esistenza del file.
-    """
-    folder = tmp_path / "bin"
-    folder.mkdir()
-    binary = folder / "vectorcraft-cli"
-    binary.write_text(
-        '#!/bin/sh\nenv > "$(dirname "$0")/environment"\necho partial > "$3"\n'
-        'echo "parse error at line 1" >&2\nexit 3\n',
-        encoding="utf-8",
+
+@needs_craft
+def test_a_broken_svg_fails_with_the_renderer_message_from_the_sandbox(tmp_path: Path) -> None:
+    render = cli._board_renderer()
+    assert render is not None
+    with pytest.raises(CannotCompare, match=r"A\.svg non si rende con vectorcraft-cli: .+"):
+        render(write(tmp_path / "A.svg", "<svg"), 1.0, tmp_path / "out.png")
+    assert not (tmp_path / "out.png").exists()
+
+
+@needs_craft
+def test_the_render_sees_only_a_copy_of_its_file_not_the_folder_beside_it(tmp_path: Path) -> None:
+    Image.new("RGB", (80, 80), (200, 0, 0)).save(tmp_path / "neighbour.png")
+    body = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">'
+        '<image href="neighbour.png" x="0" y="0" width="200" height="200"/></svg>'
     )
-    binary.chmod(0o755)
-    monkeypatch.setenv("PATH", f"{folder}:/usr/bin:/bin")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "board-canary-not-a-key")
-    monkeypatch.setenv("AGENCY_ANTHROPIC_API_KEY", "board-canary-not-a-key")
-    return binary
+    render = cli._board_renderer()
+    assert render is not None
+    render(write(tmp_path / "A.svg", body), 1.0, tmp_path / "out.png")
+    with Image.open(tmp_path / "out.png") as opened:
+        assert red_pixels(opened) == 0
 
 
-def test_the_renderer_gets_only_path_and_home_never_the_key(fake_binary: Path, tmp_path: Path) -> None:
-    render = board.vectorcraft()
+def test_a_sandbox_that_cannot_start_stops_the_board_with_its_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/vectorcraft-cli")
+    monkeypatch.setattr(sandbox, "scope_problem", lambda: "niente scope")
+    render = cli._board_renderer()
+    assert render is not None
+    with pytest.raises(
+        CannotCompare, match="la sandbox non parte senza i limiti di memoria e processi: niente scope"
+    ):
+        render(write(tmp_path / "A.svg", TIGHT), 1.0, tmp_path / "out.png")
+
+
+def test_a_render_that_times_out_says_so(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/vectorcraft-cli")
+    monkeypatch.setattr(Sandbox, "run", lambda self, command, timeout=120: Completed(124, "", "scaduto"))
+    render = cli._board_renderer()
+    assert render is not None
+    with pytest.raises(CannotCompare, match=rf"A\.svg non si rende in {board.TIMEOUT} secondi"):
+        render(write(tmp_path / "A.svg", TIGHT), 1.0, tmp_path / "out.png")
+
+
+def sandboxed_output(leave: Callable[[Path], object], code: int, said: str) -> Callable[..., Completed]:
+    """A `Sandbox.run` that leaves something at the convert command's output path, then exits with `code`."""
+
+    def run(self: Sandbox, command: list[str], timeout: float = 120) -> Completed:
+        leave(self.work / PurePosixPath(command[3]).relative_to(sandbox.JOB))
+        return Completed(code, "", said)
+
+    return run
+
+
+def test_a_failed_render_is_refused_even_if_it_left_a_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The exit code decides, not whether an output exists: a renderer can leave half a file and fail."""
+    monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/vectorcraft-cli")
+    partial = sandboxed_output(lambda output: output.write_bytes(b"partial"), 3, "parse error at line 1")
+    monkeypatch.setattr(Sandbox, "run", partial)
+    render = cli._board_renderer()
     assert render is not None
     failure = r"A\.svg non si rende con vectorcraft-cli: parse error at line 1"
     with pytest.raises(CannotCompare, match=failure):
         render(write(tmp_path / "A.svg", TIGHT), 1.0, tmp_path / "out.png")
-    seen = (fake_binary.parent / "environment").read_text(encoding="utf-8")
-    assert "board-canary-not-a-key" not in seen
-    names = {line.split("=", 1)[0] for line in seen.splitlines()}
-    assert {"PATH", "HOME"} >= names - {"PWD", "SHLVL", "_", "OLDPWD"}, names
+    assert not (tmp_path / "out.png").exists()
+
+
+def test_a_link_left_as_the_render_is_not_followed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    secret = tmp_path / "hidden/secret.png"
+    secret.parent.mkdir()
+    Image.new("RGB", (80, 80), (200, 0, 0)).save(secret)
+    monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/vectorcraft-cli")
+    monkeypatch.setattr(Sandbox, "run", sandboxed_output(lambda output: output.symlink_to(secret), 0, ""))
+    render = cli._board_renderer()
+    assert render is not None
+    with pytest.raises(CannotCompare, match=r"A\.svg non si rende con vectorcraft-cli"):
+        render(write(tmp_path / "A.svg", TIGHT), 1.0, tmp_path / "out.png")
+    assert not (tmp_path / "out.png").exists()
 
 
 def test_without_vectorcraft_on_the_path_there_is_no_renderer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PATH", "/nonexistent")
-    assert board.vectorcraft() is None
+    assert cli._board_renderer() is None
 
 
-@pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="manca vectorcraft-cli")
+@needs_craft
 def test_with_the_real_renderer_both_canvases_give_the_same_drawing(tmp_path: Path) -> None:
-    render = board.vectorcraft()
+    render = cli._board_renderer()
     assert render is not None
     for name, body in (("A.svg", TIGHT), ("B.svg", LOOSE)):
         drawn = board.drawn(write(tmp_path / name, body), render, tmp_path)
         for size, image in drawn.items():
             assert abs(longest(image) - size) <= 1, (name, size, image.size)
+
+
+def sparse(path: Path, size: int) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as handle:
+        handle.truncate(size)
+    return path
+
+
+def test_a_raster_copy_over_the_image_limit_is_refused_without_reading_it(tmp_path: Path) -> None:
+    copy = sparse(tmp_path / "A.png", MAX_IMAGE_FILE_BYTES + 1)
+    with pytest.raises(
+        CannotCompare, match=r"A\.png non si apre come immagine: A\.png: supera il limite di 64 MiB"
+    ):
+        board.drawn(copy, None, tmp_path)
+
+
+def test_a_render_over_the_image_limit_is_refused_as_a_failed_render(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/vectorcraft-cli")
+    monkeypatch.setattr(
+        Sandbox, "run", sandboxed_output(lambda output: sparse(output, MAX_IMAGE_FILE_BYTES + 1), 0, "")
+    )
+    render = cli._board_renderer()
+    assert render is not None
+    with pytest.raises(
+        CannotCompare, match=r"A\.svg non si rende con vectorcraft-cli: .*supera il limite di 64 MiB"
+    ):
+        render(write(tmp_path / "A.svg", TIGHT), 1.0, tmp_path / "out.png")
+    assert not (tmp_path / "out.png").exists()

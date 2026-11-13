@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { PROJECT } from "./project";
 
-test("vista Strumenti e QA: dove sbaglia, con le parole di chi ha detto no", async ({ page }) => {
+test("tools and QA view: where the work goes wrong, in the words of whoever said no", async ({ page }) => {
   await page.goto(`/projects/${PROJECT}`);
   await page.getByRole("navigation", { name: "Viste del progetto" }).getByRole("link", { name: "Strumenti e QA" }).click();
   await expect(page.getByRole("link", { name: "Strumenti e QA" })).toHaveAttribute("aria-current", "page");
@@ -13,17 +13,17 @@ test("vista Strumenti e QA: dove sbaglia, con le parole di chi ha detto no", asy
   await expect(brief).toContainText("su 7 usi");
   await expect(brief).toContainText("e 2 passi indietro in tutto");
 
-  // Prove, FAIL, al primo colpo: più FAIL prima, a pari FAIL più prove.
+  // Proofs, FAILs, passed at once: more FAILs first, then more proofs at equal FAILs.
   const checks = page.getByRole("table", { name: "Controlli" });
   await expect(checks.locator("tbody th")).toHaveText(["svg_audit", "visual_review", "master_open"]);
   await expect(checks.getByRole("row", { name: /^svg_audit/ }).getByRole("cell")).toHaveText(["3", "1", "1 di 2"]);
 
-  // Le prove fallite per controllo e i rifiuti per strumento: chiusi, con il numero nel titolo.
+  // The failed proofs per check and the refusals per tool: closed, with the count in the title.
   await page.getByText("svg_audit: 1 prova FAIL").click();
   const failures = page.getByRole("list", { name: "Prove fallite di svg_audit" }).getByRole("listitem");
   await expect(failures).toHaveCount(1);
   await expect(failures.nth(0)).toContainText("su exports/segno.svg, T-0005 Rifinitura X");
-  // Il motivo su una riga; tutto il testo, a capo compresi, quando lo si apre.
+  // The reason on one line; the whole text, line breaks included, once it is opened.
   const reason = failures.nth(0).getByRole("group");
   await expect(reason.locator("summary")).toHaveText("3 nodi sottotracciati · nodi=24");
   await reason.locator("summary").click();
@@ -50,7 +50,7 @@ test("vista Strumenti e QA: dove sbaglia, con le parole di chi ha detto no", asy
   await expect(setbacks.nth(1)).toContainText("La coda sparisce a 16 px: ingrossala di 2 unità.");
 });
 
-test("le parole che non dicono un no restano nel registro", async ({ page }) => {
+test("words that do not say no stay in the registry", async ({ page }) => {
   for (const view of ["phases", "quality"]) {
     await page.goto(`/projects/${PROJECT}/${view}`);
     await expect(page.getByRole("main")).not.toContainText("Le parole di una consegna restano nel registro");

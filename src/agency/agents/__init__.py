@@ -1,1 +1,1 @@
-"""Agenti monouso: pacchetto di contesto, loop solo in aggiunta, trascrizione ripartibile."""
+"""Single-use agents: a context packet, an append-only loop, a resumable transcript."""

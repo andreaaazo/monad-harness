@@ -1,20 +1,24 @@
-"""Master di produzione: ogni mezzo ha il suo file, e le consegne derivano da lì."""
+"""Production masters: each medium has its own file, and the deliveries derive from it."""
 
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 
 from agency.contracts.ticket import Medium
 from agency.ledger import Ledger
 from agency.ledger.models import DerivationRow
 from agency.ledger.store import now
-from agency.tools.files import inside, sha256
+from agency.tools.files import ensure_dir_under, inside, open_under, sha256_under
 from agency.tools.sandbox import JOB, Sandbox
 
 
 @dataclass(frozen=True)
 class MediumSpec:
+    """A medium's master extension, the tool that edits it, and the exports that must derive from it."""
+
     master: str
     tool: str
     exports: tuple[str, ...]
@@ -32,7 +36,7 @@ MEDIA: dict[Medium, MediumSpec] = {
 
 
 def problem(sandbox: Sandbox, relative: str) -> str | None:
-    """None se il master si apre e contiene lavoro; altrimenti il motivo."""
+    """None if the master opens and holds work; otherwise the reason."""
     path = inside(sandbox.work, relative)
     if not path.exists():
         return "non esiste"
@@ -61,7 +65,8 @@ def problem(sandbox: Sandbox, relative: str) -> str | None:
         layers = (json.loads(done.stdout).get("activeComp") or {}).get("layers")
         return None if layers else "progetto vuoto: nessun livello"
     if extension == ".blend":
-        head = path.read_bytes()[:8]
+        with os.fdopen(open_under(sandbox.work, relative, os.O_RDONLY), "rb") as handle:
+            head = handle.read(8)  # the header only: the file can be as large as the sandbox could write
         known = head[:7] == b"BLENDER" or head[:4] == b"\x28\xb5\x2f\xfd" or head[:2] == b"\x1f\x8b"
         return None if known else "non è un file Blender"
     return f"{extension}: non è un master dello studio"
@@ -70,14 +75,16 @@ def problem(sandbox: Sandbox, relative: str) -> str | None:
 def export(
     sandbox: Sandbox, ledger: Ledger, project: str, master: str, output: str, options: list[str]
 ) -> str | None:
-    """Esporta dal master e registra il legame. Restituisce l'errore, se c'è."""
+    """Exports from the master and records the link. Returns the error, if any."""
     why = problem(sandbox, master)
     if why:
         return f"{master}: {why}"
     if not master.lower().endswith(".vectorcraft"):
         return "in M1 l'export è disponibile solo per VectorCraft"
     destination = inside(sandbox.work, output)
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    folder = PurePosixPath(output).parent
+    if folder.parts:
+        ensure_dir_under(sandbox.work, str(folder))
     done = sandbox.run(["vectorcraft-cli", "convert", f"{JOB}/{master}", f"{JOB}/{output}", *options])
     if done.code or not destination.exists():
         return f"export fallito: {done.output.strip()[:300]}"
@@ -86,9 +93,9 @@ def export(
             at=now(),
             project=project,
             master=master,
-            master_sha=sha256(inside(sandbox.work, master)),
+            master_sha=sha256_under(sandbox.work, master),
             export=output,
-            export_sha=sha256(destination),
+            export_sha=sha256_under(sandbox.work, output),
             how="vectorcraft-cli convert",
         )
     )
@@ -98,7 +105,8 @@ def export(
 def derivation_problem(
     sandbox: Sandbox, ledger: Ledger, project: str, export_path: str, masters: list[str]
 ) -> str | None:
-    current = sha256(inside(sandbox.work, export_path))
+    """Why the export, as it is now, does not derive from one of `masters` as they are now, or None."""
+    current = sha256_under(sandbox.work, export_path)
     links = [
         row
         for row in ledger.derivations(project, export_path)
@@ -108,6 +116,6 @@ def derivation_problem(
         return "non risulta esportato da un master del ticket"
     for row in links:
         path = inside(sandbox.work, row.master)
-        if path.exists() and sha256(path) == row.master_sha:
+        if path.exists() and sha256_under(sandbox.work, row.master) == row.master_sha:
             return None
     return "il master è cambiato dopo l'export: riesporta"

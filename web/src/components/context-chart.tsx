@@ -3,17 +3,18 @@
 import { type KeyboardEvent, type PointerEvent, type SyntheticEvent, useId, useState } from "react";
 
 import type { Turn } from "../api";
-import { area, type Frame, line, nearest, points } from "../chart";
-import { count, seconds } from "../format";
-import { stop } from "../labels";
+import { area, type Frame, line, nearest, points } from "../lib/chart";
+import { count, seconds } from "../lib/format";
+import { stop } from "../lib/labels";
+import { ScrollRegion } from "./scroll-region";
 
 const FRAME: Frame = { width: 320, height: 96, inset: 6 };
 const KEYS = new Set(["ArrowLeft", "ArrowRight", "Home", "End"]);
 
 /**
- * I turni di un'istanza: il grafico del contesto e, a richiesta, la tabella. I turni arrivano una volta sola
- * in questo componente; la tabella nasce solo quando la si apre, così una pagina con centinaia di turni non li
- * porta tre volte (HTML, payload di React, grafico).
+ * An instance's turns: the context chart and, on request, the table. The turns reach this component only once; the
+ * table is built only when it is opened, so a page with hundreds of turns does not carry them three times (HTML,
+ * React payload, chart).
  */
 export function InstanceTurnsView({
   turns,
@@ -40,7 +41,7 @@ export function InstanceTurnsView({
 
 function TurnsTable({ turns, instance }: { readonly turns: readonly Turn[]; readonly instance: string }) {
   return (
-    <div className="scroll" role="region" aria-label={`Turni di ${instance}`} tabIndex={0}>
+    <ScrollRegion label={`Turni di ${instance}`}>
       <table aria-label={`Turni di ${instance}`}>
         <thead>
           <tr>
@@ -81,13 +82,13 @@ function TurnsTable({ turns, instance }: { readonly turns: readonly Turn[]; read
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollRegion>
   );
 }
 
 /**
- * Il contesto di un'istanza turno per turno, sulla scala comune `max`. Il puntatore, o le frecce dopo aver
- * dato il fuoco al grafico, mostrano un turno. Tutto ciò che mostra sta anche nella tabella dei turni.
+ * An instance's context turn by turn, on the shared scale `max`. The pointer, or the arrow keys once the chart has
+ * focus, show one turn. Everything it shows is also in the turns table.
  */
 function ContextChart({
   turns,

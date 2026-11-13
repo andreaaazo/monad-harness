@@ -4,10 +4,11 @@ import type { FlowReport, Outcome, PhaseFlow, Setback, TicketFlow } from "../../
 import { ApiError, api } from "../../../../api/client";
 import { readForPage } from "../../../../api/read";
 import { ProjectHeader } from "../../../../components/project-header";
+import { ScrollRegion } from "../../../../components/scroll-region";
 import { SetbackList } from "../../../../components/setbacks";
 import { Unavailable } from "../../../../components/unavailable";
-import { count, usd, when } from "../../../../format";
-import { pending, status, step } from "../../../../labels";
+import { count, usd, when } from "../../../../lib/format";
+import { pending, status, step } from "../../../../lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: PageProps<"/projects/[name]/p
   return { title: `${name}: fasi` };
 }
 
-/** La vista Fasi: dalle idee alla consegna, dove si è fermato e dove è tornato indietro. */
+/** The phases view: from the ideas to the delivery, where the work stopped and where it went back. */
 export default async function Phases({ params }: PageProps<"/projects/[name]/phases">) {
   const { name } = await params;
   const report = await readForPage(() => api.flow(name));
@@ -87,7 +88,7 @@ function Steps({ phases }: { readonly phases: readonly PhaseFlow[] }) {
         Le fasi in ordine di lavoro. Rifatto: ciò che un ticket è costato dopo il primo rimando del direttore.
         Senza esito: il costo dei ticket bloccati.
       </p>
-      <div className="scroll" role="region" aria-label="Tabella delle fasi, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella delle fasi, scorre in orizzontale">
         <table aria-label="Fasi">
           <thead>
             <tr>
@@ -120,7 +121,7 @@ function Steps({ phases }: { readonly phases: readonly PhaseFlow[] }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }
@@ -138,7 +139,7 @@ function Tickets({ report }: { readonly report: FlowReport }) {
   return (
     <section aria-labelledby="tickets">
       <h2 id="tickets">Ticket, passo per passo</h2>
-      <div className="scroll" role="region" aria-label="Tabella dei ticket, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella dei ticket, scorre in orizzontale">
         <table aria-label="Storia dei ticket">
           <thead>
             <tr>
@@ -173,7 +174,7 @@ function Tickets({ report }: { readonly report: FlowReport }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }

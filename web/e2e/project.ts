@@ -1,16 +1,16 @@
-/** Il progetto inventato di tests/dashboard_fixture.py, su cui girano tutte le prove del cruscotto. */
+/** The invented project of tests/support/dashboard_fixture.py, which every dashboard test runs on. */
 export const PROJECT = "officina-e2e";
 
-/** Le viste di un progetto: le prove trasversali (rete, cache, Django spento, 404) le visitano tutte. */
+/** A project's views: the cross-cutting tests (network, cache, Django down, 404) visit them all. */
 export const VIEWS = ["", "/phases", "/model", "/quality", "/replay"] as const;
 
-/** L'istanza del Replay con le immagini: una PNG che il cruscotto serve, una SVG che non serve. */
+/** The replay view's instance with images: a PNG the dashboard serves, an SVG it does not. */
 export const REPLAYED = "T-0002-a1";
 
-/** Il progetto di prima, per il confronto: lo stesso lavoro il giorno prima, con un'altra impronta. */
+/** The earlier project, for the comparison: the same work the day before, with another fingerprint. */
 export const BEFORE = "officina-prima";
 
-/** Ogni pagina del cruscotto: l'elenco dei progetti, le viste di un progetto, il confronto. */
+/** Every page of the dashboard: the project list, a project's views, the comparison. */
 export const pages = (project: string = PROJECT): string[] => [
   "/",
   ...VIEWS.map((view) => `/projects/${project}${view}`),

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-/** Le viste di un progetto, nell'ordine in cui si leggono. */
+/** A project's views, in the order they are read. */
 const VIEWS = [
   { id: "run", label: "Run", path: "" },
   { id: "phases", label: "Fasi", path: "/phases" },
@@ -11,7 +11,7 @@ const VIEWS = [
 
 export type View = (typeof VIEWS)[number]["id"];
 
-/** Il nome del progetto e le sue viste; quella aperta lo dice anche a chi non vede. */
+/** The project's name and its views; the open one says so to screen readers too. */
 export function ProjectHeader({ project, view }: { readonly project: string; readonly view: View }) {
   const base = `/projects/${encodeURIComponent(project)}`;
   return (

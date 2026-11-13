@@ -1,4 +1,4 @@
-"""La vista Modello: come ha lavorato il modello, ruolo per ruolo e turno per turno."""
+"""The model view: how the model worked, role by role and turn by turn."""
 
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ def data(calls: list[Call]) -> ProjectData:
 
 
 def test_each_role_says_how_much_context_it_read_and_how_the_model_answered() -> None:
-    """direction-a: 4 chiamate con contesti di 1000, 2000, 4000 e 100. Le misure: solo 3 chiamate."""
+    """direction-a: 4 calls with contexts of 1000, 2000, 4000 and 100. The measures: only 3 calls."""
     report = behaviour.behaviour_report("officina", data(CALLS))
     assert [(role.role, role.calls, role.instances, role.cost_usd) for role in report.roles] == [
         ("direction-a", 4, 2, 4.0),
@@ -126,7 +126,7 @@ def test_each_instance_is_a_series_of_turns_in_order() -> None:
 
 
 def test_the_project_counts_every_stop_reason_and_says_which_answers_were_cut() -> None:
-    """max_tokens: il ciclo dell'agente non mette la risposta in cronologia e la richiede."""
+    """max_tokens: the agent loop keeps the answer out of the history and asks again."""
     report = behaviour.behaviour_report("officina", data(CALLS))
     assert [(item.reason, item.calls, item.complete) for item in report.stop_reasons] == [
         ("tool_use", 3, True),

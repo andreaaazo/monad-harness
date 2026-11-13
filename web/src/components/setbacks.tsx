@@ -1,9 +1,9 @@
 import type { Setback } from "../api";
-import { counted, when } from "../format";
-import { step } from "../labels";
+import { counted, when } from "../lib/format";
+import { step } from "../lib/labels";
 import { Said } from "./said";
 
-/** I passi indietro in ordine di tempo, ognuno con il motivo scritto da chi lo ha fatto. */
+/** The steps back in time order, each with the reason written by whoever took it. */
 export function SetbackList({ setbacks }: { readonly setbacks: readonly Setback[] }) {
   if (setbacks.length === 0) return <p>Nessun ticket rimandato, bloccato o annullato.</p>;
   return (

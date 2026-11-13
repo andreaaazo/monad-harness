@@ -43,6 +43,35 @@ test("compare view: two projects side by side, the fingerprint that changes, the
   await expect(votes.getByRole("row", { name: /^A/ })).toContainText("non regge: generico");
 });
 
+test("compare view: every measure of the two projects, cell by cell", async ({ page }) => {
+  await page.goto("/compare");
+  const cells = await page
+    .getByRole("table", { name: "Affiancati" })
+    .getByRole("row")
+    .evaluateAll((rows) =>
+      rows.map((row) => Array.from(row.querySelectorAll("th, td"), (cell) => cell.textContent?.trim() ?? "")),
+    );
+  expect(cells).toEqual([
+    ["Misura", BEFORE, PROJECT, "Differenza"],
+    ["Consegna al cliente", "aperto", "aperto", ""],
+    ["Modello · effort", "predefinito · high", "predefinito · high", ""],
+    ["Costo", "6,00 $", "10,80 $", "+4,80 $"],
+    ["Budget", "20,00 $", "20,00 $", ""],
+    ["Chiamate", "3", "11", "+8"],
+    ["Istanze", "2", "9", "+7"],
+    ["Lavoro", "9,0 min", "38,0 min", "+29,0 min"],
+    ["Attese del cliente", "0,0 min", "6,0 min", "+6,0 min"],
+    ["Fino alla presentazione", "–", "6,00 $ in 24,0 min", ""],
+    ["Cache", "87%", "87%", ""],
+    ["Contesto medio", "4733", "4491", "−242"],
+    ["Contesto massimo", "5800", "5800", "invariato"],
+    ["Rifatto", "0,00 $", "2,10 $", "+2,10 $"],
+    ["Senza esito", "0,00 $", "0,30 $", "+0,30 $"],
+    ["Controlli al primo colpo", "0 di 0", "2 di 4", ""],
+    ["Rifiuti degli strumenti", "0 su 0 usi", "2 su 7 usi", ""],
+  ]);
+});
+
 test("compare view: the user picks what to compare, and a project is not compared with itself", async ({ page }) => {
   await page.goto("/compare");
   await page.getByRole("combobox", { name: "Prima", exact: true }).selectOption(PROJECT);

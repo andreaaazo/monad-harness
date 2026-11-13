@@ -1970,6 +1970,17 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     `tests/test_agent_flow.py:34,43`, `tests/test_sketch_flow.py:65,122`.
   - Commit: `refactor(tests): share the settings and turn helpers`.
 - [ ] **Task 6.15: one scroll region and one metric-row helper in the web app.** Closes SIM-016.
+  - Before the change, two e2e characterization tests:
+    - `every table that scrolls sideways is a named region the keyboard reaches` (run.spec.ts). On every page,
+      with every `<details>` open, each `.scroll` wrapper has `role="region"` and `tabindex="0"`, and the
+      wrappers' names are pinned page by page. That covers all 14 wrappers: the context chart's turn tables
+      appear only with their details open. Before, nothing checked the wrappers; the specs selected the
+      tables inside them.
+    - `compare view: every measure of the two projects, cell by cell` (compare.spec.ts) pins the whole
+      "Affiancati" table. Before, 6 of its 16 rows were checked, and only 3 of the 9 rows that `rows()` builds
+      from the same before/after/delta triple.
+  - On a copy with a green baseline, three mutations fail: a dropped `tabIndex`, a reversed delta and a
+    renamed turn table.
   - Files: create `web/src/components/scroll-region.tsx`, and the seven files that write the wrapper out, including
     `web/src/app/compare/page.tsx` (whose `rows()` uses a metric-row helper).
   - Every label string stays unchanged.

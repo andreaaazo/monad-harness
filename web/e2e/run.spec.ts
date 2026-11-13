@@ -5,7 +5,7 @@ import { basename, join, sep } from "node:path";
 import { expect, test } from "@playwright/test";
 
 import { CANARY } from "./canary";
-import { PROJECT, VIEWS, pages } from "./project";
+import { PROJECT, REPLAYED, VIEWS, pages } from "./project";
 
 const NEXT_PORT = 13765;
 const DJANGO_PORT = 18765;
@@ -151,6 +151,62 @@ test("on a phone no view scrolls sideways, not even with the details open", asyn
     expect(await phone.evaluate(() => document.documentElement.scrollWidth), path).toBeLessThanOrEqual(390);
   }
   await phone.close();
+});
+
+test("every table that scrolls sideways is a named region the keyboard reaches", async ({ page }) => {
+  const project = `/projects/${PROJECT}`;
+  const instances = [
+    "T-0001-a1-plan",
+    "T-0002-a1",
+    "T-0003-a1",
+    "T-0001-a1-select",
+    "T-0004-a1",
+    "T-0001-a1-present",
+    "T-0005-a1",
+    "T-0006-a1",
+    "T-0005-a2",
+  ];
+  const named: Record<string, readonly string[]> = {
+    "/": [],
+    [project]: [
+      "Tabella delle fasi, scorre in orizzontale",
+      "Tabella dei ruoli, scorre in orizzontale",
+      "Tabella dei ticket, scorre in orizzontale",
+    ],
+    [`${project}/phases`]: ["Tabella delle fasi, scorre in orizzontale", "Tabella dei ticket, scorre in orizzontale"],
+    [`${project}/model`]: ["Tabella dei ruoli, scorre in orizzontale", ...instances.map((id) => `Turni di ${id}`)],
+    [`${project}/quality`]: [
+      "Tabella dei controlli, scorre in orizzontale",
+      "Tabella degli strumenti, scorre in orizzontale",
+    ],
+    [`${project}/replay`]: ["Tabella delle istanze, scorre in orizzontale"],
+    [`${project}/replay/${REPLAYED}`]: [],
+    "/compare": [
+      "Tabella dei due progetti, scorre in orizzontale",
+      "Tabella delle fasi affiancate, scorre in orizzontale",
+      "Differenze di impronta, scorrono in orizzontale",
+      "Voti del confronto prima-dopo",
+    ],
+  };
+  expect(Object.keys(named).sort()).toEqual([...pages()].sort());
+  for (const path of pages()) {
+    await page.goto(path);
+    // The turn tables of the context chart appear only once their details are open.
+    for (const summary of await page.locator("details summary").all()) {
+      await summary.click();
+    }
+    const expected = named[path];
+    if (expected === undefined) throw new Error(`${path}: no regions expected for this page`);
+    const wrappers = page.locator(".scroll");
+    await expect(wrappers, path).toHaveCount(expected.length);
+    for (const wrapper of await wrappers.all()) {
+      await expect(wrapper, path).toHaveAttribute("role", "region");
+      await expect(wrapper, path).toHaveAttribute("tabindex", "0");
+    }
+    expect(await wrappers.evaluateAll((items) => items.map((item) => item.getAttribute("aria-label"))), path).toEqual(
+      expected,
+    );
+  }
 });
 
 test("Next.js and Django listen only on loopback", async () => {

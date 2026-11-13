@@ -202,6 +202,61 @@ def test_a_reviewer_cannot_leave_reviews_with_dotdot(tmp_path: Path) -> None:
     assert brief.read_text(encoding="utf-8") == "il brief del cliente"
 
 
+def reviewer_with_brief(tmp_path: Path) -> tuple[ToolContext, Path]:
+    ctx = context(tmp_path, actor="critic")
+    brief = ctx.work / "brief.md"
+    brief.write_text("il brief del cliente", encoding="utf-8")
+    return ctx, brief
+
+
+def tree(folder: Path) -> list[str]:
+    return sorted(path.relative_to(folder).as_posix() for path in folder.rglob("*"))
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "reviews/./../brief.md",
+        "reviews//../brief.md",
+        "/reviews/../brief.md",
+        "Reviews/brief.md",
+        r"reviews\..\brief.md",
+    ],
+)
+def test_a_reviewer_cannot_leave_reviews_by_another_spelling(tmp_path: Path, path: str) -> None:
+    """SEC-004 (Task 2.7) was not reproduced: the routes its probe tried stay refused, and write nothing."""
+    ctx, brief = reviewer_with_brief(tmp_path)
+    before = tree(ctx.work)
+    assert call(ctx, "write_file", path=path, content="riscritto da un revisore").get("is_error")
+    assert brief.read_text(encoding="utf-8") == "il brief del cliente"
+    assert tree(ctx.work) == before
+
+
+@pytest.mark.parametrize(
+    ("link", "target", "path"),
+    [("reviews", ".", "reviews/brief.md"), ("reviews/up", "..", "reviews/up/brief.md")],
+)
+def test_a_reviewer_cannot_leave_reviews_through_a_link(
+    tmp_path: Path, link: str, target: str, path: str
+) -> None:
+    """A link the sandbox planted in or as `reviews/` is never followed (SEC-004, Task 2.7)."""
+    ctx, brief = reviewer_with_brief(tmp_path)
+    (ctx.work / link).parent.mkdir(parents=True, exist_ok=True)
+    (ctx.work / link).symlink_to(target)
+    assert call(ctx, "write_file", path=path, content="riscritto da un revisore").get("is_error")
+    assert brief.read_text(encoding="utf-8") == "il brief del cliente"
+
+
+def test_a_review_written_over_a_planted_link_replaces_the_link_not_its_target(tmp_path: Path) -> None:
+    ctx, brief = reviewer_with_brief(tmp_path)
+    review = ctx.work / "reviews" / "x.md"
+    review.parent.mkdir()
+    review.symlink_to("../brief.md")
+    assert not call(ctx, "write_file", path="reviews/x.md", content="il referto").get("is_error")
+    assert not review.is_symlink() and review.read_text(encoding="utf-8") == "il referto"
+    assert brief.read_text(encoding="utf-8") == "il brief del cliente"
+
+
 # Ticket paths
 
 

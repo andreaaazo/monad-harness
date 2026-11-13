@@ -579,7 +579,19 @@ must not change behaviour. Every task starts with its failing test.
       appears in no page.
   - Verify: the test passes; standard gate.
   - Commit: `fix(presentation): show only the images the proposal delivered`.
-- [ ] **Task 2.7: the reviewer write rule checks the resolved path.** Closes SEC-004.
+- [x] **Task 2.7: the reviewer write rule checks the resolved path.** Closes SEC-004.
+  - Closed as not reproduced (2026-11-13), with the probe's routes pinned as tests instead of the planned change.
+    The planned `inside(ctx.work, a.path)` resolves symlinks. On the work folder, which the sandbox can write, that
+    is the very pattern Task 2.2 replaced with the no-follow helpers, so adding it would weaken the rule. The rule
+    holds through two layers: the lexical `startswith("reviews/")` and the no-follow helpers, which refuse `..` and
+    never follow a link.
+  - New tests in tests/test_hardening.py, beside `test_a_reviewer_cannot_leave_reviews_with_dotdot`:
+    - five other spellings are refused and write nothing: `reviews/./..`, `reviews//..`, an absolute path,
+      `Reviews/` and backslashes;
+    - `reviews` as a link to the work folder and `reviews/up -> ..` are refused;
+    - a review written over a planted `reviews/x.md -> ../brief.md` replaces the link, not its target.
+  - On a scratch copy, letting `_parts` accept `..` fails 3 of them, and dropping `O_NOFOLLOW` from `_enter`
+    fails 10.
   - Files: `src/agency/tools/surface.py` (`write_file`, :298-305), `tests/test_hardening.py`.
   - Tests:
     - `test_a_reviewer_cannot_leave_reviews_with_dotdot`: `reviews/../brief.md` is refused with

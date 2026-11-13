@@ -132,6 +132,8 @@ def _create(destination: Path, real: Path, place: tuple[Path, str] | None) -> Bi
     Elsewhere `real` is where the kernel lands the typed path, the operator's own layout. Messages name the
     destination as the operator typed it."""
     try:
+        if destination.is_symlink():  # exclusive creation of the typed name: a link there, even to nothing
+            raise FileExistsError(destination)
         if place is None:
             real.parent.mkdir(parents=True, exist_ok=True)
             return real.open("xb")

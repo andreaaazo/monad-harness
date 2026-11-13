@@ -509,6 +509,51 @@ def test_a_damaged_version_restored_below_the_projects_folder_leaves_no_file(
     assert not target.exists()
 
 
+def test_restore_refuses_a_destination_that_is_a_dangling_link(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Exclusive creation of the typed name: a link there, even one to nothing, is something already there.
+    digest = kept(studio, tmp_path, b"master")
+    (tmp_path / "home").mkdir()
+    (tmp_path / "home/dang.vectorcraft").symlink_to(tmp_path / "home/nowhere/target.vectorcraft")
+    assert cli.main(["restore", digest, str(tmp_path / "home/dang.vectorcraft")]) == 1
+    assert not (tmp_path / "home/nowhere").exists()
+    assert "esiste già" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("where", ["projects/merlo4/work/master.vectorcraft", "fuori/master.vectorcraft"])
+def test_restore_refuses_dotdot_after_a_file(studio: Settings, tmp_path: Path, where: str) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    write(tmp_path / where, b"un file, non una cartella")
+    assert cli.main(["restore", digest, f"{tmp_path / where}/../copia.vectorcraft"]) == 1
+    assert not (tmp_path / where).with_name("copia.vectorcraft").exists()
+
+
+def test_restore_writes_where_it_landed_not_where_the_path_leads_later(
+    studio: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Once the path has landed outside the projects folder, a sandbox that swaps a folder it walked through
+    # for a link cannot move the write: restore acts on the landing, not on the typed path again.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    exports = tmp_path / "projects/merlo4/work/exports"
+    exports.mkdir(parents=True, exist_ok=True)
+    landed = keeping.land
+
+    def swapped(path: Path, root: Path) -> object:
+        landing = landed(path, root)
+        exports.rmdir()
+        exports.symlink_to(host, target_is_directory=True)
+        return landing
+
+    monkeypatch.setattr(keeping, "land", swapped)
+    typed = exports / "../../../../fuori/copia.vectorcraft"
+    assert cli.main(["restore", digest, str(typed)]) == 0
+    assert (tmp_path / "fuori/copia.vectorcraft").read_bytes() == b"master"
+    assert list(host.iterdir()) == []
+
+
 def test_restore_follows_a_link_outside_the_projects_folder(studio: Settings, tmp_path: Path) -> None:
     digest = kept(studio, tmp_path, b"master")
     real = tmp_path / "real-home"

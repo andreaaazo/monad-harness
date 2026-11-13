@@ -2194,6 +2194,28 @@ Andrea chose to fix #2 by walking paths as the kernel does (R9, which also close
   `PATH=` line in what it read. `bash spikes/sandbox_craft.sh`: 9 `ok`, exit 0. Temporary copies: reading a missing
   folder instead of `/proc` makes the new probe `FAIL` (the old one printed `ok`), and dropping the `env -i` prefix
   with a key exported makes it `FAIL`; both copies were deleted.
+### Fourth review round (2026-11-13)
+
+`/ce-code-review` of `cff7084..3e1feff` (R9, R10) with four local reviewers and the Codex cross-model pass;
+report in `/tmp/compound-engineering-1000/ce-code-review/20261113-164340-2366b381/report.md`. Nothing blocking. Two
+confirmed findings were behaviour changes R9 had not declared; one pre-existing gap was rejected as out of scope.
+
+- [x] **R11: `land` stops at a file, and restore refuses a dangling link again.** Restores two refusals the code
+  had before R9 and pins the walker where no test did.
+  - A `..` after a regular file (`work/f.svg/../y.svg`) was applied, so restore wrote one folder up; the kernel
+    answers ENOTDIR. `land` now treats what follows a file as new, so the `..` is refused (#4, found by the
+    correctness reviewer and by Codex independently).
+  - A restore destination that is a dangling link was written through to its target; `open("xb")` on the typed
+    name used to refuse it. `_create` refuses any link at the typed name first, with the existing «esiste già»
+    message (#5).
+  - New tests: relative link targets (outside, and a relative planted link below the folder), a sibling folder
+    named `projectsx`, `..` after a file in `land` and in restore (both branches), the dangling link, and restore
+    writing where it landed even if a folder it walked through is swapped for a link afterwards. On a scratch copy
+    each of "write to the typed path again" and "read relative targets from `/`" fails one of them.
+- Not fixed, recorded: a project folder that is itself a link out of `projects/` (`projects/merlo -> /disk/merlo`)
+  keeps its work folder outside the guarded root, so `land` follows links planted there. The same holds at
+  `cff7084` and on `main`; it needs a decision on whether linked project folders are supported (refuse them when
+  the sandbox is built, or guard their real folder too).
 - Deferred, for an ADR after this PR: #3 (`agency budget` re-reads the project row and re-binds it whole, so a
   hand edit of its model or effort stops showing in `agency verify`; the same holds for concept rows, which the
   engine updates in place), and the pre-existing "resume of a moved ticket spends the other client's budget"

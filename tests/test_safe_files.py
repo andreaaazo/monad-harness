@@ -1191,6 +1191,10 @@ def layout(tmp_path: Path) -> Path:
     (tmp_path / "home/sub/inner").mkdir(parents=True)
     (tmp_path / "home/m").symlink_to(tmp_path / "projects/merlo", target_is_directory=True)
     (tmp_path / "home/op").symlink_to(tmp_path / "home/sub/inner", target_is_directory=True)
+    (tmp_path / "home/rel").symlink_to(
+        "sub/inner", target_is_directory=True
+    )  # read from home/, as the kernel does
+    (tmp_path / "projectsx").mkdir()  # a sibling whose name starts with the folder's
     return tmp_path
 
 
@@ -1222,9 +1226,28 @@ def test_land_reads_a_leading_double_slash_as_one(layout: Path) -> None:
     assert landing.parts == ("merlo",)
 
 
-def test_land_follows_the_operators_links_outside_the_projects_folder(layout: Path) -> None:
-    landing = contract_files.land(layout / "home/op/../x.svg", layout / "projects")
-    assert (landing.parts, landing.real) == (None, layout / "home/sub/x.svg")
+@pytest.mark.parametrize(
+    ("typed", "real"),
+    [
+        ("home/op/../x.svg", "home/sub/x.svg"),
+        ("home/rel/x.svg", "home/sub/inner/x.svg"),  # a relative target
+        ("projectsx/a.svg", "projectsx/a.svg"),  # beside the projects folder, not below it
+    ],
+)
+def test_land_follows_the_operators_links_outside_the_projects_folder(
+    layout: Path, typed: str, real: str
+) -> None:
+    landing = contract_files.land(layout / typed, layout / "projects")
+    assert (landing.parts, landing.real) == (None, layout / real)
+
+
+@pytest.mark.parametrize(
+    "typed", ["projects/merlo/work/exports/a.svg/../b.svg", "projects/merlo/work/exports/a.svg/x/../b.svg"]
+)
+def test_land_refuses_dotdot_after_a_file(layout: Path, typed: str) -> None:
+    # The kernel answers ENOTDIR: a file is no folder to climb from.
+    with pytest.raises(contract_files.OutsidePerimeter):
+        contract_files.land(layout / typed, layout / "projects")
 
 
 @pytest.mark.parametrize(
@@ -1234,12 +1257,14 @@ def test_land_follows_the_operators_links_outside_the_projects_folder(layout: Pa
         "home/m/work/link/x.svg",  # through the operator's alias
         "home/op/../../../projects/merlo/work/link/x.svg",  # through `..` after the operator's link
         "projects/merlo/work/link/../exports/a.svg",  # a link then `..`: the kernel climbs from its target
+        "projects/merlo/work/near/a.svg",  # a relative link that stays below the projects folder
     ],
 )
 def test_land_refuses_a_link_below_the_projects_folder_whatever_the_spelling(
     layout: Path, typed: str
 ) -> None:
     (layout / "projects/merlo/work/link").symlink_to(layout / "host", target_is_directory=True)
+    (layout / "projects/merlo/work/near").symlink_to("exports", target_is_directory=True)
     with pytest.raises(contract_files.OutsidePerimeter, match="fuori dalla cartella del lavoro"):
         contract_files.land(layout / typed, layout / "projects")
 

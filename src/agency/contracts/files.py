@@ -280,7 +280,10 @@ def land(path: Path, root: Path) -> Landing:
             new.append(part)
             continue
         if not stat.S_ISLNK(mode):
-            current = candidate
+            if pending and not stat.S_ISDIR(mode):
+                new.append(part)  # a file is no folder: the kernel walks no further (ENOTDIR)
+            else:
+                current = candidate
             continue
         links += 1
         if _at_or_below(current, top) or links > MAX_LINKS:

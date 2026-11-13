@@ -16,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from agency.contracts.files import OutsidePerimeter, file_sha256, open_under, parts_below, sha256_under
+from agency.contracts.files import OutsidePerimeter, file_sha256, land, open_under, sha256_under
 from agency.contracts.judgment import Judged, Judgment, Level, Rating, below_the_top
 from agency.contracts.layout import WORK
 from agency.contracts.project import parse_project_name
@@ -57,33 +57,24 @@ def candidates(paths: list[Path], projects_dir: Path) -> list[Candidate]:
     return found
 
 
-def _below(path: Path, projects_dir: Path) -> tuple[Path, tuple[str, ...]] | None:
-    """The projects folder and the parts of `path` below it, or None for a file elsewhere.
-
-    The path is read as text, never resolved: the sandbox can leave a link anywhere below the folder, and a
-    `..` below it is refused (`parts_below`).
-    """
-    for root in (projects_dir.absolute(), projects_dir.resolve()):
-        parts = parts_below(path, root)
-        if parts:
-            return projects_dir.resolve(), parts
-    return None
-
-
 def _candidate(path: Path, projects_dir: Path) -> Candidate:
+    """The file as the kernel finds it. Below the projects folder it is read only through the no-follow
+    helpers, and a link a sandbox left there is refused whatever spelling reaches it (`land`)."""
     try:
-        below = _below(path, projects_dir)
+        landing = land(path, projects_dir)
     except OutsidePerimeter as exc:
         raise CannotCompare(str(exc)) from exc
-    if below is None:  # the operator's own file
-        resolved = path.resolve()
-        return Candidate(resolved, Judged(project="", file=str(resolved), sha256=file_sha256(resolved)))
-    root, parts = below
+    if not landing.parts:  # the operator's own file
+        real = landing.real
+        return Candidate(real, Judged(project="", file=str(real), sha256=file_sha256(real)))
+    root, parts = landing.root, landing.parts
     relative = "/".join(parts)
     try:
         digest = sha256_under(root, relative)
     except OutsidePerimeter as exc:
         raise CannotCompare(str(exc)) from exc
+    except FileNotFoundError:
+        raise CannotCompare(f"file non trovato: {path}") from None
     # A file loose in projects/, or in a folder that is not a project name, belongs to no project.
     if len(parts) < 2 or not _is_project_name(parts[0]):
         return Candidate(

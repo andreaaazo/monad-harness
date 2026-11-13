@@ -11,6 +11,7 @@ import stat
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from pathlib import Path, PurePosixPath
+from typing import NamedTuple
 
 
 class OutsidePerimeter(Exception):
@@ -232,34 +233,73 @@ def glob_under(root: Path, pattern: str) -> list[str]:
     return sorted(found)
 
 
-def _walked(path: Path, stop_at: list[str] | None = None) -> tuple[list[str], bool]:
-    """The parts of the absolute `path` with each `..` applied as text, and whether the walk reached
-    `stop_at`. Past `stop_at` a `..` raises `OutsidePerimeter`: it would walk through what that folder
-    holds."""
-    walked: list[str] = []
-    entered = False
-    for part in path.absolute().parts[1:]:  # parts[0] is the root folder, `/` or `//`
-        if part == "..":
-            if entered:
-                raise OutsidePerimeter(f"{path} è fuori dalla cartella del lavoro")
-            if walked:
-                walked.pop()
-        else:
-            walked.append(part)
-        entered = entered or (stop_at is not None and walked[: len(stop_at)] == stop_at)
-    return walked, entered
+# The kernel's own limit on the links one path may go through (ELOOP).
+MAX_LINKS = 40
 
 
-def parts_below(path: Path, root: Path) -> tuple[str, ...] | None:
-    """The parts of `path` below `root`, read as text, or None when `path` never reaches `root`.
+class Landing(NamedTuple):
+    """Where a typed path lands. `parts` is the path below the real `root`, or None when it lands
+    elsewhere, at `real`, with every link on the way resolved."""
 
-    Until the path reaches `root`, `..` and a leading `//` are read as a shell reads a typed path, without
-    looking at the disk: that part is the operator's own layout. Below `root` a sandbox can leave links, so a
-    `..` there raises `OutsidePerimeter`, as the no-follow helpers that walk below `root` do.
+    root: Path
+    parts: tuple[str, ...] | None
+    real: Path
+
+
+def _at_or_below(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
+
+
+def land(path: Path, root: Path) -> Landing:
+    """Walks `path` one part at a time as the kernel would, and says whether it lands below `root`.
+
+    A link outside `root` is the operator's own layout and is followed. A link that sits in `root` or below
+    it raises `OutsidePerimeter`, whatever spelling of the path reaches it: a sandbox can leave one there, and
+    below `root` only the no-follow helpers walk. From the first part that does not exist the rest is new: it
+    is kept as typed, and a `..` in it is refused, since the kernel would need the missing folder to apply it.
     """
-    top, _ = _walked(root)
-    walked, entered = _walked(path, top)
-    return tuple(walked[len(top) :]) if entered else None
+    top = Path(os.path.realpath(root))
+    pending = list(reversed(path.absolute().parts[1:]))  # parts[0] is the root folder, `/` or `//`
+    current = Path("/")
+    new: list[str] = []
+    links = 0
+    while pending:
+        part = pending.pop()
+        if new or part == "..":
+            if part == ".." and new:
+                raise OutsidePerimeter(f"{path} è fuori dalla cartella del lavoro")
+            if part == "..":
+                current = current.parent
+            else:
+                new.append(part)
+            continue
+        candidate = current / part
+        try:
+            mode = os.lstat(candidate).st_mode
+        except (FileNotFoundError, NotADirectoryError):
+            new.append(part)
+            continue
+        if not stat.S_ISLNK(mode):
+            current = candidate
+            continue
+        links += 1
+        if _at_or_below(current, top) or links > MAX_LINKS:
+            raise OutsidePerimeter(f"{path} è fuori dalla cartella del lavoro")
+        target = Path(os.readlink(candidate))
+        if target.is_absolute():
+            current = Path("/")
+            target = Path(*target.parts[1:])
+        pending.extend(reversed(target.parts))
+    real = current.joinpath(*new)
+    if _at_or_below(current, top):
+        return Landing(top, (*current.relative_to(top).parts, *new), real)
+    return Landing(top, None, real)
+
+
+def unlink_under(root: Path, relative: str) -> None:
+    """Removes the file through its folder's descriptor: a folder swapped for a link meanwhile is refused."""
+    with _parent(root, relative) as (directory, name):
+        os.unlink(name, dir_fd=directory)
 
 
 def inside(work: Path, relative: str) -> Path:

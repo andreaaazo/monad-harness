@@ -142,6 +142,31 @@ def test_a_path_that_climbs_out_through_a_planted_link_is_refused(tmp_path: Path
         blind.candidates([typed], tmp_path / "projects")
 
 
+def test_a_path_through_the_operators_alias_names_its_project(tmp_path: Path) -> None:
+    # The kernel reads ~/m/work/... as projects/merlo/work/...: so does the judgment.
+    two_projects(tmp_path)
+    (tmp_path / "m").symlink_to(tmp_path / "projects/merlo", target_is_directory=True)
+    (found,) = blind.candidates([tmp_path / "m/work/exports/segno.svg"], tmp_path / "projects")
+    assert (found.judged.project, found.judged.file) == ("merlo", "exports/segno.svg")
+
+
+@pytest.mark.parametrize("shape", ["alias", "link then dotdot"])
+def test_a_planted_link_reached_through_the_operators_links_is_refused(tmp_path: Path, shape: str) -> None:
+    two_projects(tmp_path)
+    files(tmp_path, {"host/segno.svg": "<svg>scelto dal link</svg>"})
+    (tmp_path / "projects/merlo/work/link").symlink_to(tmp_path / "host", target_is_directory=True)
+    if shape == "alias":
+        (tmp_path / "m").symlink_to(tmp_path / "projects/merlo", target_is_directory=True)
+        typed = tmp_path / "m/work/link/segno.svg"
+    else:
+        (tmp_path / "sub/inner").mkdir(parents=True)
+        (tmp_path / "op").symlink_to(tmp_path / "sub/inner", target_is_directory=True)
+        typed = tmp_path / "op/../../projects/merlo/work/link/segno.svg"
+    assert typed.is_file()
+    with pytest.raises(blind.CannotCompare, match="fuori dalla cartella del lavoro"):
+        blind.candidates([typed], tmp_path / "projects")
+
+
 def test_file_outside_the_projects_keeps_its_whole_path(tmp_path: Path) -> None:
     (outside,) = files(tmp_path, {"cli/segno.svg": "<svg>cli</svg>"})
     (candidate,) = blind.candidates([outside], tmp_path / "projects")

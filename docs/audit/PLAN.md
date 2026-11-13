@@ -2161,6 +2161,39 @@ verify` (R7, finding #2, P2) and to fix the Craft spike's environment (R8, pre-e
   - `bash spikes/sandbox_craft.sh`: 9 `ok`, exit 0. A temporary copy without the `env -i` prefix printed
     `FAIL no key in the sandbox` and exited 1; the copy was deleted. docs/04-TOOLS.md says what the spike proves.
 
+### Third review round (2026-11-13)
+
+`/ce-code-review` with the four commits `fb3952b..cff7084` for the local reviewers and an independent cross-model pass
+(Codex, `gpt-6-luna`, independence verified) over the whole branch `main...HEAD`; report in
+`/tmp/compound-engineering-1000/ce-code-review/20261113-160140-09c52ed9/report.md`. Nothing blocking: three P2s.
+Andrea chose to fix #2 by walking paths as the kernel does (R9, which also closes #1) and to defer #3 to an ADR.
+
+- [x] **R9: judge and restore walk the typed path as the kernel does.** R5 decided "inside the projects folder"
+  from the text, then handed outside paths to the kernel: a path that reached `projects/` through one of the
+  operator's own links (an alias such as `~/m -> projects/merlo`, or `op/..` after a link, the second a
+  regression of R5) followed a link a sandbox had left there. Restore wrote the version into the host folder,
+  judge hashed and kept a host file.
+  - `contracts.files.land(path, root)` replaces `parts_below`. It walks the path one part at a time as the kernel
+    would: links outside `root` (the operator's layout) are followed, a link that sits in `root` or below it is
+    refused (`OutsidePerimeter`) whatever spelling reaches it, a `..` through real folders is the kernel's, and
+    from the first missing part the rest is new (a `..` there is refused). It returns the parts below the real
+    `root`, or where the path lands elsewhere with every link resolved. At most 40 links, as the kernel.
+  - `blind._candidate` and `keeping.restore` use it for both spellings of a symlinked projects folder (#1, now
+    pinned by a test). Outside the projects folder both act on the landing, not on the typed path again, so
+    nothing below the projects folder can change the walk in between. A missing file below it is
+    «file non trovato», not a traceback (round 3's rejected judge crash).
+  - The damaged-version cleanup below the projects folder removes the file through its folder's descriptor
+    (`unlink_under`), so a folder swapped for a link during the copy is refused.
+  - Tests: test_artifacts.py (a planted link through an alias and through `op/..`, a symlinked projects folder by
+    either spelling, the mode a restored file gets in both branches, a damaged version restored below the
+    projects folder), test_judgments.py (an alias names its project; a planted link through an alias and through
+    `op/..` is refused) and `land` and `unlink_under` cases in test_safe_files.py. The five behaviour tests that
+    reproduce #2 failed before the change.
+- Deferred, for an ADR after this PR: #3 (`agency budget` re-reads the project row and re-binds it whole, so a
+  hand edit of its model or effort stops showing in `agency verify`; the same holds for concept rows, which the
+  engine updates in place), and the pre-existing "resume of a moved ticket spends the other client's budget"
+  (ADR-0053/0054 detect it after the fact; refusing before the run is the alternative).
+
 ## Not planned in this refactor
 
 | Finding | Why |

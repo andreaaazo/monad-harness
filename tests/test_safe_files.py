@@ -1181,26 +1181,84 @@ def test_the_production_node_copies_a_master_over_the_text_limit(tmp_path: Path)
     assert (studio.work / TARGET).stat().st_size == over(files.MAX_TEXT_FILE_BYTES)
 
 
+@pytest.fixture
+def layout(tmp_path: Path) -> Path:
+    """projects/merlo/work/exports with a file, an operator's alias to the project and a link to it from
+    elsewhere, and a host folder outside."""
+    (tmp_path / "projects/merlo/work/exports").mkdir(parents=True)
+    (tmp_path / "projects/merlo/work/exports/a.svg").write_text("<svg/>")
+    (tmp_path / "host").mkdir()
+    (tmp_path / "home/sub/inner").mkdir(parents=True)
+    (tmp_path / "home/m").symlink_to(tmp_path / "projects/merlo", target_is_directory=True)
+    (tmp_path / "home/op").symlink_to(tmp_path / "home/sub/inner", target_is_directory=True)
+    return tmp_path
+
+
 @pytest.mark.parametrize(
-    ("path", "root", "parts"),
+    ("typed", "parts"),
     [
-        ("/r/projects/a/b.svg", "/r/projects", ("a", "b.svg")),
-        ("/r/elsewhere/../projects/a", "/r/projects", ("a",)),  # `..` before the folder is the operator's
-        ("//r/projects/a", "/r/projects", ("a",)),  # a leading `//` is `/` on Linux
-        ("/r/projects/a", "/r/x/../projects", ("a",)),  # the folder is read the same way
-        ("/r/projects", "/r/projects", ()),
-        ("/r/other/a", "/r/projects", None),
-        ("/r/projectsx/a", "/r/projects", None),
+        ("projects/merlo/work/exports/a.svg", ("merlo", "work", "exports", "a.svg")),
+        ("home/../projects/merlo/work/exports/a.svg", ("merlo", "work", "exports", "a.svg")),
+        ("home/m/work/exports/a.svg", ("merlo", "work", "exports", "a.svg")),  # the operator's alias
+        ("home/op/../../../projects/merlo/work/a.svg", ("merlo", "work", "a.svg")),  # `..` after a link
+        (
+            "projects/merlo/work/exports/../nuova/b.svg",
+            ("merlo", "work", "nuova", "b.svg"),
+        ),  # real folders only
+        ("projects/merlo/work/nuova/cartella/b.svg", ("merlo", "work", "nuova", "cartella", "b.svg")),
+        ("projects", ()),
     ],
 )
-def test_parts_below_reads_the_path_as_text(path: str, root: str, parts: tuple[str, ...] | None) -> None:
-    assert contract_files.parts_below(Path(path), Path(root)) == parts
+def test_land_finds_the_projects_folder_as_the_kernel_does(
+    layout: Path, typed: str, parts: tuple[str, ...]
+) -> None:
+    landing = contract_files.land(layout / typed, layout / "projects")
+    assert landing.parts == parts
+    assert landing.real == (layout / "projects").joinpath(*parts)
+
+
+def test_land_reads_a_leading_double_slash_as_one(layout: Path) -> None:
+    landing = contract_files.land(Path(f"/{layout}/projects/merlo"), layout / "projects")
+    assert landing.parts == ("merlo",)
+
+
+def test_land_follows_the_operators_links_outside_the_projects_folder(layout: Path) -> None:
+    landing = contract_files.land(layout / "home/op/../x.svg", layout / "projects")
+    assert (landing.parts, landing.real) == (None, layout / "home/sub/x.svg")
 
 
 @pytest.mark.parametrize(
-    "path", ["/r/projects/a/../b", "/r/projects/..", "/r/elsewhere/../projects/a/../../x"]
+    "typed",
+    [
+        "projects/merlo/work/link/x.svg",  # the planted link itself
+        "home/m/work/link/x.svg",  # through the operator's alias
+        "home/op/../../../projects/merlo/work/link/x.svg",  # through `..` after the operator's link
+        "projects/merlo/work/link/../exports/a.svg",  # a link then `..`: the kernel climbs from its target
+    ],
 )
-def test_parts_below_refuses_dotdot_below_the_folder(path: str) -> None:
-    # Below the folder a sandbox can leave links: `..` there would walk from wherever a link points.
+def test_land_refuses_a_link_below_the_projects_folder_whatever_the_spelling(
+    layout: Path, typed: str
+) -> None:
+    (layout / "projects/merlo/work/link").symlink_to(layout / "host", target_is_directory=True)
     with pytest.raises(contract_files.OutsidePerimeter, match="fuori dalla cartella del lavoro"):
-        contract_files.parts_below(Path(path), Path("/r/projects"))
+        contract_files.land(layout / typed, layout / "projects")
+
+
+def test_land_refuses_dotdot_after_a_folder_that_does_not_exist(layout: Path) -> None:
+    with pytest.raises(contract_files.OutsidePerimeter):
+        contract_files.land(layout / "projects/merlo/nuova/../../../host/x.svg", layout / "projects")
+
+
+def test_land_refuses_a_loop_of_links(layout: Path) -> None:
+    (layout / "home/a").symlink_to(layout / "home/b")
+    (layout / "home/b").symlink_to(layout / "home/a")
+    with pytest.raises(contract_files.OutsidePerimeter):
+        contract_files.land(layout / "home/a/x.svg", layout / "projects")
+
+
+def test_unlink_under_refuses_a_folder_swapped_for_a_link(layout: Path) -> None:
+    (layout / "host/a.svg").write_text("del proprietario")
+    (layout / "projects/merlo/work/fuori").symlink_to(layout / "host", target_is_directory=True)
+    with pytest.raises(contract_files.OutsidePerimeter):
+        contract_files.unlink_under(layout / "projects", "merlo/work/fuori/a.svg")
+    assert (layout / "host/a.svg").read_text() == "del proprietario"

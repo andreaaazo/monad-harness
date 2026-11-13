@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import stat
 from pathlib import Path
 
@@ -442,6 +443,70 @@ def test_restore_names_an_existing_destination_as_it_was_typed(
     assert capsys.readouterr().out.splitlines() == [
         "Ripristino non possibile: esiste.vectorcraft esiste già: il ripristino non sovrascrive"
     ]
+
+
+@pytest.mark.parametrize("shape", ["alias", "link then dotdot"])
+def test_restore_refuses_a_planted_link_reached_through_the_operators_links(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str], shape: str
+) -> None:
+    # The operator's own links are followed, as the kernel follows them; a link that sits below the projects
+    # folder is refused, whatever spelling of the path reaches it.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    (tmp_path / "projects/merlo4/work/exports").symlink_to(host, target_is_directory=True)
+    if shape == "alias":
+        (tmp_path / "m").symlink_to(tmp_path / "projects/merlo4", target_is_directory=True)
+        target = tmp_path / "m/work/exports/segno.vectorcraft"
+    else:
+        (tmp_path / "sub/inner").mkdir(parents=True)
+        (tmp_path / "op").symlink_to(tmp_path / "sub/inner", target_is_directory=True)
+        target = tmp_path / "op/../../projects/merlo4/work/exports/segno.vectorcraft"
+    assert cli.main(["restore", digest, str(target)]) == 1
+    assert list(host.iterdir()) == []
+    assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("spelling", ["plink", "real-projects"])
+def test_restore_into_a_symlinked_projects_folder_by_either_spelling(
+    studio: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, spelling: str
+) -> None:
+    # AGENCY_PROJECTS_DIR may itself be a link: both its spelling and the real folder get the no-follow rule.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    (tmp_path / "real-projects/merlo4/work").mkdir(parents=True)
+    (tmp_path / "real-projects/merlo4/work/exports").symlink_to(host, target_is_directory=True)
+    (tmp_path / "plink").symlink_to(tmp_path / "real-projects", target_is_directory=True)
+    monkeypatch.setenv("AGENCY_PROJECTS_DIR", str(tmp_path / "plink"))
+    work = tmp_path / spelling / "merlo4/work"
+    assert cli.main(["restore", digest, str(work / "exports/segno.vectorcraft")]) == 1
+    assert list(host.iterdir()) == []
+    assert cli.main(["restore", digest, str(work / "nuova/segno.vectorcraft")]) == 0
+    assert (tmp_path / "real-projects/merlo4/work/nuova/segno.vectorcraft").read_bytes() == b"master"
+
+
+@pytest.mark.parametrize("where", ["projects/merlo4/work/copia.vectorcraft", "fuori/copia.vectorcraft"])
+def test_a_restored_file_has_the_mode_a_new_file_gets(studio: Settings, tmp_path: Path, where: str) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    previous = os.umask(0o022)
+    try:
+        assert cli.main(["restore", digest, str(tmp_path / where)]) == 0
+    finally:
+        os.umask(previous)
+    assert stat.S_IMODE((tmp_path / where).stat().st_mode) == 0o644
+
+
+def test_a_damaged_version_restored_below_the_projects_folder_leaves_no_file(
+    studio: Settings, tmp_path: Path
+) -> None:
+    digest = kept(studio, tmp_path, b"master")
+    location = studio.layout.artifacts / digest[:2] / digest
+    location.chmod(0o644)
+    location.write_bytes(b"alterato")
+    target = tmp_path / "projects/merlo4/work/ripristino.vectorcraft"
+    assert cli.main(["restore", digest, str(target)]) == 1
+    assert not target.exists()
 
 
 def test_restore_follows_a_link_outside_the_projects_folder(studio: Settings, tmp_path: Path) -> None:

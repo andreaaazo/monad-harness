@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 from agency.contracts.artifact import ArtifactMissing, ArtifactStore, Origin
-from agency.contracts.files import OutsidePerimeter, ensure_dir_under, open_under, parts_below
+from agency.contracts.files import OutsidePerimeter, ensure_dir_under, land, open_under, unlink_under
 from agency.ledger import Ledger
 from agency.ledger.models import ArtifactRow
 from agency.ledger.store import now
@@ -96,7 +96,11 @@ def restore(
     of its content."""
     rows = find(ledger, prefix)
     digest = rows[0].sha256
-    place = _place(destination, projects_dir)
+    try:
+        landing = land(destination, projects_dir)
+    except OutsidePerimeter as exc:
+        raise CannotRestore(str(exc)) from exc
+    place = (landing.root, "/".join(landing.parts)) if landing.parts else None
     # The version first, then the destination: a missing version leaves no empty file behind.
     try:
         original = store.open(digest)
@@ -105,42 +109,32 @@ def restore(
             f"la versione {digest[:12]} manca dal deposito: agency verify dice quali"
         ) from None
     with original:
-        copy = _create(destination, place)
+        copy = _create(destination, landing.real, place)
         check = hashlib.sha256()
         with copy:
             while chunk := original.read(CHUNK):
                 check.update(chunk)
                 copy.write(chunk)
     if check.hexdigest() != digest:
-        (place[0] / place[1] if place else destination).unlink()
+        if place:
+            unlink_under(*place)
+        else:
+            landing.real.unlink()
         raise CannotRestore(f"la versione {digest[:12]} nel deposito è danneggiata: agency verify dice quali")
     return rows
 
 
-def _place(destination: Path, projects_dir: Path) -> tuple[Path, str] | None:
-    """The projects folder and the destination below it, read as text, or None for a destination elsewhere.
-
-    Below the projects folder a sandbox can leave links, so the destination is reached only through the
-    no-follow helpers, and a `..` there is refused. Elsewhere the path is the operator's own layout (a
-    symlinked home, say), and the kernel reads it as for any other program.
-    """
-    for root in (projects_dir.absolute(), projects_dir.resolve()):
-        try:
-            parts = parts_below(destination, root)
-        except OutsidePerimeter as exc:
-            raise CannotRestore(str(exc)) from exc
-        if parts:
-            return root, "/".join(parts)
-    return None
-
-
-def _create(destination: Path, place: tuple[Path, str] | None) -> BinaryIO:
+def _create(destination: Path, real: Path, place: tuple[Path, str] | None) -> BinaryIO:
     """The new file, created exclusively with its missing folders: no race with anyone writing the same path
-    at the same moment. Messages name the destination as the operator typed it."""
+    at the same moment.
+
+    Below the projects folder (`place`) every folder and the file are made through the no-follow helpers.
+    Elsewhere `real` is where the kernel lands the typed path, the operator's own layout. Messages name the
+    destination as the operator typed it."""
     try:
         if place is None:
-            destination.absolute().parent.mkdir(parents=True, exist_ok=True)
-            return destination.open("xb")
+            real.parent.mkdir(parents=True, exist_ok=True)
+            return real.open("xb")
         root, relative = place
         folder = relative.rpartition("/")[0]
         if folder:

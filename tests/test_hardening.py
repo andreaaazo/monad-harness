@@ -1604,6 +1604,26 @@ def test_judge_filters_the_refusal_of_a_missing_file(
     assert "manca[2J.svg" in out
 
 
+def test_judge_lays_the_anonymous_copies_out_under_the_data_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The copies a blind judgment shows live in `<data root>/blind/<comparison>`, one folder each. The
+    command names the folder before the judgment, and removes it when the judgment stops."""
+    paths = judge_setup(tmp_path, monkeypatch)
+    laid_out: list[Path] = []
+
+    def stop(*_: object) -> None:
+        laid_out.extend((tmp_path / "data" / "blind").glob("*/*.svg"))
+        raise CannotCompare("fermato dopo la disposizione")
+
+    monkeypatch.setattr("agency.evaluation.board.lay_board", lambda *_: None)
+    monkeypatch.setattr("agency.evaluation.blind.interview", stop)
+    assert cli.main(["judge", *paths]) == 1
+    assert len(laid_out) == 2
+    (folder,) = {copy.parent for copy in laid_out}
+    assert f"nella cartella {folder.resolve()}:" in capsys.readouterr().out
+
+
 def test_judge_filters_a_refusal_after_the_copies_are_laid_out(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

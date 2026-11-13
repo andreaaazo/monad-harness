@@ -13,6 +13,9 @@ from agency import cli
 from agency.config import REPO_ROOT, DotenvHoldsSetting, Settings
 from agency.contracts.layout import DataLayout
 from agency.contracts.project import ProjectName, parse_project_name
+from agency.runtime import open_session
+from agency.tools.craft import CommandIndex
+from support.scripted import ScriptedTransport
 
 SERVER_ROOT = "from agency.entrypoints.server import settings; print(settings.AGENCY_DATA_DIR)"
 # A fresh process, so the class keeps its own `.env` setting; `_env_file=None`, so it reads no `.env`.
@@ -61,6 +64,22 @@ def test_data_paths_under_a_root() -> None:
     )
     assert shortcuts == paths(layout)[:5]
     assert settings.project_dir(ProjectName("p")) == Path("/q/p")
+
+
+def test_a_session_keeps_the_craft_index_cache_under_the_data_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The commands VectorCraft lists are cached in `<data root>/craft-index`, beside the registry."""
+    cache_dirs: list[Path] = []
+
+    def load(cls: type[CommandIndex], cache_dir: Path, app: str = "vectorcraft") -> CommandIndex:
+        cache_dirs.append(cache_dir)
+        return cls([])
+
+    monkeypatch.setattr(CommandIndex, "load", classmethod(load))
+    settings = Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "q", _env_file=None)  # type: ignore[call-arg]
+    open_session(settings, ScriptedTransport([]))
+    assert cache_dirs == [tmp_path / "data" / "craft-index"]
 
 
 def test_the_default_data_root_is_the_checkout_from_any_directory(tmp_path: Path) -> None:

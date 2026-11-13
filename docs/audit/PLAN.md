@@ -1885,6 +1885,14 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
       and `insights/adapters/ledger.py:32`.
   - Commit: `refactor: share one copy of the hash, clip and busy-timeout helpers`.
 - [ ] **Task 6.11: `DataLayout` owns every data path.** Closes STR-006 and SIM-013.
+  - Before the change, characterization tests for the two `.data` paths that nothing pinned. The work folder
+    `projects/<name>/work` was already pinned by the flows: 67 test lines read the files from it.
+    - `test_a_session_keeps_the_craft_index_cache_under_the_data_root` (test_layout.py): `open_session` loads
+      the Craft index from `<data root>/craft-index`. Before, an index looked for elsewhere would just be
+      empty, and no test would fail.
+    - `test_judge_lays_the_anonymous_copies_out_under_the_data_root` (test_hardening.py): `agency judge` lays
+      the copies out in `<data root>/blind/<comparison>` and names that folder.
+  - On a scratch copy with a green baseline, moving either path makes its test fail.
   - Files:
     - `src/agency/contracts/layout.py`: `blind(comparison)`, `craft_index`, and `WORK = "work"`;
     - `src/agency/config.py`: `work_dir(project)`;

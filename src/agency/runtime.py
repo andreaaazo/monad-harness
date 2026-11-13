@@ -143,7 +143,7 @@ class Session:
             exempt={"construction.md": "documento di costruzione, verificato dal critico con il segno"},
         )
         delivery.validate(spec)
-        work = self.settings.project_dir(folder) / "work"
+        work = self.settings.work_dir(folder)
         work.mkdir(parents=True, exist_ok=True)
         replace_under(work, "brief.md", brief.read_bytes())
         self.ledger.set_project(project, budget, model, effort)
@@ -190,7 +190,7 @@ def open_session(settings: Settings, transport: Transport | None = None, record:
         key = settings.anthropic_api_key
         transport = AnthropicTransport(key.get_secret_value() if key else None)
     gateway = ModelGateway(transport, ledger, settings)
-    index = CommandIndex.load(settings.data_dir / "craft-index")
+    index = CommandIndex.load(settings.layout.craft_index)
     runner = AgentRunner(gateway, ledger, settings, index, FileStore(settings.artifacts_dir))
     connection = sqlite3.connect(settings.checkpoints_path, check_same_thread=False, timeout=BUSY_SECONDS)
     graph = build(runner, ledger, settings, SqliteSaver(connection))

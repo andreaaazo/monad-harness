@@ -15,6 +15,8 @@ from agency.contracts.project import ProjectName
 # The checkout the code runs from: `prompts/`, `registry/`, `.env` and the default data root hang from it,
 # whatever the current folder (ADR-0045). Each worktree is its own checkout, with its own `.data`.
 CHECKOUT = Path(__file__).resolve().parents[3]
+# The folder of a client project where its files are made: `<projects>/<name>/work`.
+WORK = "work"
 
 
 class RelativeDataRoot(Exception):
@@ -89,6 +91,11 @@ class DataLayout:
         return (self.projection or self.root) / "insights.sqlite"
 
     @property
+    def craft_index(self) -> Path:
+        """The commands each Craft CLI lists, cached once per version of the CLI."""
+        return self.root / "craft-index"
+
+    @property
     def transcripts(self) -> Path:
         """The instances' transcripts, one folder per project."""
         return self.root / "runs"
@@ -123,6 +130,10 @@ class DataLayout:
     def ops_records(self, project: ProjectName, instance: str) -> Path:
         """The harness's record of an instance's tool runs, read on resume. No sandbox sees it (ADR-0044)."""
         return self.root / "ops" / project / instance
+
+    def blind(self, comparison: str) -> Path:
+        """The anonymous copies a blind judgment shows, removed when the judgment ends."""
+        return self.root / "blind" / comparison
 
     def ratings(self, project: ProjectName, round: int) -> Path:
         """The critic's first look at a round's board, as `rate_board` recorded it. Only the harness writes

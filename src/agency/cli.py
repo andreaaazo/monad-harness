@@ -140,7 +140,7 @@ def _report_of(settings: Settings, project: str) -> ProjectReport:
 def _show(session: Session, project: ProjectName) -> int:
     print(report.render(_report_of(session.settings, project)))
     for gate in session.pending(project):
-        work = session.settings.project_dir(project) / "work"
+        work = session.settings.work_dir(project)
         print(f"\nIN ATTESA DEL CLIENTE: gate {gate.gate}")
         for file in gate.files:
             print(report.plain(f"  {work / file}"))
@@ -388,7 +388,7 @@ def _judge(args: argparse.Namespace) -> int:
         return 1
     comparison = blind.comparison_id()
     assigned = blind.assign(found, random.SystemRandom())
-    folder = settings.data_dir / "blind" / comparison
+    folder = settings.layout.blind(comparison)
     try:
         copies = blind.lay_out(assigned, folder)
         sheet = board.lay_board(dict(zip(assigned, copies, strict=True)), folder, _board_renderer())

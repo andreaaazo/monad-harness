@@ -18,6 +18,7 @@ from pathlib import Path
 
 from agency.contracts.files import OutsidePerimeter, file_sha256, open_under, sha256_under
 from agency.contracts.judgment import Judged, Judgment, Level, Rating, below_the_top
+from agency.contracts.layout import WORK
 from agency.contracts.project import parse_project_name
 
 LETTERS = string.ascii_uppercase
@@ -84,7 +85,7 @@ def _candidate(path: Path, projects_dir: Path) -> Candidate:
         return Candidate(
             root / relative, Judged(project="", file=str(root / relative), sha256=digest), root, relative
         )
-    inside = parts[2:] if parts[1] == "work" else parts[1:]
+    inside = parts[2:] if parts[1] == WORK else parts[1:]
     return Candidate(
         root / relative, Judged(project=parts[0], file="/".join(inside), sha256=digest), root, relative
     )

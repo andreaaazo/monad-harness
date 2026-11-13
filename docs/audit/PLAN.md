@@ -1884,7 +1884,18 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
       `telemetry/fingerprint.py:51`, `tools/files.py:29`, `insights/adapters/transcripts.py:53`, `ledger/schema.py:27`
       and `insights/adapters/ledger.py:32`.
   - Commit: `refactor: share one copy of the hash, clip and busy-timeout helpers`.
-- [ ] **Task 6.11: `DataLayout` owns every data path.** Closes STR-006 and SIM-013.
+- [x] **Task 6.11: `DataLayout` owns every data path.** Closes STR-006 and SIM-013.
+  - Done: `Settings.work_dir(project)`, which is `project_dir(project) / WORK`, replaces the four hand-built work
+    folders in cli.py, runtime.py, agents/loop.py and the closure in graph/workflow.py, which keeps its
+    `parse_project_name`. evaluation/blind.py parses the folder back with the same `WORK`.
+    `DataLayout.craft_index` and `DataLayout.blind(comparison)` replace the two `.data` paths built in runtime.py
+    and cli.py. In src/, no data path is built by hand any more (7 sites → 0). tests/test_layout.py pins the
+    new members. The other tests keep building the paths themselves, on purpose: they check the layout
+    independently.
+  - /ce-simplify-code (reuse, quality, efficiency). The quality reviewer called `craft_index` and `blind` taste,
+    since each has one caller. Kept anyway: DataLayout's own docstring makes it the one owner of `.data`, and
+    CLAUDE.md asks for one owner of each datum. A `.data` path spelled in cli.py or runtime.py is a second owner
+    of that layout. The characterization unit pins both paths.
   - Before the change, characterization tests for the two `.data` paths that nothing pinned. The work folder
     `projects/<name>/work` was already pinned by the flows: 67 test lines read the files from it.
     - `test_a_session_keeps_the_craft_index_cache_under_the_data_root` (test_layout.py): `open_session` loads

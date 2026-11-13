@@ -66,6 +66,14 @@ def test_data_paths_under_a_root() -> None:
     assert settings.project_dir(ProjectName("p")) == Path("/q/p")
 
 
+def test_the_work_folder_the_craft_index_and_the_blind_copies_have_one_owner() -> None:
+    """The paths Task 6.11 moved into DataLayout and Settings, where every caller now takes them."""
+    layout = DataLayout(Path("/r"))
+    assert (layout.craft_index, layout.blind("c1")) == (Path("/r/craft-index"), Path("/r/blind/c1"))
+    settings = Settings(data_dir=Path("/r"), projects_dir=Path("/q"), _env_file=None)  # type: ignore[call-arg]
+    assert settings.work_dir(ProjectName("p")) == Path("/q/p/work")
+
+
 def test_a_session_keeps_the_craft_index_cache_under_the_data_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

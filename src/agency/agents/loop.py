@@ -100,7 +100,7 @@ class AgentRunner:
         finished = transcript.outcome()
         if finished is not None:  # a resumed run never redoes an instance that already closed
             return finished
-        root = self.settings.project_dir(folder) / "work"
+        root = self.settings.work_dir(folder)
         root.mkdir(parents=True, exist_ok=True)
         if spec.workspace:
             ensure_dir_under(root, spec.workspace)  # a link at any component is refused before bwrap binds it

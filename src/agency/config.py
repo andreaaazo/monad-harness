@@ -13,7 +13,7 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 
-from agency.contracts.layout import CHECKOUT, DataLayout, RelativeDataRoot, data_root, projects_root
+from agency.contracts.layout import CHECKOUT, WORK, DataLayout, RelativeDataRoot, data_root, projects_root
 from agency.contracts.project import ProjectName
 
 REPO_ROOT = CHECKOUT
@@ -117,3 +117,7 @@ class Settings(BaseSettings):
 
     def project_dir(self, slug: ProjectName) -> Path:
         return (self.projects_dir / slug).resolve()
+
+    def work_dir(self, slug: ProjectName) -> Path:
+        """The project's work folder, where its files are made."""
+        return self.project_dir(slug) / WORK

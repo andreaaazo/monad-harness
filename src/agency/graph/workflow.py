@@ -83,7 +83,7 @@ def build(
     """The compiled studio graph. `checkpointer` keeps its state, so a run stopped at a gate resumes."""
 
     def work_dir(project: str):
-        return settings.project_dir(parse_project_name(project)) / "work"
+        return settings.work_dir(parse_project_name(project))
 
     # Exploration
 

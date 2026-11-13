@@ -95,6 +95,9 @@ def restore(
     of its content."""
     rows = find(ledger, prefix)
     digest = rows[0].sha256
+    # `..` removed as text, never by resolving a link, so that the folders and the file below are the same
+    # path the projects-folder rule of `_make_parents` checked.
+    destination = Path(os.path.normpath(destination.absolute()))
     # The version first, then the destination: a missing version leaves no empty file behind.
     try:
         original = store.open(digest)

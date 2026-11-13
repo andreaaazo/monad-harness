@@ -2069,7 +2069,15 @@ Nothing that blocks a merge was introduced by the branch. Andrea chose to fix fo
   Not changed, for a later decision: `CommandIndex.load` (tools/craft.py) runs `vectorcraft-cli --version` and
   `commands` on the host with the full environment. That is a trusted host CLI, not a sandbox, but
   `telemetry/fingerprint.py` already strips the environment for the same calls.
-- [ ] **R2: `agency judge` keeps the project for a path with `..`.** P3, a regression of `01fe687`.
+- [x] **R2: `agency judge` keeps the project for a path with `..`.** P3, a regression of `01fe687`, which stopped
+  resolving the paths so as not to follow a planted link, but left `..` in them. `blind._below` compared
+  `path.absolute()` with the projects folder as text, so `../projects/acme/work/a.svg` typed from another folder
+  counted as the operator's own file: project `''`, an absolute host path, and links followed. `restore` had the
+  same gap, and it was worse: through such a path the projects-folder rule of `_make_parents` was skipped, and the
+  version was written through a link a sandbox left below the projects folder. Both now remove `..` as text
+  (`os.path.normpath`), never by resolving a link. Tests: `test_a_path_through_dotdot_still_names_its_project`
+  (test_judgments.py) and `test_restore_refuses_a_link_inside_the_projects_folder_named_through_dotdot`
+  (test_artifacts.py), both red before the change (the second restored into the host folder, exit 0).
 - [ ] **R3: the tests ignore the operator's `AGENCY_*` variables.** Testing gap: `AGENCY_EXPLORERS=2` failed four tests.
 - [ ] **R4: the chain binds each ticket's project.** P2: `UPDATE tickets SET project = …` passed `agency verify`.
 

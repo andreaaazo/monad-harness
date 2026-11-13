@@ -372,6 +372,21 @@ def test_restore_refuses_a_link_inside_the_projects_folder(
     assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
 
 
+def test_restore_refuses_a_link_inside_the_projects_folder_named_through_dotdot(
+    studio: Settings, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A `..` in the typed path must not move the destination out of the projects folder's no-follow rule.
+    digest = kept(studio, tmp_path, b"master")
+    host = tmp_path / "host"
+    host.mkdir()
+    (tmp_path / "projects/merlo4/work/exports").symlink_to(host, target_is_directory=True)
+    (tmp_path / "elsewhere").mkdir()
+    target = tmp_path / "elsewhere/../projects/merlo4/work/exports/segno.vectorcraft"
+    assert cli.main(["restore", digest, str(target)]) == 1
+    assert list(host.iterdir()) == []
+    assert "fuori dalla cartella del lavoro" in capsys.readouterr().out
+
+
 def test_restore_follows_a_link_outside_the_projects_folder(studio: Settings, tmp_path: Path) -> None:
     digest = kept(studio, tmp_path, b"master")
     real = tmp_path / "real-home"

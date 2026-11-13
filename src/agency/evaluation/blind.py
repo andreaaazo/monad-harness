@@ -60,9 +60,10 @@ def candidates(paths: list[Path], projects_dir: Path) -> list[Candidate]:
 def _below(path: Path, projects_dir: Path) -> tuple[Path, tuple[str, ...]] | None:
     """The projects folder and the parts of `path` below it, or None for a file elsewhere.
 
-    The path is only made absolute, never resolved: the sandbox can leave a link anywhere below the folder.
+    The path is made absolute and its `..` removed as text, never resolved: the sandbox can leave a link
+    anywhere below the folder.
     """
-    absolute = path.absolute()
+    absolute = Path(os.path.normpath(path.absolute()))
     for root in (projects_dir.absolute(), projects_dir.resolve()):
         if root in absolute.parents:
             return projects_dir.resolve(), absolute.relative_to(root).parts

@@ -107,6 +107,21 @@ def test_candidates_know_project_file_and_hash(tmp_path: Path) -> None:
     ]
 
 
+def test_a_path_through_dotdot_still_names_its_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The operator types the path from another folder. `..` is removed as text, never by resolving links.
+    two_projects(tmp_path)
+    (tmp_path / "elsewhere").mkdir()
+    monkeypatch.chdir(tmp_path / "elsewhere")
+    paths = [Path(f"../projects/{name}/work/exports/segno.svg") for name in ("merlo", "merlo3")]
+    found = blind.candidates(paths, tmp_path / "projects")
+    assert [(c.judged.project, c.judged.file) for c in found] == [
+        ("merlo", "exports/segno.svg"),
+        ("merlo3", "exports/segno.svg"),
+    ]
+
+
 def test_file_outside_the_projects_keeps_its_whole_path(tmp_path: Path) -> None:
     (outside,) = files(tmp_path, {"cli/segno.svg": "<svg>cli</svg>"})
     (candidate,) = blind.candidates([outside], tmp_path / "projects")

@@ -1995,7 +1995,9 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Every label string stays unchanged.
   - Verify: `make e2e` passes; standard gate.
   - Commit: `refactor(web): share the scroll region and the metric rows`.
-- [ ] **Task 6.16: the before/after comparison.**
+- [x] **Task 6.16: the before/after comparison.**
+  - Done: docs/audit/90-after.md, from a fresh `git clone` of `08f125c` (a worktree would write to the
+    repository). Every row of the baseline's §5 exits 0, and so do the three rows Phase 5 added.
   - Files: create `docs/audit/90-after.md`, in English.
   - Content:
     - rerun every command of `00-baseline.md` §5 from a clean worktree of the final HEAD;

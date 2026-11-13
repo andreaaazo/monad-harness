@@ -120,6 +120,17 @@ def _bound_tickets(events: Iterable[EventRow]) -> list[str]:
     return list(found)
 
 
+def _bound_projects(events: Iterable[EventRow]) -> dict[str, set[str]]:
+    """Each ticket's projects, as every version-2 event of it binds one. A ticket never changes project
+    (ADR-0053), so a second value is tampering; events from before the revision 0009 bind none."""
+    found: dict[str, set[str]] = {}
+    for event in events:
+        payload = _parsed(event.payload_json) if event.version == 2 else None
+        if isinstance(payload, dict) and isinstance(payload.get("project"), str):
+            found.setdefault(event.ticket_id, set()).add(payload["project"])
+    return found
+
+
 def _stored(session: Session, model: type[BoundRow], column: str) -> list[dict[str, Any]]:
     """The rows of `model`'s table, in `column` order, as SQLite stores them, without the models'
     conversions: `approved = 'no'` reads back through the model as True, the value a gate binds, yet it is not
@@ -404,6 +415,7 @@ class Ledger:
             tickets = session.exec(select(TicketRow).order_by(literal_column("rowid"))).all()
             rows = {model: _stored(session, model, column) for model, (_, _, column, _) in BOUND_ROWS.items()}
         last = {event.ticket_id: event for event in events}
+        projects = _bound_projects(events)
         found: list[str] = []
         for ticket in tickets:
             event = last.get(ticket.id)
@@ -421,7 +433,10 @@ class Ledger:
                 found.append(f"{ticket.id}: contratto diverso dalla catena")
             if bound.get("inputs_sha256") != chain.text_sha256(ticket.inputs_json):
                 found.append(f"{ticket.id}: hash d'apertura diversi dalla catena")
-            if bound.get("project") != ticket.project:
+            # Every event, not only the last: a later event binds the row as it finds it, and would hide a
+            # moved project behind the first call its agents make in the other folder (ADR-0054).
+            others = projects.get(ticket.id, set()) - {ticket.project}
+            if bound.get("project") != ticket.project or others:
                 found.append(f"{ticket.id}: progetto diverso dalla catena")
         present = {ticket.id for ticket in tickets}
         found += [

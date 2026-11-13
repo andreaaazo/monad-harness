@@ -57,4 +57,5 @@ vecchio. Date: 2026-10-31.
 | [0050](0050-la-catena-copre-anche-i-costi.md) | La catena copre anche i costi | Accettata, estende 0049: chiamate pagate e progetti legati nella catena, `operations` solo in aggiunta |
 | [0051](0051-il-controllo-gira-da-solo.md) | Il controllo gira da solo | Accettata, estende 0039: hook pre-commit con `task check:fast`, `task check:clean` sull'indice, CI con il remoto |
 | [0052](0052-le-dipendenze-le-dichiara-il-codice-che-le-importa.md) | Le dipendenze le dichiara il codice che le importa | Accettata: `sqlalchemy`, `langchain-core` e `httpx2` dichiarati, `tests/test_dependencies.py` lo controlla |
-| [0053](0053-la-catena-lega-il-progetto-di-ogni-ticket.md) | La catena lega il progetto di ogni ticket | Accettata, estende 0049: il progetto di ogni ticket legato nella catena, migrazione 0009 |
+| [0053](0053-la-catena-lega-il-progetto-di-ogni-ticket.md) | La catena lega il progetto di ogni ticket | Accettata, estende 0049: il progetto di ogni ticket legato nella catena, migrazione 0009; ogni evento confrontato in 0054 |
+| [0054](0054-agency-verify-confronta-il-progetto-di-ogni-evento.md) | `agency verify` confronta il progetto di ogni evento | Accettata, estende 0053: il progetto di ogni evento di versione 2 del ticket, non solo dell'ultimo |

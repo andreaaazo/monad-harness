@@ -418,6 +418,32 @@ def test_moving_a_ticket_to_another_project_breaks_verify(
     ]
 
 
+@pytest.mark.parametrize("next_event", ["block", "paid call"])
+def test_a_moved_ticket_stays_caught_after_its_next_event(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], next_event: str
+) -> None:
+    """The ticket's next event binds the row as it finds it, moved project included: the first call its agents
+    make in the other client's folder would hide the move. `agency verify` compares every event (ADR-0054)."""
+    ledger = Ledger(use_data_dir(tmp_path, monkeypatch))
+    ticket = ledger.open(production(), project="merlo")
+    with ledger.engine.begin() as conn:
+        conn.execute(text("UPDATE tickets SET project = 'merlo4'"))
+
+    if next_event == "block":
+        ledger.apply(ticket, Action.BLOCK, "identity-designer", "manca il brief")
+    else:
+        call = paid(ticket)
+        call.project = "merlo4"  # the gateway charges the project it reads from the moved row
+        ledger.record_usage(call)
+
+    assert ledger.verify_chain()
+    assert cli.main(["verify"]) == 1
+    assert capsys.readouterr().out.splitlines()[:2] == [
+        "REGISTRO ALTERATO",
+        "  T-0001: progetto diverso dalla catena",
+    ]
+
+
 def idea(**extra: object) -> ConceptRow:
     return ConceptRow.model_validate(
         {"project": "default", "round": 1, "letter": "A", "lever": "forma", "idea_ticket": ""} | extra

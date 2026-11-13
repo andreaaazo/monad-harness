@@ -46,8 +46,9 @@ ticket `-`. La migrazione 0008 ha legato così le righe di quel momento, e un se
 id non riscrive il primo (ADR-0050). Dalla revisione 0009 l'evento di un ticket lega anche il suo progetto, che decide
 in quale cartella lavorano i suoi agenti e quale budget paga le sue chiamate; la migrazione 0009 ha legato così i
 ticket di quel momento (ADR-0053). `agency verify` ricontrolla la catena e confronta ogni ticket con lo stato, il
-contratto e il progetto legati dal suo ultimo evento, e ogni idea, gate, prova, chiamata pagata e progetto con
-l'ultimo evento che la lega: una differenza, o un ticket o una riga legati che mancano, è un registro alterato.
+contratto e il progetto legati dal suo ultimo evento, e il progetto anche con quello di ogni altro evento del ticket
+(ADR-0054); confronta poi ogni idea, gate, prova, chiamata pagata e progetto con l'ultimo evento che la lega: una
+differenza, o un ticket o una riga legati che mancano, è un registro alterato.
 
 ### Tabelle
 

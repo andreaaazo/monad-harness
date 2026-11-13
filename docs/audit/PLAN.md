@@ -2139,6 +2139,20 @@ verify` (R7, finding #2, P2) and to fix the Craft spike's environment (R8, pre-e
   - On a scratch copy: with the old `operator_variables` both environment tests fail; with 0009 ordered by project
     the migration test fails; with the change all four pass.
 
+- [x] **R7: `agency verify` compares every event's project.** Finding #2 of the second round (P2): after
+  `UPDATE tickets SET project = …`, the ticket's next event (a paid call by its agents, now working in the other
+  client's folder) bound the moved project, and `agency verify` turned green again. New ADR-0054
+  (`docs/adr/0054-agency-verify-confronta-il-progetto-di-ogni-evento.md`).
+  - `replay_mismatches` also collects the project of every version-2 event of each ticket (`_bound_projects`) and
+    reports the existing «progetto diverso dalla catena» when any differs from the row. Events from before 0009
+    carry none. No migration, no new text.
+  - Test: `test_a_moved_ticket_stays_caught_after_its_next_event` (test_ledger.py), with a `block` and with a paid
+    call as the next event; both failed before the change (`agency verify` exited 0).
+  - On a scratch copy of the real registry migrated to 0009: verify exited 0; after moving T-0021 and appending a
+    paid call on it, exit 1 with that line. The real registry's sha256 was unchanged; the copy was deleted.
+  - Not changed, recorded in ADR-0054: the contract and opening hashes (`spec_sha256`, `inputs_sha256`) have the
+    same property; comparing them on every event is a separate decision.
+
 ## Not planned in this refactor
 
 | Finding | Why |

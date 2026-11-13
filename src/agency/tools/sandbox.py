@@ -30,6 +30,16 @@ TASKS_MAX = 512  # threads count as tasks
 SCOPE_PROBE_SECONDS = 15
 OUTPUT_BYTES = 8 * 2**20  # the most of each of stdout and stderr the harness keeps in memory
 READ_BYTES = 64 * 1024
+# All that systemd-run and bwrap get from the harness's environment: what systemd-run needs to find bwrap
+# and reach the user manager. bwrap is pid 1 inside the sandbox, and any sandboxed process can read the
+# environment it was started with from /proc/1/environ: --clearenv empties only the command's own. So the
+# API key, or any other secret in the harness's environment, must never be in that block.
+HOST_VARIABLES = ("PATH", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS")
+
+
+def host_environment() -> dict[str, str]:
+    """What systemd-run and bwrap start with: the `HOST_VARIABLES` the harness has, and nothing else."""
+    return {name: os.environ[name] for name in HOST_VARIABLES if name in os.environ}
 
 
 @dataclass(frozen=True)
@@ -69,7 +79,11 @@ def scope_problem() -> str | None:
     model-written code could fake."""
     try:
         done = subprocess.run(
-            [*scope_prefix(), "true"], capture_output=True, text=True, timeout=SCOPE_PROBE_SECONDS
+            [*scope_prefix(), "true"],
+            capture_output=True,
+            text=True,
+            timeout=SCOPE_PROBE_SECONDS,
+            env=host_environment(),
         )
     except FileNotFoundError:
         return "systemd-run non esiste su questa macchina"
@@ -172,6 +186,7 @@ class Sandbox:
             stderr=subprocess.PIPE,
             bufsize=0,
             start_new_session=True,
+            env=host_environment(),
         )
         try:
             kept, outcome = _collect(proc, timeout)

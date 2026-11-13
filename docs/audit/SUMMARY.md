@@ -197,6 +197,8 @@ too high; they are listed below with the reason, so they are not escalated again
   - Budget input rejects 0, negatives, `nan`, `inf` and text.
 - **Sandbox profile:**
   - `--clearenv` keeps the key out, there is no network (errno 101), and `/usr`, `/opt/agency-qa` and the toolchain are read-only.
+    Corrected by the final review: `--clearenv` kept the key out of the command's environment only, and bwrap's own
+    block stayed readable at `/proc/1/environ` (see `20-security.md`, "Checked, no finding").
   - `inside()` resolves symlinks for `read_file`, `write_file`, `view_image`, `render`, `judge`, `observe`, delivery and keep.
 - **SQL:** every statement in `ledger/` and `insights/adapters/` is a constant or uses parameters.
 - **Dashboard:**

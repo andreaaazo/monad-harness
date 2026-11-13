@@ -27,6 +27,7 @@ from agency.contracts import phase
 from agency.contracts.concept import ConceptCard
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import ProjectName, parse_project_name
+from agency.contracts.secrets import API_KEY_VARIABLES
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.gateway import BudgetExceeded, ModelGateway
 from agency.graph import workflow
@@ -985,6 +986,35 @@ def test_sandbox_has_no_network_key_or_outside_files(tmp_path: Path, monkeypatch
     )
     done = box.run(["python3", "-c", probe])
     assert done.stdout.split() == ["None", "False", "lo", "True"]
+
+
+@pytest.mark.sandbox
+@pytest.mark.parametrize("name", API_KEY_VARIABLES)
+def test_no_process_in_the_sandbox_holds_the_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    # --clearenv empties only the command's environment. bwrap itself is pid 1 inside the sandbox and keeps
+    # the block it was started with, which any sandboxed process can read from /proc/1/environ.
+    canary = "sk-ant-canary-in-proc-environ"
+    monkeypatch.setenv(name, canary)
+    work = tmp_path / "work"
+    work.mkdir()
+    probe = (
+        "import glob\n"
+        "read = hits = 0\n"
+        "for path in glob.glob('/proc/[0-9]*/environ'):\n"
+        "    try:\n"
+        "        data = open(path, 'rb').read()\n"
+        "    except OSError:\n"
+        "        continue\n"
+        "    read += 1\n"
+        f"    hits += {canary.encode()!r} in data\n"
+        "print(open('/proc/1/environ', 'rb').read() != b'', read, hits)"
+    )
+    done = Sandbox(work).run(["python3", "-c", probe])
+    # pid 1's block was read and is not empty, so a zero count is a real absence, not a failed read.
+    readable, read, hits = done.stdout.split()
+    assert (readable, int(read) >= 2, hits) == ("True", True, "0")
 
 
 @pytest.mark.sandbox

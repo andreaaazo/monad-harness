@@ -51,6 +51,12 @@ che scrive per la sandbox dell'agente, lo script di `compute` e il piano di `cra
 Il registro della ripresa di `craft_run` sta nella cartella sopra, `.data/ops/<progetto>/<istanza>/`, che nessuna
 sandbox vede. In `/job` restano solo le uscite degli strumenti, come l'esportazione in `/job/.partial/`.
 
+Nell'ambiente della sandbox non c'è alcun segreto. `--clearenv` svuota solo l'ambiente del comando: bwrap, che dentro la
+sandbox è il processo 1, conserva quello con cui è partito, e ogni processo della sandbox lo legge da `/proc/1/environ`.
+Per questo `systemd-run` e bwrap partono con le sole `PATH`, `XDG_RUNTIME_DIR` e `DBUS_SESSION_BUS_ADDRESS` dell'harness
+(`HOST_VARIABLES`), quanto serve a `systemd-run` per raggiungere il gestore utente. La chiave resta fuori anche quando
+l'operatore la esporta nella shell, e `test_no_process_in_the_sandbox_holds_the_key` la cerca in ogni `/proc/<pid>/environ`.
+
 Ogni comando ha anche dei limiti di risorse (ADR-0046, SEC-005):
 - `/tmp` è una tmpfs da 2 GiB, `/home` e `/dev/shm` da 256 MiB, e nessun file scritto supera i 2 GiB (`prlimit --fsize`);
 - l'harness tiene al massimo 8 MiB di ciascuna uscita del comando, stdout e stderr: oltre, ferma il comando (codice 125);
@@ -110,5 +116,5 @@ Chiave API, materiali del cliente e sandbox non cambiano regole: cambiano le dif
   l'interfaccia.
 - Nessun launcher sconosciuto: `doctor` interroga solo CLI note.
 - La tavola del giudizio rende gli SVG dentro la sandbox, su una copia privata del file: `vectorcraft-cli` non legge file
-  dell'host e non riceve segreti (`--clearenv`), e `test_judge_board_cannot_draw_host_files` lo verifica (ADR-0041).
+  dell'host e non riceve segreti (vedi Sandbox), e `test_judge_board_cannot_draw_host_files` lo verifica (ADR-0041).
 - `.env` non si versiona.

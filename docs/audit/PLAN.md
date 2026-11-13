@@ -2053,6 +2053,26 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
     - list the findings closed per phase and the ones deferred, as in this plan.
   - Commit: `docs(audit): compare the final state with the baseline`.
 
+## Final review (2026-11-13)
+
+`/ce-code-review` of `main...audit/deep-review` at `7948aed`: eight reviewers and an independent validator. The
+report is in the run folder `/tmp/compound-engineering-1000/ce-code-review/20261113-043354-3c85f76a/report.md`.
+Nothing that blocks a merge was introduced by the branch. Andrea chose to fix four findings here, each its own unit.
+
+- [x] **R1: no secret in the environment bwrap starts with.** Pre-existing P1, reproduced at `8d99a5c` and
+  `7948aed`. With the key exported in the shell, sandboxed code read it from `/proc/1/environ`: `--clearenv` empties
+  only the command's environment, and bwrap is pid 1 inside the sandbox. `Sandbox.run` and `scope_problem` now start
+  systemd-run and bwrap with `HOST_VARIABLES` only (`PATH`, `XDG_RUNTIME_DIR`, `DBUS_SESSION_BUS_ADDRESS`; probed:
+  systemd-run needs `PATH` and one of the other two). Test: `test_no_process_in_the_sandbox_holds_the_key`, for both
+  key names, red before the change (the canary found once, in pid 1). The audit notes that called the profile clean
+  are corrected (20-security.md, SUMMARY.md), and docs/06-SECURITY.md says how the key stays out.
+  Not changed, for a later decision: `CommandIndex.load` (tools/craft.py) runs `vectorcraft-cli --version` and
+  `commands` on the host with the full environment. That is a trusted host CLI, not a sandbox, but
+  `telemetry/fingerprint.py` already strips the environment for the same calls.
+- [ ] **R2: `agency judge` keeps the project for a path with `..`.** P3, a regression of `01fe687`.
+- [ ] **R3: the tests ignore the operator's `AGENCY_*` variables.** Testing gap: `AGENCY_EXPLORERS=2` failed four tests.
+- [ ] **R4: the chain binds each ticket's project.** P2: `UPDATE tickets SET project = …` passed `agency verify`.
+
 ## Not planned in this refactor
 
 | Finding | Why |

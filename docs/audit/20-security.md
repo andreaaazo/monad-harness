@@ -213,6 +213,12 @@ and targets under `/tmp/audit-sec/`. `git status --porcelain` stayed empty after
 - **Sandbox profile**: `--clearenv` keeps a fake `ANTHROPIC_API_KEY` out (only `PATH HOME LANG PWD CLAUDE_PROJECT_DIR` are
   set). Networking fails (`errno 101`). `/usr`, `/opt/agency-qa` and the toolchain are read-only. Only the sandbox's own
   tmpfs mounts and `/job` are writable, and only two PIDs are visible.
+  - Corrected by the final review (2026-11-13): the key was not out of the sandbox. `--clearenv` empties only the
+    command's environment. bwrap is pid 1 inside, keeps the block it was started with, and any sandboxed process
+    can read it from `/proc/1/environ`. With a canary `ANTHROPIC_API_KEY` in the harness environment, the key was
+    readable there at `8d99a5c` and at `7948aed`. The probe above read only the command's own environment. Fixed by
+    starting systemd-run and bwrap with `HOST_VARIABLES` only; `test_no_process_in_the_sandbox_holds_the_key` reads
+    every `/proc/<pid>/environ`.
 - **The `inside()` paths**: `read_file`, `write_file`, `view_image`, `render`, `judge`, `observe`, delivery and keep all
   resolve symlinks and refuse targets outside the work folder. `list_files` and `read_skill` are confined. No two
   sandboxes share a work dir concurrently (`team` runs children one by one).

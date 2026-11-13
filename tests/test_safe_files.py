@@ -71,11 +71,6 @@ def opened(root: Path, relative: str) -> bytes:
         os.close(descriptor)
 
 
-def written_new(root: Path, folder: str) -> bytes:
-    files.write_new_under(root, f"{folder}/new.txt", b"nuovo")
-    return (root / folder / "new.txt").read_bytes()
-
-
 def replaced(root: Path, folder: str) -> bytes:
     files.replace_under(root, f"{folder}/kept.txt", b"nuovo")
     return (root / folder / "kept.txt").read_bytes()
@@ -93,7 +88,6 @@ USES: dict[str, tuple[Use, object]] = {
     "open_under": (lambda root, name: opened(root, f"{name}/kept.txt"), b"dentro"),
     "read_under": (lambda root, name: files.read_under(root, f"{name}/kept.txt"), b"dentro"),
     "sha256_under": (lambda root, name: files.sha256_under(root, f"{name}/kept.txt"), DENTRO),
-    "write_new_under": (written_new, b"nuovo"),
     "replace_under": (replaced, b"nuovo"),
     "ensure_dir_under, last component": (ensured, True),
     "ensure_dir_under, inner component": (lambda root, name: ensured(root, f"{name}/sub"), True),
@@ -119,7 +113,6 @@ HELPERS: dict[str, Use] = {
     "open_under": opened,
     "read_under": files.read_under,
     "sha256_under": files.sha256_under,
-    "write_new_under": lambda root, relative: files.write_new_under(root, relative, b"nuovo"),
     "replace_under": lambda root, relative: files.replace_under(root, relative, b"nuovo"),
     "ensure_dir_under": files.ensure_dir_under,
 }
@@ -144,20 +137,6 @@ def test_dotdot_and_absolute_paths_are_refused(tree: tuple[Path, Path], helper: 
 
     assert host_files(host) == {"kept.txt": b"fuori"}
     assert (root / "real" / "kept.txt").read_bytes() == b"dentro"
-
-
-def test_write_new_under_refuses_an_existing_file(tree: tuple[Path, Path]) -> None:
-    root, host = tree
-    (root / "real" / "dangling.txt").symlink_to(host / "absent.txt")
-    files.write_new_under(root, "real/new.txt", b"primo")
-
-    for taken in ["real/new.txt", "real/kept.txt", "link.txt", "real/dangling.txt"]:
-        with pytest.raises(FileExistsError):
-            files.write_new_under(root, taken, b"secondo")
-
-    assert (root / "real" / "new.txt").read_bytes() == b"primo"
-    assert (root / "real" / "kept.txt").read_bytes() == b"dentro"
-    assert host_files(host) == {"kept.txt": b"fuori"}
 
 
 # The readers that open work files (Task 2.2). The host folder holds the sentinel: a red image and an SVG

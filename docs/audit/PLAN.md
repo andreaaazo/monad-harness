@@ -1323,7 +1323,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   `evidence` against its events and add a chained event per gate, or chain every append-only table. Same family as
   CMT-007 (Q17). Found in Task 2.31. Not covered by a planned task.
   - Decided (2026-11-10): with 2.F56 (ADR-0049, migration 0007). Every gate decision appends a version-2 event that binds the gate row, the migration binds today's rows, and `agency verify` compares gates and every evidence row with their chain events.
-- [ ] **Task 2.F59: `write_new_under` has no production caller.** tools/files.py:89 (as of Task 2.33). Task 2.2a added
+- [x] **Task 2.F59: `write_new_under` has no production caller.** tools/files.py:89 (as of Task 2.33). Task 2.2a added
   it with the other `*_under` helpers, but no harness write goes through it: `rg -n -w write_new_under src` finds only
   the definition, and tests/test_safe_files.py is its only caller. Same shape as SIM-006: code in `src/` that only the
   tests keep alive. Fix: delete it and its test uses, unless a harness write should refuse an existing file; then route
@@ -1331,6 +1331,11 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   - Moved to Phase 4 (2026-11-10), with Task 4.3: not a bug, code that only tests use.
   - Still open after Phase 4 (2026-11-12): Phase 4 only moves code, and this fix deletes code. It goes to the
     simplification phase.
+  - Done after Phase 6 (2026-11-13): deleted, with its re-export in tools/files.py and its test uses. No harness
+    write should refuse an existing file. All 21 go through `replace_under`, and each regenerates its file on
+    purpose. Production calls `open_under` only to read, so the O_EXCL guarantee its own test checked protected no
+    production path. The shared `..` and no-follow guarantees stay covered by the other rows of the same tables.
+    test_safe_files.py goes from 126 to 119 cases. /ce-simplify-code (quality, test value) agreed.
 - [ ] **Task 2.F60: `Ledger.add_concept` is a seeding helper that only tests call.** ledger/store.py:404 (as of Task
   2.33). Since COR-003 (55039eb) the concept row is written by `Ledger.open(..., concept=...)` in the ticket's own
   transaction (tools/surface.py:660-665), and `rg -n -w add_concept src` finds only the definition. The tests

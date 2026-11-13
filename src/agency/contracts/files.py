@@ -113,12 +113,6 @@ def read_under(root: Path, relative: str, limit: int | None = None) -> bytes:
     return data
 
 
-def write_new_under(root: Path, relative: str, data: bytes) -> None:
-    """Creates the file, and refuses one that exists already, a symlink included."""
-    with os.fdopen(open_under(root, relative, os.O_WRONLY | os.O_CREAT | os.O_EXCL), "wb") as handle:
-        handle.write(data)
-
-
 def replace_under(root: Path, relative: str, data: bytes) -> None:
     """Writes the data beside the file and renames it over the file: a reader sees the old or the new one."""
     with _parent(root, relative) as (directory, name):

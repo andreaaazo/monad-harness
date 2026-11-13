@@ -17,7 +17,6 @@ from agency.contracts.files import (
     read_under,
     replace_under,
     sha256_under,
-    write_new_under,
 )
 from agency.contracts.files import (
     file_sha256 as sha256,
@@ -38,7 +37,6 @@ __all__ = [
     "replace_under",
     "sha256",
     "sha256_under",
-    "write_new_under",
 ]
 
 

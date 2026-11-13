@@ -153,7 +153,8 @@ step, and 6.13 ties the web files to the key names and e2e values.
 
 - **Task 2.7 (SEC-004):** closed after this report as not reproduced. Every route its probe tried is now a test.
 - **Tasks 2.F59–2.F62:** found during Phase 2, after the audits.
-  - 2.F59 and 2.F60: `write_new_under` and `Ledger.add_concept`, code that only the tests use.
+  - 2.F59: `write_new_under`, deleted after this report.
+  - 2.F60: `Ledger.add_concept`, code that only the tests use.
   - 2.F61 and 2.F62: a second list of reviewer roles, and direction role names built from a letter.
 
 **Left for a decision, from Phase 6** (each recorded under its task in `PLAN.md`):

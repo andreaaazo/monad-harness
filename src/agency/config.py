@@ -15,6 +15,7 @@ from pydantic_settings import (
 
 from agency.contracts.layout import CHECKOUT, WORK, DataLayout, RelativeDataRoot, data_root, projects_root
 from agency.contracts.project import ProjectName
+from agency.contracts.secrets import API_KEY_VARIABLES
 
 REPO_ROOT = CHECKOUT
 
@@ -57,7 +58,7 @@ class Settings(BaseSettings):
     max_parallel: int = 5
     toolchain_dir: Path = Path.home() / ".local/share/design-agency"
     anthropic_api_key: SecretStr | None = Field(
-        default=None, validation_alias=AliasChoices("ANTHROPIC_API_KEY", "AGENCY_ANTHROPIC_API_KEY")
+        default=None, validation_alias=AliasChoices(*API_KEY_VARIABLES)
     )
 
     @classmethod

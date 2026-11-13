@@ -16,10 +16,10 @@ from socketserver import ThreadingMixIn
 from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
 
 from agency.contracts.layout import RelativeDataRoot
+from agency.contracts.secrets import API_KEY_VARIABLES
 from agency.contracts.text import plain
 
 SETTINGS = "agency.entrypoints.server.settings"
-SECRETS = ("ANTHROPIC_API_KEY", "AGENCY_ANTHROPIC_API_KEY")
 # The help of the command is the operator's text (Italian, user-facing): it is written here, not taken
 # from the docstring.
 DESCRIPTION = (
@@ -51,7 +51,7 @@ def loopback(host: str) -> bool:
 
 def scrub(environment: MutableMapping[str, str]) -> None:
     """The API key lives in the gateway: the dashboard process does not inherit it."""
-    for name in SECRETS:
+    for name in API_KEY_VARIABLES:
         environment.pop(name, None)
 
 

@@ -40,6 +40,7 @@ from agency.tools.surface import (
     ToolContext,
     tools_for,
 )
+from support.concepts import open_idea
 from support.scripted import turn
 from support.settings import settings
 
@@ -473,13 +474,13 @@ def test_presentation_font_has_italian_accents() -> None:
 
 def test_present_refuses_what_was_not_developed(tmp_path: Path) -> None:
     ctx = context(tmp_path, "design-director")
-    ctx.ledger.add_concept(
-        ConceptRow(
-            project="p", round=1, letter="a", lever="l", idea_ticket="T-1", anon="X", status="proposta"
-        )
+    open_idea(
+        ctx.ledger,
+        ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="X", status="proposta"),
     )
-    ctx.ledger.add_concept(
-        ConceptRow(project="p", round=1, letter="b", lever="l", idea_ticket="T-2", anon="Y", status="schizzo")
+    open_idea(
+        ctx.ledger,
+        ConceptRow(project="p", round=1, letter="b", lever="l", idea_ticket="", anon="Y", status="schizzo"),
     )
     box = Toolbox(ctx, [TOOLS["draft_presentation"]])
     folder = tmp_path / "proposals/r1/x"
@@ -806,8 +807,9 @@ def test_critic_judges_blind(tmp_path: Path) -> None:
 def test_every_letter_must_be_rated(tmp_path: Path) -> None:
     ctx = context(tmp_path)
     for letter, anon in (("a", "X"), ("b", "Y")):
-        ctx.ledger.add_concept(
-            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket=f"T-{letter}", anon=anon)
+        open_idea(
+            ctx.ledger,
+            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
         )
     box = Toolbox(ctx, [TOOLS["rate_board"]])
     partial = {"ratings": [{"letter": "X", "first_look": "Un merlo", "passes": True}]}
@@ -817,8 +819,9 @@ def test_every_letter_must_be_rated(tmp_path: Path) -> None:
 def test_director_cannot_choose_what_failed_the_first_look(tmp_path: Path) -> None:
     ctx = context(tmp_path, "design-director")
     for letter, anon in (("a", "X"), ("b", "Y")):
-        ctx.ledger.add_concept(
-            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket=f"T-{letter}", anon=anon)
+        open_idea(
+            ctx.ledger,
+            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
         )
     box = Toolbox(ctx, [TOOLS["select_concepts"]])
     assert box.call("a", "select_concepts", {"chosen": ["X"], "reasons": "r"})["is_error"]
@@ -869,9 +872,7 @@ def test_choice_outside_the_options_is_not_approved(tmp_path: Path) -> None:
 
 def test_select_refuses_unknown_letters(tmp_path: Path) -> None:
     ctx = context(tmp_path, "design-director")
-    ctx.ledger.add_concept(
-        ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="T-1", anon="X")
-    )
+    open_idea(ctx.ledger, ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="X"))
     box = Toolbox(ctx, [TOOLS["select_concepts"]])
     assert box.call("a", "select_concepts", {"chosen": ["Q"], "reasons": "perché sì"})["is_error"]
 
@@ -881,8 +882,9 @@ def test_select_concepts_refuses_more_than_three(tmp_path: Path) -> None:
     ctx = context(tmp_path, "design-director")
     anons = {"a": "W", "b": "X", "c": "Y", "d": "Z"}
     for letter, anon in anons.items():
-        ctx.ledger.add_concept(
-            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket=f"T-{letter}", anon=anon)
+        open_idea(
+            ctx.ledger,
+            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
         )
     verdicts = settings(tmp_path).layout.ratings(ProjectName("p"), 1)
     verdicts.parent.mkdir(parents=True)
@@ -966,10 +968,9 @@ def test_a_hidden_image_never_reaches_the_presentation(tmp_path: Path) -> None:
         None,
         {path: sha256(folder / path) for path in delivered},
     )
-    ctx.ledger.add_concept(
-        ConceptRow(
-            project="p", round=1, letter="a", lever="l", idea_ticket="T-9", anon="V", status="proposta"
-        )
+    open_idea(
+        ctx.ledger,
+        ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="V", status="proposta"),
     )
     text = {"letter": "V", "title": "T", "idea": "I", "why": "W", "risk": "R"}
 
@@ -1264,8 +1265,8 @@ def test_explorer_is_warned_once_then_can_insist(tmp_path: Path) -> None:
         media=[Medium.NONE],
         medium_why="prova senza master",
     )
-    ticket = ledger.open(spec, "p")
-    ledger.add_concept(ConceptRow(project="p", round=1, letter="a", lever="il nome", idea_ticket=ticket))
+    concept = ConceptRow(project="p", round=1, letter="a", lever="il nome", idea_ticket="")
+    ticket = ledger.open(spec, "p", concept=concept)
     work = tmp_path / "work"
     work.mkdir()
     write_sketch(work / "schizzo-a.png", (20, 300, 240, 520), (920, 300, 1140, 520))

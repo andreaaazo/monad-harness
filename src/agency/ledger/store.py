@@ -528,13 +528,6 @@ class Ledger:
 
     # Ideas and gates
 
-    def add_concept(self, row: ConceptRow) -> None:
-        with self._writing() as session:
-            session.add(row)
-            session.flush()
-            self._append(session, NO_TICKET, HARNESS, "concept", "", None, row)
-            session.commit()
-
     def concepts(self, project: str, round_: int | None = None) -> list[ConceptRow]:
         with Session(self.engine) as session:
             query = select(ConceptRow).where(ConceptRow.project == project)

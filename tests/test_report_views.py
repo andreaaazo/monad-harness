@@ -24,6 +24,7 @@ from agency.insights.domain import (
 from agency.insights.ports import ProjectData
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow, GateRow, UsageRow
+from support.concepts import open_idea
 
 PROVENANCE = Provenance(
     built_at="2026-11-02T12:00:00+00:00",
@@ -391,8 +392,9 @@ def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ledger:
         GateRow(at=T1, project="officina", gate="concept", approved=True, choice="X", files_json="{}")
     )
     ledger.record_usage(usage(3, T2, instance="T-0001-a2"))
-    ledger.add_concept(
-        ConceptRow(project="officina", round=1, letter="a", lever="il nome", idea_ticket="T-0001", anon="X")
+    open_idea(
+        ledger,
+        ConceptRow(project="officina", round=1, letter="a", lever="il nome", idea_ticket="", anon="X"),
     )
     judgment = Judgment(
         judge="andrea", ratings=[Rating(letter="A", level=Level.GOOD, specific=True, why="Regge")]

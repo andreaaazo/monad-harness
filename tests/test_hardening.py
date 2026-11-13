@@ -43,6 +43,7 @@ from agency.tools.craft import Command, CommandIndex
 from agency.tools.files import OutsidePerimeter, is_file_under
 from agency.tools.sandbox import Completed, Sandbox
 from agency.tools.surface import TOOLS, Toolbox, ToolContext, role_tools
+from support.concepts import open_idea
 from support.scripted import ScriptedTransport
 from support.settings import settings
 
@@ -1822,8 +1823,9 @@ def board_critic(tmp_path: Path) -> ToolContext:
     ctx.sandbox = Sandbox(ctx.work / "board/r1", ops=ctx.sandbox.ops)
     ctx.sandbox.work.mkdir(parents=True)
     for letter, anon in (("a", "X"), ("b", "Y")):
-        ctx.ledger.add_concept(
-            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket=f"T-{letter}", anon=anon)
+        open_idea(
+            ctx.ledger,
+            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
         )
     return ctx
 
@@ -1898,10 +1900,9 @@ def test_rate_board_still_writes_the_ticket_output_and_the_harness_copy(tmp_path
 def proposal_ready(tmp_path: Path) -> ToolContext:
     ctx = context(tmp_path, "design-director", "T-0")
     ctx.settings = settings(tmp_path)
-    ctx.ledger.add_concept(
-        ConceptRow(
-            project="p", round=1, letter="a", lever="l", idea_ticket="T-1", anon="X", status="proposta"
-        )
+    open_idea(
+        ctx.ledger,
+        ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="X", status="proposta"),
     )
     folder = ctx.work / "proposals/r1/x"
     folder.mkdir(parents=True)
@@ -2130,10 +2131,9 @@ def test_present_concepts_refuses_a_draft_nobody_made(tmp_path: Path) -> None:
 def test_present_concepts_checks_the_pages_of_the_latest_draft(tmp_path: Path) -> None:
     ctx, first = drafted(tmp_path)
     two = {**DRAFT, "proposals": [*DRAFT["proposals"], {**DRAFT["proposals"][0], "letter": "Y"}]}
-    ctx.ledger.add_concept(
-        ConceptRow(
-            project="p", round=1, letter="b", lever="l", idea_ticket="T-2", anon="Y", status="proposta"
-        )
+    open_idea(
+        ctx.ledger,
+        ConceptRow(project="p", round=1, letter="b", lever="l", idea_ticket="", anon="Y", status="proposta"),
     )
     (ctx.work / "proposals/r1/y").mkdir()
     Image.new("RGB", (300, 200), (20, 20, 20)).save(ctx.work / "proposals/r1/y/proposta-y.png")
@@ -2163,10 +2163,9 @@ def test_the_layout_builds_project_paths_only_from_a_checked_name(method: str) -
 def evil_project(ctx: ToolContext, name: str = "../outside") -> ToolContext:
     ctx.settings = settings(ctx.work.parent)
     ctx.project = name
-    ctx.ledger.add_concept(
-        ConceptRow(
-            project=name, round=1, letter="a", lever="l", idea_ticket="T-a", anon="X", status="proposta"
-        )
+    open_idea(
+        ctx.ledger,
+        ConceptRow(project=name, round=1, letter="a", lever="l", idea_ticket="", anon="X", status="proposta"),
     )
     return ctx
 

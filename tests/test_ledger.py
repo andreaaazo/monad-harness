@@ -563,11 +563,11 @@ def test_every_idea_and_gate_write_binds_the_row(ledger: Ledger) -> None:
     """Each write of an idea or a gate appends an event that binds the whole row as it leaves it, outside the
     history of any ticket (ADR-0049)."""
     ticket = with_rows(ledger)
-    ledger.add_concept(idea(letter="B", idea_ticket=ticket))
+    other = ledger.open(production(), concept=idea(letter="B"))
 
     first = idea(seq=1, idea_ticket=ticket).model_dump()
     chosen = first | {"status": "selezionata", "anon": "B"}
-    second = first | {"seq": 2, "letter": "B"}
+    second = first | {"seq": 2, "letter": "B", "idea_ticket": other}
     gate = decision().model_dump() | {"seq": 1}
     assert [(e.actor, e.action, e.version, json.loads(e.payload_json)) for e in ledger.history("-")] == [
         ("harness", "concept", 2, {"concept": first}),

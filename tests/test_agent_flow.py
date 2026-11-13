@@ -1556,14 +1556,15 @@ def test_redelivery_with_identical_outputs_is_refused(tmp_path: Path) -> None:
 
 
 def closing_box(
-    tmp_path: Path, spec: TicketSpec, actor: str, *tools: str
+    tmp_path: Path, spec: TicketSpec, actor: str, *tools: str, concept: ConceptRow | None = None
 ) -> tuple[Toolbox, ToolContext, str]:
-    """A ticket of `spec` open for `actor`, its work folder ready: the toolbox, its context, the ticket."""
+    """A ticket of `spec` open for `actor`, its work folder ready: the toolbox, its context, the ticket. A
+    `concept` is opened with it, as plan_exploration opens an idea."""
     config = settings(tmp_path)
     work = tmp_path / "work"
     work.mkdir()
     ledger = Ledger(config.layout.ledger)
-    ticket = ledger.open(spec, "p")
+    ticket = ledger.open(spec, "p", concept=concept)
     context = ToolContext(
         actor, "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), FileStore(tmp_path / "artifacts")
     )
@@ -1665,14 +1666,16 @@ def test_a_replayed_submit_concept_closes_as_delivered(
         media=[Medium.NONE],
         medium_why="solo uno schizzo di prova",
     )
-    box, context, ticket = closing_box(tmp_path, spec, "direction-a", "record_requirement", "submit_concept")
+    concept = ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="")
+    box, context, ticket = closing_box(
+        tmp_path, spec, "direction-a", "record_requirement", "submit_concept", concept=concept
+    )
     Image.new("RGB", (64, 64), (255, 255, 255)).save(tmp_path / "work" / "schizzo-a.png")
     box.call(
         "a",
         "record_requirement",
         {"file": "schizzo-a.png", "check": "req:letta", "result": "PASS", "note": "ok"},
     )
-    context.ledger.add_concept(ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket=ticket))
     card = {
         "concept": "un'idea",
         "client_fact": "un fatto",

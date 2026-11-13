@@ -312,8 +312,10 @@ def build(folder: Path) -> None:
             media=[] if kind in {TicketType.DELIVERY, TicketType.REVIEW} else [Medium.VECTOR],
             prompt=prompt,
         )
+        # Direction A's sketch ticket opens with its concept, as plan_exploration opens it.
+        concept = ConceptRow(project=PROJECT, round=1, letter="a", lever="il nome", idea_ticket="", anon="X")
         with clock(minute):
-            ledger.open(spec, PROJECT)
+            ledger.open(spec, PROJECT, concept=concept if assignee == "direction-a" else None)
     turns: dict[str, int] = {}
     for number, row in enumerate(CALLS, start=1):
         minute, instance, _, _, phase, _, duration, ttft, stop = row
@@ -353,9 +355,6 @@ def build(folder: Path) -> None:
     write_transcripts(DataLayout(folder))
     ledger.add_gate(
         GateRow(at=at(30), project=PROJECT, gate="concept", approved=True, choice="X", files_json="{}")
-    )
-    ledger.add_concept(
-        ConceptRow(project=PROJECT, round=1, letter="a", lever="il nome", idea_ticket="T-0002", anon="X")
     )
     rating = Rating(letter="A", level=Level.GOOD, specific=True, why="Si legge da lontano")
     ledger.record_judgment(

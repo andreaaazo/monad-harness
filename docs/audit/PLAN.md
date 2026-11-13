@@ -1336,7 +1336,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
     purpose. Production calls `open_under` only to read, so the O_EXCL guarantee its own test checked protected no
     production path. The shared `..` and no-follow guarantees stay covered by the other rows of the same tables.
     test_safe_files.py goes from 126 to 119 cases. /ce-simplify-code (quality, test value) agreed.
-- [ ] **Task 2.F60: `Ledger.add_concept` is a seeding helper that only tests call.** ledger/store.py:404 (as of Task
+- [x] **Task 2.F60: `Ledger.add_concept` is a seeding helper that only tests call.** ledger/store.py:404 (as of Task
   2.33). Since COR-003 (55039eb) the concept row is written by `Ledger.open(..., concept=...)` in the ticket's own
   transaction (tools/surface.py:660-665), and `rg -n -w add_concept src` finds only the definition. The tests
   (test_sketch_flow.py, test_agent_flow.py, test_report_views.py) and the e2e fixture tests/dashboard_fixture.py still
@@ -1346,6 +1346,16 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   - Moved to Phase 4 (2026-11-10), with Task 4.3: not a bug, code that only tests use.
   - Still open after Phase 4 (2026-11-12): Phase 4 only moves code, and this fix deletes code. It goes to the
     simplification phase.
+  - Done after Phase 6 (2026-11-13): deleted. The tests now seed concepts the way production writes them,
+    through `Ledger.open(spec, project, concept=row)`, in the idea ticket's own transaction (COR-003).
+    - A new `open_idea(ledger, row)` in tests/support/concepts.py opens the sketch ticket of the row's letter
+      with plan_exploration's spec. The tests that seeded concepts pointing at idea tickets that did not
+      exist ("T-1", "T-a") now get a real one.
+    - The tests that already opened the idea ticket pass `concept=` to it: test_agent_flow's `closing_box`,
+      test_sketch_flow and the e2e fixture's T-0002.
+    - test_ledger's chain test binds its second concept through `Ledger.open`.
+    - No test was dropped: the suite keeps 1165 tests, and Playwright keeps 24, the compare and scroll-region
+      characterization included.
 - [ ] **Task 2.F61: `REVIEWERS` is a second list of the reviewer roles.** contracts/ticket.py:79 (as of Task 2.34).
   Task 2.34 made `roles.json` declare `"tools": "reviewer"` for `qa-inspector`, `critic` and `legal-reviewer`, but
   `REVIEWERS` still hard-codes the same three names and is read by tools/surface.py:318 and :518 and qa/delivery.py:96.

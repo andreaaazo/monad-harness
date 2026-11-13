@@ -49,7 +49,8 @@ from agency.tools.sandbox import (
     SandboxUnavailable,
 )
 from agency.tools.surface import CLOSE_ALWAYS, TOOLS, Toolbox, ToolContext, tools_for
-from support.scripted import ScriptedTransport
+from support.scripted import ScriptedTransport, turn
+from support.settings import settings
 
 SVG_PATH = "M10 90 L50 10 L90 90 Z"
 needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="serve VectorCraft")
@@ -57,19 +58,6 @@ needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason
 
 def use(name: str, tool_id: str, **arguments: object) -> dict:
     return {"type": "tool_use", "id": tool_id, "name": name, "input": arguments}
-
-
-def turn(*blocks: dict, stop: str = "tool_use") -> dict:
-    return {
-        "content": list(blocks),
-        "stop_reason": stop,
-        "model": "claude-opus-5-5",
-        "usage": {"input_tokens": 100, "output_tokens": 20},
-    }
-
-
-def settings(tmp_path: Path, **extra: float) -> Settings:
-    return Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "projects", _env_file=None, **extra)  # type: ignore[call-arg]
 
 
 def production_spec() -> TicketSpec:

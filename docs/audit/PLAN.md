@@ -1949,7 +1949,23 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
       `web/scripts/check-defenses.mjs` name the same variables, and that port 18765 and `.next-e2e` agree across
       `package.json`, `playwright.config.ts`, `tsconfig.json` and `.gitignore`.
   - Commit: `refactor(config): give the key names and e2e values one owner`.
-- [ ] **Task 6.14: one copy of the shared test helpers.** Closes SIM-015.
+- [x] **Task 6.14: one copy of the shared test helpers.** Closes SIM-015.
+  - Done:
+    - the three `turn()` copies (agent_flow, sketch_flow, recording) are one
+      `turn(*blocks, stop="tool_use", output=20)` in tests/support/scripted.py, beside the ScriptedTransport that
+      replays those responses. It gives the same dict for every existing call;
+    - the four `settings()` copies (hardening, agent_flow, sketch_flow, recording) are one
+      `settings(root, **extra)` in a new tests/support/settings.py. It is not a helpers.py as planned, because
+      each module there is named after what it holds;
+    - the four files still collect the same 391 tests.
+  - /ce-simplify-code (reuse, quality): both merges accepted. No `settings` fixture or local name shadows the
+    import.
+  - Left out:
+    - the `turn` in test_insights.py and test_replay_view.py, which build a transcript message and an
+      `AssistantTurn`;
+    - `reply` in test_hardening.py, which has other token counts;
+    - two inline `Settings(data_dir=…, projects_dir=…)` expressions in test_request_snapshots.py and
+      test_gate_sandbox.py, outside the sites this task names.
   - Files: `tests/support/helpers.py` (`settings()`, `turn()`), `tests/test_hardening.py:35`,
     `tests/test_agent_flow.py:34,43`, `tests/test_sketch_flow.py:65,122`.
   - Commit: `refactor(tests): share the settings and turn helpers`.

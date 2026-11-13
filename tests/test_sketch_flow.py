@@ -13,7 +13,6 @@ import pytest
 from PIL import Image, ImageDraw
 
 from agency.artifacts import FileStore
-from agency.config import Settings
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import ConceptGate
 from agency.contracts.project import ProjectName
@@ -41,6 +40,8 @@ from agency.tools.surface import (
     ToolContext,
     tools_for,
 )
+from support.scripted import turn
+from support.settings import settings
 
 pytestmark = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="serve VectorCraft")
 MASTER, SVG = "source/segno.vectorcraft", "exports/segno.svg"
@@ -62,15 +63,6 @@ def use(name: str, **arguments: object) -> dict:
 
 
 use.count = 0  # type: ignore[attr-defined]
-
-
-def turn(*blocks: dict, output: int = 20) -> dict:
-    return {
-        "content": list(blocks),
-        "stop_reason": "tool_use",
-        "model": "claude-opus-5-5",
-        "usage": {"input_tokens": 100, "output_tokens": output},
-    }
 
 
 def card(text: str) -> dict:
@@ -119,10 +111,6 @@ class Router:
 
 
 BUDGET = 1000.0  # the cap every test declares at the start, like agency run --budget (ADR-0043)
-
-
-def settings(tmp_path: Path, **extra: object) -> Settings:
-    return Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "projects", _env_file=None, **extra)  # type: ignore[call-arg]
 
 
 def brief(tmp_path: Path) -> Path:

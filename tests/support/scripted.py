@@ -6,6 +6,16 @@ import json
 from collections.abc import Iterable
 
 
+def turn(*blocks: dict, stop: str = "tool_use", output: int = 20) -> dict:
+    """One scripted model response: these blocks, a stop reason and a small usage."""
+    return {
+        "content": list(blocks),
+        "stop_reason": stop,
+        "model": "claude-opus-5-5",
+        "usage": {"input_tokens": 100, "output_tokens": output},
+    }
+
+
 class ScriptedTransport:
     """Prepared or recorded answers, so tests spend nothing."""
 

@@ -44,10 +44,7 @@ from agency.tools.files import OutsidePerimeter, is_file_under
 from agency.tools.sandbox import Completed, Sandbox
 from agency.tools.surface import TOOLS, Toolbox, ToolContext, role_tools
 from support.scripted import ScriptedTransport
-
-
-def settings(tmp_path: Path) -> Settings:
-    return Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "projects", _env_file=None)  # type: ignore[call-arg]
+from support.settings import settings
 
 
 @pytest.fixture(autouse=True)

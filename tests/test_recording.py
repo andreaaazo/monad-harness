@@ -22,7 +22,8 @@ from agency.ledger import Ledger
 from agency.ledger.models import TicketRow
 from agency.runtime import Session, open_session
 from support.replay import MissingRecording, ReplayTransport
-from support.scripted import ScriptedTransport
+from support.scripted import ScriptedTransport, turn
+from support.settings import settings
 
 needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="serve VectorCraft")
 EXPLORERS = 5
@@ -237,19 +238,6 @@ def test_a_missing_recording_names_the_turn(tmp_path: Path) -> None:
 
 def use(name: str, tool_id: str, **arguments: object) -> dict:
     return {"type": "tool_use", "id": tool_id, "name": name, "input": arguments}
-
-
-def turn(*blocks: dict) -> dict:
-    return {
-        "content": list(blocks),
-        "stop_reason": "tool_use",
-        "model": "claude-opus-5-5",
-        "usage": {"input_tokens": 100, "output_tokens": 20},
-    }
-
-
-def settings(folder: Path) -> Settings:
-    return Settings(data_dir=folder / "data", projects_dir=folder / "projects", _env_file=None)  # type: ignore[call-arg]
 
 
 MASTER, SVG = "source/segno.vectorcraft", "exports/segno.svg"

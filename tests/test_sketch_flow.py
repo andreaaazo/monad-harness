@@ -766,6 +766,53 @@ def test_excluded_cannot_ban_a_client_asset(tmp_path: Path) -> None:
     assert result["is_error"] and "risorsa del cliente" in result["content"]
 
 
+def test_each_lever_goes_to_its_own_direction_in_order(tmp_path: Path) -> None:
+    """The first lever goes to direction-a, which draws in folder a under files named a, and so on to e."""
+    ctx = context(tmp_path, "design-director")
+    ctx.ticket_id = ctx.ledger.open(
+        TicketSpec(
+            title="Radice",
+            request="r",
+            type=TicketType.PRODUCTION,
+            sender="design-director",
+            assignee="design-director",
+            outputs=["x.png"],
+            checks={"*.png": ["visual_review"]},
+            media=[Medium.IMAGE],
+        ),
+        "p",
+    )
+    (ctx.work / "brief.md").write_text("il brief", encoding="utf-8")
+
+    result = Toolbox(ctx, [TOOLS["plan_exploration"]]).call("a", "plan_exploration", plan_arguments(5))
+
+    assert not result.get("is_error"), result
+    rows = ctx.ledger.concepts("p", 1)
+    assert [(row.letter, row.lever) for row in rows] == [
+        ("a", "il nome"),
+        ("b", "il gesto"),
+        ("c", "la materia"),
+        ("d", "le persone"),
+        ("e", "la convenzione rovesciata"),
+    ]
+    specs = [ctx.ledger.spec(row.idea_ticket) for row in rows]
+    assert [spec.assignee for spec in specs] == [
+        "direction-a",
+        "direction-b",
+        "direction-c",
+        "direction-d",
+        "direction-e",
+    ]
+    assert [(spec.title, spec.workspace, spec.outputs) for spec in specs] == [
+        (
+            f"Esplorazione {letter.upper()}",
+            f"explorations/r1/{letter}",
+            ["scheda.json", f"schizzi-{letter}.vectorcraft", f"foglio-{letter}.png", f"schizzo-{letter}.png"],
+        )
+        for letter in "abcde"
+    ]
+
+
 def test_board_letters_are_stable_and_shuffled_by_project() -> None:
     first = board.assign_letters("merlo", 1, ["a", "b", "c"])
     assert first == board.assign_letters("merlo", 1, ["a", "b", "c"])

@@ -1376,6 +1376,12 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
   (`design-director`, `identity-designer`, `critic`) are the graph's own structure and are not flagged. Found in Task
   2.34. Not covered by a planned task.
   - Moved to Phase 6 (2026-11-10): a rule rebuilt from names, refactor rather than bug.
+  - Characterization first (2026-11-13): no test tied each lever to its direction.
+    `test_five_directions_run_together_and_reach_the_board` compares the assignees as a set, and the scripted
+    flows tie only ticket order to letters. `test_each_lever_goes_to_its_own_direction_in_order`
+    (test_sketch_flow.py) pins, for five levers, each row's letter and lever and each ticket's assignee, title,
+    workspace and outputs. Mutation check in a scratch copy, baseline 1 passed: reversed levers, reversed letters
+    and roles swapped against letters each fail it.
 - [x] **Task 2.F63: `agency migrate` claims only the project locks that exist.** cli.py `_migrate` (as of the B6 batch:
   it globs `locks/*.lock`). A project's lock file is created by its first `run`, so a first `run` of a new project
   started during a migration takes no claim the migration holds; it then waits on the registry's write lock (busy

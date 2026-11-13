@@ -2,6 +2,8 @@
 
 Harness della design agency. Prima di cambiare l'architettura leggi `docs/01-ARCHITECTURE.md` e gli
 ADR in `docs/adr/`. Una decisione nuova o rovesciata è un ADR nuovo, non una modifica silenziosa.
+Prima di toccare la sandbox, i file che la sandbox scrive o la catena del registro leggi `docs/solutions/`:
+gli errori che l'audit ha trovato più volte, e le regole per non ripeterli.
 
 ## Comandi
 

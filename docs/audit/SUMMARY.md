@@ -136,6 +136,134 @@ raised to Confirmed where the reviewer reproduced the finding or killed it with 
 | SIM-016 | SIM | Nit | Likely | web/src/app/compare/page.tsx:99 | The scroll-region wrapper is written out 14 times (preference) | S |
 | SIM-017 | SIM | Nit | Likely | src/agency/config.py:29 | `Settings` gives every data path two names (preference) | S |
 
+## Final status (2026-11-13)
+
+Each finding above, after the sanity refactor and its final review (`99-result.md`). **Fixed** names the commits on
+`audit/deep-review` that close the finding. A finding fixed in part names its remainder, which is Deferred or
+Rejected with its reason. Every Deferred and Rejected item is a decision recorded in `PLAN.md` ("Not planned in
+this refactor") or in the answers to Q1-Q22 below.
+
+- **Fixed:** 101, of which 8 leave a remainder that is deferred or rejected (STR-003, STR-005, STR-017, DX-008,
+  DX-009, SIM-004, SIM-010 and SIM-011). SIM-007 keeps two of its five parameters on purpose: both have callers.
+- **Deferred:** 5. STR-004, STR-007, STR-013 and SIM-012 go to M1.7; SIM-014 goes to the next migration that has a
+  reason of its own.
+- **Rejected:** 3, all by decision: CMT-014, CMT-017, STR-010.
+
+The final review found and fixed eleven more issues (R1-R11). They have no ID in this table; `PLAN.md` ("Final
+review" and the review rounds after it) and `99-result.md` list them.
+
+| ID | Severity | Final status | Commits, or the reason |
+|---|---|---|---|
+| SEC-001 | Critical | Fixed | 480f688, 74c2a96, 5413af5, fe50543; the same class closed in 8b558fc, 642ee28, 3976aa8, 9fb7bf1 |
+| COR-001 | High | Fixed | affdad2 |
+| TST-001 | High | Fixed | d76b4f5 |
+| TST-002 | High | Fixed | d76b4f5 |
+| TST-003 | High | Fixed | d76b4f5 |
+| TST-005 | High | Fixed | b9e3617 |
+| COR-002 | Medium | Fixed | 75ddfb1 |
+| COR-004 | Medium | Fixed | e8fe18c |
+| COR-005 | Medium | Fixed | 17ee240 |
+| COR-006 | Medium | Fixed | da8556e |
+| COR-007 | Medium | Fixed | af41782 |
+| COR-008 | Medium | Fixed | bb68b65 |
+| SEC-002 | Medium | Fixed | 17cdbdc |
+| SEC-003 | Medium | Fixed | 74c2a96, b50c32f |
+| SEC-004 | Medium | Fixed | 74c2a96, as a side effect of the no-follow helpers; every route pinned in 0631cb9 (Task 2.7) |
+| SEC-005 | Medium | Fixed | 449690c, 55a2f49; /dev/shm and output caps in b26910f |
+| TST-004 | Medium | Fixed | d76b4f5 |
+| TST-007 | Medium | Fixed | 3dcf60f |
+| TST-008 | Medium | Fixed | d76b4f5 |
+| TST-011 | Medium | Fixed | d76b4f5 |
+| TST-012 | Medium | Fixed | 21e057d |
+| STR-001 | Medium | Fixed | 0b2f5dd, 004e066, b453b9e; the docker guards in 01329dc |
+| DX-003 | Medium | Fixed | 0898e4d, 0b2f5dd |
+| COR-003 | Low | Fixed | 55039eb; every replayed tool in 84aa208 |
+| COR-009 | Low | Fixed | d8552e8 |
+| COR-010 | Low | Fixed | 0f4abbf |
+| COR-011 | Low | Fixed | 9fb4739 |
+| COR-012 | Low | Fixed | af41782 |
+| COR-013 | Low | Fixed | 45180f1; typed layout paths in 3884586 |
+| COR-014 | Low | Fixed | afaf26c; insights order in ff187e6 |
+| COR-015 | Low | Fixed | 17cdbdc |
+| COR-016 | Low | Fixed | cb3f724; inline style in cd50917 |
+| SEC-006 | Low | Fixed | a636634 |
+| SEC-007 | Low | Fixed | a339160 |
+| SEC-008 | Low | Fixed | 8cef9ed (engine), 362b53a (spike) |
+| SEC-009 | Low | Fixed | a90f568; API error text in 01329dc, one-line text in 3884586 |
+| TST-006 | Low | Fixed | c2c6e75 |
+| TST-009 | Low | Fixed | 376138f, dd756d6 |
+| TST-010 | Low | Fixed | 376138f |
+| TST-013 | Low | Fixed | b9e3617 |
+| TST-014 | Low | Fixed | b9e3617 |
+| TST-015 | Low | Fixed | 3dcf60f |
+| TST-016 | Low | Fixed | fb88e54 |
+| TST-017 | Low | Fixed | f1af1e3 (the wait), 56cae12 (the key) |
+| TST-018 | Low | Fixed | 149300c |
+| CMT-001 | Low | Fixed | 93e9dd4 (CLI help), f0d0f3d and 1853844 (OpenAPI) |
+| CMT-002 | Low | Fixed | 1a14ea5 |
+| CMT-003 | Low | Fixed | 1a14ea5 |
+| CMT-004 | Low | Fixed | fdd58bc, fbce501 |
+| CMT-005 | Low | Fixed | 962bafc |
+| CMT-006 | Low | Fixed | a1cacc1 |
+| CMT-007 | Low | Fixed | ee366ad (the invariant), a1cacc1 (the comment) |
+| CMT-008 | Low | Fixed | 72b7a4e, 92bdc11 |
+| CMT-009 | Low | Fixed | 0f3c3cb, fb8f368, ea356fe, 357a8c7, 07a76b0, 64dbbae, d1e0369, 962bafc, a1cacc1, 01f7362, affe8a5, fdd58bc, 9d804e9 |
+| CMT-010 | Low | Fixed | 1a49f13, 35c97e9, cb4fb3c |
+| CMT-011 | Low | Fixed | 64dbbae, d1e0369, a1cacc1, 1853844, 1a49f13, 35c97e9, cb4fb3c |
+| CMT-012 | Low | Fixed | 1a14ea5 |
+| CMT-013 | Low | Fixed | de2cbfd |
+| CMT-014 | Low | Rejected | by decision (Q14): no docstring campaign and no ruff D1; ports, contracts and platform modules got docstrings in their Phase 3 units |
+| STR-002 | Low | Fixed | 53eadda (the guard), 740e88e (the lists) |
+| STR-003 | Low | Fixed | 23b89e1 for `anthropic`; the `langgraph` and ledger-port rules are Deferred to M1.7 (Q19) |
+| STR-004 | Low | Deferred | M1.7 (Q19): the qa<->tools cycle and the sandbox's QA mount; the tools->agents edge went in 73881ee |
+| STR-005 | Low | Fixed | 85cb4fb, b990dc9, 73881ee, 8a4edc1, a1c882e, 2b19b9f, 7948aed; typing ROLES and CHECKS as RoleSpec and CheckSpec is Deferred (PLAN Task 6.9) |
+| STR-006 | Low | Fixed | 272e68e |
+| STR-007 | Low | Deferred | M1.7 (Q18): the CLI moves to entrypoints/cli/ then, so moving report.py now would move it twice |
+| STR-008 | Low | Fixed | 0b2f5dd |
+| STR-009 | Low | Fixed | 08bfd10, 300e30c |
+| STR-010 | Low | Rejected | by decision: renaming the route breaks ADR-0038's URLs; the guard in tests/test_repository.py holds |
+| STR-011 | Low | Fixed | e8a4531, e001621, ce1a5a5, af0b406 |
+| STR-012 | Low | Fixed | 362b53a |
+| STR-013 | Low | Deferred | M1.7 (Q19): the large test files and globals.css split with surface.py |
+| STR-014 | Low | Fixed | 928598d |
+| DX-001 | Low | Fixed | 56cae12 |
+| DX-002 | Low | Fixed | 3967e55, 8a644d1 |
+| DX-004 | Low | Fixed | d93cc4e |
+| DX-005 | Low | Fixed | 131a770 |
+| DX-006 | Low | Fixed | 399fe2d |
+| DX-007 | Low | Fixed | 362b53a |
+| DX-008 | Low | Fixed | f4f5a1e, 3e91d64; a web formatter and linter is Deferred (a new dependency under the quarantine needs its own ADR) |
+| DX-009 | Low | Fixed | 526957b for the hook and the clean-checkout gate; CI is Deferred until a Git remote exists, before M6 (ADR-0051) |
+| DX-010 | Low | Fixed | a1179b4 |
+| DX-011 | Low | Fixed | e001621 |
+| SIM-001 | Low | Fixed | 2fb371e, be01c80 |
+| SIM-002 | Low | Fixed | 9da57c3 |
+| SIM-003 | Low | Fixed | 4ab753b |
+| SIM-004 | Low | Fixed | ab7d394 (declared and tested); moving the langchain_core import to the process layer is Deferred to M1.7 (Q7) |
+| SIM-005 | Low | Fixed | 8a4edc1 |
+| SIM-006 | Low | Fixed | dd756d6, cc70e8b |
+| SIM-007 | Low | Fixed | 5a8173f for three parameters; Sandbox(read_only=...) stays because the spike uses it (5.10), and CommandIndex.load(app) stays |
+| SIM-008 | Low | Fixed | 85cb4fb |
+| SIM-009 | Low | Fixed | f917fd8 |
+| SIM-010 | Low | Fixed | a770286, 6005cec; the `closes`/`conditional` tool fields were Rejected (they move facts without removing any) |
+| SIM-011 | Low | Fixed | fed289d for the hash; one `clip` and one BUSY_SECONDS were Rejected (merging changes output; two independent waits) |
+| SIM-012 | Low | Deferred | M1.7 (Q19): splitting surface.py and workflow.build |
+| CMT-015 | Nit | Fixed | 1a14ea5, for the helpers the finding named; the framework entry points (Layout, NotFound, Projects, generateMetadata) stay as its own fix allowed |
+| CMT-016 | Nit | Fixed | e8a4531, 740e88e |
+| CMT-017 | Nit | Rejected | by decision (Q14): the fixture identifiers stay |
+| CMT-018 | Nit | Fixed | ea356fe |
+| CMT-019 | Nit | Fixed | 962bafc |
+| STR-015 | Nit | Fixed | 5a11385 |
+| STR-016 | Nit | Fixed | a92e02b, fbaf53c, cc70e8b |
+| STR-017 | Nit | Fixed | 3967e55 for the README tree; the empty package, the ADR file name and prompts/roles/ are Rejected by decision (fingerprint keys and frozen files) |
+| DX-012 | Nit | Fixed | 6a5e2fa |
+| DX-013 | Nit | Fixed | 3967e55 |
+| SIM-014 | Nit | Deferred | drop ConceptRow.sketch_ticket in a migration needed for its own sake; 0009 did not, because concept rows are bound whole in the chain and dropping a column needs those rows re-bound |
+| SIM-015 | Nit | Fixed | 5ca5335 |
+| SIM-016 | Nit | Fixed | 08f125c |
+| SIM-017 | Nit | Fixed | 1f4b7cf |
+| SIM-013 | Low (merged) | Fixed | 272e68e (merged into STR-006) |
+
 ## Duplicates
 
 **Merged in full** (the alias has no part of its own):

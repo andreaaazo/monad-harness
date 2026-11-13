@@ -1969,7 +1969,16 @@ ADR-0019, CLAUDE.md) or corrects a text, so none needs a new ADR.
   - Files: `tests/support/helpers.py` (`settings()`, `turn()`), `tests/test_hardening.py:35`,
     `tests/test_agent_flow.py:34,43`, `tests/test_sketch_flow.py:65,122`.
   - Commit: `refactor(tests): share the settings and turn helpers`.
-- [ ] **Task 6.15: one scroll region and one metric-row helper in the web app.** Closes SIM-016.
+- [x] **Task 6.15: one scroll region and one metric-row helper in the web app.** Closes SIM-016.
+  - Done: the 14 hand-written `<div className="scroll" role="region" aria-label=… tabIndex={0}>` wrappers are
+    one `ScrollRegion({ label, children })` in web/src/components/scroll-region.tsx. It has no hooks, so the
+    server pages and the client context chart both use it, and each caller passes its full label as before.
+    In compare/page.tsx, a local `measured(label, before, after, format)` builds the 9 rows that spelled the same
+    before/after/delta triple; `rows()` goes from 77 to 42 lines. The 7 other rows have other shapes and stay.
+  - /ce-simplify-code (reuse, quality): both accepted. The label stays an explicit prop. It equals the
+    inner table's name in 2 wrappers and differs in 12, so deriving it would change one group or the other.
+  - Verified by the characterization unit's e2e tests: every wrapper is still a named, tabbable region on every
+    page, and the comparison table is the same cell by cell.
   - Before the change, two e2e characterization tests:
     - `every table that scrolls sideways is a named region the keyboard reaches` (run.spec.ts). On every page,
       with every `<details>` open, each `.scroll` wrapper has `role="region"` and `tabindex="0"`, and the

@@ -4,6 +4,7 @@ import type { ProjectReport } from "../../../api";
 import { ApiError, api } from "../../../api/client";
 import { readForPage } from "../../../api/read";
 import { ProjectHeader } from "../../../components/project-header";
+import { ScrollRegion } from "../../../components/scroll-region";
 import { Timeline } from "../../../components/timeline";
 import { Unavailable } from "../../../components/unavailable";
 import { count, counted, minutes, seconds, share, usd, when } from "../../../lib/format";
@@ -114,7 +115,7 @@ function Phases({ report }: { readonly report: ProjectReport }) {
       <p className="aside">
         Durata e TTFT sono misurati su {count(measured)} di {counted(report.calls, "chiamata", "chiamate")}.
       </p>
-      <div className="scroll" role="region" aria-label="Tabella delle fasi, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella delle fasi, scorre in orizzontale">
         <table aria-label="Fasi">
           <thead>
             <tr>
@@ -139,7 +140,7 @@ function Phases({ report }: { readonly report: ProjectReport }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }
@@ -148,7 +149,7 @@ function Roles({ report }: { readonly report: ProjectReport }) {
   return (
     <section aria-labelledby="roles">
       <h2 id="roles">Per ruolo</h2>
-      <div className="scroll" role="region" aria-label="Tabella dei ruoli, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella dei ruoli, scorre in orizzontale">
         <table aria-label="Ruoli">
           <thead>
             <tr>
@@ -171,7 +172,7 @@ function Roles({ report }: { readonly report: ProjectReport }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }
@@ -180,7 +181,7 @@ function Tickets({ report }: { readonly report: ProjectReport }) {
   return (
     <section aria-labelledby="tickets">
       <h2 id="tickets">Ticket</h2>
-      <div className="scroll" role="region" aria-label="Tabella dei ticket, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella dei ticket, scorre in orizzontale">
         <table aria-label="Ticket">
           <thead>
             <tr>
@@ -206,7 +207,7 @@ function Tickets({ report }: { readonly report: ProjectReport }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }

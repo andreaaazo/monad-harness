@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ApiError, api } from "../../../../api/client";
 import { readForPage } from "../../../../api/read";
 import { ProjectHeader } from "../../../../components/project-header";
+import { ScrollRegion } from "../../../../components/scroll-region";
 import { Unavailable } from "../../../../components/unavailable";
 import { count, usd, when } from "../../../../lib/format";
 
@@ -24,7 +25,7 @@ export default async function Instances({ params }: PageProps<"/projects/[name]/
     <>
       <ProjectHeader project={report.project} view="replay" />
       <p className="aside">Ogni istanza com&apos;è andata davvero: ciò che il modello ha pensato, scritto e chiesto, e ciò che gli è tornato.</p>
-      <div className="scroll" role="region" aria-label="Tabella delle istanze, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella delle istanze, scorre in orizzontale">
         <table aria-label="Istanze">
           <thead>
             <tr>
@@ -51,7 +52,7 @@ export default async function Instances({ params }: PageProps<"/projects/[name]/
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </>
   );
 }

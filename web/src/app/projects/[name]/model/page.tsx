@@ -5,6 +5,7 @@ import { ApiError, api } from "../../../../api/client";
 import { readForPage } from "../../../../api/read";
 import { InstanceTurnsView } from "../../../../components/context-chart";
 import { ProjectHeader } from "../../../../components/project-header";
+import { ScrollRegion } from "../../../../components/scroll-region";
 import { Unavailable } from "../../../../components/unavailable";
 import { count, counted, seconds, share, usd } from "../../../../lib/format";
 import { stop } from "../../../../lib/labels";
@@ -62,7 +63,7 @@ function Roles({ report }: { readonly report: BehaviourReport }) {
         Il contesto è ciò che il modello legge a ogni turno: ingresso, cache letta e cache scritta. Durata, TTFT,
         ragionamento ed effort sono misurati su {count(measured)} di {counted(calls, "chiamata", "chiamate")}.
       </p>
-      <div className="scroll" role="region" aria-label="Tabella dei ruoli, scorre in orizzontale" tabIndex={0}>
+      <ScrollRegion label="Tabella dei ruoli, scorre in orizzontale">
         <table aria-label="Ruoli">
           <thead>
             <tr>
@@ -97,7 +98,7 @@ function Roles({ report }: { readonly report: BehaviourReport }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </section>
   );
 }

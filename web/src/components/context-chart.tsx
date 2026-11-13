@@ -6,6 +6,7 @@ import type { Turn } from "../api";
 import { area, type Frame, line, nearest, points } from "../lib/chart";
 import { count, seconds } from "../lib/format";
 import { stop } from "../lib/labels";
+import { ScrollRegion } from "./scroll-region";
 
 const FRAME: Frame = { width: 320, height: 96, inset: 6 };
 const KEYS = new Set(["ArrowLeft", "ArrowRight", "Home", "End"]);
@@ -40,7 +41,7 @@ export function InstanceTurnsView({
 
 function TurnsTable({ turns, instance }: { readonly turns: readonly Turn[]; readonly instance: string }) {
   return (
-    <div className="scroll" role="region" aria-label={`Turni di ${instance}`} tabIndex={0}>
+    <ScrollRegion label={`Turni di ${instance}`}>
       <table aria-label={`Turni di ${instance}`}>
         <thead>
           <tr>
@@ -81,7 +82,7 @@ function TurnsTable({ turns, instance }: { readonly turns: readonly Turn[]; read
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollRegion>
   );
 }
 

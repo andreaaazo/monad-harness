@@ -1369,7 +1369,7 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
       by a deliberate edit of the test, and checks the derived set against them.
     - Mutation check in a scratch copy, baseline 379 passed: an empty set fails 9 tests (the write refusal, the
       review validation, the registry), and a set without `legal-reviewer` fails the registry test.
-- [ ] **Task 2.F62: `plan_exploration` builds the direction role names from a letter.** tools/surface.py:640-645
+- [x] **Task 2.F62: `plan_exploration` builds the direction role names from a letter.** tools/surface.py:640-645
   (`f"direction-{letter}"` over `"abcde"`, as of Task 2.34). The five direction roles are listed in `roles.json`, but
   the code derives them from the position in a string, so a renamed or added direction in the registry is not seen.
   Fix: read the direction roles from the registry, in order. The fixed pipeline roles named in graph/workflow.py
@@ -1382,6 +1382,14 @@ under `/job` goes through the helper. Its file list is narrower, and each entry 
     (test_sketch_flow.py) pins, for five levers, each row's letter and lever and each ticket's assignee, title,
     workspace and outputs. Mutation check in a scratch copy, baseline 1 passed: reversed levers, reversed letters
     and roles swapped against letters each fail it.
+  - Done after Phase 6 (2026-11-13): `roles.json` owns the directions and their order.
+    - `agency.registry.DIRECTIONS` maps each direction's letter to its role, in the order roles.json lists them.
+      It is the only place that knows the `direction-` prefix.
+    - `plan_exploration` zips the levers with it instead of with `"abcde"`, and assigns the role it gives.
+    - `test_tool_declarations_match_the_org_chart` pins the five pairs in order (ADR-0013).
+    - Mutation check in a scratch copy, baseline 84 passed (test_registry.py, test_sketch_flow.py): the
+      directions reversed, or without `direction-c`, fail 34 tests each, the characterization and the registry
+      test included.
 - [x] **Task 2.F63: `agency migrate` claims only the project locks that exist.** cli.py `_migrate` (as of the B6 batch:
   it globs `locks/*.lock`). A project's lock file is created by its first `run`, so a first `run` of a new project
   started during a migration takes no claim the migration holds; it then waits on the registry's write lock (busy

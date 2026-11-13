@@ -11,6 +11,9 @@ ORG: dict[str, list[str]] = read_org(REPO_ROOT / "registry/org.json")
 CHECKS: dict[str, dict] = read_checks(REPO_ROOT / "registry/checks.json")
 # The roles that judge the work and never edit it: those roles.json gives the reviewer's tool set.
 REVIEWERS = frozenset(name for name, spec in ROLES.items() if spec["tools"] == "reviewer")
+# The explorers in the order roles.json lists them, by the letter after their prefix: the first lever goes to
+# the first, and the letter names its folder, its files and its idea.
+DIRECTIONS = {name.removeprefix("direction-"): name for name in ROLES if name.startswith("direction-")}
 
 
 def skill_names() -> list[str]:

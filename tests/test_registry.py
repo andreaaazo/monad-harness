@@ -99,6 +99,8 @@ def test_tool_declarations_match_the_org_chart() -> None:
     reviewers = {name for name, kind in kinds.items() if kind == "reviewer"}
     assert reviewers == {"qa-inspector", "critic", "legal-reviewer"}
     assert reviewers == registry.REVIEWERS
+    # Five directions explore, in this order (ADR-0013).
+    assert list(registry.DIRECTIONS.items()) == [(letter, f"direction-{letter}") for letter in "abcde"]
     assert all("department" not in config for config in roles.values())
 
 

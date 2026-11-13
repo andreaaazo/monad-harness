@@ -696,7 +696,9 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
         json.dumps([item.model_dump() for item in a.applications]).encode("utf-8"),
     )
     opened = []
-    for letter, lever in zip("abcde", a.levers[: ctx.settings.explorers], strict=False):
+    for (letter, role), lever in zip(
+        registry.DIRECTIONS.items(), a.levers[: ctx.settings.explorers], strict=False
+    ):
         operation = f"{operation_id}:{letter}"
         stored = ctx.ledger.operation(operation)
         if stored:
@@ -711,7 +713,7 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
             f"CLICHÉ DA EVITARE\n{excluded}",
             type=TicketType.SKETCH,
             sender=ctx.actor,
-            assignee=f"direction-{letter}",
+            assignee=role,
             outputs=[
                 "scheda.json",
                 f"schizzi-{letter}.vectorcraft",

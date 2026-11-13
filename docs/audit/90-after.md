@@ -149,7 +149,7 @@ step, and 6.13 ties the web files to the key names and e2e values.
 | SIM-014 | Drop the unused column in the next migration needed for its own sake |
 | DX-009 (the CI stage) | When a Git remote exists, before M6 at the latest: CI runs `task check` on a clean checkout, and `check:clean` becomes the pre-push hook (ADR-0051) |
 
-**Still open in the plan:**
+**Open in the plan at this report, all closed since** (2026-11-13; `PLAN.md` has no open task left):
 
 - **Task 2.7 (SEC-004):** closed after this report as not reproduced. Every route its probe tried is now a test.
 - **Tasks 2.F59–2.F62:** found during Phase 2, after the audits.
@@ -157,7 +157,7 @@ step, and 6.13 ties the web files to the key names and e2e values.
   - 2.F60: `Ledger.add_concept`, deleted after this report; the tests seed concepts through `Ledger.open`.
   - 2.F61: the second list of reviewer roles, removed after this report; `registry.REVIEWERS` is derived from
     `roles.json`.
-  - 2.F62: direction role names built from a letter.
+  - 2.F62: the direction roles built from a letter, read from `roles.json` after this report.
 
 **Left for a decision, from Phase 6** (each recorded under its task in `PLAN.md`):
 

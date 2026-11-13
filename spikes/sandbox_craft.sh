@@ -21,12 +21,16 @@ echo '[]' > "$S/job/e.json"
 BLENDER="$(readlink -f "$(command -v blender)")"
 
 # The prefix of the engine's own sandbox (agency.tools.sandbox): the same cgroup scope, mounts and namespaces, not
-# a copy of them. Blender's folder is bound read-only on top, as the engine binds its toolchain folder.
+# a copy of them, started as the engine starts it, with only HOST_VARIABLES of this shell's environment (bwrap is
+# pid 1 inside, and its environment is readable at /proc/1/environ). Blender's folder is bound read-only on top,
+# as the engine binds its toolchain folder.
 if ! mapfile -d '' -t BW < <(uv run --locked python -c '
 import sys
 from pathlib import Path
-from agency.tools.sandbox import Sandbox
-print("\0".join(Sandbox(Path(sys.argv[1]), read_only=(Path(sys.argv[2]),)).argv([])), end="")
+from agency.tools.sandbox import Sandbox, host_environment
+environment = [f"{name}={value}" for name, value in host_environment().items()]
+argv = Sandbox(Path(sys.argv[1]), read_only=(Path(sys.argv[2]),)).argv([])
+print("\0".join(["env", "-i", *environment, *argv]), end="")
 ' "$S/job" "$(dirname "$BLENDER")") || ((${#BW[@]} == 0)); then
   echo "FAIL the engine's sandbox command could not be built: run task setup first." >&2
   exit 1
@@ -56,4 +60,7 @@ probe() {  # probe <label> <word> <shell command that prints the word when the c
 probe "other folders invisible" hidden "test -e '$S/other' || echo hidden"
 probe "no network" offline "getent hosts anthropic.com >/dev/null || echo offline"
 probe "/usr read-only" readonly "touch /usr/x 2>/dev/null || echo readonly"
+# A fake key in this shell's environment must reach no process of the sandbox, bwrap's own included.
+ANTHROPIC_API_KEY=sk-ant-spike-canary probe "no key in the sandbox" keyless \
+  "cat /proc/[0-9]*/environ 2>/dev/null | tr '\\0' '\\n' | grep -q sk-ant-spike-canary || echo keyless"
 exit "$fail"

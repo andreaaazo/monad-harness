@@ -2153,6 +2153,14 @@ verify` (R7, finding #2, P2) and to fix the Craft spike's environment (R8, pre-e
   - Not changed, recorded in ADR-0054: the contract and opening hashes (`spec_sha256`, `inputs_sha256`) have the
     same property; comparing them on every event is a separate decision.
 
+- [x] **R8: the Craft spike starts its sandboxes as the engine does.** Pre-existing, found by the second round's
+  security reviewer: `spikes/sandbox_craft.sh` ran the engine's argv from bash with the whole shell environment, so
+  an exported key sat in `/proc/1/environ` of every sandbox it started (R1's leak, outside the engine). The prefix
+  it takes from Python now starts with `env -i` and `host_environment()`, so `HOST_VARIABLES` stays the one source,
+  and a ninth probe plants a fake key in the caller's environment and looks for it in every `/proc/<pid>/environ`.
+  - `bash spikes/sandbox_craft.sh`: 9 `ok`, exit 0. A temporary copy without the `env -i` prefix printed
+    `FAIL no key in the sandbox` and exited 1; the copy was deleted. docs/04-TOOLS.md says what the spike proves.
+
 ## Not planned in this refactor
 
 | Finding | Why |

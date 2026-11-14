@@ -128,7 +128,7 @@ Gli agenti non sanno nulla di budget e spesa: nessun avviso, nessuna quota (ADR-
 Sono funzioni tipizzate, non una shell: l'harness vede ogni azione e può autorizzarla, registrarla e
 parallelizzarla. Il set è fisso per tutta l'istanza, perché cambiarlo invaliderebbe la cache.
 
-**I comandi Craft non diventano tool.** Sono migliaia (822 VectorCraft, 615 FigCraft, ordine di
+**I comandi Craft non diventano tool.** Sono migliaia (966 VectorCraft, 615 FigCraft, ordine di
 grandezza simile gli altri): sarebbero decine di migliaia di token. Tre strumenti fissi li coprono:
 
 | Strumento | Cosa fa |

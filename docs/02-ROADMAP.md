@@ -540,8 +540,8 @@ dal vivo parte solo su richiesta di Andrea.
      all'avvio ([ADR-0043](adr/0043-il-tetto-si-dichiara-all-avvio.md)): l'ambiente di Andrea ne dava uno di 40 $.
    - [x] Il segno da battere è quello di `merlo3` ([ADR-0042](adr/0042-il-riferimento-di-qualita-e-merlo3.md)).
    - [ ] Preparazione da rifare dopo M1.8. `agency doctor` deve passare. L'impronta di partenza cambia, perché cambia il codice:
-     quella del 2026-11-03 era 5 esploratori, effort `high` e `vectorcraft-cli` 0.18.0. Il registro vero è già alla revisione
-     0009, letta il 2026-11-13.
+     quella del 2026-11-03 era 5 esploratori, effort `high` e `vectorcraft-cli` 0.18.0, che il 2026-11-14 sulla macchina è
+     0.23.0. Il registro vero è già alla revisione 0009, letta il 2026-11-13.
    - [ ] Avvio, da Andrea, con il tetto che dichiara: `uv run agency run merlo4 evals/briefs/E1.md --budget <usd> --record`
    - [ ] Gate `concept` e gate `final` decisi da Andrea, con `agency decide merlo4`
    - [ ] Giudizio alla cieca del segno finale contro quello di `merlo3`, e lettura per intero nel cruscotto

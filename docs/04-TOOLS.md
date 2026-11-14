@@ -7,11 +7,16 @@ Docker 29.9, `bwrap`.
 
 | Strumento | Versione | Mezzo | Master | Accesso | Comandi |
 |---|---|---|---|---|---|
-| VectorCraft | 0.18.0 | Vettoriale | `.vectorcraft` | CLI, MCP headless | 822 |
+| VectorCraft | 0.23.0 | Vettoriale | `.vectorcraft` | CLI, MCP headless | 966 |
 | EffectCraft | 0.18.0 | Motion | `.ecproj` | CLI, script | ~700 |
 | PhotoCraft | 0.17.0 | Immagine | `.pcraft` | CLI, `serve`, MCP | ~900 |
 | FigCraft | 0.12.1 | Interfaccia, impaginati | `.figcraft` | CLI, MCP | 615 |
 | Blender | 5.2.3 LTS | 3D | `.blend` | `blender -b`, bpy | API Python |
+
+VectorCraft è riverificato il 2026-11-14: 966 comandi da `vectorcraft-cli commands`, e `mcp --headless` c'è ancora. Le
+applicazioni si aggiornano da sole, quindi la tabella dice l'ultima versione verificata, non quella di un lavoro. La versione
+usata da un lavoro sta nella sua impronta (ADR-0026). L'indice dei comandi si ricostruisce a ogni versione nuova, perché
+`CommandIndex.load` lo salva per versione in `.data/craft-index/`.
 
 Per EffectCraft e PhotoCraft il numero viene dalle righe del catalogo: è un ordine di grandezza. Tutti
 e cinque girano nella sandbox del motore, in `bwrap`, senza rete e senza la chiave: lo prova `bash

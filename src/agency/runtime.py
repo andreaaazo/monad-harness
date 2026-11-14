@@ -27,8 +27,8 @@ from agency.ledger import Ledger
 from agency.ledger.store import BUSY_SECONDS
 from agency.qa import delivery
 from agency.telemetry import configure, fingerprint
-from agency.tools.craft import CommandIndex
-from agency.tools.files import replace_under, sha256_under
+from agency.workshop.craft import CommandIndex
+from agency.workshop.files import replace_under, sha256_under
 
 # A technical value LangGraph requires, never reached: only the client's budget stops the work.
 GRAPH_STEPS = 100_000

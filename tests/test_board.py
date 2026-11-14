@@ -18,8 +18,8 @@ from agency import cli
 from agency.contracts.files import MAX_IMAGE_FILE_BYTES
 from agency.evaluation import board
 from agency.evaluation.blind import CannotCompare
-from agency.tools import sandbox
-from agency.tools.sandbox import Completed, Sandbox
+from agency.workshop import sandbox
+from agency.workshop.sandbox import Completed, Sandbox
 from support.drawings import INK, FakeVectorcraft, red_pixels, svg
 
 TIGHT = svg((98, 118.5), (6, 6, 86, 108))

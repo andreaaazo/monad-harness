@@ -16,8 +16,8 @@ from agency.contracts.gate import GATE, ConceptGate, Decision, FinalGate, GateKi
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.ledger import Ledger
 from agency.runtime import Session
-from agency.tools.craft import CommandIndex
-from agency.tools.sandbox import Sandbox
+from agency.workshop.craft import CommandIndex
+from agency.workshop.sandbox import Sandbox
 
 # The payloads as the graph has always written them: a paused checkpoint must still read.
 CONCEPT_PAYLOAD = {

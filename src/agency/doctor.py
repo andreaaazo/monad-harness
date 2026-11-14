@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agency.config import REPO_ROOT, Settings
-from agency.tools.sandbox import MEMORY_MAX_BYTES, TASKS_MAX, scope_problem
+from agency.workshop.sandbox import MEMORY_MAX_BYTES, TASKS_MAX, scope_problem
 
 BINARIES: tuple[tuple[str, bool, str], ...] = (
     ("vectorcraft-cli", True, "master vettoriali e tavola del giudizio"),

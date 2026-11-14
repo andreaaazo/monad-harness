@@ -16,8 +16,8 @@ from agency.config import Settings
 from agency.contracts.artifact import ArtifactMissing, Blob, Origin
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
-from agency.tools.craft import CommandIndex
-from agency.tools.sandbox import Sandbox
+from agency.workshop.craft import CommandIndex
+from agency.workshop.sandbox import Sandbox
 
 
 def sha(data: bytes) -> str:

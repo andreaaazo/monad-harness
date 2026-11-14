@@ -17,7 +17,7 @@ from agency.ledger import Ledger
 from agency.qa import delivery
 from agency.runtime import Session
 from agency.telemetry import report
-from agency.tools.sandbox import SandboxUnavailable
+from agency.workshop.sandbox import SandboxUnavailable
 
 PROJECT = "officina"
 REASON = (

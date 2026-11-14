@@ -18,7 +18,7 @@ from agency.insights.adapters.projection import SqliteProjection
 from agency.insights.adapters.traces import JsonlTraces
 from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.views import ProjectReport
-from agency.tools.sandbox import Sandbox, SandboxUnavailable
+from agency.workshop.sandbox import Sandbox, SandboxUnavailable
 from support.environment import operator_variables
 
 # The real registry: no test writes it. The -shm files change even on a read, so they stay out of

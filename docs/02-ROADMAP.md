@@ -70,7 +70,7 @@ Se la risposta è no, ci si ferma qui e si capisce perché, prima di portare il 
 2. [x] **Risposte registrate**: registratore per ripetere nei test le chiamate senza spendere, collegato con
    `--record` dopo l'audit ([ADR-0048](adr/0048-le-esecuzioni-si-registrano-e-si-ripetono.md)).
 3. [x] **Loop dell'agente**: solo in aggiunta, strumenti strict, `deliver`, tutti gli `stop_reason`.
-4. [x] **Sandbox**: `agency.tools.sandbox` su `bwrap`.
+4. [x] **Sandbox**: `agency.workshop.sandbox` su `bwrap`.
 5. [x] **Indice Craft**: `craft_search`, `craft_describe`, `craft_run` per VectorCraft.
 6. [x] **Porting**: `master`, `render`, `evidence`, `svg_audit`, `svg_parity`, `logo_proof`, `optical_check`.
 7. [x] **Pacchetto di contesto**: ticket + ruolo + skill a richiesta.

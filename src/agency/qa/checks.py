@@ -10,10 +10,10 @@ from pathlib import Path
 from agency.contracts.files import ensure_dir_under, glob_under, is_file_under, sha256_under
 from agency.ledger import Ledger
 from agency.qa import evidence
-from agency.tools import master
-from agency.tools.files import clip
-from agency.tools.render import proof_stem
-from agency.tools.sandbox import JOB, Sandbox
+from agency.workshop import master
+from agency.workshop.files import clip
+from agency.workshop.render import proof_stem
+from agency.workshop.sandbox import JOB, Sandbox
 
 RUNNABLE = ("master_open", "svg_audit", "svg_parity", "logo_proof", "optical_check")
 # The vendored scripts, mounted read-only only while a check runs (ADR-0057): no other command sees them.

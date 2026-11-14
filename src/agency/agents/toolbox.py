@@ -39,8 +39,8 @@ from agency.ledger import ForbiddenAction, IllegalTransition, Ledger
 from agency.ledger.models import ConceptRow
 from agency.qa import checks as qa
 from agency.qa import delivery, evidence
-from agency.tools import board, craft, master, presentation, render
-from agency.tools.files import (
+from agency.workshop import board, craft, master, presentation, render
+from agency.workshop.files import (
     MAX_IMAGE_FILE_BYTES,
     MAX_TEXT_FILE_BYTES,
     OutsidePerimeter,
@@ -53,7 +53,7 @@ from agency.tools.files import (
     replace_under,
     sha256_under,
 )
-from agency.tools.sandbox import OPS, Sandbox
+from agency.workshop.sandbox import OPS, Sandbox
 
 tracer = trace.get_tracer("agency.tools")
 TEXT_FILES = (".md", ".txt", ".json")

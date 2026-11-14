@@ -18,8 +18,8 @@ from agency.contracts.ticket import (
 )
 from agency.ledger import Ledger
 from agency.qa import evidence
-from agency.tools import master, render
-from agency.tools.sandbox import Sandbox
+from agency.workshop import master, render
+from agency.workshop.sandbox import Sandbox
 
 GLOB = "*?["
 REPORTS = "reviews/"

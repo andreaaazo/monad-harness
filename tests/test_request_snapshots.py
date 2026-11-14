@@ -20,7 +20,7 @@ from agency.config import REPO_ROOT, Settings
 from agency.contracts.ticket import Medium, TicketSpec, TicketType
 from agency.gateway import ModelGateway
 from agency.ledger import Ledger
-from agency.tools.craft import CommandIndex
+from agency.workshop.craft import CommandIndex
 
 SNAPSHOTS = Path(__file__).parent / "snapshots" / "requests"
 ROLE_PROMPTS = REPO_ROOT / "prompts" / "roles"

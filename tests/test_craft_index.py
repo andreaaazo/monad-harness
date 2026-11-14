@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from agency.contracts.secrets import API_KEY_VARIABLES
-from agency.tools.craft import CommandIndex
+from agency.workshop.craft import CommandIndex
 
 # Writes, for each call, its first argument and the variables it was handed, then answers like a Craft CLI.
 SPY = """#!/bin/sh

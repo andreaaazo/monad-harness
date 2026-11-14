@@ -36,10 +36,10 @@ from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
 from agency.qa import delivery
 from agency.runtime import Session, open_session
-from agency.tools import board, presentation
-from agency.tools.craft import CommandIndex
-from agency.tools.files import sha256
-from agency.tools.sandbox import Sandbox
+from agency.workshop import board, presentation
+from agency.workshop.craft import CommandIndex
+from agency.workshop.files import sha256
+from agency.workshop.sandbox import Sandbox
 from support.concepts import open_idea
 from support.scripted import turn
 from support.settings import settings

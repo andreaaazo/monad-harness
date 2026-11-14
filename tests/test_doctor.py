@@ -7,7 +7,7 @@ from agency import doctor
 from agency.cli import _doctor
 from agency.config import Settings
 from agency.doctor import Finding, run_checks
-from agency.tools.sandbox import MEMORY_MAX_BYTES, TASKS_MAX
+from agency.workshop.sandbox import MEMORY_MAX_BYTES, TASKS_MAX
 
 
 @pytest.fixture(autouse=True)

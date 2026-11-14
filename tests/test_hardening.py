@@ -40,10 +40,10 @@ from agency.ledger.models import ArtifactRow, ConceptRow, EvidenceRow, JudgmentR
 from agency.qa import checks as qa
 from agency.qa import delivery, evidence
 from agency.telemetry import report
-from agency.tools import craft
-from agency.tools.craft import Command, CommandIndex
-from agency.tools.files import OutsidePerimeter, is_file_under
-from agency.tools.sandbox import Completed, Sandbox
+from agency.workshop import craft
+from agency.workshop.craft import Command, CommandIndex
+from agency.workshop.files import OutsidePerimeter, is_file_under
+from agency.workshop.sandbox import Completed, Sandbox
 from support.concepts import open_idea
 from support.scripted import ScriptedTransport
 from support.settings import settings
@@ -2242,7 +2242,7 @@ def test_an_api_error_body_with_a_newline_stays_on_one_line(
 def test_a_sandbox_refusal_with_a_newline_stays_on_one_line(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    from agency.tools.sandbox import SandboxUnavailable
+    from agency.workshop.sandbox import SandboxUnavailable
 
     session = FakeSession([], Ledger(tmp_path / "l.sqlite"))
     monkeypatch.setattr(cli, "_report_of", lambda *_: None)

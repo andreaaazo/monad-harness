@@ -38,10 +38,10 @@ from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
 from agency.qa import delivery
 from agency.runtime import Session
-from agency.tools import board, craft, files, presentation, render
-from agency.tools.craft import Command, CommandIndex
-from agency.tools.files import OutsidePerimeter
-from agency.tools.sandbox import JOB, Completed, Sandbox
+from agency.workshop import board, craft, files, presentation, render
+from agency.workshop.craft import Command, CommandIndex
+from agency.workshop.files import OutsidePerimeter
+from agency.workshop.sandbox import JOB, Completed, Sandbox
 
 Use = Callable[[Path, str], object]
 

@@ -20,7 +20,7 @@ usata da un lavoro sta nella sua impronta (ADR-0026). L'indice dei comandi si ri
 
 Per EffectCraft e PhotoCraft il numero viene dalle righe del catalogo: è un ordine di grandezza. Tutti
 e cinque girano nella sandbox del motore, in `bwrap`, senza rete e senza la chiave: lo prova `bash
-spikes/sandbox_craft.sh`, che usa lo stesso comando e lo stesso ambiente di `agency.tools.sandbox` (verificato il
+spikes/sandbox_craft.sh`, che usa lo stesso comando e lo stesso ambiente di `agency.workshop.sandbox` (verificato il
 2026-11-13).
 
 Girano in uno scope cgroup dell'utente con 8 GiB di memoria e 512 task (ADR-0046): serve `systemd-run --user`, cioè una

@@ -31,8 +31,8 @@ from agency.ledger import Ledger
 from agency.ledger.models import GateRow
 from agency.ledger.store import now
 from agency.qa import delivery
-from agency.tools import board, presentation
-from agency.tools.files import (
+from agency.workshop import board, presentation
+from agency.workshop.files import (
     MAX_DOCUMENT_BYTES,
     MAX_IMAGE_FILE_BYTES,
     MAX_TEXT_FILE_BYTES,
@@ -41,7 +41,7 @@ from agency.tools.files import (
     replace_under,
     sha256_under,
 )
-from agency.tools.sandbox import Sandbox
+from agency.workshop.sandbox import Sandbox
 
 
 class ProjectState(TypedDict):

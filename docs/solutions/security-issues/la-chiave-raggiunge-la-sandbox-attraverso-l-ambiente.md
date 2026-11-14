@@ -2,7 +2,7 @@
 title: La chiave raggiunge la sandbox attraverso l'ambiente, anche con --clearenv
 date: 2026-11-13
 category: security-issues
-module: agency.tools.sandbox
+module: agency.workshop.sandbox
 problem_type: security_issue
 component: infrastructure
 symptoms:
@@ -48,7 +48,7 @@ toglieva le variabili `AGENCY_*` né la chiave esportate nella shell dell'operat
 ## Soluzione
 
 ```python
-# src/agency/tools/sandbox.py
+# src/agency/workshop/sandbox.py
 HOST_VARIABLES = ("PATH", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS")
 
 
@@ -74,7 +74,7 @@ conosce.
 ## Prevenzione
 
 - Ogni processo figlio dell'harness riceve un `env=` esplicito, come già `src/agency/telemetry/fingerprint.py` per le CLI.
-  Anche `CommandIndex.load` in `src/agency/tools/craft.py` lancia `vectorcraft-cli` sull'host con il solo `PATH`, dal
+  Anche `CommandIndex.load` in `src/agency/workshop/craft.py` lancia `vectorcraft-cli` sull'host con il solo `PATH`, dal
   2026-11-14 (`tests/test_craft_index.py`); prima gli passava l'ambiente intero (`docs/audit/PLAN.md`, R1).
 - Una prova di isolamento cerca il segreto dove un attaccante lo cercherebbe: `test_no_process_in_the_sandbox_holds_the_key`
   (in `tests/test_agent_flow.py`) legge ogni `/proc/<pid>/environ` e verifica di averne letto almeno due.

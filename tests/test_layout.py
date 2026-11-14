@@ -14,7 +14,7 @@ from agency.config import REPO_ROOT, DotenvHoldsSetting, Settings
 from agency.contracts.layout import DataLayout
 from agency.contracts.project import ProjectName, parse_project_name
 from agency.runtime import open_session
-from agency.tools.craft import CommandIndex
+from agency.workshop.craft import CommandIndex
 from support.scripted import ScriptedTransport
 
 SERVER_ROOT = "from agency.entrypoints.server import settings; print(settings.AGENCY_DATA_DIR)"

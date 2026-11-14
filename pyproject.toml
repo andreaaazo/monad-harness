@@ -92,7 +92,7 @@ forbidden_modules = [
   "agency.registry",
   "agency.runtime",
   "agency.telemetry",
-  "agency.tools",
+  "agency.workshop",
   "alembic",
   "anthropic",
   "langgraph",
@@ -121,7 +121,7 @@ source_modules = [
   "agency.registry",
   "agency.runtime",
   "agency.telemetry",
-  "agency.tools",
+  "agency.workshop",
 ]
 forbidden_modules = ["django", "ninja", "agency.entrypoints"]
 
@@ -144,7 +144,7 @@ forbidden_modules = [
   "agency.registry",
   "agency.runtime",
   "agency.telemetry",
-  "agency.tools",
+  "agency.workshop",
   "alembic",
   "anthropic",
   "langgraph",
@@ -171,7 +171,7 @@ forbidden_modules = [
   "agency.registry",
   "agency.runtime",
   "agency.telemetry",
-  "agency.tools",
+  "agency.workshop",
   "alembic",
   "anthropic",
   "langgraph",
@@ -200,7 +200,7 @@ source_modules = [
   "agency.registry",
   "agency.runtime",
   "agency.telemetry",
-  "agency.tools",
+  "agency.workshop",
 ]
 forbidden_modules = ["anthropic"]
 # The CLI catches the gateway's re-export of the API error: importing anthropic through it is allowed.

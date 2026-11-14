@@ -85,30 +85,30 @@ Restano Markdown versionati: il gateway le carica a richiesta.
 | `client.py` | `agency.graph.gates`, `agency.ledger` | M2 | da portare |
 | `contract_lint.py` | `agency.qa` | M2 | da portare |
 | `craft-guard.py` | `agency.agents.toolbox`: il campo `craft` dei ruoli è applicato (`tests/test_registry.py`); manca un `app` per strumento, quando arrivano gli altri Craft | M2 | in corso |
-| `craft_lock.py` | `agency.tools.craft` (sostituito da istanze per lavoro, se il collaudo regge) | M3 | da portare |
+| `craft_lock.py` | `agency.workshop.craft` (sostituito da istanze per lavoro, se il collaudo regge) | M3 | da portare |
 | `eval_kit.py` | `evals/` | M2 | da portare |
 | `evidence.py` | `agency.qa.evidence` | M1 | fatto |
 | `facts.py` | `agency.context.facts` | M2 | da portare |
 | `identity-guard.py` | gateway: l'attore lo imposta l'harness | M1 | fatto |
 | `isolation-guard.py` | `bwrap`: ogni esploratore monta solo la propria cartella | M2 | in corso |
-| `master.py` | `agency.tools.master` | M2 | in corso |
-| `node` | `agency.tools.node` | M2 | da portare |
+| `master.py` | `agency.workshop.master` | M2 | in corso |
+| `node` | `agency.workshop.node` | M2 | da portare |
 | `observe-reminder.py` | `agency.agents.toolbox`: niente giudizio senza un'immagine guardata | M1 | fatto |
 | `py` | dismesso: `uv run` | M0 | dismesso |
-| `render.py` | `agency.tools.render` | M2 | in corso |
-| `render_web.mjs` | `agency.tools.render` | M2 | da portare |
+| `render.py` | `agency.workshop.render` | M2 | in corso |
+| `render_web.mjs` | `agency.workshop.render` | M2 | da portare |
 | `selftest.py` | `tests/` | M2 | in corso |
 | `session-start.sh` | `agency.graph`: la ripresa viene dal checkpoint | M1 | fatto |
 | `start-agency.sh` | dismesso: `agency` CLI | M2 | dismesso |
-| `start-craft.sh` | `agency.tools.craft`: fatto per VectorCraft, restano gli altri Craft | M2 | in corso |
+| `start-craft.sh` | `agency.workshop.craft`: fatto per VectorCraft, restano gli altri Craft | M2 | in corso |
 | `ticket.py` | `agency.ledger`, `agency.contracts.ticket` | M0–M1 | fatto |
 | `tools.py` | `agency.doctor` | M0 | fatto |
 | `validate_agency.py` | `tests/test_registry.py` | M2 | in corso |
-| `workdir.py` | `agency.tools.files` | M1 | fatto |
+| `workdir.py` | `agency.workshop.files` | M1 | fatto |
 
 ## Script delle skill
 
-Diventano strumenti con schema in `agency.tools` o controlli in `agency.qa`; la logica si riusa.
+Diventano strumenti con schema per gli agenti o controlli in `agency.qa`; la logica si riusa.
 
 | Script | Skill | Traguardo | Stato |
 |---|---|---|---|

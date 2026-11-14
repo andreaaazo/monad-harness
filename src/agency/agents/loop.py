@@ -18,9 +18,9 @@ from agency.contracts.project import parse_project_name
 from agency.contracts.ticket import RUNNABLE, Action, TicketSpec
 from agency.gateway import CallContext, ModelGateway, ModelRequest, ModelResponse
 from agency.ledger import IllegalTransition, Ledger
-from agency.tools.craft import CommandIndex
-from agency.tools.files import ensure_dir_under
-from agency.tools.sandbox import Sandbox
+from agency.workshop.craft import CommandIndex
+from agency.workshop.files import ensure_dir_under
+from agency.workshop.sandbox import Sandbox
 
 tracer = trace.get_tracer("agency.agents")
 # A turn's output budget. A turn cut off at it is asked again once with the API's ceiling.

@@ -20,7 +20,13 @@ from pathlib import Path, PurePosixPath
 from PIL import Image, ImageDraw, ImageFont
 
 from agency.contracts.media import open_image
-from agency.tools.files import MAX_IMAGE_FILE_BYTES, ensure_dir_under, open_under, read_under, replace_under
+from agency.workshop.files import (
+    MAX_IMAGE_FILE_BYTES,
+    ensure_dir_under,
+    open_under,
+    read_under,
+    replace_under,
+)
 
 # The callers pass absolute paths under a work folder they resolved, so no component may be a link: `_fit`
 # and `build` reach each file from the filesystem root through the no-follow helpers.

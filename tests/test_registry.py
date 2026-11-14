@@ -13,8 +13,8 @@ from agency.artifacts import FileStore
 from agency.contracts.registry import read_checks, read_org, read_roles
 from agency.contracts.ticket import Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
-from agency.tools.craft import CommandIndex
-from agency.tools.sandbox import Sandbox
+from agency.workshop.craft import CommandIndex
+from agency.workshop.sandbox import Sandbox
 
 ROOT = Path(__file__).resolve().parents[1]
 LEGACY = ROOT / "legacy/claude-code-v1"

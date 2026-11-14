@@ -11,10 +11,10 @@ from pathlib import Path
 import pytest
 
 from agency.contracts import files
-from agency.tools import craft
-from agency.tools.craft import Command, CommandIndex
-from agency.tools.files import OutsidePerimeter, glob_under, is_file_under
-from agency.tools.sandbox import JOB, Completed, Sandbox
+from agency.workshop import craft
+from agency.workshop.craft import Command, CommandIndex
+from agency.workshop.files import OutsidePerimeter, glob_under, is_file_under
+from agency.workshop.sandbox import JOB, Completed, Sandbox
 
 DOCUMENT = "source/segno.vectorcraft"
 STEPS = [{"command": "path.create"}]

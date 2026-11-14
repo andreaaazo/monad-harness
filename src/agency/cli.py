@@ -36,7 +36,7 @@ from agency.ledger import Ledger, LedgerMissing, LedgerOutdated, require_registr
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 from agency.ledger.store import now
 from agency.telemetry import report
-from agency.tools.sandbox import JOB, Sandbox, SandboxUnavailable, scope_problem
+from agency.workshop.sandbox import JOB, Sandbox, SandboxUnavailable, scope_problem
 
 if TYPE_CHECKING:  # the session loads the engine: the light commands do not import it
     from agency.runtime import Session

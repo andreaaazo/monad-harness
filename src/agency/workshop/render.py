@@ -9,7 +9,7 @@ from PIL import Image
 
 from agency.contracts.media import open_image
 from agency.ledger import Ledger
-from agency.tools.files import (
+from agency.workshop.files import (
     MAX_IMAGE_FILE_BYTES,
     ensure_dir_under,
     inside,
@@ -17,7 +17,7 @@ from agency.tools.files import (
     replace_under,
     sha256_under,
 )
-from agency.tools.sandbox import JOB, Sandbox
+from agency.workshop.sandbox import JOB, Sandbox
 
 DEFAULT_SIZE = 1200
 PROOFS = "proofs/render"

@@ -37,10 +37,10 @@ from agency.ledger.models import ConceptRow, DerivationRow, EvidenceRow
 from agency.qa import checks
 from agency.qa.checks import CheckOutcome
 from agency.runtime import open_session
-from agency.tools import craft, master
-from agency.tools.craft import Command, CommandIndex
-from agency.tools.files import sha256_under
-from agency.tools.sandbox import (
+from agency.workshop import craft, master
+from agency.workshop.craft import Command, CommandIndex
+from agency.workshop.files import sha256_under
+from agency.workshop.sandbox import (
     JOB,
     MEMORY_MAX_BYTES,
     OUTPUT_BYTES,

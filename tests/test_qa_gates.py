@@ -21,9 +21,9 @@ from agency.ledger import Ledger
 from agency.ledger.models import DerivationRow
 from agency.ledger.store import now
 from agency.qa import checks, delivery, evidence
-from agency.tools.craft import CommandIndex
-from agency.tools.files import OutsidePerimeter, sha256
-from agency.tools.sandbox import Completed, Sandbox
+from agency.workshop.craft import CommandIndex
+from agency.workshop.files import OutsidePerimeter, sha256
+from agency.workshop.sandbox import Completed, Sandbox
 
 needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="needs VectorCraft")
 

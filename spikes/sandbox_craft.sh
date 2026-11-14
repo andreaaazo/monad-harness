@@ -20,14 +20,14 @@ echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5"
 echo '[]' > "$S/job/e.json"
 BLENDER="$(readlink -f "$(command -v blender)")"
 
-# The prefix of the engine's own sandbox (agency.tools.sandbox): the same cgroup scope, mounts and namespaces, not
+# The prefix of the engine's own sandbox (agency.workshop.sandbox): the same cgroup scope, mounts and namespaces, not
 # a copy of them, started as the engine starts it, with only HOST_VARIABLES of this shell's environment (bwrap is
 # pid 1 inside, and its environment is readable at /proc/1/environ). Blender's folder is bound read-only on top,
 # as the engine binds its toolchain folder.
 if ! mapfile -d '' -t BW < <(uv run --locked python -c '
 import sys
 from pathlib import Path
-from agency.tools.sandbox import Sandbox, host_environment
+from agency.workshop.sandbox import Sandbox, host_environment
 environment = [f"{name}={value}" for name, value in host_environment().items()]
 argv = Sandbox(Path(sys.argv[1]), read_only=(Path(sys.argv[2]),)).argv([])
 print("\0".join(["env", "-i", *environment, *argv]), end="")

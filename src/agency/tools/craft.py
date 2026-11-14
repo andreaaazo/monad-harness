@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import subprocess
 from collections import Counter
@@ -63,12 +64,17 @@ class CommandIndex:
     @classmethod
     def load(cls, cache_dir: Path, app: str = "vectorcraft") -> CommandIndex:
         binary = f"{app}-cli"
+        # The CLI runs on the host, outside the sandbox: it gets PATH alone, so the API key and anything else
+        # in the harness's environment stay out, as for the fingerprint's tool versions.
+        host = {"PATH": os.environ.get("PATH", "")}
         version = subprocess.run(
-            [binary, "--version"], capture_output=True, text=True, timeout=30
+            [binary, "--version"], capture_output=True, text=True, timeout=30, env=host
         ).stdout.strip()
         cache = cache_dir / f"{app}-{re.sub(r'[^0-9.]', '', version) or 'x'}.json"
         if not cache.exists():
-            raw = subprocess.run([binary, "commands"], capture_output=True, text=True, timeout=60, check=True)
+            raw = subprocess.run(
+                [binary, "commands"], capture_output=True, text=True, timeout=60, check=True, env=host
+            )
             cache.parent.mkdir(parents=True, exist_ok=True)
             cache.write_text(raw.stdout, encoding="utf-8")
         items = json.loads(cache.read_text(encoding="utf-8"))

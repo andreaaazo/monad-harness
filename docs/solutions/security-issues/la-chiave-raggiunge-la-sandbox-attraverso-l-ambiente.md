@@ -74,8 +74,8 @@ conosce.
 ## Prevenzione
 
 - Ogni processo figlio dell'harness riceve un `env=` esplicito, come già `src/agency/telemetry/fingerprint.py` per le CLI.
-  Resta da decidere `CommandIndex.load` in `src/agency/tools/craft.py`, che lancia `vectorcraft-cli` sull'host con l'ambiente
-  intero (`docs/audit/PLAN.md`, R1).
+  Anche `CommandIndex.load` in `src/agency/tools/craft.py` lancia `vectorcraft-cli` sull'host con il solo `PATH`, dal
+  2026-11-14 (`tests/test_craft_index.py`); prima gli passava l'ambiente intero (`docs/audit/PLAN.md`, R1).
 - Una prova di isolamento cerca il segreto dove un attaccante lo cercherebbe: `test_no_process_in_the_sandbox_holds_the_key`
   (in `tests/test_agent_flow.py`) legge ogni `/proc/<pid>/environ` e verifica di averne letto almeno due.
 - Una prova che dipende dall'ambiente si verifica anche con l'ambiente sporco:

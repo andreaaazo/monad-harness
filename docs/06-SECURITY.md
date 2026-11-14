@@ -56,6 +56,8 @@ sandbox è il processo 1, conserva quello con cui è partito, e ogni processo de
 Per questo `systemd-run` e bwrap partono con le sole `PATH`, `XDG_RUNTIME_DIR` e `DBUS_SESSION_BUS_ADDRESS` dell'harness
 (`HOST_VARIABLES`), quanto serve a `systemd-run` per raggiungere il gestore utente. La chiave resta fuori anche quando
 l'operatore la esporta nella shell, e `test_no_process_in_the_sandbox_holds_the_key` la cerca in ogni `/proc/<pid>/environ`.
+Le CLI che l'harness lancia sull'host, fuori dalla sandbox, partono con il solo `PATH`: le versioni dell'impronta
+(`tests/test_runs.py`) e il catalogo dei comandi Craft (`tests/test_craft_index.py`).
 
 Ogni comando ha anche dei limiti di risorse (ADR-0046, SEC-005):
 - `/tmp` è una tmpfs da 2 GiB, `/home` e `/dev/shm` da 256 MiB, e nessun file scritto supera i 2 GiB (`prlimit --fsize`);

@@ -244,6 +244,7 @@ Decisions the final review left for Andrea:
   verify` runs (ADR-0053/0054 detect it afterwards; refusing before the run is the alternative).
 - A project folder that is itself a link out of `projects/` keeps its work folder outside the guarded root (round 4).
 - `CommandIndex.load` runs `vectorcraft-cli --version` on the host with the full environment (`PLAN.md`, R1).
+  Resolved after the merge, on 2026-11-14: the CLI now starts with `PATH` alone (`tests/test_craft_index.py`).
 - The contract and opening hashes (`spec_sha256`, `inputs_sha256`) are re-bound by the next event as found, the gap
   ADR-0054 closed for the project; ADR-0054 records it as a separate decision.
 

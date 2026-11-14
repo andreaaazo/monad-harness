@@ -543,10 +543,16 @@ def test_agency_schemas_prints_the_refusal_of_a_relative_folder(tmp_path: Path, 
 # The boundaries
 
 
-def test_every_engine_package_is_forbidden_to_import_django() -> None:
-    """The contract lists the packages by hand: a new package must not slip past it."""
+def forbidden_contracts() -> list[dict]:
+    """The `forbidden` contracts of pyproject.toml: the ones that list packages by hand."""
     config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     contracts = config["tool"]["importlinter"]["contracts"]
+    return [contract for contract in contracts if contract["type"] == "forbidden"]
+
+
+def test_every_engine_package_is_forbidden_to_import_django() -> None:
+    """The contract lists the packages by hand: a new package must not slip past it."""
+    contracts = forbidden_contracts()
     (engine,) = [contract for contract in contracts if "django" in contract["forbidden_modules"]]
     source = REPO_ROOT / "src" / "agency"
     present = {
@@ -566,8 +572,7 @@ SLICE_ALLOWED = {
 
 def test_every_slice_contract_forbids_every_engine_package() -> None:
     """A new engine package must reach every slice's forbidden list, not only the Django contract's."""
-    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    contracts = config["tool"]["importlinter"]["contracts"]
+    contracts = forbidden_contracts()
     source = REPO_ROOT / "src" / "agency"
     present = {
         path.stem for path in source.iterdir() if path.suffix == ".py" or (path / "__init__.py").exists()
@@ -581,8 +586,7 @@ def test_every_slice_contract_forbids_every_engine_package() -> None:
 
 def test_every_package_but_the_gateway_is_forbidden_to_import_anthropic() -> None:
     """The anthropic contract lists the packages by hand: a new package must not slip past it."""
-    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    contracts = config["tool"]["importlinter"]["contracts"]
+    contracts = forbidden_contracts()
     (contract,) = [contract for contract in contracts if contract["forbidden_modules"] == ["anthropic"]]
     source = REPO_ROOT / "src" / "agency"
     present = {

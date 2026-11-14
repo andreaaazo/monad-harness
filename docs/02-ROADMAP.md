@@ -414,8 +414,10 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
 
 ### Lavoro, in ordine
 
-1. [ ] **Cicli**: spezzare quello tra `qa` e `tools`, l'unico rimasto tra i pacchetti di `agency`, insieme al montaggio QA
-   della sandbox (STR-004). Quello tra `agents` e `tools` l'ha tolto l'audit (`73881ee`).
+1. [x] **Cicli**: spezzare quello tra `qa` e `tools`, l'unico rimasto tra i pacchetti di `agency`, insieme al montaggio QA
+   della sandbox (STR-004). Quello tra `agents` e `tools` l'ha tolto l'audit (`73881ee`). Fatto il 2026-11-14: gli script
+   QA si montano solo nei controlli, gli strumenti degli agenti sono in `agency.agents.toolbox`, e il contratto
+   `acyclic_siblings` vieta ogni ciclo in `agency`, a ogni livello. Si rifà con `uv run lint-imports`.
 2. [ ] **`tools/surface.py`**: 1.130 righe dopo l'audit, divise per slice una alla volta (SIM-012).
 3. [ ] **`graph/workflow.py`**: i nodi passano alle slice, `process` compone il grafo. `build` ha complessità McCabe 63
    (SIM-012), e l'import di `langchain_core` passa al livello del processo (SIM-004).

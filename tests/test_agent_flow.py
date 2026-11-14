@@ -20,7 +20,7 @@ from PIL import Image
 
 from agency import cli
 from agency.agents.loop import CLOSING, AgentRunner, _after_fallback
-from agency.agents.toolbox import CLOSE_ALWAYS, TOOLS, Toolbox, ToolContext, tools_for
+from agency.agents.toolbox import TOOLS, Toolbox, ToolContext, tools_for
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
@@ -619,7 +619,7 @@ def test_the_reminder_offers_every_closing_tool_but_reject_concept() -> None:
     They must still name the same closing tools, but for reject_concept: a closing tool added to one and not
     to the other fails here."""
     closes_on_resume = {name for name, _, state, _ in RESTORED if state is not None}
-    assert set(CLOSE_ALWAYS) <= closes_on_resume
+    assert {name for name, tool in TOOLS.items() if tool.closes is not None} <= closes_on_resume
     assert set(CLOSING) == closes_on_resume - {"reject_concept"}
 
 

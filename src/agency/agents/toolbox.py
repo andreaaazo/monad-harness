@@ -293,12 +293,18 @@ class RejectConcept(Strict):
 
 @dataclass(frozen=True)
 class Tool:
+    """A tool the model can call. On resume an effect already recorded is replayed, not run again: `closes`
+    is the outcome a closing tool always ends with, and `on_replay` derives the outcome from the stored result
+    for a tool whose ending depends on what it chose (None: the instance stays open)."""
+
     name: str
     description: str
     schema: type[BaseModel]
     handler: Callable[[ToolContext, Any, str], Any]
     effect: bool = True
     strict: bool = False
+    closes: OutcomeState | None = None
+    on_replay: Callable[[str], Outcome | None] | None = None
 
 
 def _text_only(path: str) -> None:
@@ -347,7 +353,7 @@ def read_skill(_: ToolContext, a: ReadSkill, __: str) -> dict:
     return {"text": target.read_text(encoding="utf-8")}
 
 
-def _viewed(ctx: ToolContext) -> dict[str, int]:
+def viewed(ctx: ToolContext) -> dict[str, int]:
     """The images this instance really looked at, by version: the system knows it, not the agent."""
     seen: dict[str, int] = {}
     for row in ctx.ledger.operations(ctx.instance):
@@ -367,7 +373,7 @@ def view_image(ctx: ToolContext, a: ViewImage, operation_id: str) -> list[dict]:
     if len(raw) > MAX_IMAGE_FILE_BYTES:
         raise Refused(f"{a.path}: supera il limite di {MAX_IMAGE_FILE_BYTES // 2**20} MiB per un'immagine.")
     key = f"{a.path}:{hashlib.sha256(raw).hexdigest()}"
-    seen = _viewed(ctx)
+    seen = viewed(ctx)
     try:
         image = open_image(raw)
     except UnidentifiedImageError as exc:
@@ -483,11 +489,11 @@ def run_check(ctx: ToolContext, a: RunCheck, operation_id: str) -> dict:
 def _seen_proof(ctx: ToolContext, file: str) -> str:
     """A proof of the current version that this instance really opened."""
     digest = sha256_under(ctx.work, file)
-    if f"{file}:{digest}" in _viewed(ctx):  # the image itself, already opened at this version
+    if f"{file}:{digest}" in viewed(ctx):  # the image itself, already opened at this version
         return file
-    viewed = _viewed(ctx)
+    seen = viewed(ctx)
     for proof in ctx.ledger.renders_of(ctx.project, file, digest):
-        if f"{proof}:{sha256_under(ctx.work, proof)}" in viewed:  # the proof as it is now, not an older one
+        if f"{proof}:{sha256_under(ctx.work, proof)}" in seen:  # the proof as it is now, not an older one
             return proof
     raise Refused(f"{file}: non hai guardato un render della versione attuale. render, poi view_image.")
 
@@ -613,7 +619,7 @@ def _own_child(ctx: ToolContext, ticket: str) -> None:
 
 def accept_ticket(ctx: ToolContext, a: TicketRef, _: str) -> dict:
     _own_child(ctx, a.ticket)
-    if _replayed(ctx, Status.ACCEPTED, Action.ACCEPT, a.ticket):
+    if replayed(ctx, Status.ACCEPTED, Action.ACCEPT, a.ticket):
         return {"ok": True, "status": "accepted"}
     problems = delivery.acceptance_problems(ctx.ledger, ctx.project, ctx.sandbox, a.ticket)
     if problems:
@@ -624,7 +630,7 @@ def accept_ticket(ctx: ToolContext, a: TicketRef, _: str) -> dict:
 
 def rework_ticket(ctx: ToolContext, a: TicketRef, _: str) -> dict:
     _own_child(ctx, a.ticket)
-    if _replayed(ctx, Status.REWORK, Action.REWORK, a.ticket):
+    if replayed(ctx, Status.REWORK, Action.REWORK, a.ticket):
         return {"ok": True, "status": "rework"}
     if len(a.note.strip()) < 10:
         raise Refused("scrivi cosa va cambiato")
@@ -642,7 +648,7 @@ def hand_off(ctx: ToolContext, a: HandOff, _: str) -> dict:
     return {"ok": True, "waiting": waiting}
 
 
-def _replayed(ctx: ToolContext, target: Status, action: Action, ticket: str | None = None) -> bool:
+def replayed(ctx: ToolContext, target: Status, action: Action, ticket: str | None = None) -> bool:
     """True when the ticket (this instance's own by default) is already in `target` because this actor just
     did `action`: a replay after a crash between the ledger transition and its resume record (COR-003)."""
     ticket = ticket or ctx.ticket_id
@@ -653,7 +659,7 @@ def _replayed(ctx: ToolContext, target: Status, action: Action, ticket: str | No
 
 
 def deliver(ctx: ToolContext, a: Deliver, _: str) -> dict:
-    if _replayed(ctx, Status.DELIVERED, Action.DELIVER):
+    if replayed(ctx, Status.DELIVERED, Action.DELIVER):
         ctx.finished = Outcome(state=OutcomeState.DELIVERED, note=a.note)
         return {"ok": True, "status": "delivered"}
     spec = ctx.ledger.spec(ctx.ticket_id)
@@ -741,7 +747,7 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
 
 def submit_concept(ctx: ToolContext, a: ConceptCard, _: str) -> dict:
     """Closes the exploration: the card counts only together with the sketches looked at."""
-    if _replayed(ctx, Status.DELIVERED, Action.DELIVER):
+    if replayed(ctx, Status.DELIVERED, Action.DELIVER):
         ctx.finished = Outcome(state=OutcomeState.DELIVERED, note=a.concept)
         return {"ok": True}
     replace_under(ctx.work, "scheda.json", a.model_dump_json(indent=2).encode("utf-8"))
@@ -871,7 +877,7 @@ def present_concepts(ctx: ToolContext, _a: ConfirmPresentation, __: str) -> dict
     gone = [page for page in pages if not is_file_under(ctx.work, page)]
     if gone:
         raise Refused(f"mancano pagine della bozza: {gone}. Rifai la bozza con draft_presentation.")
-    seen = _viewed(ctx)
+    seen = viewed(ctx)
     missing = [page for page in pages if f"{page}:{sha256_under(ctx.work, page)}" not in seen]
     if missing:
         raise Refused(f"guarda queste pagine, così come sono ora, prima di mandarle al cliente: {missing}")
@@ -897,7 +903,7 @@ def reject_concept(ctx: ToolContext, a: RejectConcept, _: str) -> dict:
 
 
 def block(ctx: ToolContext, a: Block, _: str) -> dict:
-    if _replayed(ctx, Status.BLOCKED, Action.BLOCK):
+    if replayed(ctx, Status.BLOCKED, Action.BLOCK):
         ctx.finished = Outcome(state=OutcomeState.BLOCKED, note=a.reason)
         return {"ok": True, "status": "blocked"}
     ctx.ledger.apply(ctx.ticket_id, Action.BLOCK, ctx.actor, a.reason)
@@ -905,15 +911,22 @@ def block(ctx: ToolContext, a: Block, _: str) -> dict:
     return {"ok": True, "status": "blocked"}
 
 
-# The tools that always close, and always with the same outcome.
-CLOSE_ALWAYS: dict[str, OutcomeState] = {
-    "deliver": OutcomeState.DELIVERED,
-    "block": OutcomeState.BLOCKED,
-    "hand_off": OutcomeState.HANDED_OFF,
-    "plan_exploration": OutcomeState.HANDED_OFF,
-    "submit_concept": OutcomeState.DELIVERED,
-    "reject_concept": OutcomeState.CONCEPT_REJECTED,
-}
+def _closed_by_selection(stored: str) -> Outcome:
+    chosen = SelectConcepts.model_validate_json(stored).chosen
+    return Outcome(state=OutcomeState.SELECTED if chosen else OutcomeState.NO_CONCEPT, note=stored)
+
+
+def _closed_by_draft(stored: str) -> Outcome | None:
+    """A draft with pages leaves the instance open; one without says no proposal holds up."""
+    if "pagine" in json.loads(stored):
+        return None
+    return Outcome(state=OutcomeState.NO_CONCEPT, note=stored)
+
+
+def _closed_by_presentation(stored: str) -> Outcome:
+    proposals = PresentConcepts.model_validate_json(stored).proposals
+    return Outcome(state=OutcomeState.PRESENTED if proposals else OutcomeState.NO_CONCEPT, note=stored)
+
 
 TOOLS: dict[str, Tool] = {
     tool.name: tool
@@ -942,34 +955,72 @@ TOOLS: dict[str, Tool] = {
         Tool("open_ticket", "Apre un ticket verso un altro ruolo.", OpenTicket, open_ticket),
         Tool("accept_ticket", "Accetta un ticket consegnato che hai aperto.", TicketRef, accept_ticket),
         Tool("rework_ticket", "Rimanda un ticket con ciò che va cambiato.", TicketRef, rework_ticket),
-        Tool("hand_off", "Termina il turno in attesa dei ticket figli.", HandOff, hand_off),
         Tool(
-            "deliver", "Consegna il ticket. verdict solo per qa e revisione.", Deliver, deliver, strict=True
+            "hand_off",
+            "Termina il turno in attesa dei ticket figli.",
+            HandOff,
+            hand_off,
+            closes=OutcomeState.HANDED_OFF,
         ),
-        Tool("block", "Ferma il ticket con il motivo.", Block, block, strict=True),
         Tool(
-            "plan_exploration", "Avvia gli esploratori con leve diverse.", PlanExploration, plan_exploration
+            "deliver",
+            "Consegna il ticket. verdict solo per qa e revisione.",
+            Deliver,
+            deliver,
+            strict=True,
+            closes=OutcomeState.DELIVERED,
         ),
         Tool(
-            "submit_concept", "Consegna scheda e schizzi: chiude l'esplorazione.", ConceptCard, submit_concept
+            "block",
+            "Ferma il ticket con il motivo.",
+            Block,
+            block,
+            strict=True,
+            closes=OutcomeState.BLOCKED,
+        ),
+        Tool(
+            "plan_exploration",
+            "Avvia gli esploratori con leve diverse.",
+            PlanExploration,
+            plan_exploration,
+            closes=OutcomeState.HANDED_OFF,
+        ),
+        Tool(
+            "submit_concept",
+            "Consegna scheda e schizzi: chiude l'esplorazione.",
+            ConceptCard,
+            submit_concept,
+            closes=OutcomeState.DELIVERED,
         ),
         Tool("rate_board", "Registra il primo sguardo su ogni lettera.", RateBoard, rate_board),
         Tool(
-            "select_concepts", "Sceglie le idee da sviluppare in proposte.", SelectConcepts, select_concepts
+            "select_concepts",
+            "Sceglie le idee da sviluppare in proposte.",
+            SelectConcepts,
+            select_concepts,
+            on_replay=_closed_by_selection,
         ),
         Tool(
             "draft_presentation",
             "Compone le pagine per il cliente, da guardare. Vuoto = nessuna proposta regge.",
             PresentConcepts,
             draft_presentation,
+            on_replay=_closed_by_draft,
         ),
         Tool(
             "present_concepts",
             "Manda al cliente l'ultima bozza, dopo averne guardato ogni pagina.",
             ConfirmPresentation,
             present_concepts,
+            on_replay=_closed_by_presentation,
         ),
-        Tool("reject_concept", "Boccia il concetto: si torna agli schizzi.", RejectConcept, reject_concept),
+        Tool(
+            "reject_concept",
+            "Boccia il concetto: si torna agli schizzi.",
+            RejectConcept,
+            reject_concept,
+            closes=OutcomeState.CONCEPT_REJECTED,
+        ),
     )
 }
 BASE = ["read_file", "list_files", "write_file", "read_skill", "view_image", "render", "deliver", "block"]
@@ -1109,18 +1160,13 @@ class Toolbox:
 
     def _restore(self, name: str, stored: str) -> None:
         """On resume, a closing tool that already ran closes again with the same outcome."""
-        if name in CLOSE_ALWAYS:
-            self.context.finished = Outcome(state=CLOSE_ALWAYS[name], note="ripreso dopo un'interruzione")
-        elif name == "select_concepts":
-            chosen = SelectConcepts.model_validate_json(stored).chosen
-            state = OutcomeState.SELECTED if chosen else OutcomeState.NO_CONCEPT
-            self.context.finished = Outcome(state=state, note=stored)
-        elif name == "draft_presentation" and "pagine" not in json.loads(stored):  # no proposal holds up
-            self.context.finished = Outcome(state=OutcomeState.NO_CONCEPT, note=stored)
-        elif name == "present_concepts":
-            proposals = PresentConcepts.model_validate_json(stored).proposals
-            state = OutcomeState.PRESENTED if proposals else OutcomeState.NO_CONCEPT
-            self.context.finished = Outcome(state=state, note=stored)
+        tool = self.tools[name]
+        if tool.closes is not None:
+            self.context.finished = Outcome(state=tool.closes, note="ripreso dopo un'interruzione")
+        elif tool.on_replay is not None:
+            outcome = tool.on_replay(stored)
+            if outcome is not None:
+                self.context.finished = outcome
 
     @staticmethod
     def _result(tool_use_id: str, text: str, is_error: bool) -> dict:

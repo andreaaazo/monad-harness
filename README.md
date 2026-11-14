@@ -10,12 +10,14 @@ design e specifiche, mai codice di produzione.
 
 ## Stato
 
-**M1.5 chiuso, prossimo M1.6.** Per un logo lo studio esplora 5 direzioni in parallelo, pensando e disegnando,
+**M1.6 chiuso, prossimo M1.7.** Per un logo lo studio esplora 5 direzioni in parallelo, pensando e disegnando,
 sceglie internamente, sviluppa le proposte e presenta al cliente un PDF con la sua raccomandazione, poi rifinisce la proposta
 scelta. Su `merlo3` il lavoro è arrivato al gate `concept` in 30 minuti e 13,29 $, e al gate `final` con 34,38 $.
 
-M1.6 porta misure confrontabili e un cruscotto con Django e Next.js. M1.7 divide il motore in slice. Il progetto diventerà un SaaS
-dopo il primo cliente reale. I dettagli sono nella [roadmap](docs/02-ROADMAP.md).
+M1.6 ha portato misure confrontabili e un cruscotto con Django e Next.js, e dopo M1.6 l'audit deep-review ha messo in sicurezza
+sandbox, registro e test. M1.7 divide il motore in slice, M1.8 aggiunge un quality gate di Python molto più severo, e M1.9 misura
+il risultato dal vivo con `merlo4` e il confronto con la CLI. Il progetto diventerà un SaaS dopo il primo cliente reale. I
+dettagli sono nella [roadmap](docs/02-ROADMAP.md).
 
 ## Avvio
 

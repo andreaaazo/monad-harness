@@ -87,7 +87,7 @@ test di sostituzione. Le tavole di `merlo` restano in `projects/merlo/`.
 
 ## Confronto con Claude Code
 
-In M1.6 e M2 si esegue lo stesso brief sul setup CLI e sull'harness. Su Neima i numeri del vecchio setup
+In M1.9 e M2 si esegue lo stesso brief sul setup CLI e sull'harness. Su Neima i numeri del vecchio setup
 vengono da prezzi precedenti: conta il replay, non il confronto col valore storico.
 
 ## Da DSPy in poi

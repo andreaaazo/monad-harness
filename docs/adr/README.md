@@ -25,7 +25,7 @@ vecchio. Date: 2026-10-31.
 | [0018](0018-un-contratto-impossibile-non-si-apre.md) | Un contratto impossibile non si apre | Accettata |
 | [0019](0019-cruscotto-lato-di-lettura.md) | Il cruscotto è un lato di lettura separato | Accettata |
 | [0020](0020-django-react-taskfile-docker.md) | Django e React per il server, Taskfile e Docker attorno | Accettata, Vite sostituito da Next.js in 0024 |
-| [0021](0021-monolite-modulare-a-slice.md) | Monolite modulare a slice, con Clean Architecture | Accettata |
+| [0021](0021-monolite-modulare-a-slice.md) | Monolite modulare a slice, con Clean Architecture | Accettata; il refactor viene prima di `merlo4` (0055) |
 | [0022](0022-schema-prima-del-codice.md) | Lo schema viene prima del codice | Accettata |
 | [0023](0023-il-progetto-diventa-un-saas.md) | Il progetto diventa un SaaS | Accettata, rovescia un non-obiettivo di `00-PROJECT.md` |
 | [0024](0024-nextjs-per-l-interfaccia.md) | Next.js per l'interfaccia | Accettata, rovescia la scelta di Vite in 0020 |
@@ -52,10 +52,11 @@ vecchio. Date: 2026-10-31.
 | [0045](0045-una-radice-dei-dati-e-env-solo-per-i-segreti.md) | Una radice dei dati, e `.env` solo per i segreti | Accettata, si attua in tre passi (Task 2.15–2.17 di `docs/audit/PLAN.md`) |
 | [0046](0046-i-limiti-della-sandbox.md) | I limiti della sandbox | Accettata, estende 0005: tetto di memoria e di task in uno scope cgroup |
 | [0047](0047-la-catena-copre-verdetti-e-consegne.md) | La catena copre verdetti e consegne | Accettata, estende 0001: eventi di versione 2 e `agency verify` che rifà il conto |
-| [0048](0048-le-esecuzioni-si-registrano-e-si-ripetono.md) | Le esecuzioni si registrano e si ripetono | Accettata, sostituisce il registratore di M1: chiave per richiesta, `--record`, ripetizione nei test |
+| [0048](0048-le-esecuzioni-si-registrano-e-si-ripetono.md) | Le esecuzioni si registrano e si ripetono | Accettata, sostituisce il registratore di M1: chiave per richiesta, `--record`, ripetizione nei test; la cassetta di `merlo4` non è più il golden master di M1.7 (0055) |
 | [0049](0049-la-catena-copre-cio-che-decide-la-consegna.md) | La catena copre ciò che decide la consegna | Accettata, estende 0047: contratto dei ticket, idee, gate e prove legati nella catena; il progetto del ticket in 0053 |
 | [0050](0050-la-catena-copre-anche-i-costi.md) | La catena copre anche i costi | Accettata, estende 0049: chiamate pagate e progetti legati nella catena, `operations` solo in aggiunta |
 | [0051](0051-il-controllo-gira-da-solo.md) | Il controllo gira da solo | Accettata, estende 0039: hook pre-commit con `task check:fast`, `task check:clean` sull'indice, CI con il remoto |
 | [0052](0052-le-dipendenze-le-dichiara-il-codice-che-le-importa.md) | Le dipendenze le dichiara il codice che le importa | Accettata: `sqlalchemy`, `langchain-core` e `httpx2` dichiarati, `tests/test_dependencies.py` lo controlla |
 | [0053](0053-la-catena-lega-il-progetto-di-ogni-ticket.md) | La catena lega il progetto di ogni ticket | Accettata, estende 0049: il progetto di ogni ticket legato nella catena, migrazione 0009; ogni evento confrontato in 0054 |
 | [0054](0054-agency-verify-confronta-il-progetto-di-ogni-evento.md) | `agency verify` confronta il progetto di ogni evento | Accettata, estende 0053: il progetto di ogni evento di versione 2 del ticket, non solo dell'ultimo |
+| [0055](0055-il-quality-gate-prima-di-merlo4.md) | Il quality gate di Python prima di `merlo4` | Accettata: M1.8 nuovo con `docs/quality-gate/SPEC.md`, `merlo4` e confronto con la CLI in M1.9; rovescia l'ordine di 0021 e il golden master di 0048 |

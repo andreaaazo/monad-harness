@@ -9,8 +9,10 @@ si aggiornano con i dati di M1.
 | M0 | Fondamenta | Repo, contratti, registro, documenti, backup | 0 $ | **fatto** |
 | M1 | Prova verticale | Un logo S dall'inizio alla fine, confrontato con la CLI | 40 $ | **chiuso**, confronto passato a M1.6 |
 | M1.5 | Esplorazione a schizzi | Idee in parallelo, schizzi veloci, scelta del concetto, poi produzione | 40 $ | **chiuso**, 38,83 $ spesi, criteri non verificati passati a M1.6 e M2 |
-| M1.6 | Misure e cruscotto | Dati confrontabili, `insights`, API Django, cruscotto Next.js, `merlo4` misurato | 30 $ | in corso |
-| M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte, E2 dal vivo | 10 $ | |
+| M1.6 | Misure e cruscotto | Dati confrontabili, `insights`, API Django, cruscotto Next.js | 30 $ | **chiuso**, 0 $ spesi, `merlo4` e confronto con la CLI passati a M1.9 |
+| M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte, E2 dal vivo | 10 $ | prossimo |
+| M1.8 | Quality gate di Python | Un comando decide, niente soppressioni, hook che lo applicano da soli | 0 $ | |
+| M1.9 | Prova reale | `merlo4` misurato e giudicato, confronto con la CLI | 30 $ + CLI | |
 | M2 | Parità | Tutto lo studio, con replay di un'identità | 200 $ | |
 | M3 | Contesto visivo e parallelo | Scena, ricerca visiva, istanze per lavoro | 60 $ | |
 | M4 | Osservabilità e generazione | Langfuse, ComfyUI isolato, scheduler GPU | 60 $ | |
@@ -22,12 +24,20 @@ M1.5 viene prima della parità perché cambia il modo in cui nasce ogni lavoro c
 una volta sola, sul flusso definitivo. M3 e M4 possono invertirsi. Gli altri sono in sequenza.
 
 M1 e M1.5 sono chiusi il 2026-11-01 per decisione di Andrea, con alcuni criteri non verificati. Quei criteri non sono segnati
-come fatti: passano a M1.6, dove si misurano su `merlo4`, oppure a M2. In M1.6 gli obiettivi di costo si misurano ma non bloccano
-M1.7.
+come fatti: passano a M1.6, dove si misurano su `merlo4`, oppure a M2. Il 2026-11-13 M1.6 si è chiuso allo stesso modo, e quelli
+ancora aperti sono passati con `merlo4` a M1.9. In M1.9 gli obiettivi di costo si misurano ma non bloccano M2.
 
 M1.6 e M1.7 vengono prima della parità perché M2 porta tutto lo studio sul motore: senza misure si lavorerebbe alla cieca, e
 dopo dividere il codice costerebbe molto di più. Una prova dal vivo parte solo su richiesta, anche con il tetto in tabella. M7
 viene dopo il primo cliente reale (ADR-0023).
+
+M1.8 e M1.9 sono nati il 2026-11-13 per decisione di Andrea ([ADR-0055](adr/0055-il-quality-gate-prima-di-merlo4.md)).
+`merlo4` non parte ora: arriva dopo il refactor e il gate, e misura il motore su cui si costruisce M2. M1.6 si è chiuso senza
+prove dal vivo.
+
+Fra M1.6 e M1.7 c'è stato l'audit deep-review, dal 2026-11-04 al 2026-11-13, entrato in `main` con `ceec412`. Non è un
+traguardo: ha corretto 101 problemi, senza altri cambiamenti visibili all'utente, con gli ADR da 0044 a 0054. Il risultato è in
+[`docs/audit/99-result.md`](audit/99-result.md). Ciò che ha rimandato passa a M1.7.
 
 ---
 
@@ -243,7 +253,7 @@ di M1.7 non deve preservarlo.
 
 ---
 
-## M1.6 — Misure e cruscotto
+## M1.6 — Misure e cruscotto (chiuso)
 
 **Domanda a cui rispondere:** sappiamo dire con i numeri come lavora il modello, e se una versione è meglio della precedente?
 
@@ -312,17 +322,8 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
     `merlo3` eccellente e migliore, `merlo` buono, tutti e due specifici. I due `segno.svg` erano sulla tavola, alla pari, e il
     migliore non può contraddire i livelli ([ADR-0041](adr/0041-la-tavola-del-giudizio.md)). Si rilegge con
     `uv run agency report merlo3` e nella vista Confronto, `/compare?before=merlo&after=merlo3`.
-17. [ ] **`merlo4`**: brief E1 dal vivo, solo su richiesta di Andrea, tetto 30 $. Prima esecuzione con impronta e con ADR-0017 e
-    ADR-0018 attivi dall'inizio. Con i costi di `merlo3` il tetto è stretto: si rivede prima di partire. È una prova sola, quindi
-    il risultato è indicativo: le 3 prove di `07-EVALS.md` costerebbero circa 100 $.
-    - [x] Preparato il 2026-11-03, senza spesa. Il brief è identico a quello di `merlo` e `merlo3`. `agency doctor` passa.
-      L'impronta di partenza è 5 esploratori, effort `high`, `vectorcraft-cli` 0.18.0. Il tetto si dichiara per forza
-      all'avvio ([ADR-0043](adr/0043-il-tetto-si-dichiara-all-avvio.md)): l'ambiente di Andrea ne dava uno di 40 $.
-    - [x] Il segno da battere è quello di `merlo3` ([ADR-0042](adr/0042-il-riferimento-di-qualita-e-merlo3.md)).
-    - [ ] Avvio, da Andrea, con il tetto che dichiara: `uv run agency run merlo4 evals/briefs/E1.md --budget <usd> --record`
-    - [ ] Gate `concept` e gate `final` decisi da Andrea, con `agency decide merlo4`
-    - [ ] Giudizio alla cieca del segno finale contro quello di `merlo3`, e lettura per intero nel cruscotto
-18. [ ] **Confronto con la CLI** sullo stesso brief. Questa prova ha un tetto proprio, da dichiarare prima di partire.
+17. [ ] **`merlo4`**: preparato il 2026-11-03, non avviato. Passato a M1.9 ([ADR-0055](adr/0055-il-quality-gate-prima-di-merlo4.md)).
+18. [ ] **Confronto con la CLI** sullo stesso brief: passato a M1.9.
 
 ### Le viste
 
@@ -335,7 +336,7 @@ prima i dati, poi l'interfaccia. Scelte motivate in [ADR-0019](adr/0019-cruscott
 | Confronto | È meglio di prima? | Due esecuzioni affiancate, differenze di impronta, giudizi |
 | Replay | Cosa è successo davvero? | Un'istanza turno per turno, con le immagini |
 
-Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispondono.
+Una vista nuova entra solo se `merlo4`, in M1.9, mostra una domanda a cui queste non rispondono.
 
 ### Criteri di uscita
 
@@ -374,25 +375,28 @@ Una vista nuova entra solo se `merlo4` mostra una domanda a cui queste non rispo
 - [x] `task check` esegue i controlli di Python e Next.js, e Docker Compose avvia Django e Next.js: `task check`, e `make check`
   che ne è l'alias (`tests/test_taskfile.py`); `task docker:up`, verificato il 2026-11-03 su un registro di prova e su una copia
   migrata di quello vero, con la configurazione provata da `tests/test_docker.py`
-- [ ] `merlo4` è arrivato al gate `final` ed è stato letto per intero nel cruscotto
+- [ ] `merlo4` è arrivato al gate `final` ed è stato letto per intero nel cruscotto. Passa a M1.9
 
 **Ereditati da M1 e M1.5:**
 
 - [x] **Il segno scelto batte quello di `merlo` nel giudizio alla cieca di Andrea**: `merlo3` eccellente e migliore, `merlo`
   buono, il 2026-11-03 (punto 16). `uv run agency report merlo3`
-- [ ] Stesso brief su CLI e harness: qualità non inferiore alla cieca
-- [ ] Stesso brief su CLI e harness: costo inferiore
+- [ ] Stesso brief su CLI e harness: qualità non inferiore alla cieca. Passa a M1.9
+- [ ] Stesso brief su CLI e harness: costo inferiore. Passa a M1.9
 - [x] Il test di sostituzione passa: il segno scelto dice ciò che rende unico il cliente. Nello stesso giudizio Andrea ha detto
   che il segno di `merlo3`, con un altro nome, non reggerebbe. Nel perché ci legge il merlo, e nel cerchio vuoto la ruota e la
   chiave inglese dell'officina: la riparazione che in M1.5 diceva solo l'adesivo
-- [ ] Presentazione pronta entro 45 minuti e 12 $, con 2 o 3 proposte confrontabili
-- [ ] Lavoro completo fino al gate `final` entro 22 $
-
-La qualità decide se si prosegue: se risulta inferiore alla CLI vale ancora la regola di M1, ci si ferma e si capisce perché. Gli
-obiettivi di costo, compreso il confronto con la CLI, si misurano su `merlo4`: se restano lontani non bloccano M1.7, e si affrontano
-con il contesto delle istanze lunghe, il primo lavoro di M2.
+- [ ] Presentazione pronta entro 45 minuti e 12 $, con 2 o 3 proposte confrontabili. Passa a M1.9
+- [ ] Lavoro completo fino al gate `final` entro 22 $. Passa a M1.9
 
 **Fuori da M1.6:** scritture dall'interfaccia, account, multi-tenancy, Langfuse, refactor del motore.
+
+### Chiusura (2026-11-13)
+
+Andrea ha chiuso M1.6 senza spesa: tutto il lavoro che non chiede prove dal vivo è fatto e verificato, punto per punto, con il
+modo di rifarlo. `merlo4`, il confronto con la CLI e i criteri che li aspettavano passano a M1.9, dopo il refactor di M1.7 e il
+gate di M1.8 ([ADR-0055](adr/0055-il-quality-gate-prima-di-merlo4.md)). Come per M1 e M1.5, quei criteri non sono segnati come
+fatti.
 
 ---
 
@@ -400,18 +404,32 @@ con il contesto delle istanze lunghe, il primo lavoro di M2.
 
 **Domanda a cui rispondere:** il motore può crescere fino a tutto lo studio senza che ogni ruolo nuovo tocchi gli stessi file?
 
-Viene dopo `merlo4`, così il comportamento del motore è misurato prima di toccarlo. Principi e confini in
-[ADR-0021](adr/0021-monolite-modulare-a-slice.md).
+Viene prima di `merlo4`, che passa a M1.9 ([ADR-0055](adr/0055-il-quality-gate-prima-di-merlo4.md)). Una misura dal vivo
+prima del refactor non c'è. Il comportamento del motore lo fissano gli snapshot di strumenti e system prompt e i test di flusso
+con risposte registrate. Principi e confini in [ADR-0021](adr/0021-monolite-modulare-a-slice.md). L'audit ha rimandato qui
+alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SUMMARY.md`.
+
+### Decisione da prendere prima del punto 2
+
+**Il golden master.** ADR-0048 voleva la cassetta di `merlo4`, che ora arriva dopo. Andrea sceglie tra due strade (ADR-0055):
+- registrare E2 con `--record` sul motore di oggi, prima del punto 2, e ripeterlo sul motore diviso: costa gli stessi 10 $;
+- tenere come rete snapshot e flussi, ed eseguire E2 dal vivo alla fine.
 
 ### Lavoro, in ordine
 
-1. [ ] **Cicli**: spezzare quelli tra `agents` e `tools` e tra `qa` e `tools`.
-2. [ ] **`tools/surface.py`**: 940 righe divise per slice, una alla volta.
-3. [ ] **`graph/workflow.py`**: i nodi passano alle slice, `process` compone il grafo.
-4. [ ] **Dominio e applicazione**: regole pure, casi d'uso e porte fuori dai framework.
-5. [ ] **`import-linter` bloccante** su tutto il pacchetto.
-6. [ ] **Piramide dei test**: nuovi test sulle regole pure. I test di flusso restano: sono la rete del refactor.
-7. [ ] **E2 dal vivo**, solo su richiesta di Andrea, tetto 10 $. Copre il rework.
+1. [ ] **Cicli**: spezzare quello tra `qa` e `tools`, l'unico rimasto tra i pacchetti di `agency`, insieme al montaggio QA
+   della sandbox (STR-004). Quello tra `agents` e `tools` l'ha tolto l'audit (`73881ee`).
+2. [ ] **`tools/surface.py`**: 1.130 righe dopo l'audit, divise per slice una alla volta (SIM-012).
+3. [ ] **`graph/workflow.py`**: i nodi passano alle slice, `process` compone il grafo. `build` ha complessità McCabe 63
+   (SIM-012), e l'import di `langchain_core` passa al livello del processo (SIM-004).
+4. [ ] **Dominio e applicazione**: regole pure, casi d'uso e porte fuori dai framework. La CLI passa in `entrypoints/cli/`
+   con il suo renderer, che oggi sta in `telemetry` (STR-007).
+5. [ ] **`import-linter` bloccante** su tutto il pacchetto, con le regole di ADR-0021 ancora mancanti: `langgraph` solo nel
+   processo e nei nodi, il registro solo dietro la sua porta (STR-003).
+6. [ ] **Piramide dei test**: nuovi test sulle regole pure. I test di flusso restano: sono la rete del refactor. I quattro file
+   di test sopra le 500 righe e `globals.css` si dividono con le slice (STR-013).
+7. [ ] **E2**, solo su richiesta di Andrea, tetto 10 $. Copre il rework. Dal vivo alla fine, oppure registrato prima del punto 2,
+   secondo la decisione qui sopra.
 
 ### Criteri di uscita
 
@@ -419,9 +437,141 @@ Viene dopo `merlo4`, così il comportamento del motore è misurato prima di tocc
 - [ ] Gli snapshot di strumenti e system prompt sono identici a quelli di M1.6
 - [ ] I test di flusso passano con le sole modifiche agli import
 - [ ] Dominio e applicazione non importano framework (`import-linter`)
-- [ ] E2: hit rate della cache e contesto fisso non peggiori di `merlo4`, letti nel cruscotto
+- [ ] E2: hit rate della cache e contesto fisso non peggiori di `merlo3`, l'ultima esecuzione misurata, letti nel cruscotto
 
-**Fuori da M1.7:** ruoli nuovi, comandi dal cruscotto, multi-tenancy.
+**Fuori da M1.7:** ruoli nuovi, comandi dal cruscotto, multi-tenancy, il quality gate (M1.8).
+
+---
+
+## M1.8 — Quality gate di Python
+
+**Domanda a cui rispondere:** un solo comando può dire se il Python che cambia è pulito, provato e senza scorciatoie, prima che
+M2 porti sul motore il resto dello studio?
+
+Lo stato finale è nella [specifica](quality-gate/SPEC.md): cinque proprietà, P1–P5, e i criteri di accettazione A1–A9. La
+specifica non dà l'ordine di costruzione, lo dà questa roadmap. Il codice esistente non si sistema in blocco: chi tocca un file
+lo ripulisce tutto, e così il repository va verso `full` verde. Motivi e conflitti con le decisioni già prese in
+[ADR-0055](adr/0055-il-quality-gate-prima-di-merlo4.md).
+
+### Parametri proposti
+
+I parametri della §2 della specifica, da confermare al punto 1.
+
+| Parametro | Valore proposto | Da dove |
+|---|---|---|
+| `<RUNNER>` | `uv run` | `CLAUDE.md` |
+| `<ENV_PY>` | `.venv/bin/python` | uv |
+| `<PY>` | `3.13` | `requires-python`; `.python-version` fissa 3.13.15 |
+| `<PKGS>` | `agency`, in `src/agency` | `pyproject.toml` |
+| `<TESTS>` | `tests` | `pyproject.toml` |
+| `<BASE_BRANCH>` | nessuno finché non c'è un remoto | ADR-0051 |
+| `<T_SUITE>` | da misurare con `coverage run`. Senza, pytest dura 84,6 s dentro `make check` | `docs/audit/99-result.md` |
+
+### Decisioni da prendere prima di scrivere il gate
+
+- **D1–D5 della specifica (§3).**
+  - D1: pyright va sostituito da basedpyright. Ruff oggi usa sette famiglie di regole e righe da 110. `[tool.pytest.ini_options]`
+    diventa `[tool.pytest]`, con pytest 9.
+  - D2: i cinque contratti di import-linter di oggi reggono già.
+  - D3: la CI aspetta il remoto.
+  - D4: i candidati sono `legacy/` e `src/agency/qa/scripts/`.
+- **I conflitti di ADR-0055.** Vanno decisi:
+  - il pre-commit contro `.githooks/` (ADR-0051);
+  - `task check` e i test che lo fissano;
+  - la quarantena di ADR-0006;
+  - la risposta a Q14 dell'audit;
+  - `.claude/` ignorata da git;
+  - la memoria in `~/.claude/`;
+  - l'ambiente della sandbox;
+  - le prove saltate.
+
+### Lavoro, in ordine
+
+Il gate si costruisce in una sessione di manutenzione con gli hook spenti, perché il guard vieta di scrivere in `quality_gate/`.
+Gli hook si accendono per ultimi. Il blocco della configurazione lo genera Andrea dal suo terminale.
+
+1. [ ] **Parametri, decisioni e ADR**: parametri confermati, D1–D5 decise, un ADR per ogni decisione accettata che cambia.
+2. [ ] **Dipendenze**: il gruppo `quality` pinnato con `==` dentro la quarantena (ADR-0006), il lock aggiornato. Si tolgono gli
+   strumenti che il gate sostituisce (D1).
+3. [ ] **Configurazione**: le tabelle della §6 in `pyproject.toml` e `.flake8`, con le sole eccezioni della §6.10.
+4. [ ] **Nucleo**: modi `file`, `changed` e `full`, scoperta dei file, esecuzione e rapporto, con i controlli per file (§7). Solo
+   `execution.py` lancia processi.
+5. [ ] **Controlli di progetto**: contratti, codice morto, dipendenze, duplicazione, test, copertura e copertura delle righe
+   cambiate, con i filtri del ratchet (§7.5).
+6. [ ] **Anti-aggiramento**: soppressioni, configurazioni ombra, blocco della configurazione e modo `lock`, integrità di hook,
+   versioni e test (§8).
+7. [ ] **`BASELINE.md`**: conteggi e durate iniziali di `full`, regole più frequenti, copertura di oggi, contratti attivi e in
+   attesa, eccezioni.
+8. [ ] **Collegamenti**: l'hook di commit, secondo la decisione su ADR-0051. Gli alias `gate`, `gate-full`, `gate-mutation` e
+   `gate-lock` nel Taskfile, con gli alias `make`. La parte Python di `task check` passa dal gate.
+9. [ ] **Il gate rispetta se stesso**: zero violazioni, rami coperti al 100% e mutation ≥ 90% su `quality_gate/` (P5).
+10. [ ] **Hook di Claude Code e regole degli agenti**: `.claude/settings.json`, `AGENTS.md`, `@AGENTS.md` in `CLAUDE.md` (§9,
+    §10.4).
+11. [ ] **Prove**: canarini, hook con JSON di esempio, tempi e pulizia (A4–A7). In `DEVIATIONS.md` ogni differenza dalla
+    specifica, con la sua prova.
+12. [ ] **Blocco**: Andrea genera `config.lock` con `make gate-lock` dal suo terminale, poi fa il commit con
+    `QUALITY_GATE_LOCK_CHANGE_OK=1 git commit`.
+
+### Criteri di uscita
+
+Sono i criteri della §11 della specifica, ognuno con la sua prova.
+
+- [ ] A1: ogni pacchetto della §5 pinnato con `==`, lock aggiornato, `tool-versions` passa
+- [ ] A2: `full` esegue tutti i controlli ed esce 1 sul codice di oggi; `changed` su un albero pulito esce 0
+- [ ] A3: `quality_gate/` senza violazioni, con righe e rami coperti al 100% e mutation sopra la soglia
+- [ ] A4: ogni canarino della §11 fa fallire il suo controllo
+- [ ] A5: ogni ingresso degli hook dà l'esito atteso
+- [ ] A6: `hook guard` ≤ 300 ms, `file` ≤ 15 s, `staged` su 10 file ≤ 30 s, `changed` ≤ `<T_SUITE>` + 60 s
+- [ ] A7: nessun canarino rimasto, nessun file applicativo o di test cambiato oltre le eccezioni decise al punto 1
+- [ ] A8: `config.lock` generato da Andrea, `config-lock` passa
+- [ ] A9: `DEVIATIONS.md` e `BASELINE.md` completi
+
+**Fuori da M1.8:** ripulire il codice esistente, la CI (aspetta il remoto), regole di qualità per TypeScript (DX-008 dell'audit:
+un ADR a parte).
+
+---
+
+## M1.9 — Prova reale
+
+**Domanda a cui rispondere:** il motore diviso in slice e sotto il gate lavora almeno come `merlo3`, e come la CLI, spendendo
+meno?
+
+Sono le prove dal vivo di M1.6, spostate dopo M1.7 e M1.8 ([ADR-0055](adr/0055-il-quality-gate-prima-di-merlo4.md)). Una prova
+dal vivo parte solo su richiesta di Andrea.
+
+### Lavoro, in ordine
+
+1. [ ] **`merlo4`**: brief E1 dal vivo, tetto 30 $. Prima esecuzione con impronta, e con ADR-0017 e ADR-0018 attivi
+   dall'inizio. Con i costi di `merlo3` il tetto è stretto: si rivede prima di partire. È una prova sola, quindi il risultato è
+   indicativo: le 3 prove di `07-EVALS.md` costerebbero circa 100 $.
+   - [x] Preparato il 2026-11-03, senza spesa. Il brief è identico a quello di `merlo` e `merlo3`. Il tetto si dichiara per forza
+     all'avvio ([ADR-0043](adr/0043-il-tetto-si-dichiara-all-avvio.md)): l'ambiente di Andrea ne dava uno di 40 $.
+   - [x] Il segno da battere è quello di `merlo3` ([ADR-0042](adr/0042-il-riferimento-di-qualita-e-merlo3.md)).
+   - [ ] Preparazione da rifare dopo M1.8. `agency doctor` deve passare. L'impronta di partenza cambia, perché cambia il codice:
+     quella del 2026-11-03 era 5 esploratori, effort `high` e `vectorcraft-cli` 0.18.0. Il registro vero è già alla revisione
+     0009, letta il 2026-11-13.
+   - [ ] Avvio, da Andrea, con il tetto che dichiara: `uv run agency run merlo4 evals/briefs/E1.md --budget <usd> --record`
+   - [ ] Gate `concept` e gate `final` decisi da Andrea, con `agency decide merlo4`
+   - [ ] Giudizio alla cieca del segno finale contro quello di `merlo3`, e lettura per intero nel cruscotto
+2. [ ] **Confronto con la CLI** sullo stesso brief. Questa prova ha un tetto proprio, da dichiarare prima di partire.
+
+### Criteri di uscita
+
+- [ ] `merlo4` è arrivato al gate `final` ed è stato letto per intero nel cruscotto
+- [ ] Il TTFT si legge dal vivo in `usage`: in M1.6 i test lo misuravano su uno stream simulato
+
+**Ereditati da M1, M1.5 e M1.6:**
+
+- [ ] Stesso brief su CLI e harness: qualità non inferiore alla cieca
+- [ ] Stesso brief su CLI e harness: costo inferiore
+- [ ] Presentazione pronta entro 45 minuti e 12 $, con 2 o 3 proposte confrontabili
+- [ ] Lavoro completo fino al gate `final` entro 22 $
+
+La qualità decide se si prosegue: se risulta inferiore alla CLI vale ancora la regola di M1, ci si ferma e si capisce perché. Gli
+obiettivi di costo, compreso il confronto con la CLI, si misurano su `merlo4`: se restano lontani non bloccano M2, e si affrontano
+con il contesto delle istanze lunghe, il primo lavoro di M2.
+
+**Fuori da M1.9:** le 3 prove per brief di `07-EVALS.md`. Una prova sola dà un risultato indicativo.
 
 ---
 
@@ -429,7 +579,7 @@ Viene dopo `merlo4`, così il comportamento del motore è misurato prima di tocc
 
 **Domanda:** tutto ciò che lo studio sapeva fare esiste ancora?
 
-Si costruisce sulle slice di M1.7.
+Si costruisce sulle slice di M1.7, sotto il gate di M1.8, dopo la prova reale di M1.9.
 
 1. Ruoli (25) e skill (33) in `prompts/`, ripuliti di ciò che ora impone il sistema.
 2. Grafo completo con rami S/M/L e tutti i gate del cliente.
@@ -567,5 +717,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 13 di M1.6, senza spesa: il cruscotto Next.js in `web/`, con le sei viste e le difese di ADR-0024, che legge tutto
-dall'API Django. Dopo M1.7, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+Il punto 1 di M1.7, senza spesa: spezzare il ciclo tra `qa` e `tools`. Prima del punto 2 Andrea decide il golden master del
+refactor. Dopo M1.9, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.

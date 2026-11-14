@@ -1,5 +1,9 @@
 # Sanity refactor: implementation plan
 
+**Status (2026-11-13): done.** `audit/deep-review` is merged into `main` as `ceec412`. The real registry has since been
+migrated to revision 0009. What stays open is in `99-result.md` §5. The findings deferred to M1.7 are items of M1.7 in
+`docs/02-ROADMAP.md`, and ADR-0055 lists where the M1.8 quality gate meets the audit's decisions.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task by task. Each task has one checkbox. Tick it in the same unit
 > that completes the task.

@@ -4,7 +4,7 @@ Tutto ciò che esiste nel setup Claude Code v1 (`legacy/claude-code-v1/`) e dove
 M2 si chiude solo quando ogni riga è `fatto` o `dismesso` con il motivo. `tests/test_registry.py` fallisce se un elemento del backup manca da qui.
 
 Legenda stato: `da portare`, `in corso`, `fatto`, `dismesso`. `fatto` vuol dire che esiste e che un test o una prova reale lo
-verifica. Riallineata il 2026-11-01, prima di M2.
+verifica. Riallineata il 2026-11-01, prima di M2, e il 2026-11-13 dopo l'audit deep-review.
 
 ## Ruoli
 
@@ -84,7 +84,7 @@ Restano Markdown versionati: il gateway le carica a richiesta.
 | `budget.py` | `agency.gateway.client`: l'unico vincolo è il budget del cliente (ADR-0015, ADR-0016) | M1 | fatto |
 | `client.py` | `agency.graph.gates`, `agency.ledger` | M2 | da portare |
 | `contract_lint.py` | `agency.qa` | M2 | da portare |
-| `craft-guard.py` | `agency.tools.surface`: oggi il set dipende dalla fase, il campo `craft` dei ruoli va applicato | M2 | in corso |
+| `craft-guard.py` | `agency.tools.surface`: il campo `craft` dei ruoli è applicato (`tests/test_registry.py`); manca un `app` per strumento, quando arrivano gli altri Craft | M2 | in corso |
 | `craft_lock.py` | `agency.tools.craft` (sostituito da istanze per lavoro, se il collaudo regge) | M3 | da portare |
 | `eval_kit.py` | `evals/` | M2 | da portare |
 | `evidence.py` | `agency.qa.evidence` | M1 | fatto |

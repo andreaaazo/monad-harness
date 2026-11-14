@@ -20,7 +20,7 @@ from PIL import Image
 
 from agency import cli
 from agency.agents.loop import CLOSING, AgentRunner, _after_fallback
-from agency.agents.toolbox import TOOLS, Toolbox, ToolContext, tools_for
+from agency.agents.toolbox import TOOLS, Toolbox, tools_for
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
@@ -37,6 +37,7 @@ from agency.ledger.models import ConceptRow, DerivationRow, EvidenceRow
 from agency.qa import checks
 from agency.qa.checks import CheckOutcome
 from agency.runtime import open_session
+from agency.toolkit.base import ToolContext
 from agency.workshop import craft, master
 from agency.workshop.craft import Command, CommandIndex
 from agency.workshop.files import sha256_under

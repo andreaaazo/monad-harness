@@ -19,9 +19,8 @@ from PIL import Image
 from pydantic import ValidationError
 
 from agency import cli
-from agency.agents import toolbox
 from agency.agents.loop import AgentRunner
-from agency.agents.toolbox import TOOLS, Toolbox, ToolContext, role_tools
+from agency.agents.toolbox import TOOLS, Toolbox, role_tools
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.config import Settings
@@ -40,6 +39,8 @@ from agency.ledger.models import ArtifactRow, ConceptRow, EvidenceRow, JudgmentR
 from agency.qa import checks as qa
 from agency.qa import delivery, evidence
 from agency.telemetry import report
+from agency.toolkit.base import ToolContext
+from agency.toolkit.review import _seen_proof
 from agency.workshop import craft
 from agency.workshop.craft import Command, CommandIndex
 from agency.workshop.files import OutsidePerimeter, is_file_under
@@ -2026,7 +2027,7 @@ def test_a_proof_that_became_a_link_is_not_the_version_that_was_seen(tmp_path: P
     ctx = seen_image(tmp_path, where)
 
     with pytest.raises(OutsidePerimeter):
-        toolbox._seen_proof(ctx, "segno.png")
+        _seen_proof(ctx, "segno.png")
 
 
 @WHERE

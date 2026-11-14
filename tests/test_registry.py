@@ -8,11 +8,12 @@ import pytest
 from pydantic import ValidationError
 
 from agency import registry
-from agency.agents.toolbox import TOOLS, Toolbox, ToolContext, role_tools, tools_for
+from agency.agents.toolbox import TOOLS, Toolbox, role_tools, tools_for
 from agency.artifacts import FileStore
 from agency.contracts.registry import read_checks, read_org, read_roles
 from agency.contracts.ticket import Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
+from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.sandbox import Sandbox
 

@@ -93,7 +93,7 @@ Restano Markdown versionati: il gateway le carica a richiesta.
 | `isolation-guard.py` | `bwrap`: ogni esploratore monta solo la propria cartella | M2 | in corso |
 | `master.py` | `agency.workshop.master` | M2 | in corso |
 | `node` | `agency.workshop.node` | M2 | da portare |
-| `observe-reminder.py` | `agency.agents.toolbox`: niente giudizio senza un'immagine guardata | M1 | fatto |
+| `observe-reminder.py` | `agency.toolkit.review`: niente giudizio senza un'immagine guardata | M1 | fatto |
 | `py` | dismesso: `uv run` | M0 | dismesso |
 | `render.py` | `agency.workshop.render` | M2 | in corso |
 | `render_web.mjs` | `agency.workshop.render` | M2 | da portare |

@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from agency.agents.toolbox import Toolbox, ToolContext, role_tools
+from agency.agents.toolbox import Toolbox, role_tools
 from agency.artifacts import FileStore
 from agency.config import REPO_ROOT
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType, Verdict
@@ -21,6 +21,7 @@ from agency.ledger import Ledger
 from agency.ledger.models import DerivationRow
 from agency.ledger.store import now
 from agency.qa import checks, delivery, evidence
+from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.files import OutsidePerimeter, sha256
 from agency.workshop.sandbox import Completed, Sandbox

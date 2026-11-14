@@ -38,6 +38,8 @@ from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
 from agency.qa import delivery
 from agency.runtime import Session
+from agency.toolkit import files as file_tools
+from agency.toolkit.base import ToolContext
 from agency.workshop import board, craft, files, presentation, render
 from agency.workshop.craft import Command, CommandIndex
 from agency.workshop.files import OutsidePerimeter
@@ -171,9 +173,9 @@ def shows_red(data: bytes) -> bool:
     return RED in {color for _, color in rgb.getcolors(rgb.width * rgb.height) or []}
 
 
-def tool_context(work: Path) -> toolbox.ToolContext:
+def tool_context(work: Path) -> ToolContext:
     ledger, store = Ledger(work.parent / "l.sqlite"), FileStore(work.parent / "artifacts")
-    return toolbox.ToolContext("critic", "p", "T-1", "i", ledger, Sandbox(work), CommandIndex([]), store)
+    return ToolContext("critic", "p", "T-1", "i", ledger, Sandbox(work), CommandIndex([]), store)
 
 
 def rendering(work: Path, host: Path) -> Read:
@@ -185,7 +187,7 @@ def rendering(work: Path, host: Path) -> Read:
 def viewing(work: Path, host: Path) -> Read:
     (work / "segno.png").symlink_to(host / "secret.png")
     ctx = tool_context(work)
-    return lambda: toolbox.view_image(ctx, toolbox.ViewImage(path="segno.png"), "op1")
+    return lambda: file_tools.view_image(ctx, file_tools.ViewImage(path="segno.png"), "op1")
 
 
 def presenting(work: Path, host: Path) -> Read:
@@ -958,7 +960,7 @@ def test_read_under_with_a_limit_reads_one_byte_past_it_and_no_more(
 
 def test_the_named_limits() -> None:
     assert files.MAX_TEXT_FILE_BYTES == 8 * 2**20
-    assert files.MAX_IMAGE_FILE_BYTES == 64 * 2**20 == toolbox.MAX_IMAGE_FILE_BYTES
+    assert files.MAX_IMAGE_FILE_BYTES == 64 * 2**20 == file_tools.MAX_IMAGE_FILE_BYTES
     assert files.MAX_DOCUMENT_BYTES == 256 * 2**20
     for name in ("MAX_TEXT_FILE_BYTES", "MAX_IMAGE_FILE_BYTES", "MAX_DOCUMENT_BYTES"):
         assert getattr(contract_files, name) == getattr(files, name)  # the tools module re-exports them
@@ -979,7 +981,7 @@ def test_read_file_refuses_a_text_file_over_the_limit(tmp_path: Path) -> None:
     ctx = tool_context(work)
     sparse(work / "note.txt", over(files.MAX_TEXT_FILE_BYTES))
     with pytest.raises(OutsidePerimeter, match=TEXT_REFUSAL):
-        toolbox.read_file(ctx, toolbox.ReadFile(path="note.txt"), "op1")
+        file_tools.read_file(ctx, file_tools.ReadFile(path="note.txt"), "op1")
 
 
 def test_read_file_reads_a_text_file_of_exactly_the_limit(tmp_path: Path) -> None:
@@ -987,12 +989,12 @@ def test_read_file_reads_a_text_file_of_exactly_the_limit(tmp_path: Path) -> Non
     work.mkdir()
     ctx = tool_context(work)
     sparse(work / "note.txt", files.MAX_TEXT_FILE_BYTES)
-    assert toolbox.read_file(ctx, toolbox.ReadFile(path="note.txt"), "op1")["lines"] == 1
+    assert file_tools.read_file(ctx, file_tools.ReadFile(path="note.txt"), "op1")["lines"] == 1
     (work / "piccolo.txt").write_text("uno\ndue\n", encoding="utf-8")
-    assert toolbox.read_file(ctx, toolbox.ReadFile(path="piccolo.txt"), "op1")["text"] == "uno\ndue"
+    assert file_tools.read_file(ctx, file_tools.ReadFile(path="piccolo.txt"), "op1")["text"] == "uno\ndue"
 
 
-def drafted(work: Path) -> toolbox.ToolContext:
+def drafted(work: Path) -> ToolContext:
     """A context whose last draft made one page, that this instance has looked at."""
     ctx = tool_context(work)
     page = f"{presentation.folder_of(1)}/pagina-1.png"

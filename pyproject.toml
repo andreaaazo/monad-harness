@@ -92,6 +92,7 @@ forbidden_modules = [
   "agency.registry",
   "agency.runtime",
   "agency.telemetry",
+  "agency.toolkit",
   "agency.workshop",
   "alembic",
   "anthropic",
@@ -121,6 +122,7 @@ source_modules = [
   "agency.registry",
   "agency.runtime",
   "agency.telemetry",
+  "agency.toolkit",
   "agency.workshop",
 ]
 forbidden_modules = ["django", "ninja", "agency.entrypoints"]
@@ -144,6 +146,7 @@ forbidden_modules = [
   "agency.registry",
   "agency.runtime",
   "agency.telemetry",
+  "agency.toolkit",
   "agency.workshop",
   "alembic",
   "anthropic",
@@ -171,6 +174,7 @@ forbidden_modules = [
   "agency.registry",
   "agency.runtime",
   "agency.telemetry",
+  "agency.toolkit",
   "agency.workshop",
   "alembic",
   "anthropic",
@@ -200,6 +204,7 @@ source_modules = [
   "agency.registry",
   "agency.runtime",
   "agency.telemetry",
+  "agency.toolkit",
   "agency.workshop",
 ]
 forbidden_modules = ["anthropic"]

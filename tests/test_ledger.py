@@ -11,11 +11,11 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from agency import cli
+from agency.agents.toolbox import Toolbox, ToolContext
 from agency.artifacts import FileStore
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.ledger import ForbiddenAction, IllegalTransition, Ledger, chain, store
 from agency.ledger.models import ConceptRow, EvidenceRow, GateRow, TicketRow, UsageRow
-from agency.tools import surface
 from agency.tools.craft import CommandIndex
 from agency.tools.sandbox import Sandbox
 
@@ -872,10 +872,10 @@ def test_a_replayed_view_image_shows_the_image_and_keeps_the_first_record(
     work.mkdir()
     Image.new("RGB", (40, 40), (200, 0, 0)).save(work / "a.png")
     ledger = Ledger(tmp_path / "ledger.sqlite")
-    context = surface.ToolContext(
+    context = ToolContext(
         "critic", "p", "T-1", "i", ledger, Sandbox(work), CommandIndex([]), FileStore(tmp_path / "artifacts")
     )
-    toolbox = surface.Toolbox(context)
+    toolbox = Toolbox(context)
     first = toolbox.call("t1", "view_image", {"path": "a.png"})
     record = [row.model_dump() for row in ledger.operations("i")]
 

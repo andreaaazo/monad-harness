@@ -84,7 +84,7 @@ Restano Markdown versionati: il gateway le carica a richiesta.
 | `budget.py` | `agency.gateway.client`: l'unico vincolo è il budget del cliente (ADR-0015, ADR-0016) | M1 | fatto |
 | `client.py` | `agency.graph.gates`, `agency.ledger` | M2 | da portare |
 | `contract_lint.py` | `agency.qa` | M2 | da portare |
-| `craft-guard.py` | `agency.tools.surface`: il campo `craft` dei ruoli è applicato (`tests/test_registry.py`); manca un `app` per strumento, quando arrivano gli altri Craft | M2 | in corso |
+| `craft-guard.py` | `agency.agents.toolbox`: il campo `craft` dei ruoli è applicato (`tests/test_registry.py`); manca un `app` per strumento, quando arrivano gli altri Craft | M2 | in corso |
 | `craft_lock.py` | `agency.tools.craft` (sostituito da istanze per lavoro, se il collaudo regge) | M3 | da portare |
 | `eval_kit.py` | `evals/` | M2 | da portare |
 | `evidence.py` | `agency.qa.evidence` | M1 | fatto |
@@ -93,7 +93,7 @@ Restano Markdown versionati: il gateway le carica a richiesta.
 | `isolation-guard.py` | `bwrap`: ogni esploratore monta solo la propria cartella | M2 | in corso |
 | `master.py` | `agency.tools.master` | M2 | in corso |
 | `node` | `agency.tools.node` | M2 | da portare |
-| `observe-reminder.py` | `agency.tools.surface`: niente giudizio senza un'immagine guardata | M1 | fatto |
+| `observe-reminder.py` | `agency.agents.toolbox`: niente giudizio senza un'immagine guardata | M1 | fatto |
 | `py` | dismesso: `uv run` | M0 | dismesso |
 | `render.py` | `agency.tools.render` | M2 | in corso |
 | `render_web.mjs` | `agency.tools.render` | M2 | da portare |

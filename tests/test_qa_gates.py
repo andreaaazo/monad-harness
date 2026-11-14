@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from agency.agents.toolbox import Toolbox, ToolContext, role_tools
 from agency.artifacts import FileStore
 from agency.config import REPO_ROOT
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType, Verdict
@@ -23,7 +24,6 @@ from agency.qa import checks, delivery, evidence
 from agency.tools.craft import CommandIndex
 from agency.tools.files import OutsidePerimeter, sha256
 from agency.tools.sandbox import Completed, Sandbox
-from agency.tools.surface import Toolbox, ToolContext, role_tools
 
 needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="needs VectorCraft")
 

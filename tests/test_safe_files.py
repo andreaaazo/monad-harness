@@ -20,7 +20,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from PIL import Image
 
 from agency import runtime
+from agency.agents import toolbox
 from agency.agents.loop import AgentRunner
+from agency.agents.toolbox import PresentConcepts, ProposalText
 from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts import files as contract_files
@@ -36,11 +38,10 @@ from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
 from agency.qa import delivery
 from agency.runtime import Session
-from agency.tools import board, craft, files, presentation, render, surface
+from agency.tools import board, craft, files, presentation, render
 from agency.tools.craft import Command, CommandIndex
 from agency.tools.files import OutsidePerimeter
 from agency.tools.sandbox import JOB, Completed, Sandbox
-from agency.tools.surface import PresentConcepts, ProposalText
 
 Use = Callable[[Path, str], object]
 
@@ -170,9 +171,9 @@ def shows_red(data: bytes) -> bool:
     return RED in {color for _, color in rgb.getcolors(rgb.width * rgb.height) or []}
 
 
-def tool_context(work: Path) -> surface.ToolContext:
+def tool_context(work: Path) -> toolbox.ToolContext:
     ledger, store = Ledger(work.parent / "l.sqlite"), FileStore(work.parent / "artifacts")
-    return surface.ToolContext("critic", "p", "T-1", "i", ledger, Sandbox(work), CommandIndex([]), store)
+    return toolbox.ToolContext("critic", "p", "T-1", "i", ledger, Sandbox(work), CommandIndex([]), store)
 
 
 def rendering(work: Path, host: Path) -> Read:
@@ -184,7 +185,7 @@ def rendering(work: Path, host: Path) -> Read:
 def viewing(work: Path, host: Path) -> Read:
     (work / "segno.png").symlink_to(host / "secret.png")
     ctx = tool_context(work)
-    return lambda: surface.view_image(ctx, surface.ViewImage(path="segno.png"), "op1")
+    return lambda: toolbox.view_image(ctx, toolbox.ViewImage(path="segno.png"), "op1")
 
 
 def presenting(work: Path, host: Path) -> Read:
@@ -957,7 +958,7 @@ def test_read_under_with_a_limit_reads_one_byte_past_it_and_no_more(
 
 def test_the_named_limits() -> None:
     assert files.MAX_TEXT_FILE_BYTES == 8 * 2**20
-    assert files.MAX_IMAGE_FILE_BYTES == 64 * 2**20 == surface.MAX_IMAGE_FILE_BYTES
+    assert files.MAX_IMAGE_FILE_BYTES == 64 * 2**20 == toolbox.MAX_IMAGE_FILE_BYTES
     assert files.MAX_DOCUMENT_BYTES == 256 * 2**20
     for name in ("MAX_TEXT_FILE_BYTES", "MAX_IMAGE_FILE_BYTES", "MAX_DOCUMENT_BYTES"):
         assert getattr(contract_files, name) == getattr(files, name)  # the tools module re-exports them
@@ -978,7 +979,7 @@ def test_read_file_refuses_a_text_file_over_the_limit(tmp_path: Path) -> None:
     ctx = tool_context(work)
     sparse(work / "note.txt", over(files.MAX_TEXT_FILE_BYTES))
     with pytest.raises(OutsidePerimeter, match=TEXT_REFUSAL):
-        surface.read_file(ctx, surface.ReadFile(path="note.txt"), "op1")
+        toolbox.read_file(ctx, toolbox.ReadFile(path="note.txt"), "op1")
 
 
 def test_read_file_reads_a_text_file_of_exactly_the_limit(tmp_path: Path) -> None:
@@ -986,12 +987,12 @@ def test_read_file_reads_a_text_file_of_exactly_the_limit(tmp_path: Path) -> Non
     work.mkdir()
     ctx = tool_context(work)
     sparse(work / "note.txt", files.MAX_TEXT_FILE_BYTES)
-    assert surface.read_file(ctx, surface.ReadFile(path="note.txt"), "op1")["lines"] == 1
+    assert toolbox.read_file(ctx, toolbox.ReadFile(path="note.txt"), "op1")["lines"] == 1
     (work / "piccolo.txt").write_text("uno\ndue\n", encoding="utf-8")
-    assert surface.read_file(ctx, surface.ReadFile(path="piccolo.txt"), "op1")["text"] == "uno\ndue"
+    assert toolbox.read_file(ctx, toolbox.ReadFile(path="piccolo.txt"), "op1")["text"] == "uno\ndue"
 
 
-def drafted(work: Path) -> surface.ToolContext:
+def drafted(work: Path) -> toolbox.ToolContext:
     """A context whose last draft made one page, that this instance has looked at."""
     ctx = tool_context(work)
     page = f"{presentation.folder_of(1)}/pagina-1.png"
@@ -1010,7 +1011,7 @@ def test_present_concepts_refuses_a_draft_over_the_limit(tmp_path: Path) -> None
     ctx = drafted(work)
     sparse(work / presentation.folder_of(1) / "testi.json", over(files.MAX_TEXT_FILE_BYTES))
     with pytest.raises(OutsidePerimeter, match=TEXT_REFUSAL):
-        surface.present_concepts(ctx, surface.ConfirmPresentation(), "op3")
+        toolbox.present_concepts(ctx, toolbox.ConfirmPresentation(), "op3")
     assert ctx.finished is None
 
 
@@ -1019,7 +1020,7 @@ def test_present_concepts_reads_a_small_draft(tmp_path: Path) -> None:
     work.mkdir()
     ctx = drafted(work)
     (work / presentation.folder_of(1) / "testi.json").write_text('{"proposals": []}', encoding="utf-8")
-    assert surface.present_concepts(ctx, surface.ConfirmPresentation(), "op3") == {"proposals": []}
+    assert toolbox.present_concepts(ctx, toolbox.ConfirmPresentation(), "op3") == {"proposals": []}
 
 
 class ExportingSandbox(Sandbox):

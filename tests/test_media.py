@@ -8,11 +8,11 @@ from pathlib import Path
 import pytest
 from PIL import EpsImagePlugin, Image, UnidentifiedImageError
 
+from agency.agents.toolbox import Toolbox, ToolContext
 from agency.artifacts import FileStore
 from agency.ledger import Ledger
 from agency.tools.craft import CommandIndex
 from agency.tools.sandbox import Sandbox
-from agency.tools.surface import Toolbox, ToolContext
 
 EPS = b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n"
 

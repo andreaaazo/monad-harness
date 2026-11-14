@@ -33,7 +33,7 @@ master. Le consegne si esportano dal master.
 
 ## Strumenti per gli agenti
 
-Set fisso per ruolo, definito in `agency.tools`.
+Set fisso per ruolo, definito in `agency.agents.toolbox`.
 
 | Strumento | Ruoli | Scopo |
 |---|---|---|

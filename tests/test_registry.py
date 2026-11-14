@@ -8,13 +8,13 @@ import pytest
 from pydantic import ValidationError
 
 from agency import registry
+from agency.agents.toolbox import TOOLS, Toolbox, ToolContext, role_tools, tools_for
 from agency.artifacts import FileStore
 from agency.contracts.registry import read_checks, read_org, read_roles
 from agency.contracts.ticket import Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.tools.craft import CommandIndex
 from agency.tools.sandbox import Sandbox
-from agency.tools.surface import TOOLS, Toolbox, ToolContext, role_tools, tools_for
 
 ROOT = Path(__file__).resolve().parents[1]
 LEGACY = ROOT / "legacy/claude-code-v1"

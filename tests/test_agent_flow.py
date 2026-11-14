@@ -20,6 +20,7 @@ from PIL import Image
 
 from agency import cli
 from agency.agents.loop import CLOSING, AgentRunner, _after_fallback
+from agency.agents.toolbox import CLOSE_ALWAYS, TOOLS, Toolbox, ToolContext, tools_for
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
@@ -49,7 +50,6 @@ from agency.tools.sandbox import (
     Sandbox,
     SandboxUnavailable,
 )
-from agency.tools.surface import CLOSE_ALWAYS, TOOLS, Toolbox, ToolContext, tools_for
 from support.scripted import ScriptedTransport, turn
 from support.settings import settings
 

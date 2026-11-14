@@ -8,6 +8,7 @@ from opentelemetry import trace
 
 from agency import registry
 from agency.agents import prompts
+from agency.agents.toolbox import Toolbox, ToolContext, tools_for
 from agency.agents.transcript import Transcript
 from agency.config import Settings
 from agency.contracts import phase
@@ -20,7 +21,6 @@ from agency.ledger import IllegalTransition, Ledger
 from agency.tools.craft import CommandIndex
 from agency.tools.files import ensure_dir_under
 from agency.tools.sandbox import Sandbox
-from agency.tools.surface import Toolbox, ToolContext, tools_for
 
 tracer = trace.get_tracer("agency.agents")
 # A turn's output budget. A turn cut off at it is asked again once with the API's ceiling.

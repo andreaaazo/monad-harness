@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from agency import cli
+from agency.agents.toolbox import Toolbox, ToolContext
 from agency.artifacts import FileStore, keeping
 from agency.config import Settings
 from agency.contracts.artifact import ArtifactMissing, Blob, Origin
@@ -17,7 +18,6 @@ from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
 from agency.tools.craft import CommandIndex
 from agency.tools.sandbox import Sandbox
-from agency.tools.surface import Toolbox, ToolContext
 
 
 def sha(data: bytes) -> str:

@@ -12,6 +12,17 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw
 
+from agency.agents.toolbox import (
+    EXPLORE,
+    PLAN,
+    PRESENT,
+    PROPOSAL,
+    SELECT,
+    TOOLS,
+    Toolbox,
+    ToolContext,
+    tools_for,
+)
 from agency.artifacts import FileStore
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import ConceptGate
@@ -29,17 +40,6 @@ from agency.tools import board, presentation
 from agency.tools.craft import CommandIndex
 from agency.tools.files import sha256
 from agency.tools.sandbox import Sandbox
-from agency.tools.surface import (
-    EXPLORE,
-    PLAN,
-    PRESENT,
-    PROPOSAL,
-    SELECT,
-    TOOLS,
-    Toolbox,
-    ToolContext,
-    tools_for,
-)
 from support.concepts import open_idea
 from support.scripted import turn
 from support.settings import settings

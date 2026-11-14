@@ -20,6 +20,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Send, interrupt
 
 from agency.agents.loop import AgentRunner
+from agency.agents.toolbox import PresentConcepts, SelectConcepts
 from agency.config import Settings
 from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.gate import ConceptGate, Decision, FinalGate
@@ -41,7 +42,6 @@ from agency.tools.files import (
     sha256_under,
 )
 from agency.tools.sandbox import Sandbox
-from agency.tools.surface import PresentConcepts, SelectConcepts
 
 
 class ProjectState(TypedDict):

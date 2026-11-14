@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from agency.agents.toolbox import TOOLS, Toolbox, ToolContext
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
 from agency.contracts.gate import GATE, ConceptGate, Decision, FinalGate, GateKind
@@ -17,7 +18,6 @@ from agency.ledger import Ledger
 from agency.runtime import Session
 from agency.tools.craft import CommandIndex
 from agency.tools.sandbox import Sandbox
-from agency.tools.surface import TOOLS, Toolbox, ToolContext
 
 # The payloads as the graph has always written them: a paused checkpoint must still read.
 CONCEPT_PAYLOAD = {

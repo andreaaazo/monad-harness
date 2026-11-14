@@ -26,7 +26,7 @@ IMAGES = (".png", ".jpg", ".jpeg", ".webp")
 RENDERABLE = (*VECTORS, *IMAGES)
 
 
-def _stem(relative: str) -> str:
+def proof_stem(relative: str) -> str:
     return relative.replace("/", "_")
 
 
@@ -54,7 +54,7 @@ def render_one(
     if not source.exists():
         raise FileNotFoundError(relative)
     ensure_dir_under(sandbox.work, PROOFS)
-    proof = f"{PROOFS}/{_stem(relative)}.png"
+    proof = f"{PROOFS}/{proof_stem(relative)}.png"
     extension = source.suffix.lower()
     if extension in VECTORS:
         done = sandbox.run(
@@ -83,7 +83,7 @@ def render_one(
         )
         crop = flat.crop(box)
         crop.thumbnail((DEFAULT_SIZE, DEFAULT_SIZE))
-        zoom_path = f"{PROOFS}/{_stem(relative)}_zoom_{x:.2f}_{y:.2f}_{w:.2f}_{h:.2f}.png"
+        zoom_path = f"{PROOFS}/{proof_stem(relative)}_zoom_{x:.2f}_{y:.2f}_{w:.2f}_{h:.2f}.png"
         _save(crop, sandbox.work, zoom_path)
         proofs.append(zoom_path)
     flat.thumbnail((DEFAULT_SIZE, DEFAULT_SIZE))

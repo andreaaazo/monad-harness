@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import copy
 import io
 import os
 import selectors
@@ -14,7 +15,6 @@ from pathlib import Path
 
 JOB = "/job"
 OPS = "/ops"
-QA_MOUNT = "/opt/agency-qa"
 ETC_ALLOWED = ("/etc/ld.so.cache", "/etc/fonts", "/etc/alternatives", "/etc/ssl", "/etc/mime.types")
 HOME = "/home/studio"
 # Size bounds: of the RAM-backed tmpfs mounts, and of each file a command writes (not of the disk as a whole).
@@ -114,7 +114,16 @@ class Sandbox:
         self.toolchain = toolchain
         self.read_only = read_only
         self.ops = ops
+        self.mounts: tuple[tuple[Path, str], ...] = ()
         self._scope_checked = False
+
+    def with_mount(self, source: Path, target: str) -> Sandbox:
+        """A copy that also binds `source` read-only at `target`. Whoever needs the folder adds it: the QA
+        checks add their scripts, and no other command sees them (ADR-0057). A copy, not a new instance, so a
+        subclass keeps its behaviour and the scope check already done carries over."""
+        mounted = copy.copy(self)
+        mounted.mounts = (*self.mounts, (source, target))
+        return mounted
 
     def argv(self, command: list[str]) -> list[str]:
         """The whole command line: the cgroup scope, bwrap's mounts and namespaces, then `prlimit`."""
@@ -153,12 +162,12 @@ class Sandbox:
         fonts = Path.home() / ".local/share/fonts"
         if fonts.exists():
             args += ["--ro-bind", str(fonts), f"{HOME}/.local/share/fonts"]
-        scripts = Path(__file__).resolve().parents[1] / "qa/scripts"
-        args += ["--ro-bind", str(scripts), QA_MOUNT]
         if self.toolchain and self.toolchain.exists():
             args += ["--ro-bind", str(self.toolchain), str(self.toolchain)]
         for path in self.read_only:
             args += ["--ro-bind", str(path), str(path)]
+        for source, target in self.mounts:
+            args += ["--ro-bind", str(source), target]
         return [*args, "prlimit", f"--fsize={FILE_BYTES}", "--", *command]
 
     def python(self) -> str:

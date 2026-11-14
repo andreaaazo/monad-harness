@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 
 from agency.artifacts import FileStore
+from agency.config import REPO_ROOT
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType, Verdict
 from agency.ledger import Ledger
 from agency.ledger.models import DerivationRow
@@ -598,3 +599,27 @@ def test_an_export_that_is_a_link_is_not_checked_for_its_master(
     asked.clear()
     assert delivery.master_problems(studio.ledger, "p", studio.sandbox, spec, [MASTER, FILE]) == []
     assert asked == []
+
+
+# --- The QA scripts mount (STR-004): qa owns it, and only a check adds it (ADR-0057) ---
+
+
+def test_a_plain_sandbox_does_not_mount_the_qa_scripts(tmp_path: Path) -> None:
+    assert checks.QA_MOUNT not in Sandbox(tmp_path).argv(["true"])
+
+
+def test_a_check_mounts_the_qa_scripts_and_keeps_everything_else(tmp_path: Path) -> None:
+    ops = tmp_path / "ops"
+    plain = Sandbox(tmp_path / "w", toolchain=tmp_path / "t", read_only=(tmp_path,), ops=ops).argv(["true"])
+    mounted = (
+        Sandbox(tmp_path / "w", toolchain=tmp_path / "t", read_only=(tmp_path,), ops=ops)
+        .with_mount(checks.SCRIPTS, checks.QA_MOUNT)
+        .argv(["true"])
+    )
+    at = mounted.index(checks.QA_MOUNT)
+    assert mounted[at - 2 : at + 1] == ["--ro-bind", str(checks.SCRIPTS), checks.QA_MOUNT]
+    assert mounted[: at - 2] + mounted[at + 1 :] == plain
+
+
+def test_the_qa_scripts_are_the_frozen_folder() -> None:
+    assert checks.SCRIPTS == REPO_ROOT / "src/agency/qa/scripts"

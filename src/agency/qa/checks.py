@@ -5,16 +5,20 @@ from __future__ import annotations
 import glob
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from agency.contracts.files import ensure_dir_under, glob_under, is_file_under, sha256_under
 from agency.ledger import Ledger
 from agency.qa import evidence
 from agency.tools import master
 from agency.tools.files import clip
-from agency.tools.render import _stem
-from agency.tools.sandbox import JOB, QA_MOUNT, Sandbox
+from agency.tools.render import proof_stem
+from agency.tools.sandbox import JOB, Sandbox
 
 RUNNABLE = ("master_open", "svg_audit", "svg_parity", "logo_proof", "optical_check")
+# The vendored scripts, mounted read-only only while a check runs (ADR-0057): no other command sees them.
+QA_MOUNT = "/opt/agency-qa"
+SCRIPTS = Path(__file__).resolve().parent / "scripts"
 
 
 @dataclass(frozen=True)
@@ -28,7 +32,8 @@ class CheckOutcome:
 
 
 def _script(sandbox: Sandbox, name: str, *args: str) -> tuple[int, str]:
-    done = sandbox.run([sandbox.python(), f"{QA_MOUNT}/{name}.py", *args], timeout=180)
+    mounted = sandbox.with_mount(SCRIPTS, QA_MOUNT)
+    done = mounted.run([mounted.python(), f"{QA_MOUNT}/{name}.py", *args], timeout=180)
     return done.code, done.output
 
 
@@ -42,7 +47,7 @@ def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
         code, output = _script(sandbox, check, target)
         return CheckOutcome("FAIL" if code else "PASS", clip(output, 1800))
     if check == "optical_check":
-        proof = f"proofs/optical/{_stem(file)}.png"
+        proof = f"proofs/optical/{proof_stem(file)}.png"
         ensure_dir_under(sandbox.work, "proofs/optical")
         code, output = _script(sandbox, check, target, "--out", f"{JOB}/{proof}")
         if code:  # a measurement that failed is not a proof
@@ -50,7 +55,7 @@ def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
         # It is a measurement: it says what is there, not that it is right.
         return CheckOutcome("MEASURED", clip(output, 1800), (proof,))
     if check == "logo_proof":
-        folder = f"proofs/logo/{_stem(file)}"
+        folder = f"proofs/logo/{proof_stem(file)}"
         ensure_dir_under(sandbox.work, folder)
         code, output = _script(sandbox, check, "proof", target, "--out", f"{JOB}/{folder}")
         if code:

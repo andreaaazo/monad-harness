@@ -10,7 +10,7 @@ si aggiornano con i dati di M1.
 | M1 | Prova verticale | Un logo S dall'inizio alla fine, confrontato con la CLI | 40 $ | **chiuso**, confronto passato a M1.6 |
 | M1.5 | Esplorazione a schizzi | Idee in parallelo, schizzi veloci, scelta del concetto, poi produzione | 40 $ | **chiuso**, 38,83 $ spesi, criteri non verificati passati a M1.6 e M2 |
 | M1.6 | Misure e cruscotto | Dati confrontabili, `insights`, API Django, cruscotto Next.js | 30 $ | **chiuso**, 0 $ spesi, `merlo4` e confronto con la CLI passati a M1.9 |
-| M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte, E2 dal vivo | 10 $ | prossimo |
+| M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte | 0 $ | prossimo |
 | M1.8 | Quality gate di Python | Un comando decide, niente soppressioni, hook che lo applicano da soli | 0 $ | |
 | M1.9 | Prova reale | `merlo4` misurato e giudicato, confronto con la CLI | 30 $ + CLI | |
 | M2 | Parità | Tutto lo studio, con replay di un'identità | 200 $ | |
@@ -404,16 +404,11 @@ fatti.
 
 **Domanda a cui rispondere:** il motore può crescere fino a tutto lo studio senza che ogni ruolo nuovo tocchi gli stessi file?
 
-Viene prima di `merlo4`, che passa a M1.9 ([ADR-0055](adr/0055-il-quality-gate-prima-di-merlo4.md)). Una misura dal vivo
-prima del refactor non c'è. Il comportamento del motore lo fissano gli snapshot di strumenti e system prompt e i test di flusso
-con risposte registrate. Principi e confini in [ADR-0021](adr/0021-monolite-modulare-a-slice.md). L'audit ha rimandato qui
-alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SUMMARY.md`.
-
-### Decisione da prendere prima del punto 2
-
-**Il golden master.** ADR-0048 voleva la cassetta di `merlo4`, che ora arriva dopo. Andrea sceglie tra due strade (ADR-0055):
-- registrare E2 con `--record` sul motore di oggi, prima del punto 2, e ripeterlo sul motore diviso: costa gli stessi 10 $;
-- tenere come rete snapshot e flussi, ed eseguire E2 dal vivo alla fine.
+Viene prima di `merlo4`, che passa a M1.9 ([ADR-0055](adr/0055-il-quality-gate-prima-di-merlo4.md)). Non ha prove dal vivo, né
+prima né dopo il refactor ([ADR-0056](adr/0056-m1-7-senza-prova-dal-vivo.md)). Il comportamento del motore lo fissano gli
+snapshot di strumenti e system prompt e i test di flusso con risposte registrate. La prima misura dal vivo del motore diviso è
+`merlo4`, in M1.9. Principi e confini in [ADR-0021](adr/0021-monolite-modulare-a-slice.md). L'audit ha rimandato qui alcuni
+problemi trovati; il codice e gli ID sono in `docs/audit/SUMMARY.md`.
 
 ### Lavoro, in ordine
 
@@ -428,8 +423,6 @@ alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SUMMARY.md`.
    processo e nei nodi, il registro solo dietro la sua porta (STR-003).
 6. [ ] **Piramide dei test**: nuovi test sulle regole pure. I test di flusso restano: sono la rete del refactor. I quattro file
    di test sopra le 500 righe e `globals.css` si dividono con le slice (STR-013).
-7. [ ] **E2**, solo su richiesta di Andrea, tetto 10 $. Copre il rework. Dal vivo alla fine, oppure registrato prima del punto 2,
-   secondo la decisione qui sopra.
 
 ### Criteri di uscita
 
@@ -437,7 +430,6 @@ alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SUMMARY.md`.
 - [ ] Gli snapshot di strumenti e system prompt sono identici a quelli di M1.6
 - [ ] I test di flusso passano con le sole modifiche agli import
 - [ ] Dominio e applicazione non importano framework (`import-linter`)
-- [ ] E2: hit rate della cache e contesto fisso non peggiori di `merlo3`, l'ultima esecuzione misurata, letti nel cruscotto
 
 **Fuori da M1.7:** ruoli nuovi, comandi dal cruscotto, multi-tenancy, il quality gate (M1.8).
 
@@ -559,6 +551,8 @@ dal vivo parte solo su richiesta di Andrea.
 
 - [ ] `merlo4` è arrivato al gate `final` ed è stato letto per intero nel cruscotto
 - [ ] Il TTFT si legge dal vivo in `usage`: in M1.6 i test lo misuravano su uno stream simulato
+- [ ] Hit rate della cache e contesto fisso non peggiori di `merlo3`, letti nel cruscotto. Era il criterio di E2 in M1.7
+  ([ADR-0056](adr/0056-m1-7-senza-prova-dal-vivo.md))
 
 **Ereditati da M1, M1.5 e M1.6:**
 
@@ -717,5 +711,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 1 di M1.7, senza spesa: spezzare il ciclo tra `qa` e `tools`. Prima del punto 2 Andrea decide il golden master del
-refactor. Dopo M1.9, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+Il punto 1 di M1.7, senza spesa: spezzare il ciclo tra `qa` e `tools`. Dopo M1.9, M2 parte dal contesto delle istanze lunghe,
+prima dei ruoli.

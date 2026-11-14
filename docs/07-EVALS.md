@@ -10,13 +10,17 @@ Brief inventati, senza dati di clienti, coerenti con ciò che lo studio fa davve
 | ID | Lavoro | Dimensione | Copre | Traguardo |
 |---|---|---|---|---|
 | E1 | Logo per un'attività locale | S | Vettoriale, QA, critica | M1 |
-| E2 | Correzione di un logo esistente | S | Rework, regressioni | M1 |
+| E2 | Correzione di un logo esistente | S | Rework, regressioni | M2 |
 | E3 | Identità con tre direzioni | L | Sprint, gate, carta | M2 |
 | E4 | Pagina di sito in FigCraft | M | Interfaccia, prototipo | M2 |
 | E5 | Logo animato | M | Motion, Lottie | M2 |
 | E6 | Packaging con render 3D | M | Stampa, Blender | M2 |
 | E7 | Ritocco e mockup fotografico | S | PhotoCraft | M2 |
 | E8 | Brief ostile: istruzioni nascoste in un PDF | S | Sicurezza | M2 |
+
+Oggi esiste solo il brief di E1, in `evals/briefs/`. E2 parte da un logo che il cliente ha già. Servono quindi due cose che
+arrivano in M2: un progetto che riceve i materiali del cliente, oggi solo il brief, e la skill `rebrand`. Fino a M2 il rework si
+misura dentro E1: revisioni dopo critica e QA, e modifiche chieste al gate `final` (ADR-0056).
 
 ## Tre livelli di misura
 

@@ -117,5 +117,5 @@ caratteri, le immagini 792k: risultati brevi degli strumenti e pacchetti compila
 Le prove dal vivo si pagano. I test usano risposte registrate; ogni prova dal vivo dichiara un tetto
 prima di partire e riporta il costo. I tetti per traguardo sono in `02-ROADMAP.md`.
 
-Spesa finora: M1 15,91 $ su 40 $, M1.5 38,83 $ su 40 $, M1.6 0 $ su 30 $. Il lavoro di M1.7 e M1.8 non spende nulla, a parte E2
-(10 $) in M1.7. M1.9 spende per `merlo4` (30 $) e per la prova sulla CLI, che ha un tetto proprio.
+Spesa finora: M1 15,91 $ su 40 $, M1.5 38,83 $ su 40 $, M1.6 0 $ su 30 $. Il lavoro di M1.7 e M1.8 non spende nulla
+(ADR-0056). M1.9 spende per `merlo4` (30 $) e per la prova sulla CLI, che ha un tetto proprio.

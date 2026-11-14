@@ -88,7 +88,7 @@ medio 67.111 token. Da qui gli obiettivi di M1.5 in `02-ROADMAP.md`. I valori so
 | Qualità inferiore a Claude Code, che ha anni di messa a punto del loop | Tutto il progetto | Confronto in M1.9 sullo stesso brief, prima di investire nella parità |
 | Costruire infrastruttura invece di design | Mesi senza risultati | Prova verticale subito; ogni traguardo finisce con un lavoro reale. M1.7 e M1.8 non ne hanno uno: M1.9 li chiude con `merlo4`, prima della parità (ADR-0055) |
 | Il SaaS assorbe il lavoro prima che la qualità sia dimostrata | Prodotto solido su un risultato creativo debole | M7 parte solo dopo un cliente reale servito in M6 |
-| Il refactor cambia il motore senza che si veda | Cache invalidata, risultati peggiori | Snapshot di strumenti e prompt e test di flusso con risposte registrate durante M1.7; E2 in M1.7 e `merlo4` in M1.9 lo misurano dal vivo (ADR-0055) |
+| Il refactor cambia il motore senza che si veda | Cache invalidata, risultati peggiori | Snapshot di strumenti e prompt e test di flusso con risposte registrate durante M1.7; `merlo4` in M1.9 lo misura dal vivo contro `merlo3` (ADR-0055, ADR-0056) |
 | Costi di sviluppo fuori controllo | Spesa senza valore | Tetti per traguardo, test con risposte registrate |
 | API e SDK cambiano | Rotture | Un solo gateway da aggiornare; versioni bloccate |
 | Le CLI Craft cambiano | Catalogo e strumenti superati | Indice versionato per CLI, test di contratto |

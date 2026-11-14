@@ -407,8 +407,10 @@ fatti.
 Viene prima di `merlo4`, che passa a M1.9 ([ADR-0055](adr/0055-il-quality-gate-prima-di-merlo4.md)). Non ha prove dal vivo, né
 prima né dopo il refactor ([ADR-0056](adr/0056-m1-7-senza-prova-dal-vivo.md)). Il comportamento del motore lo fissano gli
 snapshot di strumenti e system prompt e i test di flusso con risposte registrate. La prima misura dal vivo del motore diviso è
-`merlo4`, in M1.9. Principi e confini in [ADR-0021](adr/0021-monolite-modulare-a-slice.md). L'audit ha rimandato qui alcuni
-problemi trovati; il codice e gli ID sono in `docs/audit/SUMMARY.md`.
+`merlo4`, in M1.9. Principi e confini in [ADR-0021](adr/0021-monolite-modulare-a-slice.md), l'albero dei pacchetti in
+[ADR-0057](adr/0057-l-albero-dei-pacchetti-del-motore.md). I punti 1–3 seguono il
+[piano](superpowers/plans/2026-11-14-m1-7-slice-architecture.md), i punti 4–6 un secondo piano da scrivere dopo. L'audit ha
+rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SUMMARY.md`.
 
 ### Lavoro, in ordine
 

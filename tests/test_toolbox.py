@@ -7,8 +7,10 @@ plays the same replays through `Toolbox.call`.
 
 from __future__ import annotations
 
-from agency.agents.toolbox import TOOLS, PresentConcepts, ProposalText, SelectConcepts
+from agency.agents.toolbox import TOOLS
 from agency.contracts.outcome import Outcome, OutcomeState
+from agency.studio.presentation.tools import PresentConcepts, ProposalText
+from agency.studio.selection.tools import SelectConcepts
 
 CLOSING = {
     "deliver": OutcomeState.DELIVERED,

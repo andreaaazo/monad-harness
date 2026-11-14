@@ -33,7 +33,8 @@ master. Le consegne si esportano dal master.
 
 ## Strumenti per gli agenti
 
-Set fisso per ruolo, definito in `agency.agents.toolbox`.
+Set fisso per ruolo e per fase, definito in `agency.agents.toolbox`. Gli strumenti condivisi stanno in
+`agency.toolkit`, quelli di ogni fase nella sua slice di `agency.studio` (ADR-0057).
 
 | Strumento | Ruoli | Scopo |
 |---|---|---|

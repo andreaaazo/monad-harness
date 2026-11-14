@@ -418,7 +418,10 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
    della sandbox (STR-004). Quello tra `agents` e `tools` l'ha tolto l'audit (`73881ee`). Fatto il 2026-11-14: gli script
    QA si montano solo nei controlli, gli strumenti degli agenti sono in `agency.agents.toolbox`, e il contratto
    `acyclic_siblings` vieta ogni ciclo in `agency`, a ogni livello. Si rifà con `uv run lint-imports`.
-2. [ ] **`tools/surface.py`**: 1.130 righe dopo l'audit, divise per slice una alla volta (SIM-012).
+2. [x] **`tools/surface.py`**: 1.130 righe dopo l'audit, divise per slice una alla volta (SIM-012). Fatto il 2026-11-14:
+   il kit e gli strumenti condivisi in `agency.toolkit`, quelli di ogni fase nella sua slice di `agency.studio`, catalogo e
+   `Toolbox` in `agency.agents.toolbox` (163 righe). Gli snapshot delle richieste sono identici:
+   `uv run pytest tests/test_request_snapshots.py`.
 3. [ ] **`graph/workflow.py`**: i nodi passano alle slice, `process` compone il grafo. `build` ha complessità McCabe 63
    (SIM-012), e l'import di `langchain_core` passa al livello del processo (SIM-004).
 4. [ ] **Dominio e applicazione**: regole pure, casi d'uso e porte fuori dai framework. La CLI passa in `entrypoints/cli/`

@@ -20,9 +20,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from PIL import Image
 
 from agency import runtime
-from agency.agents import toolbox
 from agency.agents.loop import AgentRunner
-from agency.agents.toolbox import PresentConcepts, ProposalText
 from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts import files as contract_files
@@ -38,6 +36,12 @@ from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
 from agency.qa import delivery
 from agency.runtime import Session
+from agency.studio.presentation.tools import (
+    ConfirmPresentation,
+    PresentConcepts,
+    ProposalText,
+    present_concepts,
+)
 from agency.toolkit import files as file_tools
 from agency.toolkit.base import ToolContext
 from agency.workshop import board, craft, files, presentation, render
@@ -1013,7 +1017,7 @@ def test_present_concepts_refuses_a_draft_over_the_limit(tmp_path: Path) -> None
     ctx = drafted(work)
     sparse(work / presentation.folder_of(1) / "testi.json", over(files.MAX_TEXT_FILE_BYTES))
     with pytest.raises(OutsidePerimeter, match=TEXT_REFUSAL):
-        toolbox.present_concepts(ctx, toolbox.ConfirmPresentation(), "op3")
+        present_concepts(ctx, ConfirmPresentation(), "op3")
     assert ctx.finished is None
 
 
@@ -1022,7 +1026,7 @@ def test_present_concepts_reads_a_small_draft(tmp_path: Path) -> None:
     work.mkdir()
     ctx = drafted(work)
     (work / presentation.folder_of(1) / "testi.json").write_text('{"proposals": []}', encoding="utf-8")
-    assert toolbox.present_concepts(ctx, toolbox.ConfirmPresentation(), "op3") == {"proposals": []}
+    assert present_concepts(ctx, ConfirmPresentation(), "op3") == {"proposals": []}
 
 
 class ExportingSandbox(Sandbox):

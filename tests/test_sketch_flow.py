@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw
 
-from agency.agents.toolbox import EXPLORE, PLAN, PRESENT, PROPOSAL, SELECT, TOOLS, Toolbox, tools_for
+from agency.agents.toolbox import TOOLS, Toolbox, tools_for
 from agency.artifacts import FileStore
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import ConceptGate
@@ -26,6 +26,10 @@ from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
 from agency.qa import delivery
 from agency.runtime import Session, open_session
+from agency.studio.exploration.tools import EXPLORE, PLAN
+from agency.studio.presentation.tools import PRESENT
+from agency.studio.proposal.tools import PROPOSAL
+from agency.studio.selection.tools import SELECT
 from agency.toolkit.base import ToolContext
 from agency.workshop import board, presentation
 from agency.workshop.craft import CommandIndex

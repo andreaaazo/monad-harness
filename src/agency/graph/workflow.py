@@ -20,7 +20,6 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Send, interrupt
 
 from agency.agents.loop import AgentRunner
-from agency.agents.toolbox import PresentConcepts, SelectConcepts
 from agency.config import Settings
 from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.gate import ConceptGate, Decision, FinalGate
@@ -31,6 +30,8 @@ from agency.ledger import Ledger
 from agency.ledger.models import GateRow
 from agency.ledger.store import now
 from agency.qa import delivery
+from agency.studio.presentation.tools import PresentConcepts
+from agency.studio.selection.tools import SelectConcepts
 from agency.workshop import board, presentation
 from agency.workshop.files import (
     MAX_DOCUMENT_BYTES,

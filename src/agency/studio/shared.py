@@ -127,6 +127,11 @@ def copy_capped(work: Path, source: str, target: str, limit: int) -> None:
     replace_under(work, target, read_under(work, source, limit))
 
 
+def proposal_title(anon: str, turn: int) -> str:
+    """A proposal ticket's title: the proposal slice opens it, the presentation finds it by it."""
+    return f"Proposta {anon} r{turn}"
+
+
 def proposal_tickets(crew: Crew, state: ProjectState) -> list[str]:
     suffix = f"r{state['exploration']}"
     return [

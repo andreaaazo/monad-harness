@@ -448,9 +448,10 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
 
 - [ ] `tools/surface.py` non esiste più, e non ci sono cicli tra pacchetti (`make check`)
 - [ ] Gli snapshot di strumenti e system prompt sono identici a quelli di M1.6
-- [ ] I test di flusso passano con le sole modifiche agli import e ai bersagli di `monkeypatch`. Un'eccezione, registrata:
-  `test_agent_flow.py` legge l'insieme degli strumenti che chiudono da `Tool.closes` invece che da `CLOSE_ALWAYS`, perché il
-  refactor ha spostato proprio quel dato; l'asserzione resta la stessa
+- [ ] I test di flusso passano con le sole modifiche agli import, ai bersagli di `monkeypatch` e agli argomenti dei
+  costruttori che rendono esplicita una dipendenza ([ADR-0058](adr/0058-porte-tipi-e-livelli-del-motore.md)). Un'eccezione,
+  registrata: `test_agent_flow.py` legge l'insieme degli strumenti che chiudono da `Tool.closes` invece che da
+  `CLOSE_ALWAYS`, perché il refactor ha spostato proprio quel dato; l'asserzione resta la stessa
 - [ ] Dominio e applicazione non importano framework (`import-linter`)
 - [ ] Fasi, rotte e ruoli sono tipi: nessuna stringa libera e nessun `dict` generico al loro posto
 - [ ] Ogni principio di ADR-0021 è verificato uno per uno, ciascuno con il comando che lo riproduce

@@ -8,12 +8,12 @@ from agency.contracts.gate import Decision, FinalGate
 from agency.contracts.ticket import Action, Status
 from agency.qa import delivery
 from agency.studio.graph import Node
-from agency.studio.shared import Crew, ProjectState
+from agency.studio.shared import Crew, ProjectState, ProjectUpdate
 from agency.workshop.sandbox import Sandbox
 
 
 def client_gate(crew: Crew) -> Node:
-    def node(state: ProjectState) -> dict:
+    def node(state: ProjectState) -> ProjectUpdate:
         root = state["root"]
         gate = FinalGate(ticket=root, files=sorted(crew.ledger.delivered(root)))
         decision = Decision.model_validate(interrupt(gate.model_dump(mode="json")))

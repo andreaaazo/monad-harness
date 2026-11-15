@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from langgraph.graph import END
 from langgraph.types import Send
 
 from agency.contracts.outcome import OutcomeState
 from agency.contracts.ticket import RUNNABLE
-from agency.studio.graph import Node, Router
-from agency.studio.shared import Crew, ProjectState, attempt
+from agency.studio.graph import Node, Router, TaskNode
+from agency.studio.shared import END_ROUTE, Crew, ProjectState, ProjectUpdate, Route, TicketTask, attempt
 
 
 def plan(crew: Crew) -> Node:
-    def node(state: ProjectState) -> dict:
+    def node(state: ProjectState) -> ProjectUpdate:
         turn = state["exploration"] + 1
         note = f"Esploratori disponibili: {crew.settings.explorers}. {state['client_note']}"
         outcome = crew.runner.run(state["root"], turn, note.strip(), mode="plan")
@@ -26,9 +23,9 @@ def plan(crew: Crew) -> Node:
 
 
 def send_explorers(crew: Crew) -> Router:
-    def route(state: ProjectState) -> list[Send] | str:
+    def route(state: ProjectState) -> list[Send] | Route:
         if state["outcome"]:
-            return END
+            return END_ROUTE
         rows = crew.ledger.concepts(state["project"], state["exploration"])
         sends = [
             Send("explore", {"ticket": row.idea_ticket})
@@ -40,8 +37,8 @@ def send_explorers(crew: Crew) -> Router:
     return route
 
 
-def explore(crew: Crew) -> Node:
-    def node(state: Any) -> dict:
+def explore(crew: Crew) -> TaskNode:
+    def node(state: TicketTask) -> ProjectUpdate:
         crew.runner.run(state["ticket"], attempt(crew.ledger, state["ticket"]))
         return {}
 

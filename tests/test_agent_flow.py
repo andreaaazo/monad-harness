@@ -26,6 +26,7 @@ from agency.config import REPO_ROOT, Settings
 from agency.contracts import phase
 from agency.contracts.concept import ConceptCard
 from agency.contracts.outcome import Outcome, OutcomeState
+from agency.contracts.phase import DirectorMode
 from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.secrets import API_KEY_VARIABLES
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
@@ -531,23 +532,23 @@ def bare_context(tmp_path: Path, role: str) -> ToolContext:
 @pytest.mark.parametrize(
     ("role", "spec", "mode", "closers"),
     [
-        ("identity-designer", production_spec(), "", "deliver, block"),
-        ("design-director", DIRECTOR, "", "deliver, hand_off, block"),
-        ("direction-a", SKETCH, "", "submit_concept, block"),
-        ("direction-a", PROPOSAL, "", "deliver, block"),
+        ("identity-designer", production_spec(), None, "deliver, block"),
+        ("design-director", DIRECTOR, None, "deliver, hand_off, block"),
+        ("direction-a", SKETCH, None, "submit_concept, block"),
+        ("direction-a", PROPOSAL, None, "deliver, block"),
         ("design-director", DIRECTOR, "plan", "plan_exploration, block"),
         ("design-director", DIRECTOR, "select", "select_concepts, block"),
         ("design-director", DIRECTOR, "present", "draft_presentation, present_concepts, block"),
-        ("critic", BOARD, "", "deliver, block"),
+        ("critic", BOARD, None, "deliver, block"),
     ],
     ids=["author", "director", "explore", "proposal", "plan", "select", "present", "board"],
 )
 def test_the_reminder_names_each_phase_closing_tools(
-    tmp_path: Path, role: str, spec: TicketSpec, mode: str, closers: str
+    tmp_path: Path, role: str, spec: TicketSpec, mode: DirectorMode | None, closers: str
 ) -> None:
     """The nudge after a turn that closed nothing names only this phase's closing tools, in a fixed order."""
     box = Toolbox(bare_context(tmp_path, role), tools_for(role, spec, mode))
-    if mode == "" and role == "design-director":
+    if mode is None and role == "design-director":
         assert "reject_concept" in box.tools  # it closes, yet the reminder leaves it out
     assert AgentRunner._reminder(box) == f"{REMINDER}{closers}."
 

@@ -86,7 +86,12 @@ class AgentRunner:
         self.artifacts = artifacts
 
     def run(
-        self, ticket_id: str, attempt: int = 1, rework_note: str = "", mode: str = "", exploration: int = 0
+        self,
+        ticket_id: str,
+        attempt: int = 1,
+        rework_note: str = "",
+        mode: phase.DirectorMode | None = None,
+        exploration: int = 0,
     ) -> Outcome:
         """`mode` is a director phase on the same ticket: plan, select or present.
 

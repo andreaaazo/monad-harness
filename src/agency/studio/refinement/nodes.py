@@ -9,12 +9,12 @@ from agency.contracts.concept import ConceptStatus
 from agency.contracts.outcome import OutcomeState
 from agency.contracts.ticket import RUNNABLE, Medium, TicketSpec, TicketType
 from agency.studio.graph import Node
-from agency.studio.shared import Crew, ProjectState, attempt, copy_capped, rework_note
+from agency.studio.shared import Crew, ProjectState, ProjectUpdate, attempt, copy_capped, rework_note
 from agency.workshop.files import MAX_DOCUMENT_BYTES, ensure_dir_under, sha256_under
 
 
 def start_production(crew: Crew) -> Node:
-    def node(state: ProjectState) -> dict:
+    def node(state: ProjectState) -> ProjectUpdate:
         """The finisher starts from the approved proposal: its master is already the one the client chose."""
         project, turn, root = state["project"], state["exploration"], state["root"]
         spec = crew.ledger.spec(root)
@@ -56,7 +56,7 @@ def start_production(crew: Crew) -> Node:
 
 
 def lead(crew: Crew) -> Node:
-    def node(state: ProjectState) -> dict:
+    def node(state: ProjectState) -> ProjectUpdate:
         root, turn = state["root"], state["round"] + 1
         status, _ = crew.ledger.status(root)
         if status in RUNNABLE:
@@ -76,7 +76,7 @@ def lead(crew: Crew) -> Node:
 
 
 def team(crew: Crew) -> Node:
-    def node(state: ProjectState) -> dict:
+    def node(state: ProjectState) -> ProjectUpdate:
         for ticket in crew.ledger.children(state["root"]):
             status, _ = crew.ledger.status(ticket)
             if status in RUNNABLE:

@@ -145,7 +145,7 @@ def test_craft_tools_follow_the_role_craft_list(tmp_path: Path) -> None:
     specs = [spec_of(kind) for kind in TicketType] + [spec_of(TicketType.REVIEW, "critic-board")]
     for role in (name for name, config in roles.items() if not config["craft"]):
         offered = [role_tools(role)] + [
-            tools_for(role, spec, mode) for spec in specs for mode in ("", "plan", "select", "present")
+            tools_for(role, spec, mode) for spec in specs for mode in (None, "plan", "select", "present")
         ]
         for tools in offered:
             assert not {tool.name for tool in tools if tool.name.startswith("craft_")}, role

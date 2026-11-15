@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 
-from langgraph.graph import END
 from langgraph.types import interrupt
 
 from agency.contracts.concept import ConceptCard, ConceptStatus
@@ -17,12 +16,12 @@ from agency.ledger.store import now
 from agency.studio.graph import Node
 from agency.studio.presentation import document as presentation
 from agency.studio.presentation.tools import PresentConcepts
-from agency.studio.shared import Crew, ProjectState, proposal_tickets
+from agency.studio.shared import END_ROUTE, Crew, ProjectState, ProjectUpdate, proposal_tickets
 from agency.workshop.files import sha256_under
 
 
 def present(crew: Crew) -> Node:
-    def node(state: ProjectState) -> dict:
+    def node(state: ProjectState) -> ProjectUpdate:
         project, turn, root = state["project"], state["exploration"], state["root"]
         concepts = {
             f"Proposta {row.anon} r{turn}": row for row in crew.ledger.concepts(project, turn) if row.anon
@@ -52,20 +51,20 @@ def present(crew: Crew) -> Node:
             ]
         ready = [row for row in crew.ledger.concepts(project, turn) if row.status == ConceptStatus.PROPOSAL]
         if not ready:
-            return {"route": END, "outcome": "bloccato: nessuna proposta è stata sviluppata"}
+            return {"route": END_ROUTE, "outcome": "bloccato: nessuna proposta è stata sviluppata"}
         outcome = crew.runner.run(root, turn, "\n".join(lines), mode="present")
         if outcome.state is OutcomeState.PRESENTED:  # the PDF exists, and the director viewed every page
             return {"route": "concept_gate", "client_note": outcome.note}
         if outcome.state is OutcomeState.NO_CONCEPT:
             reasons = PresentConcepts.model_validate_json(outcome.note).reasons
             return {"route": "plan", "client_note": f"Le proposte non reggono: {reasons}"}
-        return {"route": END, "outcome": f"bloccato: {outcome.note[:300]}"}
+        return {"route": END_ROUTE, "outcome": f"bloccato: {outcome.note[:300]}"}
 
     return node
 
 
 def concept_gate(crew: Crew) -> Node:
-    def node(state: ProjectState) -> dict:
+    def node(state: ProjectState) -> ProjectUpdate:
         project, turn = state["project"], state["exploration"]
         selection = PresentConcepts.model_validate_json(state["client_note"])
         if selection.recommended is None:  # draft_presentation refuses a draft without a recommendation

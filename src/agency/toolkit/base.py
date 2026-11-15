@@ -18,6 +18,7 @@ from agency.artifacts import keeping
 from agency.config import Settings
 from agency.contracts.artifact import ArtifactStore, Origin
 from agency.contracts.outcome import Outcome, OutcomeState
+from agency.contracts.phase import DirectorMode
 from agency.contracts.ticket import Action, Status
 from agency.ledger import Ledger
 from agency.workshop import craft
@@ -45,7 +46,7 @@ class ToolContext:
     artifacts: ArtifactStore
     finished: Outcome | None = None
     warned_sketch: str = ""  # sha256 of the sketch already warned about: one warning per version
-    mode: str = ""
+    mode: DirectorMode | None = None
     round: int = 1
     settings: Settings | None = None
     run: int | None = None  # the run in progress: None outside a session

@@ -5,17 +5,21 @@ from __future__ import annotations
 import json
 from dataclasses import fields
 from pathlib import Path
+from typing import get_args
 
 import pytest
+from langgraph.graph import END
 from pydantic import ValidationError
 
 from agency.agents.toolbox import TOOLS, Toolbox
 from agency.agents.transcript import Transcript
 from agency.artifacts import FileStore
+from agency.contracts import phase
 from agency.contracts.gate import GATE, ConceptGate, Decision, FinalGate, GateKind
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.ledger import Ledger
 from agency.process.session import Session
+from agency.studio.shared import END_ROUTE
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.sandbox import Sandbox
@@ -165,3 +169,20 @@ def test_a_draft_with_pages_does_not_close_on_resume(tmp_path: Path) -> None:
     ledger.record_operation("i:t1", "i", "draft_presentation", '{"pagine": ["p1.png"], "poi": "guarda"}')
     Toolbox(context, [TOOLS["draft_presentation"]]).call("t1", "draft_presentation", {})
     assert context.finished is None
+
+
+def test_the_end_route_is_langgraph_end() -> None:
+    """The slices route to the end without importing LangGraph: the value is the one LangGraph reads."""
+    assert END_ROUTE == END
+
+
+@pytest.mark.parametrize("mode", get_args(phase.DirectorMode.__value__))
+def test_a_director_phase_round_trips_through_its_instance_name(mode: phase.DirectorMode) -> None:
+    """The phase is written in the instance name exactly as before, so old transcripts keep their phase."""
+    assert phase.instance("T-0007", 2, mode) == f"T-0007-a2-{mode}"
+    assert phase.mode_of(phase.instance("T-0007", 2, mode)) == mode
+
+
+def test_an_instance_without_a_phase_has_none() -> None:
+    assert phase.instance("T-0007", 2) == "T-0007-a2"
+    assert phase.mode_of("T-0007-a2") is None

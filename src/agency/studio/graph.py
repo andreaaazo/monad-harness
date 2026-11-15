@@ -5,17 +5,23 @@ module, each slice's `nodes.py` and the process, so the rest of the studio stays
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Protocol
 
 from langgraph.types import Send
 
-from agency.studio.shared import ProjectState
+from agency.studio.shared import ProjectState, ProjectUpdate, Route, TicketTask
 
 
 class Node(Protocol):
     """A graph node. LangGraph passes the state by the name `state`, so the protocol names it."""
 
-    def __call__(self, state: Any) -> dict: ...
+    def __call__(self, state: ProjectState) -> ProjectUpdate: ...
 
 
-type Router = Callable[[ProjectState], list[Send] | str]
+class TaskNode(Protocol):
+    """A node reached by `Send`: it receives the ticket it works on, not the state."""
+
+    def __call__(self, state: TicketTask) -> ProjectUpdate: ...
+
+
+type Router = Callable[[ProjectState], list[Send] | Route]

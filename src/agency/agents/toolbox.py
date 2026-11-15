@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from agency import registry
 from agency.contracts.outcome import Outcome
+from agency.contracts.phase import DirectorMode
 from agency.contracts.ticket import TicketSpec, TicketType
 from agency.ledger import ForbiddenAction, IllegalTransition
 from agency.qa import evidence
@@ -41,6 +42,9 @@ REVIEWER = ["run_check", "observe", "judge", "record_requirement"]
 DIRECTOR = ["open_ticket", "accept_ticket", "rework_ticket", "hand_off", "observe", "judge", "run_check"]
 DIRECTOR += ["reject_concept"]
 
+# The director's tools in each of its phases on the same ticket.
+PHASE_TOOLS: dict[DirectorMode, list[str]] = {"plan": PLAN, "select": SELECT, "present": PRESENT}
+
 
 KIND_TOOLS = {
     "director": BASE + DIRECTOR,
@@ -62,9 +66,9 @@ def role_tools(role: str) -> list[Tool]:
     return [TOOLS[name] for name in sorted(names)]
 
 
-def tools_for(role: str, spec: TicketSpec, mode: str = "") -> list[Tool]:
+def tools_for(role: str, spec: TicketSpec, mode: DirectorMode | None = None) -> list[Tool]:
     """The set depends on the phase: who looks for the idea cannot draw, and who draws cannot finish."""
-    names = {"plan": PLAN, "select": SELECT, "present": PRESENT}.get(mode)
+    names = PHASE_TOOLS[mode] if mode is not None else None
     if names is None and spec.prompt == "critic-board":
         names = BOARD
     if names is None and spec.type is TicketType.SKETCH:

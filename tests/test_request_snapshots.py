@@ -17,6 +17,7 @@ import pytest
 from agency.agents.loop import AgentRunner
 from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
+from agency.contracts.phase import DirectorMode
 from agency.contracts.ticket import Medium, TicketSpec, TicketType
 from agency.gateway import ModelGateway
 from agency.ledger import Ledger
@@ -35,7 +36,7 @@ class Phase:
     assignee: str
     type: TicketType
     prompt: str = ""
-    mode: str = ""
+    mode: DirectorMode | None = None
 
 
 PHASES = (

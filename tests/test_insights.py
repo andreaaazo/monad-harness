@@ -135,9 +135,9 @@ def test_a_recorded_phase_wins_over_the_derived_one() -> None:
 
 
 def test_instance_names_are_written_and_read_by_one_rule() -> None:
-    for mode in ("", *phase.MODES):
+    for mode in (None, *phase.MODES):
         assert phase.mode_of(phase.instance("T-0042", 3, mode)) == mode
-    assert phase.mode_of("i1") == ""  # a test name is not an engine instance
+    assert phase.mode_of("i1") is None  # a test name is not an engine instance
 
 
 # The rules: the measures

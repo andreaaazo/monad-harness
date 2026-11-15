@@ -10,8 +10,6 @@ start: finished work is not repeated, because each instance has a stable name an
 
 from __future__ import annotations
 
-from typing import Any
-
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -27,41 +25,41 @@ from agency.studio.presentation.nodes import concept_gate, present
 from agency.studio.proposal.nodes import prepare_proposals, proposal, send_proposals
 from agency.studio.refinement.nodes import lead, start_production, team
 from agency.studio.selection.nodes import board_review, make_board, select
-from agency.studio.shared import Crew, ProjectState
+from agency.studio.shared import END_ROUTE, Crew, ProjectState, Route
 
 type Graph = CompiledStateGraph[ProjectState, None, ProjectState, ProjectState]
 
 
-def after_board(state: ProjectState) -> str:
-    return END if state["outcome"] else "board_review"
+def after_board(state: ProjectState) -> Route:
+    return END_ROUTE if state["outcome"] else "board_review"
 
 
-def follow_route(state: ProjectState) -> str:
+def follow_route(state: ProjectState) -> Route:
     return state["route"]
 
 
-def begin(state: ProjectState) -> str:
+def begin(state: ProjectState) -> Route:
     return "plan" if state["explore"] else "lead"
 
 
 def after_lead(crew: Crew) -> Router:
-    def route(state: ProjectState) -> str:
+    def route(state: ProjectState) -> Route:
         if state["outcome"]:
-            return END
+            return END_ROUTE
         if state["route"] == "rejected":
             return "plan"
         status, _ = crew.ledger.status(state["root"])
         if status is Status.DELIVERED:
             return "client_gate"
         if status in (Status.BLOCKED, Status.CANCELLED, Status.ACCEPTED):
-            return END
+            return END_ROUTE
         return "team"
 
     return route
 
 
-def after_gate(state: ProjectState) -> str:
-    return END if state["outcome"] else "lead"
+def after_gate(state: ProjectState) -> Route:
+    return END_ROUTE if state["outcome"] else "lead"
 
 
 def build(
@@ -70,23 +68,19 @@ def build(
     """The compiled studio graph. `checkpointer` keeps its state, so a run stopped at a gate resumes."""
     crew = Crew(runner, ledger, settings)
     graph = StateGraph(ProjectState)
-    nodes: tuple[tuple[str, Any], ...] = (
-        ("plan", plan(crew)),
-        ("explore", explore(crew)),
-        ("make_board", make_board(crew)),
-        ("board_review", board_review(crew)),
-        ("select", select(crew)),
-        ("prepare_proposals", prepare_proposals(crew)),
-        ("proposal", proposal(crew)),
-        ("present", present(crew)),
-        ("concept_gate", concept_gate(crew)),
-        ("start_production", start_production(crew)),
-        ("lead", lead(crew)),
-        ("team", team(crew)),
-        ("client_gate", client_gate(crew)),
-    )
-    for name, node in nodes:
-        graph.add_node(name, node)
+    graph.add_node("plan", plan(crew))
+    graph.add_node("explore", explore(crew))
+    graph.add_node("make_board", make_board(crew))
+    graph.add_node("board_review", board_review(crew))
+    graph.add_node("select", select(crew))
+    graph.add_node("prepare_proposals", prepare_proposals(crew))
+    graph.add_node("proposal", proposal(crew))
+    graph.add_node("present", present(crew))
+    graph.add_node("concept_gate", concept_gate(crew))
+    graph.add_node("start_production", start_production(crew))
+    graph.add_node("lead", lead(crew))
+    graph.add_node("team", team(crew))
+    graph.add_node("client_gate", client_gate(crew))
     graph.add_conditional_edges(START, begin, ["plan", "lead"])
     graph.add_conditional_edges("plan", send_explorers(crew), ["explore", "make_board", END])
     graph.add_edge("explore", "make_board")

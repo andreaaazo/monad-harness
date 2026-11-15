@@ -3,14 +3,22 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 
 from langgraph.types import Send
 
 from agency.contracts.concept import ConceptStatus
 from agency.contracts.ticket import RUNNABLE, Medium, TicketSpec, TicketType
-from agency.studio.graph import Node, Router
-from agency.studio.shared import Crew, ProjectState, attempt, copy_capped, proposal_tickets
+from agency.studio.graph import Node, Router, TaskNode
+from agency.studio.shared import (
+    Crew,
+    ProjectState,
+    ProjectUpdate,
+    Route,
+    TicketTask,
+    attempt,
+    copy_capped,
+    proposal_tickets,
+)
 from agency.workshop.files import (
     MAX_IMAGE_FILE_BYTES,
     MAX_TEXT_FILE_BYTES,
@@ -21,7 +29,7 @@ from agency.workshop.files import (
 
 
 def prepare_proposals(crew: Crew) -> Node:
-    def node(state: ProjectState) -> dict:
+    def node(state: ProjectState) -> ProjectUpdate:
         project, turn, root = state["project"], state["exploration"], state["root"]
         work = crew.work_dir(project)
         existing = {crew.ledger.spec(ticket).title for ticket in proposal_tickets(crew, state)}
@@ -75,15 +83,15 @@ def prepare_proposals(crew: Crew) -> Node:
 
 
 def send_proposals(crew: Crew) -> Router:
-    def route(state: ProjectState) -> list[Send] | str:
+    def route(state: ProjectState) -> list[Send] | Route:
         tickets = [t for t in proposal_tickets(crew, state) if crew.ledger.status(t)[0] in RUNNABLE]
         return [Send("proposal", {"ticket": ticket}) for ticket in tickets] or "present"
 
     return route
 
 
-def proposal(crew: Crew) -> Node:
-    def node(state: Any) -> dict:
+def proposal(crew: Crew) -> TaskNode:
+    def node(state: TicketTask) -> ProjectUpdate:
         crew.runner.run(state["ticket"], attempt(crew.ledger, state["ticket"]))
         return {}
 

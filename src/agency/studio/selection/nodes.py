@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from langgraph.graph import END
-
 from agency.contracts.concept import ConceptCard
 from agency.contracts.outcome import OutcomeState
 from agency.contracts.ticket import RUNNABLE, Action, Status, TicketSpec, TicketType
 from agency.studio.graph import Node
 from agency.studio.selection.tools import SelectConcepts
-from agency.studio.shared import Crew, ProjectState, copy_capped
+from agency.studio.shared import END_ROUTE, Crew, ProjectState, ProjectUpdate, copy_capped
 from agency.workshop import board
 from agency.workshop.files import (
     MAX_IMAGE_FILE_BYTES,
@@ -21,7 +19,7 @@ from agency.workshop.files import (
 
 
 def make_board(crew: Crew) -> Node:
-    def node(state: ProjectState) -> dict:
+    def node(state: ProjectState) -> ProjectUpdate:
         project, turn = state["project"], state["exploration"]
         done = (Status.DELIVERED, Status.ACCEPTED)
         rows = [
@@ -49,7 +47,7 @@ def make_board(crew: Crew) -> Node:
 
 
 def board_review(crew: Crew) -> Node:
-    def node(state: ProjectState) -> dict:
+    def node(state: ProjectState) -> ProjectUpdate:
         project, turn = state["project"], state["exploration"]
         children = crew.ledger.children(state["root"])
         title = f"Tavola delle idee r{turn}"
@@ -79,7 +77,7 @@ def board_review(crew: Crew) -> Node:
 
 
 def select(crew: Crew) -> Node:
-    def node(state: ProjectState) -> dict:
+    def node(state: ProjectState) -> ProjectUpdate:
         """The choice among the sketches is the studio's: the client never sees them."""
         project, turn = state["project"], state["exploration"]
         work = crew.work_dir(project)
@@ -117,6 +115,6 @@ def select(crew: Crew) -> Node:
         if outcome.state is OutcomeState.NO_CONCEPT:
             reasons = SelectConcepts.model_validate_json(outcome.note).reasons
             return {"route": "plan", "client_note": f"Le idee precedenti non reggono: {reasons}"}
-        return {"route": END, "outcome": f"bloccato: {outcome.note[:300]}"}
+        return {"route": END_ROUTE, "outcome": f"bloccato: {outcome.note[:300]}"}
 
     return node

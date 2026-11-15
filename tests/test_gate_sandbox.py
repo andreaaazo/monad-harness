@@ -17,6 +17,7 @@ from agency.ledger import Ledger
 from agency.process import graph as workflow
 from agency.process.session import Session
 from agency.qa import delivery
+from agency.studio.shared import ProjectState
 from agency.workshop.sandbox import SandboxUnavailable
 
 PROJECT = "officina"
@@ -100,3 +101,30 @@ def test_the_client_decision_survives_a_sandbox_that_cannot_start(
     assert "Esito: approvato" in capsys.readouterr().out
     assert session.ledger.status(root)[0] is Status.ACCEPTED
     assert session.pending(PROJECT) == []
+
+
+NODES = [
+    "plan",
+    "explore",
+    "make_board",
+    "board_review",
+    "select",
+    "prepare_proposals",
+    "proposal",
+    "present",
+]
+NODES += ["concept_gate", "start_production", "lead", "team", "client_gate"]
+# The checkpoint's channels: the state's fields, one branch channel per node, and LangGraph's own two.
+FIELDS = ["project", "root", "round", "client_note", "outcome", "explore", "exploration", "chosen", "route"]
+CHANNELS = sorted(["__pregel_tasks", "__start__", *FIELDS, *(f"branch:to:{name}" for name in NODES)])
+
+
+def test_the_graph_keeps_its_channels_and_branches(tmp_path: Path) -> None:
+    """A project paused before a refactor resumes after it only if the checkpoint keeps its shape: the same
+    channels, and every node reading the whole state (ADR-0058)."""
+    settings = Settings(data_dir=tmp_path / "data", projects_dir=tmp_path / "projects", _env_file=None)  # type: ignore[call-arg]
+    graph = workflow.build(MagicMock(), Ledger(tmp_path / "l.sqlite"), settings, InMemorySaver())
+    assert sorted(graph.channels) == CHANNELS
+    assert {name: spec.input_schema for name, spec in graph.builder.nodes.items()} == dict.fromkeys(
+        NODES, ProjectState
+    )

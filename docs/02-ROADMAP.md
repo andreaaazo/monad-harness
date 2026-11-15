@@ -444,6 +444,10 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
    - il registro dei ruoli diventa un insieme di modelli tipizzati, non un `dict[str, dict]`. Si passa a chi lo usa,
      invece di essere letto come variabile globale: oggi succede in 5 punti fuori da `agency.registry`.
 
+   Fatti il 2026-11-15 i primi due: `DirectorMode` e `Route` sono `Literal`, i nodi restituiscono `ProjectUpdate`, e i due
+   nodi paralleli ricevono `TicketTask`. Un test fissa canali e schemi d'ingresso del grafo:
+   `uv run pytest tests/test_gate_sandbox.py -k channels`.
+
 ### Criteri di uscita
 
 - [ ] `tools/surface.py` non esiste più, e non ci sono cicli tra pacchetti (`make check`)

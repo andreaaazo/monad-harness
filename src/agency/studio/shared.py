@@ -5,14 +5,51 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, TypedDict
+from typing import Final, Literal, Protocol, TypedDict
 
 from agency.config import Settings
 from agency.contracts.outcome import Outcome
+from agency.contracts.phase import DirectorMode
 from agency.contracts.project import parse_project_name
 from agency.contracts.ticket import TicketType
 from agency.ledger import Ledger
 from agency.workshop.files import read_under, replace_under
+
+# Every value a router returns and every value `ProjectState.route` holds: the 13 nodes, the director's
+# rejection of a concept, LangGraph's end, and no choice. Checkpoints already hold these strings (ADR-0058).
+type Route = Literal[
+    "plan",
+    "explore",
+    "make_board",
+    "board_review",
+    "select",
+    "prepare_proposals",
+    "proposal",
+    "present",
+    "concept_gate",
+    "start_production",
+    "lead",
+    "team",
+    "client_gate",
+    "rejected",
+    "__end__",
+    "",
+]
+# LangGraph's END, so the slices can end the run without importing LangGraph; a test checks the value.
+END_ROUTE: Final = "__end__"
+
+
+class TicketPayload(TypedDict):
+    """What a node reached by `Send` receives: the ticket it works on."""
+
+    ticket: str
+
+
+# The node is annotated with this alias, not with the class: LangGraph turns a class annotation into an
+# input schema and adds a channel to the checkpoint, while an alias is not a class and leaves the node on
+# the state. Pyright still sees the TypedDict, which LangGraph's typing requires. A test pins the graph's
+# shape (ADR-0058).
+type TicketTask = TicketPayload
 
 
 class ProjectState(TypedDict):
@@ -27,14 +64,33 @@ class ProjectState(TypedDict):
     explore: bool
     exploration: int
     chosen: str
-    route: str
+    route: Route
+
+
+class ProjectUpdate(TypedDict, total=False):
+    """What a node changes in the state: any of its fields, and only those."""
+
+    project: str
+    root: str
+    round: int
+    client_note: str
+    outcome: str
+    explore: bool
+    exploration: int
+    chosen: str
+    route: Route
 
 
 class Runner(Protocol):
     """What the graph asks of the agents: one instance on a ticket. `AgentRunner` is one."""
 
     def run(
-        self, ticket_id: str, attempt: int = 1, rework_note: str = "", mode: str = "", exploration: int = 0
+        self,
+        ticket_id: str,
+        attempt: int = 1,
+        rework_note: str = "",
+        mode: DirectorMode | None = None,
+        exploration: int = 0,
     ) -> Outcome: ...
 
 

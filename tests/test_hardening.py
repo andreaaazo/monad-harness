@@ -649,7 +649,7 @@ def decide(session: FakeSession, monkeypatch: pytest.MonkeyPatch, *arguments: st
     folder = Path(str(session.ledger.engine.url.database)).parent
     monkeypatch.setenv("AGENCY_DATA_DIR", str(folder))
     Ledger(folder / "ledger.sqlite")  # `decide` needs a registry to exist
-    monkeypatch.setattr("agency.runtime.open_session", lambda _, record=False: session)
+    monkeypatch.setattr("agency.process.session.open_session", lambda _, record=False: session)
     monkeypatch.setattr(cli, "_show", lambda *_: 0)
     return cli.main(["decide", "officina", *arguments, "--text", "Scelgo"])
 
@@ -681,7 +681,7 @@ def test_run_refuses_a_project_that_already_exists(
     ledger = Ledger(tmp_path / "l.sqlite")
     ledger.set_project("officina", 30)
     session = FakeSession([], ledger)
-    monkeypatch.setattr("agency.runtime.open_session", lambda _, record=False: session)
+    monkeypatch.setattr("agency.process.session.open_session", lambda _, record=False: session)
     assert cli.main(["run", "officina", "brief.md", "--budget", "30"]) == 1
     assert "esiste già" in capsys.readouterr().out
 
@@ -693,7 +693,9 @@ def test_run_does_not_start_without_a_declared_budget(
     client's choice."""
     monkeypatch.setenv("AGENCY_PROJECT_BUDGET_USD", "40")
     opened: list[object] = []
-    monkeypatch.setattr("agency.runtime.open_session", lambda settings, record=False: opened.append(settings))
+    monkeypatch.setattr(
+        "agency.process.session.open_session", lambda settings, record=False: opened.append(settings)
+    )
     with pytest.raises(SystemExit) as stopped:
         cli.main(["run", "officina", "brief.md"])
     assert stopped.value.code == 2
@@ -707,7 +709,7 @@ def test_a_budget_is_a_positive_amount_of_dollars(
     command: list[str], amount: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(
-        "agency.runtime.open_session", lambda _, record=False: pytest.fail("should not have started")
+        "agency.process.session.open_session", lambda _, record=False: pytest.fail("should not have started")
     )
     with pytest.raises(SystemExit) as stopped:
         cli.main([*command, amount])
@@ -740,11 +742,11 @@ def cli_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def scripted_run(monkeypatch: pytest.MonkeyPatch, responses: list[dict]) -> ScriptedTransport:
     """`agency run` with the real session, over scripted responses: no call leaves the machine."""
-    from agency.runtime import open_session
+    from agency.process.session import open_session
 
     transport = ScriptedTransport(responses)
     monkeypatch.setattr(
-        "agency.runtime.open_session",
+        "agency.process.session.open_session",
         lambda settings, record=False: open_session(settings, transport, record=record),
     )
     return transport
@@ -802,7 +804,7 @@ def test_a_brief_that_is_not_utf8_leaves_no_project(
 
 @needs_craft
 def test_an_empty_brief_leaves_no_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from agency.runtime import open_session
+    from agency.process.session import open_session
 
     path = cli_data(tmp_path, monkeypatch)
     brief = tmp_path / "brief.md"
@@ -816,8 +818,8 @@ def test_an_empty_brief_leaves_no_project(tmp_path: Path, monkeypatch: pytest.Mo
 
 @needs_craft
 def test_a_refused_contract_leaves_no_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from agency.process.session import open_session
     from agency.qa.delivery import ContractRefused
-    from agency.runtime import open_session
 
     path = cli_data(tmp_path, monkeypatch)
     brief = tmp_path / "brief.md"
@@ -843,7 +845,7 @@ def test_project_names(tmp_path: Path) -> None:
 def test_a_project_name_that_would_leave_projects_never_starts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from agency.runtime import open_session
+    from agency.process.session import open_session
 
     path = cli_data(tmp_path, monkeypatch)
     brief = tmp_path / "brief.md"
@@ -1203,7 +1205,7 @@ def test_migrate_refuses_while_a_worker_holds_a_project(
     let go again, and nothing is migrated or backed up."""
     import os
 
-    from agency.runtime import ProjectLock
+    from agency.process.session import ProjectLock
 
     path = cli_data(tmp_path, monkeypatch)
     Ledger(path).set_project("forno", 12.0)
@@ -1227,7 +1229,7 @@ def test_migrate_holds_every_project_until_the_migration_ends(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from agency.ledger.schema import Migration
-    from agency.runtime import ProjectBusy, ProjectLock
+    from agency.process.session import ProjectBusy, ProjectLock
 
     path = cli_data(tmp_path, monkeypatch)
     Ledger(path).set_project("forno", 12.0)
@@ -1278,7 +1280,7 @@ def test_run_resume_and_decide_refuse_while_a_migration_holds_the_registry(
 
     path = cli_data(tmp_path, monkeypatch)
     Ledger(path).set_project("forno", 12.0)
-    monkeypatch.setattr("agency.runtime.open_session", lambda *_, **__: pytest.fail("session opened"))
+    monkeypatch.setattr("agency.process.session.open_session", lambda *_, **__: pytest.fail("session opened"))
     fd = hold_project_lock(tmp_path / "data" / "locks" / ".registry.lock")  # exclusive, as `migrate` does
     try:
         capsys.readouterr()
@@ -1390,7 +1392,7 @@ def test_migrate_holds_the_registry_until_the_migration_ends(
     """2.F63: the claim is taken before the rewrite and let go after it; the registry's own file is not
     mistaken for a project's."""
     from agency.ledger.schema import Migration
-    from agency.runtime import ProjectBusy, ProjectLock
+    from agency.process.session import ProjectBusy, ProjectLock
 
     path = cli_data(tmp_path, monkeypatch)
     Ledger(path).set_project("forno", 12.0)
@@ -1415,7 +1417,7 @@ def test_migrate_holds_the_registry_until_the_migration_ends(
 
 
 def test_a_shared_claim_lets_other_shared_claims_in_and_keeps_an_exclusive_one_out(tmp_path: Path) -> None:
-    from agency.runtime import ProjectBusy, ProjectLock
+    from agency.process.session import ProjectBusy, ProjectLock
 
     path = tmp_path / "locks" / ".registry.lock"
     with ProjectLock(path, shared=True), ProjectLock(path, shared=True), pytest.raises(ProjectBusy):
@@ -1432,7 +1434,7 @@ def test_run_and_resume_stop_before_the_session_when_the_sandbox_has_no_scope(
     path = cli_data(tmp_path, monkeypatch)
     Ledger(path).set_project("forno", 12.0)
     monkeypatch.setattr(cli, "scope_problem", lambda: "niente sessione systemd")
-    monkeypatch.setattr("agency.runtime.open_session", lambda *_, **__: pytest.fail("session opened"))
+    monkeypatch.setattr("agency.process.session.open_session", lambda *_, **__: pytest.fail("session opened"))
     assert cli.main(command) == 1
     assert capsys.readouterr().out.splitlines() == [
         "SANDBOX NON DISPONIBILE: niente sessione systemd. agency doctor dice come sistemarla"
@@ -1445,7 +1447,7 @@ def test_decide_stops_before_the_session_when_the_sandbox_has_no_scope(
     path = cli_data(tmp_path, monkeypatch)
     Ledger(path).set_project("forno", 12.0)
     monkeypatch.setattr(cli, "scope_problem", lambda: "niente sessione \x1b[2Jsystemd")
-    monkeypatch.setattr("agency.runtime.open_session", lambda *_, **__: pytest.fail("session opened"))
+    monkeypatch.setattr("agency.process.session.open_session", lambda *_, **__: pytest.fail("session opened"))
     assert cli.main(["decide", "forno", "--approve", "--text", "ok"]) == 1
     assert capsys.readouterr().out.splitlines() == [
         "SANDBOX NON DISPONIBILE: niente sessione [2Jsystemd. agency doctor dice come sistemarla"

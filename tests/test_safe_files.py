@@ -19,7 +19,6 @@ import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 from PIL import Image
 
-from agency import runtime
 from agency.agents.loop import AgentRunner
 from agency.artifacts import FileStore
 from agency.config import Settings
@@ -31,11 +30,12 @@ from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import parse_project_name
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.gateway import ModelGateway
-from agency.graph import workflow
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
+from agency.process import graph as workflow
+from agency.process import session as runtime
+from agency.process.session import Session
 from agency.qa import delivery
-from agency.runtime import Session
 from agency.studio import shared
 from agency.studio.presentation import document as presentation
 from agency.studio.presentation import nodes as presentation_nodes

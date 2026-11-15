@@ -39,7 +39,7 @@ from agency.telemetry import report
 from agency.workshop.sandbox import JOB, Sandbox, SandboxUnavailable, scope_problem
 
 if TYPE_CHECKING:  # the session loads the engine: the light commands do not import it
-    from agency.runtime import Session
+    from agency.process.session import Session
 
 LOGO_OUTPUTS = ["source/segno.vectorcraft", "exports/segno.svg", "construction.md"]
 LOGO_CHECKS = {"*.vectorcraft": ["master_open"], "*.svg": ["svg_audit", "svg_parity", "critique"]}
@@ -80,7 +80,7 @@ REGISTRY_BUSY = "Un altro processo sta lavorando sul registro: attendi che finis
 
 def _busy_project(settings: Settings) -> str | None:
     """The first project some process is working on, or None when no project claim is held."""
-    from agency.runtime import ProjectBusy, ProjectLock
+    from agency.process.session import ProjectBusy, ProjectLock
 
     for lock in sorted(settings.layout.locks.glob("*.lock")):
         if lock == settings.layout.registry_lock:
@@ -99,7 +99,7 @@ def _migrate(_: argparse.Namespace) -> int:
     if not path.is_file():
         print("Nessun registro da aggiornare: si crea da solo alla prima apertura")
         return 0
-    from agency.runtime import ProjectBusy, ProjectLock
+    from agency.process.session import ProjectBusy, ProjectLock
 
     try:
         with ExitStack() as claims:  # the whole registry, then every project: the migration rewrites it all
@@ -201,7 +201,7 @@ def _project(text: str) -> ProjectName:
 def _locked(project: str, body: Callable[[], int]) -> int:
     """Run a command that writes a project's state while this process alone works on it (COR-005), and
     while no migration rewrites the registry under it (2.F63)."""
-    from agency.runtime import ProjectBusy, ProjectLock
+    from agency.process.session import ProjectBusy, ProjectLock
 
     layout = Settings().layout
     with ExitStack() as claims:
@@ -233,7 +233,7 @@ def _run(args: argparse.Namespace) -> int:
 
 
 def _run_locked(args: argparse.Namespace) -> int:
-    from agency.runtime import BriefNotUtf8, open_session
+    from agency.process.session import BriefNotUtf8, open_session
 
     if _scope_refused():
         return 1
@@ -266,7 +266,7 @@ def _resume(args: argparse.Namespace) -> int:
 
 
 def _resume_locked(args: argparse.Namespace) -> int:
-    from agency.runtime import NothingToResume, open_session
+    from agency.process.session import NothingToResume, open_session
 
     if Ledger.existing(Settings().layout.ledger).project(args.project) is None:
         print(f"Progetto sconosciuto: {args.project}")
@@ -286,7 +286,7 @@ def _decide(args: argparse.Namespace) -> int:
 
 
 def _decide_locked(args: argparse.Namespace) -> int:
-    from agency.runtime import open_session
+    from agency.process.session import open_session
 
     Ledger.existing(Settings().layout.ledger)
     if _scope_refused():

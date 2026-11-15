@@ -13,7 +13,7 @@ from agency import cli
 from agency.config import REPO_ROOT, DotenvHoldsSetting, Settings
 from agency.contracts.layout import DataLayout
 from agency.contracts.project import ProjectName, parse_project_name
-from agency.runtime import open_session
+from agency.process.session import open_session
 from agency.workshop.craft import CommandIndex
 from support.scripted import ScriptedTransport
 

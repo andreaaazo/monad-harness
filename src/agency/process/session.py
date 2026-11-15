@@ -22,9 +22,9 @@ from agency.contracts.project import parse_project_name
 from agency.contracts.run import RunCommand
 from agency.contracts.ticket import TicketSpec, TicketType
 from agency.gateway import AnthropicTransport, ModelGateway, RecordingTransport, Transport
-from agency.graph.workflow import Graph, build
 from agency.ledger import Ledger
 from agency.ledger.store import BUSY_SECONDS
+from agency.process.graph import Graph, build
 from agency.qa import delivery
 from agency.studio.shared import ProjectState
 from agency.telemetry import configure, fingerprint

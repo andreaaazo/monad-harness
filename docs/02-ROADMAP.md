@@ -422,8 +422,13 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
    il kit e gli strumenti condivisi in `agency.toolkit`, quelli di ogni fase nella sua slice di `agency.studio`, catalogo e
    `Toolbox` in `agency.agents.toolbox` (163 righe). Gli snapshot delle richieste sono identici:
    `uv run pytest tests/test_request_snapshots.py`.
-3. [ ] **`graph/workflow.py`**: i nodi passano alle slice, `process` compone il grafo. `build` ha complessità McCabe 63
-   (SIM-012), e l'import di `langchain_core` passa al livello del processo (SIM-004).
+3. [x] **`graph/workflow.py`**: i nodi passano alle slice, `process` compone il grafo. `build` ha complessità McCabe 63
+   (SIM-012), e l'import di `langchain_core` passa al livello del processo (SIM-004). Fatto il 2026-11-15: i nodi stanno
+   nelle slice di `agency.studio`, come factory che ricevono il `Crew`; `agency.process` compone il grafo (`graph.py`) e
+   apre le sessioni (`session.py`). `build` scende da 65 a 2; tra grafo e slice resta sopra 10 solo la factory `select`
+   (11), che M1.8 divide. `langchain_core` lo importa solo `process/session.py`. Si rifà con
+   `uv run ruff check --select C901 --config "lint.mccabe.max-complexity = 10" src/agency/process src/agency/studio` e
+   `grep -rn langchain_core src`.
 4. [ ] **Dominio e applicazione**: regole pure, casi d'uso e porte fuori dai framework. La CLI passa in `entrypoints/cli/`
    con il suo renderer, che oggi sta in `telemetry` (STR-007).
 5. [ ] **`import-linter` bloccante** su tutto il pacchetto, con le regole di ADR-0021 ancora mancanti: `langgraph` solo nel

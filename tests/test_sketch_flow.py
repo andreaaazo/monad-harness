@@ -24,8 +24,8 @@ from agency.insights.adapters.ledger import ReadOnlyLedger
 from agency.insights.domain import derive_phase
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
+from agency.process.session import Session, open_session
 from agency.qa import delivery
-from agency.runtime import Session, open_session
 from agency.studio.exploration.tools import EXPLORE, PLAN
 from agency.studio.presentation import document as presentation
 from agency.studio.presentation.tools import PRESENT

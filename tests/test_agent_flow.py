@@ -31,12 +31,12 @@ from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.secrets import API_KEY_VARIABLES
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.gateway import BudgetExceeded, ModelGateway
-from agency.graph import workflow
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow, DerivationRow, EvidenceRow
+from agency.process import graph as workflow
+from agency.process.session import open_session
 from agency.qa import checks
 from agency.qa.checks import CheckOutcome
-from agency.runtime import open_session
 from agency.studio.presentation import document
 from agency.toolkit.base import ToolContext
 from agency.workshop import craft, master

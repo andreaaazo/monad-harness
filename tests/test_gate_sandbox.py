@@ -12,10 +12,10 @@ from agency import cli
 from agency.config import Settings
 from agency.contracts.project import parse_project_name
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
-from agency.graph import workflow
 from agency.ledger import Ledger
+from agency.process import graph as workflow
+from agency.process.session import Session
 from agency.qa import delivery
-from agency.runtime import Session
 from agency.telemetry import report
 from agency.workshop.sandbox import SandboxUnavailable
 

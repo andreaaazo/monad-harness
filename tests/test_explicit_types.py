@@ -15,7 +15,7 @@ from agency.artifacts import FileStore
 from agency.contracts.gate import GATE, ConceptGate, Decision, FinalGate, GateKind
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.ledger import Ledger
-from agency.runtime import Session
+from agency.process.session import Session
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.sandbox import Sandbox

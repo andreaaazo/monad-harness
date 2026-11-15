@@ -226,26 +226,34 @@ Cinque principi: modular monolith in vertical slices, explicit over implicit, Cl
 
 ### Oggi
 
-Il motore è ancora diviso per pacchetti tecnici; `insights` ha già la forma a slice.
+Il motore ha le sue slice in `studio/`, e `process/` compone il grafo
+([ADR-0057](adr/0057-l-albero-dei-pacchetti-del-motore.md)). Dentro le slice mancano ancora dominio e applicazione: arrivano con
+i punti 4–7 di M1.7. `insights` ha già la forma completa.
 
 ```text
 src/agency/
-  agents/        il ciclo di un'istanza, il prompt di sistema, il pacchetto del ticket, la trascrizione
+  agents/        il ciclo di un'istanza, il prompt di sistema, il pacchetto del ticket, la trascrizione; toolbox.py è il
+                 catalogo degli strumenti per ruolo e per fase
   artifacts/     le versioni conservate per sha256, e quando conservarle
   context/       riservato al contesto visivo di M3: per ora vuoto
   contracts/     i contratti tipizzati: ticket, gate, esiti, impronte, giudizi, percorsi dei dati, file senza link
   entrypoints/   server/: il cruscotto Django, in sola lettura
   evaluation/    il giudizio alla cieca e la sua tavola
   gateway/       l'unico punto che chiama l'API: budget, costi, registrazione delle risposte
-  graph/         il processo dello studio su LangGraph
   insights/      la slice di lettura: dominio, porte, casi d'uso, una vista per modulo; adapters/ legge registro,
                  tracce e trascrizioni e scrive la proiezione
   ledger/        il registro SQLite, la catena di hash, le migrazioni
+  process/       graph.py compone il grafo LangGraph con i nodi delle slice; session.py avvia, riprende e decide i gate
+                 di un progetto, uno alla volta
   qa/            controlli, prove, consegna e accettazione; scripts/ sono gli script QA importati dal setup precedente
+  studio/        una slice per capacità: exploration/, selection/, proposal/, presentation/, refinement/, delivery/,
+                 ognuna con i suoi nodi (nodes.py) e, dove ne ha, i suoi strumenti (tools.py); shared.py tiene lo stato
+                 del grafo e il `Crew` che i nodi ricevono
   telemetry/     tracce OpenTelemetry, impronte delle esecuzioni, i testi della CLI
-  tools/         gli strumenti degli agenti, la sandbox, i comandi Craft, render, master, tavola, presentazione
+  toolkit/       il kit degli strumenti (`Tool`, `ToolContext`) e gli strumenti condivisi: file, Craft, revisione, chiusura
+  workshop/      la sandbox, i file, i comandi Craft, render, master, la tavola anonima
   registry.py    le regole dello studio di `registry/`, caricate una volta, e le ricerche sui prompt
-  cli.py  config.py  doctor.py  runtime.py
+  cli.py  config.py  doctor.py
 tests/           test_*.py; support/ ha gli aiuti condivisi (ScriptedTransport, ReplayTransport, i disegni di prova,
                  il registro di prova del cruscotto); fixtures/ e snapshots/ i dati
 web/src/         app/ le pagine, components/, lib/ gli aiuti puri con le loro prove, api/ il client e i tipi, proxy.ts
@@ -253,22 +261,20 @@ web/src/         app/ le pagine, components/, lib/ gli aiuti puri con le loro pr
 
 ### Forma di arrivo
 
-`insights` nasce così in M1.6, il motore ci arriva in M1.7.
+L'albero dei pacchetti lo fissa [ADR-0057](adr/0057-l-albero-dei-pacchetti-del-motore.md), e il motore lo ha già. Il secondo
+piano di M1.7 (punti 4–7) aggiunge dentro le slice dominio e applicazione, le porte ai confini e la CLI in `entrypoints/cli/`.
+Le dipendenze puntano verso l'interno, a livelli. Ogni livello importa solo da quelli sotto:
+- gli ingressi;
+- `process`;
+- `agents`;
+- le slice di `studio`;
+- `toolkit`;
+- `qa`;
+- la piattaforma: `config`, `registry`, `ledger`, `gateway`, `telemetry`, `artifacts`, `workshop`;
+- `contracts`.
 
-```text
-src/agency/
-  shared/        contratti ed errori comuni
-  platform/      registro, gateway, sandbox, telemetria, artefatti
-  studio/        una slice per capacità
-    exploration/  selection/  proposal/  presentation/  finishing/  delivery/  evaluation/
-  process/       composizione del grafo
-  insights/      slice di lettura per report e cruscotto
-  entrypoints/   cli/ e server/ (Django)
-web/             interfaccia Next.js in TypeScript
-schemas/         OpenAPI generato e versionato
-```
+`evaluation` e `insights` dipendono solo dai contratti. Il punto 5 di M1.7 rende questi livelli un contratto di `import-linter`.
 
-Le dipendenze puntano verso l'interno: `entrypoints`, poi `process`, poi `studio` e `insights`, poi `platform`, poi `shared`.
 Dentro una slice il dominio tiene le regole pure, l'applicazione casi d'uso e porte, gli adattatori strumenti e nodi. Le slice non
 si importano tra loro, e `import-linter` in `make check` lo impone. Oggi impone cinque confini: `insights` e il server leggono e
 basta, senza motore né `Ledger`; il giudizio alla cieca dipende solo dai contratti (ADR-0027); il motore non importa Django né il

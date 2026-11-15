@@ -20,7 +20,7 @@ from agency.contracts.project import ProjectName
 from agency.gateway import AnthropicTransport, RecordingTransport, request_key
 from agency.ledger import Ledger
 from agency.ledger.models import TicketRow
-from agency.runtime import Session, open_session
+from agency.process.session import Session, open_session
 from support.replay import MissingRecording, ReplayTransport
 from support.scripted import ScriptedTransport, turn
 from support.settings import settings
@@ -398,7 +398,7 @@ def test_agency_run_records_only_when_asked(
     brief.write_text("Un segno per un forno di quartiere", encoding="utf-8")
     transport = ScriptedTransport([BLOCK_AT_ONCE])
     monkeypatch.setattr(
-        "agency.runtime.open_session",
+        "agency.process.session.open_session",
         lambda settings, record=False: open_session(settings, transport, record=record),
     )
 
@@ -433,7 +433,7 @@ def test_every_working_command_hands_record_to_its_session(
         asked.append(record)
         raise Opened
 
-    monkeypatch.setattr("agency.runtime.open_session", opened)
+    monkeypatch.setattr("agency.process.session.open_session", opened)
     with pytest.raises(Opened):
         cli.main([*command, *flag])
     assert asked == [bool(flag)]

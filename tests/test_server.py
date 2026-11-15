@@ -608,6 +608,64 @@ def test_every_studio_slice_is_kept_apart_from_the_others() -> None:
     assert set(independence[0]["modules"]) == slices
 
 
+def contract_named(start: str) -> dict:
+    """The one import-linter contract whose name starts with `start`."""
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    found = [
+        contract
+        for contract in config["tool"]["importlinter"]["contracts"]
+        if contract["name"].startswith(start)
+    ]
+    assert len(found) == 1, f"one contract named {start!r}"
+    return found[0]
+
+
+def top_level_packages() -> set[str]:
+    """The packages and modules right under src/agency, by name."""
+    source = REPO_ROOT / "src" / "agency"
+    return {
+        path.stem for path in source.iterdir() if path.suffix == ".py" or (path / "__init__.py").exists()
+    } - {"__init__"}
+
+
+def test_every_engine_package_has_a_layer() -> None:
+    """The layers contract lists the packages by hand: a new one must take a layer. Insights and the blind
+    judgment depend only on the contracts, and their own contracts say so (ADR-0057)."""
+    layers = contract_named("the engine's layers")["layers"]
+    listed = {name.strip() for layer in layers for name in layer.replace("|", ":").split(":")}
+    assert listed == {f"agency.{name}" for name in top_level_packages() - {"evaluation", "insights"}}
+
+
+def test_every_package_but_the_process_and_the_studio_is_forbidden_langgraph() -> None:
+    """The langgraph contract lists the packages by hand: a new package must not slip past it (ADR-0021)."""
+    contract = contract_named("langgraph only")
+    assert contract["forbidden_modules"] == ["langgraph", "langchain_core"]
+    packages = {
+        module.removeprefix("agency.") for module in contract["source_modules"] if module.count(".") == 1
+    }
+    assert packages == top_level_packages() - {"process", "studio"}
+
+
+def test_every_studio_module_but_the_graph_adapters_is_forbidden_langgraph() -> None:
+    """Inside the studio only the slices' nodes.py and studio.graph meet LangGraph (ADR-0058). A package's
+    __init__ cannot be listed without its children, and none of them imports anything."""
+    contract = contract_named("langgraph only")
+    studio = REPO_ROOT / "src" / "agency"
+    modules = {
+        ".".join(path.relative_to(studio.parent).with_suffix("").parts)
+        for path in (studio / "studio").rglob("*.py")
+        if path.name not in {"__init__.py", "nodes.py", "graph.py"}
+    }
+    assert {module for module in contract["source_modules"] if module.startswith("agency.studio.")} == modules
+
+
+def test_every_package_but_the_ledger_is_forbidden_the_orm() -> None:
+    """The ORM contract lists the packages by hand: a new package must not slip past it (ADR-0021)."""
+    contract = contract_named("sqlmodel, sqlalchemy and alembic only")
+    assert contract["forbidden_modules"] == ["sqlmodel", "sqlalchemy", "alembic"]
+    assert set(contract["source_modules"]) == {f"agency.{name}" for name in top_level_packages() - {"ledger"}}
+
+
 def test_the_projection_can_live_away_from_the_registry(client: Client, tmp_path: Path) -> None:
     """In Docker the projection lives in memory: the server writes it there, and nothing beside the
     registry."""

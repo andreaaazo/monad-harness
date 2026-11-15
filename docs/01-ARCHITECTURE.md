@@ -274,25 +274,29 @@ Le dipendenze puntano verso l'interno, a livelli. Ogni livello importa solo da q
 - la piattaforma: `config`, `registry`, `ledger`, `gateway`, `telemetry`, `artifacts`, `workshop`;
 - `contracts`.
 
-`evaluation` e `insights` dipendono solo dai contratti. Il punto 5 di M1.7 rende questi livelli un contratto di `import-linter`.
+`evaluation` e `insights` dipendono solo dai contratti. Un contratto `layers` di `import-linter` impone questi livelli.
 
 Dentro una slice il dominio tiene le regole pure, l'applicazione casi d'uso e porte, gli adattatori strumenti e nodi. Le slice non
-si importano tra loro, e `import-linter` in `make check` lo impone. Oggi i contratti sono sette:
+si importano tra loro, e `import-linter` in `make check` lo impone. Oggi i contratti sono dieci:
 - `insights` e il server leggono e basta, senza motore né `Ledger` (due contratti);
 - il giudizio alla cieca dipende solo dai contratti (ADR-0027);
-- il motore non importa Django né il server;
+- il motore e la CLI non importano Django né il server;
 - solo il gateway importa `anthropic`;
 - nessun ciclo di import tra moduli fratelli, a ogni livello di `agency`;
-- le slice di `studio` non si importano tra loro.
+- le slice di `studio` non si importano tra loro;
+- i livelli qui sopra, dagli ingressi ai contratti;
+- `langgraph` e `langchain_core` solo nel processo, nei `nodes.py` delle slice e in `studio.graph`;
+- `sqlmodel`, `sqlalchemy` e `alembic` solo nel registro.
 
-I contratti che elencano a mano pacchetti o slice hanno ciascuno un test che controlla che non ne manchi nessuno. Della tabella
-qui sotto valgono già le righe di `anthropic` e di `django`; le altre entrano con il punto 5 di M1.7.
+I contratti che elencano a mano pacchetti, moduli o slice hanno ciascuno un test che controlla che non ne manchi nessuno. Le
+righe della tabella qui sotto valgono tutte per gli import diretti. Il registro dietro le sue porte e dominio e applicazione
+senza framework entrano con i punti 4 e 5 di M1.7 ([ADR-0058](adr/0058-porte-tipi-e-livelli-del-motore.md)).
 
 | Libreria | Chi può importarla |
 |---|---|
 | `anthropic` | Solo il gateway |
-| `langgraph` | `process` e i nodi delle slice |
-| `sqlmodel`, `alembic` | Solo il registro |
+| `langgraph`, `langchain_core` | `process`, i `nodes.py` delle slice e `studio.graph` |
+| `sqlmodel`, `sqlalchemy`, `alembic` | Solo il registro |
 | `django`, `ninja` | Solo `entrypoints/server` |
 
 ## Verso il SaaS

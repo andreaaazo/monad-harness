@@ -221,3 +221,73 @@ modules = [
   "agency.studio.refinement",
   "agency.studio.delivery",
 ]
+
+[[tool.importlinter.contracts]]
+name = "the engine's layers: each imports only from the layers below (ADR-0057)"
+type = "layers"
+layers = [
+  "agency.entrypoints",
+  "agency.process",
+  "agency.agents",
+  "agency.studio",
+  "agency.toolkit",
+  "agency.qa",
+  "agency.config : agency.registry : agency.ledger : agency.gateway : agency.telemetry : agency.artifacts : agency.workshop : agency.context",
+  "agency.contracts",
+]
+
+[[tool.importlinter.contracts]]
+name = "langgraph only in the process and the studio's graph adapters (ADR-0021, ADR-0058)"
+type = "forbidden"
+source_modules = [
+  "agency.agents",
+  "agency.artifacts",
+  "agency.config",
+  "agency.context",
+  "agency.contracts",
+  "agency.entrypoints",
+  "agency.evaluation",
+  "agency.gateway",
+  "agency.insights",
+  "agency.ledger",
+  "agency.qa",
+  "agency.registry",
+  "agency.telemetry",
+  "agency.toolkit",
+  "agency.workshop",
+  "agency.studio.shared",
+  "agency.studio.exploration.tools",
+  "agency.studio.presentation.document",
+  "agency.studio.presentation.tools",
+  "agency.studio.proposal.tools",
+  "agency.studio.refinement.tools",
+  "agency.studio.selection.tools",
+]
+forbidden_modules = ["langgraph", "langchain_core"]
+# Direct imports only: the entry points reach LangGraph through the process, as they should.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "sqlmodel, sqlalchemy and alembic only in the ledger (ADR-0021)"
+type = "forbidden"
+source_modules = [
+  "agency.agents",
+  "agency.artifacts",
+  "agency.config",
+  "agency.context",
+  "agency.contracts",
+  "agency.entrypoints",
+  "agency.evaluation",
+  "agency.gateway",
+  "agency.insights",
+  "agency.process",
+  "agency.qa",
+  "agency.registry",
+  "agency.studio",
+  "agency.telemetry",
+  "agency.toolkit",
+  "agency.workshop",
+]
+forbidden_modules = ["sqlmodel", "sqlalchemy", "alembic"]
+# Direct imports only: the ledger's rows still cross its boundary until the ports of ADR-0058 replace them.
+allow_indirect_imports = true

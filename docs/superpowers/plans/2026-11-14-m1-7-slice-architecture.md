@@ -492,6 +492,9 @@ modules = [
 
 ## Plan B (roadmap items 4–7), written after Task 11
 
+Written on 2026-11-15: `docs/superpowers/plans/2026-11-15-m1-7-plan-b-domain-ports-types.md`. The outline below is
+what it started from.
+
 Plan B gets written once plan A has landed: which rules are pure becomes visible only when each slice's code sits
 apart. It must decide and cover:
 - **Item 4.** What moves to a `domain.py` per slice, and what becomes an application use case with ports at the

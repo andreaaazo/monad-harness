@@ -409,7 +409,8 @@ prima né dopo il refactor ([ADR-0056](adr/0056-m1-7-senza-prova-dal-vivo.md)). 
 snapshot di strumenti e system prompt e i test di flusso con risposte registrate. La prima misura dal vivo del motore diviso è
 `merlo4`, in M1.9. Principi e confini in [ADR-0021](adr/0021-monolite-modulare-a-slice.md), l'albero dei pacchetti in
 [ADR-0057](adr/0057-l-albero-dei-pacchetti-del-motore.md). I punti 1–3 seguono il
-[piano](superpowers/plans/2026-11-14-m1-7-slice-architecture.md), i punti 4–7 un secondo piano da scrivere dopo. L'audit ha
+[piano](superpowers/plans/2026-11-14-m1-7-slice-architecture.md), i punti 4–7 il
+[secondo piano](superpowers/plans/2026-11-15-m1-7-plan-b-domain-ports-types.md). L'audit ha
 rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SUMMARY.md`.
 
 ### Lavoro, in ordine
@@ -734,5 +735,6 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Scrivere il secondo piano di M1.7, senza spesa: i punti 4–7, cioè dominio e applicazione, livelli imposti, piramide dei test e
-tipi espliciti. Dopo M1.9, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+Il Task 0 del [secondo piano](superpowers/plans/2026-11-15-m1-7-plan-b-domain-ports-types.md) di M1.7, senza spesa: ADR-0058,
+che registra porte, tipi e livelli del motore. Poi i suoi task in ordine. Dopo M1.9, M2 parte dal contesto delle istanze lunghe,
+prima dei ruoli.

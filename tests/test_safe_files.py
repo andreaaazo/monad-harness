@@ -37,7 +37,7 @@ from agency.process import session as runtime
 from agency.process.session import Session
 from agency.qa import delivery
 from agency.studio import shared
-from agency.studio.presentation import document as presentation
+from agency.studio.presentation import document
 from agency.studio.presentation import nodes as presentation_nodes
 from agency.studio.presentation.tools import (
     ConfirmPresentation,
@@ -205,11 +205,11 @@ def presenting(work: Path, host: Path) -> Read:
     (folder / "proposta-v.png").write_bytes(png((20, 20, 20)))
     (folder / "applicazioni-v/insegna.png").write_bytes(png((240, 240, 240)))
     (folder / "applicazioni-v/.zz.png").symlink_to(host / "secret.png")
-    mark, applications = presentation.proposal_files(
+    mark, applications = document.proposal_files(
         work, 1, "V", ["applicazioni-v/insegna.png", "applicazioni-v/.zz.png"]
     )
-    item = presentation.Proposal("V", "Il merlo", "L'idea", "Perché", "Il limite", mark, applications)
-    return lambda: presentation.build([item], "V", "Regge meglio", work / "presentation/r1")
+    item = document.Proposal("V", "Il merlo", "L'idea", "Perché", "Il limite", mark, applications)
+    return lambda: document.build([item], "V", "Regge meglio", work / "presentation/r1")
 
 
 def accepting(work: Path, host: Path) -> Read:
@@ -614,7 +614,7 @@ def test_the_sheet_is_written_in_the_proposals_folder(tmp_path: Path) -> None:
     studio = Studio(tmp_path)
     output = studio.work / "proposals/r1/insieme-z.png"
 
-    presentation.sheet(mark_of(studio), (), output)
+    document.sheet(mark_of(studio), (), output)
 
     assert output.is_file()
 
@@ -623,7 +623,7 @@ def test_the_sheet_is_written_in_the_proposals_folder(tmp_path: Path) -> None:
 def test_the_sheet_refuses_a_linked_folder(tmp_path: Path, planted: Plant) -> None:
     studio = Studio(tmp_path)
     mark = mark_of(studio)
-    refused(studio, lambda: presentation.sheet(mark, (), studio.work / "proposals/r1/insieme-z.png"), planted)
+    refused(studio, lambda: document.sheet(mark, (), studio.work / "proposals/r1/insieme-z.png"), planted)
 
 
 def test_the_sheet_replaces_a_linked_file(tmp_path: Path) -> None:
@@ -631,7 +631,7 @@ def test_the_sheet_replaces_a_linked_file(tmp_path: Path) -> None:
     mark = mark_of(studio)
     overwrites(
         studio,
-        lambda: presentation.sheet(mark, (), studio.work / "proposals/r1/insieme-z.png"),
+        lambda: document.sheet(mark, (), studio.work / "proposals/r1/insieme-z.png"),
         ("proposals/r1/insieme-z.png", "secret.png"),
     )
 
@@ -689,7 +689,7 @@ def test_the_production_node_replaces_a_linked_target(tmp_path: Path) -> None:
 
 def gate_studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Studio:
     studio = Studio(tmp_path)
-    studio.put(presentation.pdf_of(1), b"%PDF- la presentazione")
+    studio.put(document.pdf_of(1), b"%PDF- la presentazione")
     answer = Decision(approved=False, text="Ancora", choice="").model_dump()
     monkeypatch.setattr(presentation_nodes, "interrupt", lambda _: answer)
     return studio
@@ -710,10 +710,10 @@ def test_the_concept_gate_records_the_hash_of_the_presentation(
 
     (gate,) = studio.ledger.gates(PROJECT)
     digest = hashlib.sha256(b"%PDF- la presentazione").hexdigest()
-    assert json.loads(gate.files_json) == {presentation.pdf_of(1): digest}
+    assert json.loads(gate.files_json) == {document.pdf_of(1): digest}
 
 
-@pytest.mark.parametrize("planted", [("presentation", ""), (presentation.pdf_of(1), "secret.txt")])
+@pytest.mark.parametrize("planted", [("presentation", ""), (document.pdf_of(1), "secret.txt")])
 def test_the_concept_gate_refuses_a_linked_presentation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, planted: Plant
 ) -> None:
@@ -1007,10 +1007,10 @@ def test_read_file_reads_a_text_file_of_exactly_the_limit(tmp_path: Path) -> Non
 def drafted(work: Path) -> ToolContext:
     """A context whose last draft made one page, that this instance has looked at."""
     ctx = tool_context(work)
-    page = f"{presentation.folder_of(1)}/pagina-1.png"
+    page = f"{document.folder_of(1)}/pagina-1.png"
     (work / page).parent.mkdir(parents=True)
     (work / page).write_bytes(png((20, 20, 20)))
-    (work / presentation.pdf_of(1)).write_bytes(b"%PDF")
+    (work / document.pdf_of(1)).write_bytes(b"%PDF")
     key = f"{page}:{hashlib.sha256((work / page).read_bytes()).hexdigest()}"
     ctx.ledger.record_operation("op1", "i", "draft_presentation", json.dumps({"pagine": [page]}))
     ctx.ledger.record_operation("op2", "i", "view_image", json.dumps({"key": key}))
@@ -1021,7 +1021,7 @@ def test_present_concepts_refuses_a_draft_over_the_limit(tmp_path: Path) -> None
     work = tmp_path / "work"
     work.mkdir()
     ctx = drafted(work)
-    sparse(work / presentation.folder_of(1) / "testi.json", over(files.MAX_TEXT_FILE_BYTES))
+    sparse(work / document.folder_of(1) / "testi.json", over(files.MAX_TEXT_FILE_BYTES))
     with pytest.raises(OutsidePerimeter, match=TEXT_REFUSAL):
         present_concepts(ctx, ConfirmPresentation(), "op3")
     assert ctx.finished is None
@@ -1031,7 +1031,7 @@ def test_present_concepts_reads_a_small_draft(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
     ctx = drafted(work)
-    (work / presentation.folder_of(1) / "testi.json").write_text('{"proposals": []}', encoding="utf-8")
+    (work / document.folder_of(1) / "testi.json").write_text('{"proposals": []}', encoding="utf-8")
     assert present_concepts(ctx, ConfirmPresentation(), "op3") == {"proposals": []}
 
 
@@ -1127,9 +1127,9 @@ def test_the_board_refuses_a_sketch_over_the_limit(tmp_path: Path) -> None:
 def test_the_presentation_refuses_a_mark_over_the_limit(tmp_path: Path) -> None:
     work = tmp_path / "work"
     mark = sparse(work / "proposals/r1/v/proposta-v.png", over(files.MAX_IMAGE_FILE_BYTES))
-    item = presentation.Proposal("V", "Il merlo", "L'idea", "Perché", "Il limite", mark, ())
+    item = document.Proposal("V", "Il merlo", "L'idea", "Perché", "Il limite", mark, ())
     with pytest.raises(OutsidePerimeter, match=IMAGE_REFUSAL):
-        presentation.build([item], "V", "Regge meglio", work / "presentation/r1")
+        document.build([item], "V", "Regge meglio", work / "presentation/r1")
     assert not list((work / "presentation/r1").glob("*.pdf"))
 
 

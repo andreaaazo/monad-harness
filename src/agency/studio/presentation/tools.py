@@ -10,7 +10,9 @@ from agency.contracts.artifact import Origin
 from agency.contracts.concept import ConceptStatus
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import TicketType
-from agency.studio.presentation import document as presentation
+from agency.studio.presentation import document
+from agency.studio.presentation.domain import draft_refusal
+from agency.studio.shared import proposal_title
 from agency.toolkit.base import Refused, Strict, Tool, ToolContext, viewed
 from agency.workshop.files import MAX_TEXT_FILE_BYTES, is_file_under, read_under, replace_under, sha256_under
 
@@ -35,7 +37,7 @@ class ConfirmPresentation(Strict):
 
 def _delivered_proposal(ctx: ToolContext, letter: str) -> dict[str, str]:
     """What the proposal ticket delivered, by path relative to its folder; empty if it delivered nothing."""
-    title = f"Proposta {letter} r{ctx.round}"
+    title = proposal_title(letter, ctx.round)
     for ticket in ctx.ledger.children(ctx.ticket_id):
         spec = ctx.ledger.spec(ticket)
         if spec.type is TicketType.PROPOSAL and spec.title == title:
@@ -51,30 +53,26 @@ def draft_presentation(ctx: ToolContext, a: PresentConcepts, _: str) -> dict:
         if row.status == ConceptStatus.PROPOSAL
     }
     letters = [item.letter for item in a.proposals]
-    unknown = sorted(set(letters) - available)
-    if unknown:
-        raise Refused(f"proposte inesistenti: {unknown}. Disponibili: {sorted(available)}")
+    refusal = draft_refusal(letters, available, a.recommended)
+    if refusal:
+        raise Refused(refusal)
     if not letters:
         ctx.finished = Outcome(state=OutcomeState.NO_CONCEPT, note=a.model_dump_json())
         return a.model_dump()
-    if a.recommended not in letters:
-        raise Refused("lo studio raccomanda una delle proposte che presenta")
     items = [
-        presentation.Proposal(
+        document.Proposal(
             item.letter,
             item.title,
             item.idea,
             item.why,
             item.risk,
-            *presentation.proposal_files(
-                ctx.work, ctx.round, item.letter, _delivered_proposal(ctx, item.letter)
-            ),
+            *document.proposal_files(ctx.work, ctx.round, item.letter, _delivered_proposal(ctx, item.letter)),
         )
         for item in a.proposals
     ]
-    folder = ctx.work.resolve() / presentation.folder_of(ctx.round)
-    pages = presentation.build(items, str(a.recommended), a.reasons, folder)
-    replace_under(ctx.work, f"{presentation.folder_of(ctx.round)}/testi.json", a.model_dump_json().encode())
+    folder = ctx.work.resolve() / document.folder_of(ctx.round)
+    pages = document.build(items, str(a.recommended), a.reasons, folder)
+    replace_under(ctx.work, f"{document.folder_of(ctx.round)}/testi.json", a.model_dump_json().encode())
     return {
         "pagine": [str(page.relative_to(ctx.work.resolve())) for page in pages],
         "poi": "Guarda ogni pagina con view_image. Se serve, rifai la bozza. Poi present_concepts.",
@@ -92,7 +90,7 @@ def _drafted_pages(ctx: ToolContext) -> list[str]:
 
 def present_concepts(ctx: ToolContext, _a: ConfirmPresentation, __: str) -> dict:
     """Sends the client the last draft, only if it is exactly the one looked at."""
-    draft = f"{presentation.folder_of(ctx.round)}/testi.json"
+    draft = f"{document.folder_of(ctx.round)}/testi.json"
     pages = _drafted_pages(ctx)
     if not pages or not is_file_under(ctx.work, draft):
         raise Refused("non c'è ancora una bozza: prima draft_presentation")
@@ -104,7 +102,7 @@ def present_concepts(ctx: ToolContext, _a: ConfirmPresentation, __: str) -> dict
     if missing:
         raise Refused(f"guarda queste pagine, così come sono ora, prima di mandarle al cliente: {missing}")
     text = read_under(ctx.work, draft, MAX_TEXT_FILE_BYTES).decode("utf-8")
-    ctx.keep([presentation.pdf_of(ctx.round)], Origin.PRESENTATION)
+    ctx.keep([document.pdf_of(ctx.round)], Origin.PRESENTATION)
     ctx.finished = Outcome(state=OutcomeState.PRESENTED, note=text)
     return json.loads(text)
 

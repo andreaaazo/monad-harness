@@ -24,6 +24,7 @@ django.setup()
 
 from django.apps import apps  # noqa: E402
 from django.conf import settings  # noqa: E402
+from django.db import connections  # noqa: E402
 from django.http import HttpRequest, HttpResponse  # noqa: E402
 from django.test import Client, RequestFactory, override_settings  # noqa: E402
 
@@ -342,7 +343,9 @@ def test_no_docs_page_that_loads_scripts_from_a_cdn(client: Client) -> None:
 
 def test_django_owns_no_model_and_no_database() -> None:
     assert apps.get_models() == []
-    assert settings.DATABASES["default"]["ENGINE"] == "django.db.backends.dummy"  # that is, no database
+    # Django fills the default database in only when the connections are first configured, so ask them: a test
+    # that ran earlier must not be the reason this passes. The dummy backend means no database.
+    assert connections["default"].settings_dict["ENGINE"] == "django.db.backends.dummy"
     assert settings.DEBUG is False
     assert settings.ALLOWED_HOSTS == ["127.0.0.1", "localhost"]
 

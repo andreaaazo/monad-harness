@@ -34,6 +34,24 @@ dev = [
     "django-stubs>=5.2,<5.3",
     "httpx2>=2.13.1",
 ]
+quality = [
+    "basedpyright==1.40.2",
+    "coverage==7.16.2",
+    "deptry==0.25.1",
+    "diff-cover==10.6.0",
+    "django-stubs==5.2.9",
+    "flake8==7.4.1",
+    "import-linter==2.15",
+    "mutmut==3.8.0",
+    "pre-commit==4.7.0",
+    "pydoclint==0.11.1",
+    "pylint==4.1.3",
+    "pytest==9.1.1",
+    "pytest-randomly==5.0.0",
+    "ruff==0.17.1",
+    "vulture==2.16",
+    "wemake-python-styleguide==1.8.1",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -45,6 +63,8 @@ packages = ["src/agency"]
 [tool.uv]
 # No package published less than two weeks ago: a defense against supply-chain compromise (ADR-0006).
 exclude-newer = "2026-10-17T00:00:00Z"
+# The quality gate's tools install with every `uv sync` and `uv run`, beside the dev group (ADR-0060).
+default-groups = ["dev", "quality"]
 
 [tool.ruff]
 line-length = 110

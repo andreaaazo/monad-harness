@@ -610,16 +610,22 @@ def test_a_plain_sandbox_does_not_mount_the_qa_scripts(tmp_path: Path) -> None:
 
 
 def test_a_check_mounts_the_qa_scripts_and_keeps_everything_else(tmp_path: Path) -> None:
-    ops = tmp_path / "ops"
-    plain = Sandbox(tmp_path / "w", toolchain=tmp_path / "t", read_only=(tmp_path,), ops=ops).argv(["true"])
-    mounted = (
-        Sandbox(tmp_path / "w", toolchain=tmp_path / "t", read_only=(tmp_path,), ops=ops)
-        .with_mount(checks.SCRIPTS, checks.QA_MOUNT)
-        .argv(["true"])
-    )
+    """The copy keeps the work folder, the toolchain, the read-only folders and /ops. The toolchain must
+    exist: argv binds it only then, and python() falls back to python3 without it."""
+    ops, toolchain = tmp_path / "ops", tmp_path / "t"
+    (toolchain / "venv/bin").mkdir(parents=True)
+    (toolchain / "venv/bin/python").touch()
+    sandbox = Sandbox(tmp_path / "w", toolchain=toolchain, read_only=(tmp_path,), ops=ops)
+    plain = sandbox.argv(["true"])
+    copy = sandbox.with_mount(checks.SCRIPTS, checks.QA_MOUNT)
+    mounted = copy.argv(["true"])
     at = mounted.index(checks.QA_MOUNT)
     assert mounted[at - 2 : at + 1] == ["--ro-bind", str(checks.SCRIPTS), checks.QA_MOUNT]
     assert mounted[: at - 2] + mounted[at + 1 :] == plain
+    bound = plain.index(str(toolchain))
+    assert plain[bound - 1 : bound + 2] == ["--ro-bind", str(toolchain), str(toolchain)]
+    assert copy.python() == sandbox.python() == str(toolchain / "venv/bin/python")
+    assert sandbox.argv(["true"]) == plain  # the original gains no mount
 
 
 def test_the_qa_scripts_are_the_frozen_folder() -> None:

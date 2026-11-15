@@ -344,9 +344,9 @@ Una vista nuova entra solo se `merlo4`, in M1.9, mostra una domanda a cui queste
 - [x] `agency verify` passa su una copia del registro migrata: provato il 2026-11-02, con tutte le 3.814 righe identiche
   (`tests/test_migrations.py`)
 - [x] Ogni nuova esecuzione registra la propria impronta, e due esecuzioni mostrano cosa è cambiato: `tests/test_runs.py` e
-  `tests/test_sketch_flow.py`, a mano con `agency runs <progetto>` e `agency compare <n> <n>`
+  `tests/test_flow_project.py`, a mano con `agency runs <progetto>` e `agency compare <n> <n>`
 - [x] Ogni nuova chiamata registra in `usage` esecuzione, fase, effort, durata, TTFT e ragionamento: `tests/test_gateway.py` e
-  `tests/test_sketch_flow.py`. Il TTFT dal vivo si vedrà con `merlo4`: i test lo misurano su uno stream simulato
+  `tests/test_flow_project.py`. Il TTFT dal vivo si vedrà con `merlo4`: i test lo misurano su uno stream simulato
 - [x] Un file giudicato resta recuperabile dal suo hash in `.data/artifacts/`: `tests/test_artifacts.py` e
   `tests/test_judgments.py`, a mano con `agency restore <hash> <file>`
 - [x] `ToolContext.extra` e `graph: object` non esistono più, e gate ed esiti hanno tipi propri:
@@ -457,7 +457,7 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
 - [ ] Gli snapshot di strumenti e system prompt sono identici a quelli di M1.6
 - [ ] I test di flusso passano con le sole modifiche agli import, ai bersagli di `monkeypatch` e agli argomenti dei
   costruttori che rendono esplicita una dipendenza ([ADR-0058](adr/0058-porte-tipi-e-livelli-del-motore.md)). Un'eccezione,
-  registrata: `test_agent_flow.py` legge l'insieme degli strumenti che chiudono da `Tool.closes` invece che da
+  registrata: `test_flow_loop.py` legge l'insieme degli strumenti che chiudono da `Tool.closes` invece che da
   `CLOSE_ALWAYS`, perché il refactor ha spostato proprio quel dato; l'asserzione resta la stessa
 - [ ] Dominio e applicazione non importano framework (`import-linter`)
 - [ ] Fasi, rotte e ruoli sono tipi: nessuna stringa libera e nessun `dict` generico al loro posto

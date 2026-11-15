@@ -53,7 +53,7 @@ def _after_fallback(content: list[dict]) -> list[dict]:
 
 
 # The closing tools the reminder offers, in the order it names them; it names those the current phase has.
-# reject_concept also closes an instance, but the reminder does not offer it (tests/test_agent_flow.py).
+# reject_concept also closes an instance, but the reminder does not offer it (tests/test_flow_loop.py).
 CLOSING = (
     "deliver",
     "hand_off",

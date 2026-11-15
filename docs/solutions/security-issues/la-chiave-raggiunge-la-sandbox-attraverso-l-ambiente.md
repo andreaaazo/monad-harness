@@ -77,7 +77,7 @@ conosce.
   Anche `CommandIndex.load` in `src/agency/workshop/craft.py` lancia `vectorcraft-cli` sull'host con il solo `PATH`, dal
   2026-11-14 (`tests/test_craft_index.py`); prima gli passava l'ambiente intero (`docs/audit/PLAN.md`, R1).
 - Una prova di isolamento cerca il segreto dove un attaccante lo cercherebbe: `test_no_process_in_the_sandbox_holds_the_key`
-  (in `tests/test_agent_flow.py`) legge ogni `/proc/<pid>/environ` e verifica di averne letto almeno due.
+  (in `tests/test_flow_sandbox.py`) legge ogni `/proc/<pid>/environ` e verifica di averne letto almeno due.
 - Una prova che dipende dall'ambiente si verifica anche con l'ambiente sporco:
   `test_a_shell_with_the_operator_variables_changes_nothing` (in `tests/test_environment.py`) lancia pytest in un
   processo figlio con le variabili esportate.

@@ -252,7 +252,7 @@ DRAW = [
 
 
 def to_the_final_gate() -> list[dict]:
-    """The full project of test_agent_flow.py, from the brief to the client's final gate."""
+    """The full project of test_flow_gates.py, from the brief to the client's final gate."""
     production = {
         "title": "Segno",
         "request": "Il segno del forno",

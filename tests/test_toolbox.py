@@ -1,7 +1,7 @@
 """How each tool closes its instance when a resume replays it from the ledger (ADR-0057).
 
 A tool already run is not run again on resume: its stored result comes back, and the tool itself says how
-that result closes the instance. `test_restore_closes_each_closing_tool_with_its_state` in test_agent_flow.py
+that result closes the instance. `test_restore_closes_each_closing_tool_with_its_state` in test_flow_loop.py
 plays the same replays through `Toolbox.call`.
 """
 

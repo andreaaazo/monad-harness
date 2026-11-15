@@ -84,7 +84,7 @@ Restano Markdown versionati: il gateway le carica a richiesta.
 | `budget.py` | `agency.gateway.client`: l'unico vincolo è il budget del cliente (ADR-0015, ADR-0016) | M1 | fatto |
 | `client.py` | i gate del cliente in `agency.studio.presentation` (`concept`) e `agency.studio.delivery` (`final`), `agency.ledger` | M2 | da portare |
 | `contract_lint.py` | `agency.qa` | M2 | da portare |
-| `craft-guard.py` | `agency.agents.toolbox`: il campo `craft` dei ruoli è applicato (`tests/test_registry.py`); manca un `app` per strumento, quando arrivano gli altri Craft | M2 | in corso |
+| `craft-guard.py` | `agency.agents.toolbox` toglie gli strumenti `craft_*` ai ruoli senza Craft, e `require_craft_app` in `agency.toolkit.craft` rifiuta all'uso l'app che il ruolo non ha (`tests/test_registry.py`); manca un `app` per strumento, quando arrivano gli altri Craft | M2 | in corso |
 | `craft_lock.py` | `agency.workshop.craft` (sostituito da istanze per lavoro, se il collaudo regge) | M3 | da portare |
 | `eval_kit.py` | `evals/` | M2 | da portare |
 | `evidence.py` | `agency.qa.evidence` | M1 | fatto |
@@ -101,7 +101,7 @@ Restano Markdown versionati: il gateway le carica a richiesta.
 | `session-start.sh` | `agency.process.session`: la ripresa viene dal checkpoint | M1 | fatto |
 | `start-agency.sh` | dismesso: `agency` CLI | M2 | dismesso |
 | `start-craft.sh` | `agency.workshop.craft`: fatto per VectorCraft, restano gli altri Craft | M2 | in corso |
-| `ticket.py` | `agency.ledger`, `agency.contracts.ticket` | M0–M1 | fatto |
+| `ticket.py` | `agency.ledger` dietro le porte di `agency.contracts.ledger`, `agency.contracts.ticket` | M0–M1 | fatto |
 | `tools.py` | `agency.entrypoints.cli.doctor` | M0 | fatto |
 | `validate_agency.py` | `tests/test_registry.py` | M2 | in corso |
 | `workdir.py` | `agency.workshop.files` | M1 | fatto |

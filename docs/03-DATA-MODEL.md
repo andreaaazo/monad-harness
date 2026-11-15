@@ -13,7 +13,7 @@ Ogni dato ha un solo proprietario.
 | Master di lavoro | `projects/<slug>/work/` | l'agente del ticket | Da M1.6 recuperabile dagli artefatti |
 | Trascrizioni delle istanze | `.data/runs/<slug>/` | `agency.agents` | Perdita grave: servono a ripresa e replay |
 | Cassette delle esecuzioni registrate con `--record` | `.data/cassettes/<slug>/<esecuzione>.jsonl`, una riga per ogni risposta del modello (ADR-0048) | `agency.gateway` | Quell'esecuzione non si ripete più nei test |
-| Ingressi delle sandbox e registro della ripresa | `.data/ops/<slug>/<istanza>/`; gli ingressi in `in/`, montata in sola lettura in `/ops` (ADR-0044) | `agency.workshop` | Un `craft_run` interrotto rifà i passi, anche se il master li aveva già ricevuti |
+| Ingressi delle sandbox e registro della ripresa | `.data/ops/<slug>/<istanza>/`; gli ingressi in `in/`, montata in sola lettura in `/ops` (ADR-0044) | `agency.workshop` (la sandbox); `agency.toolkit.craft` vi scrive gli ingressi di `compute` e `craft_run` | Un `craft_run` interrotto rifà i passi, anche se il master li aveva già ricevuti |
 | Indice dei comandi Craft | `.data/craft-index/` | `agency.workshop.craft` | Rigenerabile |
 | Indice visivo | `.data/lancedb/` | `agency.context` | Rigenerabile |
 | Proiezioni del cruscotto | `.data/insights.sqlite`; in Docker in memoria (ADR-0040) | `agency.insights` | Rigenerabile |

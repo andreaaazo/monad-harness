@@ -249,8 +249,9 @@ src/agency/
                  di un progetto, uno alla volta; fingerprint.py l'impronta di un'esecuzione
   qa/            controlli, prove, consegna e accettazione; scripts/ sono gli script QA importati dal setup precedente
   studio/        una slice per capacità: exploration/, selection/, proposal/, presentation/, refinement/, delivery/,
-                 ognuna con i suoi nodi (nodes.py) e, dove ne ha, i suoi strumenti (tools.py); shared.py tiene lo stato
-                 del grafo e il `Crew` che i nodi ricevono, graph.py i tipi che LangGraph vede (`Node`, `Router`)
+                 ognuna con le regole pure (domain.py), i nodi senza LangGraph (application.py), gli adattatori
+                 (nodes.py e, dove ne ha, tools.py); shared.py tiene lo stato del grafo, le rotte e il `Crew` che i nodi
+                 ricevono, graph.py i tipi che LangGraph vede (`Node`, `TaskNode`, `Router`)
   telemetry/     tracce OpenTelemetry
   toolkit/       il kit degli strumenti (`Tool`, `ToolContext`) e gli strumenti condivisi: file, Craft, revisione, chiusura
   workshop/      la sandbox, i file, i comandi Craft, render, master, la tavola anonima

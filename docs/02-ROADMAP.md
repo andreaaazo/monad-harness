@@ -10,7 +10,7 @@ si aggiornano con i dati di M1.
 | M1 | Prova verticale | Un logo S dall'inizio alla fine, confrontato con la CLI | 40 $ | **chiuso**, confronto passato a M1.6 |
 | M1.5 | Esplorazione a schizzi | Idee in parallelo, schizzi veloci, scelta del concetto, poi produzione | 40 $ | **chiuso**, 38,83 $ spesi, criteri non verificati passati a M1.6 e M2 |
 | M1.6 | Misure e cruscotto | Dati confrontabili, `insights`, API Django, cruscotto Next.js | 30 $ | **chiuso**, 0 $ spesi, `merlo4` e confronto con la CLI passati a M1.9 |
-| M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte | 0 $ | **in corso**, punti 1–3 fatti |
+| M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte | 0 $ | **in corso**, punti 1–7 fatti, manca la revisione finale |
 | M1.8 | Quality gate di Python | Un comando decide, niente soppressioni, hook che lo applicano da soli | 0 $ | |
 | M1.9 | Prova reale | `merlo4` misurato e giudicato, confronto con la CLI | 30 $ + CLI | |
 | M2 | Parità | Tutto lo studio, con replay di un'identità | 200 $ | |
@@ -430,38 +430,66 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
    (11), che M1.8 divide. `langchain_core` lo importa solo `process/session.py`. Si rifà con
    `uv run ruff check --select C901 --config "lint.mccabe.max-complexity = 10" src/agency/process src/agency/studio` e
    `grep -rn langchain_core src`.
-4. [ ] **Dominio e applicazione**: regole pure, casi d'uso e porte fuori dai framework. La CLI passa in `entrypoints/cli/`
-   con il suo renderer (STR-007): fatto il 2026-11-15, con `doctor`; l'impronta delle esecuzioni è passata in `process`.
-5. [ ] **`import-linter` bloccante** su tutto il pacchetto, con le regole di ADR-0021 ancora mancanti: `langgraph` solo nel
-   processo e nei nodi, `sqlmodel` solo nel registro, il registro solo dietro la sua porta (STR-003). Fatto il 2026-11-15:
-   i livelli di ADR-0057, `langgraph` e l'ORM sono contratti, e solo la sessione e la CLI arrivano al registro SQLite: il
-   resto del motore usa le porte di `contracts/ledger.py` (`uv run lint-imports`).
-6. [ ] **Piramide dei test**: nuovi test sulle regole pure. I test di flusso restano: sono la rete del refactor. I quattro file
-   di test sopra le 500 righe e `globals.css` si dividono con le slice (STR-013).
-7. [ ] **Tipi espliciti** (principio 2 di ADR-0021, che i punti 1–6 coprono solo in parte):
-   - le fasi del direttore (`mode="plan"`, `"select"`, `"present"`) e le rotte del grafo diventano tipi. Nel checkpoint
-     restano le stringhe di oggi, così i progetti in pausa riprendono;
-   - i nodi restituiscono aggiornamenti tipizzati, non un `dict` qualsiasi, e i due nodi paralleli non ricevono più `Any`;
-   - il registro dei ruoli diventa un insieme di modelli tipizzati, non un `dict[str, dict]`. Si passa a chi lo usa,
-     invece di essere letto come variabile globale: oggi succede in 5 punti fuori da `agency.registry`.
+4. [x] **Dominio e applicazione**: regole pure, casi d'uso e porte fuori dai framework. La CLI passa in `entrypoints/cli/`
+   con il suo renderer (STR-007). Fatto il 2026-11-15:
+   - ogni slice ha `domain.py`, con le regole pure, e `application.py`, con i nodi senza LangGraph; `tools.py` e `nodes.py`
+     sono gli adattatori;
+   - le porte stanno in `agency.contracts`: il registro (`LedgerPort` e le porte per argomento, con record al posto delle
+     righe), la sandbox (`SandboxPort`), gli artefatti (`ArtifactStore`); il modello resta dietro `Transport`;
+   - la CLI, con il renderer e `doctor`, sta in `agency.entrypoints.cli`, e l'impronta delle esecuzioni in `process`.
 
-   Fatti il 2026-11-15:
-   - `DirectorMode` e `Route` sono `Literal`, i nodi restituiscono `ProjectUpdate`, e i due nodi paralleli ricevono
-     `TicketTask`. Un test fissa canali e schemi d'ingresso del grafo: `uv run pytest tests/test_gate_sandbox.py -k channels`;
-   - le regole dello studio sono `StudioRules`, tipizzate, caricate da `load_rules` e passate a chi le usa. Nessun modulo
-     legge più il registro come variabile globale: `uv run pytest tests/test_registry.py -k "typed_rules or global"`.
+   Si rifà con `uv run lint-imports` e `uv run pytest tests/test_domain_*.py`.
+5. [x] **`import-linter` bloccante** su tutto il pacchetto, con le regole di ADR-0021 ancora mancanti: `langgraph` solo nel
+   processo e nei nodi, `sqlmodel` solo nel registro, il registro solo dietro la sua porta (STR-003). Fatto il 2026-11-15:
+   i livelli di ADR-0057, `langgraph` e l'ORM sono contratti, e solo la sessione e la CLI arrivano al registro SQLite. I
+   contratti sono tredici, e un test controlla ogni lista scritta a mano: `uv run lint-imports` → 13 kept.
+6. [x] **Piramide dei test**: nuovi test sulle regole pure. I test di flusso restano: sono la rete del refactor. I quattro file
+   di test sopra le 500 righe e `globals.css` si dividono con le slice (STR-013). Fatto il 2026-11-15:
+   - 32 test unitari sulle regole pure delle slice (`tests/test_domain_*.py`);
+   - `test_agent_flow.py` e `test_sketch_flow.py` sono diventati 16 file, uno per slice o per argomento;
+     `test_hardening.py`, `test_safe_files.py` e `test_insights.py` sono diventati 15 file, nessuno sopra le 500 righe;
+   - `globals.css` è diviso in sette fogli, importati da `layout.tsx` nell'ordine di prima.
+
+   Restano sopra le 500 righe sette file di test che l'audit non nominava: `test_ledger.py` (1.033), `test_server.py`
+   (759), `test_qa_gates.py` (691), `test_migrations.py` (678), `test_judgments.py` (599), `test_gateway.py` (589),
+   `test_artifacts.py` (575).
+7. [x] **Tipi espliciti** (principio 2 di ADR-0021). Fatto il 2026-11-15:
+   - `DirectorMode` e `Route` sono `Literal`, così nel checkpoint restano le stringhe di prima; i nodi restituiscono
+     `ProjectUpdate`, e i due nodi paralleli ricevono `TicketTask`. Un test fissa canali e schemi d'ingresso del grafo:
+     `uv run pytest tests/test_gate_sandbox.py -k channels`;
+   - le regole dello studio sono `StudioRules`, tipizzate, caricate da `load_rules` e passate a chi le usa:
+     `uv run pytest tests/test_registry.py -k "typed_rules or global"`.
 
 ### Criteri di uscita
 
-- [ ] `tools/surface.py` non esiste più, e non ci sono cicli tra pacchetti (`make check`)
-- [ ] Gli snapshot di strumenti e system prompt sono identici a quelli di M1.6
-- [ ] I test di flusso passano con le sole modifiche agli import, ai bersagli di `monkeypatch` e agli argomenti dei
-  costruttori che rendono esplicita una dipendenza ([ADR-0058](adr/0058-porte-tipi-e-livelli-del-motore.md)). Un'eccezione,
-  registrata: `test_flow_loop.py` legge l'insieme degli strumenti che chiudono da `Tool.closes` invece che da
-  `CLOSE_ALWAYS`, perché il refactor ha spostato proprio quel dato; l'asserzione resta la stessa
-- [ ] Dominio e applicazione non importano framework (`import-linter`)
-- [ ] Fasi, rotte e ruoli sono tipi: nessuna stringa libera e nessun `dict` generico al loro posto
-- [ ] Ogni principio di ADR-0021 è verificato uno per uno, ciascuno con il comando che lo riproduce
+Verificati il 2026-11-15, ciascuno con il comando che lo riproduce.
+
+- [x] `tools/surface.py` non esiste più, e non ci sono cicli tra pacchetti: `test ! -d src/agency/tools` e
+  `uv run lint-imports` → `acyclic_siblings` KEPT
+- [x] Gli snapshot di strumenti e system prompt sono identici a quelli di M1.6: `git diff --quiet 38f1f16 HEAD --
+  tests/snapshots` e `uv run pytest tests/test_request_snapshots.py` → 12 passed
+- [x] I test di flusso passano senza cambiare un'asserzione, una risposta registrata o un turno scritto
+  ([ADR-0058](adr/0058-porte-tipi-e-livelli-del-motore.md)). Confrontati test per test con l'inizio di M1.7 (`38f1f16`),
+  154 dei 156 hanno ogni `assert` identico, e nessuno è stato aggiunto o tolto. I due restanti cambiano dentro
+  l'asserzione, senza cambiare cosa verificano:
+  - `test_the_reminder_offers_every_closing_tool_but_reject_concept` legge da `Tool.closes` l'insieme che prima leggeva
+    da `CLOSE_ALWAYS`, perché il refactor ha spostato proprio quel dato;
+  - `test_each_phase_has_only_its_tools` passa `RULES` a `tools_for`, perché le regole ora si passano.
+- [x] Dominio e applicazione non importano framework: `uv run lint-imports` → i due contratti di ADR-0058 KEPT
+- [x] Fasi, rotte e ruoli sono tipi: `git grep -nE "mode: str|route: str" src/agency` non trova niente, e
+  `uv run pytest tests/test_explicit_types.py tests/test_registry.py tests/test_gate_sandbox.py` → 58 passed
+- [x] Ogni principio di ADR-0021 è verificato uno per uno: la tabella qui sotto
+
+### ADR-0021, principio per principio
+
+| Principio | Come è nel codice | Comando | Risultato (2026-11-15) |
+|---|---|---|---|
+| Modular monolith in vertical slices | Un solo pacchetto. Le sei capacità sono slice di `agency.studio` (`exploration`, `selection`, `proposal`, `presentation`, `refinement`, `delivery`), `insights` è la slice di lettura, la piattaforma è condivisa | `uv run lint-imports` | «the slices do not import each other» KEPT |
+| Explicit over implicit | Stato del grafo in `ProjectState` e `ProjectUpdate`, fasi in `DirectorMode`, rotte in `Route`, gate in `ConceptGate` e `FinalGate`, regole in `StudioRules`. Strumenti e slice elencati a mano. Il `Crew` porta runner, registro, regole e sandbox ai nodi | `uv run pytest tests/test_explicit_types.py tests/test_registry.py tests/test_gate_sandbox.py` | 58 passed. Restano `dict[str, Any]` solo per il JSON grezzo prima della convalida, la catena degli hash, il `.env` e il risultato di LangGraph: nessuno è uno stato o un contratto |
+| Clean Architecture | I livelli di ADR-0057. Il dominio dipende solo dai contratti, l'applicazione non importa framework né adattatori. Porte ai confini: modello (`Transport`), registro (`LedgerPort`), sandbox (`SandboxPort`), artefatti (`ArtifactStore`), lettura (le porte di `insights`) | `uv run lint-imports` e `uv run pytest tests/test_ledger.py tests/test_qa_gates.py -k "ledger_port or sandbox_port"` | 13 kept; il registro SQLite e la sandbox bwrap soddisfano le loro porte, metodo per metodo (pyright) |
+| Schema-First Design | Lo schema OpenAPI generato e i tipi TypeScript che ne derivano (ADR-0022) | `pnpm --dir web run api:check` | esce con 0 |
+| Testing pyramid | 32 test sulle regole pure delle slice, più quelli di `insights`; 47 test di flusso per slice; 18 flussi completi (`test_flow_gates.py`, `test_recording.py`); 24 prove Playwright per le viste | `make check` | 1.284 test Python e 24 Playwright passano |
+| Confini delle librerie | `anthropic` solo nel gateway; `langgraph` solo nel processo, nei nodi e in `studio.graph`; l'ORM solo nel registro; Django solo nel server | `uv run lint-imports` | i quattro contratti KEPT |
 
 **Fuori da M1.7:** ruoli nuovi, comandi dal cruscotto, multi-tenancy, il quality gate (M1.8).
 
@@ -743,6 +771,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il Task 0 del [secondo piano](superpowers/plans/2026-11-15-m1-7-plan-b-domain-ports-types.md) di M1.7, senza spesa: ADR-0058,
-che registra porte, tipi e livelli del motore. Poi i suoi task in ordine. Dopo M1.9, M2 parte dal contesto delle istanze lunghe,
-prima dei ruoli.
+La revisione finale del secondo piano di M1.7, con un revisore che non ha scritto il codice. Poi M1.7 si chiude, e il
+prossimo è M1.8, il quality gate. Dopo M1.9, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.

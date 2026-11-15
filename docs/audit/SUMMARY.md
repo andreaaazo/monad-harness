@@ -149,7 +149,8 @@ this refactor") or in the answers to Q1-Q22 below.
   reason of its own.
 - **Rejected:** 3, all by decision: CMT-014, CMT-017, STR-010.
 - **Since then (M1.7, 2026-11-15):** STR-004 and SIM-012 are fixed, and so is SIM-004's remainder; their rows name the
-  commits. SIM-012 leaves the `select` node factory to M1.8. STR-007 and STR-013 stay with M1.7 items 4 and 6.
+  commits. SIM-012 leaves the `select` node factory to M1.8. M1.7's second plan fixed STR-003, STR-007 and STR-013
+  as well.
 
 The final review found and fixed eleven more issues (R1-R11). They have no ID in this table; `PLAN.md` ("Final
 review" and the review rounds after it) and `99-result.md` list them.
@@ -216,17 +217,17 @@ review" and the review rounds after it) and `99-result.md` list them.
 | CMT-013 | Low | Fixed | de2cbfd |
 | CMT-014 | Low | Rejected | by decision (Q14): no docstring campaign and no ruff D1; ports, contracts and platform modules got docstrings in their Phase 3 units |
 | STR-002 | Low | Fixed | 53eadda (the guard), 740e88e (the lists) |
-| STR-003 | Low | Fixed | 23b89e1 for `anthropic`; the `langgraph` and ledger-port rules are Deferred to M1.7 (Q19) |
+| STR-003 | Low | Fixed | 23b89e1 for `anthropic`; M1.7: 98e96bd (layers, `langgraph`, the ORM), b3a56b9, 085deb1, c93e627 and 126db73 (the ledger behind its ports) |
 | STR-004 | Low | Fixed | M1.7: 1754438 (the QA mount only for a check), 8953e00 (the qa<->tools cycle), 2f3ad00 (the acyclic contract); the tools->agents edge went in 73881ee |
 | STR-005 | Low | Fixed | 85cb4fb, b990dc9, 73881ee, 8a4edc1, a1c882e, 2b19b9f, 7948aed; typing ROLES and CHECKS as RoleSpec and CheckSpec is Deferred (PLAN Task 6.9) |
 | STR-006 | Low | Fixed | 272e68e |
-| STR-007 | Low | Deferred | M1.7 (Q18): the CLI moves to entrypoints/cli/ then, so moving report.py now would move it twice |
+| STR-007 | Low | Fixed | M1.7: 33951bc (the CLI with its renderer and doctor in entrypoints/cli, the fingerprint in process) |
 | STR-008 | Low | Fixed | 0b2f5dd |
 | STR-009 | Low | Fixed | 08bfd10, 300e30c |
 | STR-010 | Low | Rejected | by decision: renaming the route breaks ADR-0038's URLs; the guard in tests/test_repository.py holds |
 | STR-011 | Low | Fixed | e8a4531, e001621, ce1a5a5, af0b406 |
 | STR-012 | Low | Fixed | 362b53a |
-| STR-013 | Low | Deferred | M1.7 (Q19): the large test files and globals.css split with surface.py |
+| STR-013 | Low | Fixed | M1.7: ffadfb7 and b43f78f (the four test files, and test_safe_files), 726bc7b (globals.css); seven other test files are still over 500 lines |
 | STR-014 | Low | Fixed | 928598d |
 | DX-001 | Low | Fixed | 56cae12 |
 | DX-002 | Low | Fixed | 3967e55, 8a644d1 |

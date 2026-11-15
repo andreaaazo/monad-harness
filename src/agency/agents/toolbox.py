@@ -6,10 +6,7 @@ from pydantic import ValidationError
 
 from agency import registry
 from agency.contracts.outcome import Outcome
-from agency.contracts.ticket import (
-    TicketSpec,
-    TicketType,
-)
+from agency.contracts.ticket import TicketSpec, TicketType
 from agency.ledger import ForbiddenAction, IllegalTransition
 from agency.qa import evidence
 from agency.studio.exploration import tools as exploration
@@ -21,18 +18,8 @@ from agency.studio.refinement import tools as refinement
 from agency.studio.selection import tools as selection
 from agency.studio.selection.tools import BOARD, SELECT
 from agency.toolkit import closing, craft, files, review
-from agency.toolkit.base import (
-    Refused,
-    Tool,
-    ToolContext,
-    definition,
-    result_text,
-    tracer,
-)
-from agency.workshop.files import (
-    OutsidePerimeter,
-    clip,
-)
+from agency.toolkit.base import Refused, Tool, ToolContext, definition, result_text, tracer
+from agency.workshop.files import OutsidePerimeter, clip
 
 TOOLS: dict[str, Tool] = {
     tool.name: tool

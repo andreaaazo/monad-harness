@@ -10,16 +10,8 @@ from pydantic import Field
 from agency.contracts.concept import ConceptStatus
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import parse_project_name
-from agency.toolkit.base import (
-    Refused,
-    Strict,
-    Tool,
-    ToolContext,
-)
-from agency.workshop.files import (
-    ensure_dir_under,
-    replace_under,
-)
+from agency.toolkit.base import Refused, Strict, Tool, ToolContext
+from agency.workshop.files import ensure_dir_under, replace_under
 
 
 class BoardRating(Strict):
@@ -86,8 +78,6 @@ def _closed_by_selection(stored: str) -> Outcome:
 
 
 SELECT = ["read_file", "list_files", "read_skill", "view_image", "select_concepts", "block"]
-
-
 BOARD = ["read_file", "view_image", "observe", "rate_board", "write_file", "deliver", "block"]
 
 

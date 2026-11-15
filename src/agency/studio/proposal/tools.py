@@ -11,6 +11,4 @@ PROPOSAL = [
     "compute",
     "export_master",
 ]
-
-
 PROPOSAL += ["render", "view_image", "run_check", "observe", "deliver", "block"]

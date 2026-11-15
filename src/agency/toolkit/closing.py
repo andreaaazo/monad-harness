@@ -4,23 +4,10 @@ from __future__ import annotations
 
 from agency.contracts.artifact import Origin
 from agency.contracts.outcome import Outcome, OutcomeState
-from agency.contracts.ticket import (
-    Action,
-    Status,
-    TicketType,
-    Verdict,
-)
+from agency.contracts.ticket import Action, Status, TicketType, Verdict
 from agency.qa import delivery
-from agency.toolkit.base import (
-    Refused,
-    Strict,
-    Tool,
-    ToolContext,
-    replayed,
-)
-from agency.workshop.files import (
-    sha256_under,
-)
+from agency.toolkit.base import Refused, Strict, Tool, ToolContext, replayed
+from agency.workshop.files import sha256_under
 
 
 class Deliver(Strict):

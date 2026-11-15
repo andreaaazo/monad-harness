@@ -10,18 +10,8 @@ from agency import registry
 from agency.contracts.registry import CheckKind
 from agency.qa import checks as qa
 from agency.qa import evidence
-from agency.toolkit.base import (
-    Refused,
-    Strict,
-    Tool,
-    ToolContext,
-    result_text,
-    viewed,
-)
-from agency.workshop.files import (
-    is_file_under,
-    sha256_under,
-)
+from agency.toolkit.base import Refused, Strict, Tool, ToolContext, result_text, viewed
+from agency.workshop.files import is_file_under, sha256_under
 
 
 class RunCheck(Strict):

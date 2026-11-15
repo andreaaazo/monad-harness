@@ -9,24 +9,10 @@ from pydantic import Field
 from agency.contracts.artifact import Origin
 from agency.contracts.concept import ConceptStatus
 from agency.contracts.outcome import Outcome, OutcomeState
-from agency.contracts.ticket import (
-    TicketType,
-)
+from agency.contracts.ticket import TicketType
 from agency.studio.presentation import document as presentation
-from agency.toolkit.base import (
-    Refused,
-    Strict,
-    Tool,
-    ToolContext,
-    viewed,
-)
-from agency.workshop.files import (
-    MAX_TEXT_FILE_BYTES,
-    is_file_under,
-    read_under,
-    replace_under,
-    sha256_under,
-)
+from agency.toolkit.base import Refused, Strict, Tool, ToolContext, viewed
+from agency.workshop.files import MAX_TEXT_FILE_BYTES, is_file_under, read_under, replace_under, sha256_under
 
 
 class ProposalText(Strict):
@@ -136,8 +122,6 @@ def _closed_by_presentation(stored: str) -> Outcome:
 
 
 PRESENT = ["read_file", "list_files", "read_skill", "view_image", "draft_presentation", "present_concepts"]
-
-
 PRESENT += ["block"]
 
 

@@ -6,26 +6,10 @@ from pydantic import Field
 
 from agency import registry
 from agency.contracts.outcome import Outcome, OutcomeState
-from agency.contracts.ticket import (
-    RUNNABLE,
-    Action,
-    Medium,
-    Status,
-    TicketSpec,
-    TicketType,
-)
+from agency.contracts.ticket import RUNNABLE, Action, Medium, Status, TicketSpec, TicketType
 from agency.qa import delivery
-from agency.toolkit.base import (
-    Refused,
-    Strict,
-    Tool,
-    ToolContext,
-    replayed,
-)
-from agency.workshop.files import (
-    is_file_under,
-    sha256_under,
-)
+from agency.toolkit.base import Refused, Strict, Tool, ToolContext, replayed
+from agency.workshop.files import is_file_under, sha256_under
 
 
 class OpenTicket(Strict):

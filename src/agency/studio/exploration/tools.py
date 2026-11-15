@@ -11,29 +11,12 @@ from agency import registry
 from agency.contracts.artifact import Origin
 from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.outcome import Outcome, OutcomeState
-from agency.contracts.ticket import (
-    Action,
-    Medium,
-    Status,
-    TicketSpec,
-    TicketType,
-)
+from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
 from agency.ledger.models import ConceptRow
 from agency.qa import delivery
-from agency.toolkit.base import (
-    Refused,
-    Strict,
-    Tool,
-    ToolContext,
-    replayed,
-)
+from agency.toolkit.base import Refused, Strict, Tool, ToolContext, replayed
 from agency.workshop import board
-from agency.workshop.files import (
-    ensure_dir_under,
-    read_under,
-    replace_under,
-    sha256_under,
-)
+from agency.workshop.files import ensure_dir_under, read_under, replace_under, sha256_under
 
 
 class Lever(Strict):
@@ -143,8 +126,6 @@ def submit_concept(ctx: ToolContext, a: ConceptCard, _: str) -> dict:
 
 
 EXPLORE = ["read_file", "list_files", "read_skill", "craft_search", "craft_describe", "craft_run"]
-
-
 EXPLORE += [
     "compute",
     "export_master",
@@ -155,8 +136,6 @@ EXPLORE += [
     "submit_concept",
     "block",
 ]
-
-
 PLAN = ["read_file", "read_skill", "plan_exploration", "block"]
 
 

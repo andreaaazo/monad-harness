@@ -92,4 +92,4 @@ def render_one(
     return proofs
 
 
-__all__ = ["DEFAULT_SIZE", "render_one"]
+__all__ = ["DEFAULT_SIZE", "proof_stem", "render_one"]

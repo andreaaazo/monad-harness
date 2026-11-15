@@ -14,13 +14,7 @@ from pydantic import Field
 
 from agency import registry
 from agency.contracts.media import media_type, open_image
-from agency.toolkit.base import (
-    Refused,
-    Strict,
-    Tool,
-    ToolContext,
-    viewed,
-)
+from agency.toolkit.base import Refused, Strict, Tool, ToolContext, viewed
 from agency.workshop import craft
 from agency.workshop.files import (
     MAX_IMAGE_FILE_BYTES,

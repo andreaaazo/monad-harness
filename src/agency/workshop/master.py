@@ -9,9 +9,9 @@ from pathlib import PurePosixPath
 
 from agency.contracts.clock import now
 from agency.contracts.ledger import DerivationEntry, Proofs
+from agency.contracts.sandbox import JOB, SandboxPort
 from agency.contracts.ticket import Medium
 from agency.workshop.files import ensure_dir_under, inside, open_under, sha256_under
-from agency.workshop.sandbox import JOB, Sandbox
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ MEDIA: dict[Medium, MediumSpec] = {
 }
 
 
-def problem(sandbox: Sandbox, relative: str) -> str | None:
+def problem(sandbox: SandboxPort, relative: str) -> str | None:
     """None if the master opens and holds work; otherwise the reason."""
     path = inside(sandbox.work, relative)
     if not path.exists():
@@ -72,7 +72,7 @@ def problem(sandbox: Sandbox, relative: str) -> str | None:
 
 
 def export(
-    sandbox: Sandbox, ledger: Proofs, project: str, master: str, output: str, options: list[str]
+    sandbox: SandboxPort, ledger: Proofs, project: str, master: str, output: str, options: list[str]
 ) -> str | None:
     """Exports from the master and records the link. Returns the error, if any."""
     why = problem(sandbox, master)
@@ -102,7 +102,7 @@ def export(
 
 
 def derivation_problem(
-    sandbox: Sandbox, ledger: Proofs, project: str, export_path: str, masters: list[str]
+    sandbox: SandboxPort, ledger: Proofs, project: str, export_path: str, masters: list[str]
 ) -> str | None:
     """Why the export, as it is now, does not derive from one of `masters` as they are now, or None."""
     current = sha256_under(sandbox.work, export_path)

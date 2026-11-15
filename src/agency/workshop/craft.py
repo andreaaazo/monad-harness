@@ -11,6 +11,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
+from agency.contracts.sandbox import JOB, OPS, SandboxPort
 from agency.workshop.files import (
     MAX_DOCUMENT_BYTES,
     MAX_TEXT_FILE_BYTES,
@@ -20,7 +21,6 @@ from agency.workshop.files import (
     read_under,
     replace_under,
 )
-from agency.workshop.sandbox import JOB, OPS, Sandbox
 
 TOKEN = re.compile(r"[a-zA-Z0-9]+")
 PARTIAL = ".partial"  # in /job: where vectorcraft-cli exports, before the harness copies the result out
@@ -109,7 +109,7 @@ class CommandIndex:
 
 
 def run_steps(
-    sandbox: Sandbox,
+    sandbox: SandboxPort,
     index: CommandIndex,
     document: str,
     steps: list[dict],

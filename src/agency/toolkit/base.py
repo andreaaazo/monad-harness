@@ -21,9 +21,9 @@ from agency.contracts.ledger import LedgerPort
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.phase import DirectorMode
 from agency.contracts.registry import StudioRules
+from agency.contracts.sandbox import SandboxPort
 from agency.contracts.ticket import Action, Status
 from agency.workshop import craft
-from agency.workshop.sandbox import Sandbox
 
 tracer = trace.get_tracer("agency.tools")
 
@@ -42,7 +42,7 @@ class ToolContext:
     ticket_id: str
     instance: str
     ledger: LedgerPort
-    sandbox: Sandbox
+    sandbox: SandboxPort
     index: craft.CommandIndex
     artifacts: ArtifactStore
     rules: StudioRules

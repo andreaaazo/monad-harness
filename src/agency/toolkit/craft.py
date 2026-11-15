@@ -5,10 +5,10 @@ from __future__ import annotations
 from pydantic import Field
 
 from agency.contracts.project import parse_project_name
+from agency.contracts.sandbox import OPS
 from agency.toolkit.base import Refused, Strict, Tool, ToolContext
 from agency.workshop import craft, master, render
 from agency.workshop.files import clip, replace_under
-from agency.workshop.sandbox import OPS
 
 EXPORT_OPTIONS = {"--artboard", "--range", "--scale", "--outline-text", "--decimals"}
 

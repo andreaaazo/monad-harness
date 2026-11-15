@@ -17,6 +17,7 @@ from langgraph.graph.state import CompiledStateGraph
 from agency.agents.loop import AgentRunner
 from agency.config import Settings
 from agency.contracts.ledger import LedgerPort
+from agency.contracts.project import parse_project_name
 from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import Status
 from agency.studio.delivery.nodes import client_gate
@@ -27,6 +28,7 @@ from agency.studio.proposal.nodes import prepare_proposals, proposal, send_propo
 from agency.studio.refinement.nodes import lead, start_production, team
 from agency.studio.selection.nodes import board_review, make_board, select
 from agency.studio.shared import END_ROUTE, Crew, ProjectState, Route
+from agency.workshop.sandbox import Sandbox
 
 type Graph = CompiledStateGraph[ProjectState, None, ProjectState, ProjectState]
 
@@ -71,7 +73,11 @@ def build(
     rules: StudioRules,
 ) -> Graph:
     """The compiled studio graph. `checkpointer` keeps its state, so a run stopped at a gate resumes."""
-    crew = Crew(runner, ledger, settings, rules)
+
+    def sandbox_for(project: str) -> Sandbox:
+        return Sandbox(settings.work_dir(parse_project_name(project)), settings.toolchain_dir)
+
+    crew = Crew(runner, ledger, settings, rules, sandbox_for)
     graph = StateGraph(ProjectState)
     graph.add_node("plan", plan(crew))
     graph.add_node("explore", explore(crew))

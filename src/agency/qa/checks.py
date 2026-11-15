@@ -10,11 +10,11 @@ from pathlib import Path
 from agency.contracts.files import ensure_dir_under, glob_under, is_file_under, sha256_under
 from agency.contracts.ledger import LedgerPort
 from agency.contracts.registry import StudioRules
+from agency.contracts.sandbox import JOB, SandboxPort
 from agency.qa import evidence
 from agency.workshop import master
 from agency.workshop.files import clip
 from agency.workshop.render import proof_stem
-from agency.workshop.sandbox import JOB, Sandbox
 
 RUNNABLE = ("master_open", "svg_audit", "svg_parity", "logo_proof", "optical_check")
 # The vendored scripts, mounted read-only only while a check runs (ADR-0057): no other command sees them.
@@ -32,13 +32,13 @@ class CheckOutcome:
     proofs: tuple[str, ...] = ()
 
 
-def _script(sandbox: Sandbox, name: str, *args: str) -> tuple[int, str]:
+def _script(sandbox: SandboxPort, name: str, *args: str) -> tuple[int, str]:
     mounted = sandbox.with_mount(SCRIPTS, QA_MOUNT)
     done = mounted.run([mounted.python(), f"{QA_MOUNT}/{name}.py", *args], timeout=180)
     return done.code, done.output
 
 
-def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
+def execute(sandbox: SandboxPort, check: str, file: str) -> CheckOutcome:
     """Runs one check on `file` in the sandbox, without recording anything."""
     target = f"{JOB}/{file}"
     if check == "master_open":
@@ -68,7 +68,7 @@ def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
 
 
 def run(
-    sandbox: Sandbox,
+    sandbox: SandboxPort,
     ledger: LedgerPort,
     project: str,
     ticket_id: str,

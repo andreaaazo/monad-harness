@@ -3,6 +3,7 @@ than one slice uses (ADR-0057). The types LangGraph sees are in `studio.graph` (
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal, Protocol, TypedDict
@@ -13,6 +14,7 @@ from agency.contracts.outcome import Outcome
 from agency.contracts.phase import DirectorMode
 from agency.contracts.project import parse_project_name
 from agency.contracts.registry import StudioRules
+from agency.contracts.sandbox import SandboxPort
 from agency.contracts.ticket import TicketType
 from agency.workshop.files import read_under, replace_under
 
@@ -97,12 +99,14 @@ class Runner(Protocol):
 
 @dataclass(frozen=True)
 class Crew:
-    """What the nodes work with: who runs the agents, the registry, the settings and the studio rules."""
+    """What the nodes work with: who runs the agents, the registry, the settings, the studio rules and a
+    project's sandbox."""
 
     runner: Runner
     ledger: LedgerPort
     settings: Settings
     rules: StudioRules
+    sandbox_for: Callable[[str], SandboxPort]  # a project's sandbox, for the acceptance at the final gate
 
     def work_dir(self, project: str) -> Path:
         return self.settings.work_dir(parse_project_name(project))

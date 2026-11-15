@@ -9,7 +9,6 @@ from agency.contracts.ticket import Action, Status
 from agency.qa import delivery
 from agency.studio.graph import Node
 from agency.studio.shared import Crew, ProjectState, ProjectUpdate
-from agency.workshop.sandbox import Sandbox
 
 
 def client_gate(crew: Crew) -> Node:
@@ -23,7 +22,7 @@ def client_gate(crew: Crew) -> Node:
             crew.ledger.apply(root, Action.REWORK, "router", decision.text or "il cliente chiede modifiche")
             return {"client_note": decision.text, "outcome": ""}
         project = state["project"]
-        sandbox = Sandbox(crew.work_dir(project), crew.settings.toolchain_dir)
+        sandbox = crew.sandbox_for(project)
         problems = delivery.acceptance_problems(crew.ledger, project, sandbox, root, crew.rules)
         if problems:
             text = "Accettazione rifiutata dal sistema:\n" + "\n".join(problems[:12])

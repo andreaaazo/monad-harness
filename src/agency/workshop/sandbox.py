@@ -10,11 +10,10 @@ import selectors
 import signal
 import subprocess
 import time
-from dataclasses import dataclass
 from pathlib import Path
 
-JOB = "/job"
-OPS = "/ops"
+from agency.contracts.sandbox import JOB, OPS, Completed
+
 ETC_ALLOWED = ("/etc/ld.so.cache", "/etc/fonts", "/etc/alternatives", "/etc/ssl", "/etc/mime.types")
 HOME = "/home/studio"
 # Size bounds: of the RAM-backed tmpfs mounts, and of each file a command writes (not of the disk as a whole).
@@ -40,20 +39,6 @@ HOST_VARIABLES = ("PATH", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS")
 def host_environment() -> dict[str, str]:
     """What systemd-run and bwrap start with: the `HOST_VARIABLES` the harness has, and nothing else."""
     return {name: os.environ[name] for name in HOST_VARIABLES if name in os.environ}
-
-
-@dataclass(frozen=True)
-class Completed:
-    """A finished command: its exit code and its two streams, as text."""
-
-    code: int
-    stdout: str
-    stderr: str
-
-    @property
-    def output(self) -> str:
-        """Both streams, stdout first."""
-        return self.stdout + self.stderr
 
 
 class SandboxUnavailable(RuntimeError):

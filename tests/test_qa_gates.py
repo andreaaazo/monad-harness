@@ -18,6 +18,7 @@ from agency.artifacts import FileStore
 from agency.config import REPO_ROOT
 from agency.contracts.clock import now
 from agency.contracts.ledger import DerivationEntry
+from agency.contracts.sandbox import SandboxPort
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType, Verdict
 from agency.ledger import Ledger
 from agency.qa import checks, delivery, evidence
@@ -654,6 +655,13 @@ def test_a_check_mounts_the_qa_scripts_and_keeps_everything_else(tmp_path: Path)
     assert plain[bound - 1 : bound + 2] == ["--ro-bind", str(toolchain), str(toolchain)]
     assert copy.python() == sandbox.python() == str(toolchain / "venv/bin/python")
     assert sandbox.argv(["true"]) == plain  # the original gains no mount
+
+
+def test_the_bwrap_sandbox_is_a_sandbox_port(tmp_path: Path) -> None:
+    """The tools and the checks reach the sandbox through its port (ADR-0058): pyright checks every member."""
+    port: SandboxPort = Sandbox(tmp_path)
+    assert port.work == tmp_path.resolve()
+    assert port.with_mount(checks.SCRIPTS, checks.QA_MOUNT).work == tmp_path.resolve()
 
 
 def test_the_qa_scripts_are_the_frozen_folder() -> None:

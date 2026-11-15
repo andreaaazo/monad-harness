@@ -8,6 +8,7 @@ from pathlib import Path
 from agency.contracts.files import glob_under, inside, is_file_under, sha256_under
 from agency.contracts.ledger import LedgerPort
 from agency.contracts.registry import CheckKind, StudioRules
+from agency.contracts.sandbox import SandboxPort
 from agency.contracts.ticket import (
     AUTHOR_TYPES,
     NO_CHECK_TYPES,
@@ -18,7 +19,6 @@ from agency.contracts.ticket import (
 )
 from agency.qa import evidence
 from agency.workshop import master, render
-from agency.workshop.sandbox import Sandbox
 
 GLOB = "*?["
 REPORTS = "reviews/"
@@ -175,7 +175,7 @@ def evidence_problems(
 
 
 def master_problems(
-    ledger: LedgerPort, project: str, sandbox: Sandbox, spec: TicketSpec, files: list[str]
+    ledger: LedgerPort, project: str, sandbox: SandboxPort, spec: TicketSpec, files: list[str]
 ) -> list[str]:
     """For an authoring ticket: each declared medium has its master, each master opens, and each export
     derives from a master unless `no_master` excuses it."""
@@ -212,7 +212,7 @@ def master_problems(
 def delivery_problems(
     ledger: LedgerPort,
     project: str,
-    sandbox: Sandbox,
+    sandbox: SandboxPort,
     spec: TicketSpec,
     verdict: Verdict | None,
     inputs: dict[str, str] | None = None,
@@ -239,7 +239,7 @@ def delivery_problems(
 
 
 def acceptance_problems(
-    ledger: LedgerPort, project: str, sandbox: Sandbox, ticket_id: str, rules: StudioRules
+    ledger: LedgerPort, project: str, sandbox: SandboxPort, ticket_id: str, rules: StudioRules
 ) -> list[str]:
     """What blocks acceptance: a delivered file changed since the delivery, or a required proof, independent
     ones included, that is not in order."""

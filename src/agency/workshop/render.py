@@ -9,6 +9,7 @@ from PIL import Image
 
 from agency.contracts.ledger import Proofs
 from agency.contracts.media import open_image
+from agency.contracts.sandbox import JOB, SandboxPort
 from agency.workshop.files import (
     MAX_IMAGE_FILE_BYTES,
     ensure_dir_under,
@@ -17,7 +18,6 @@ from agency.workshop.files import (
     replace_under,
     sha256_under,
 )
-from agency.workshop.sandbox import JOB, Sandbox
 
 DEFAULT_SIZE = 1200
 PROOFS = "proofs/render"
@@ -42,7 +42,7 @@ def _save(image: Image.Image, work: Path, relative: str) -> None:
 
 
 def render_one(
-    sandbox: Sandbox,
+    sandbox: SandboxPort,
     ledger: Proofs,
     project: str,
     relative: str,

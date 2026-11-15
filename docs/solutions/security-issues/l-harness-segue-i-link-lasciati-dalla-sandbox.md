@@ -90,7 +90,7 @@ sotto), e non per forma del testo, chiude tutte le grafie insieme: alias, `..` d
 - Prima di scrivere `work / ...` o di passare un percorso del lavoro a `open`, `mkdir`, `shutil`, `glob`, `resolve` o
   `file_sha256`, usare l'aiuto `*_under` corrispondente. Una ricerca utile in revisione:
   `rg -n "inside\(|\.resolve\(\)|shutil\.|\.glob\(" src/agency`.
-- Ogni lettore nuovo entra nella tabella parametrizzata di `tests/test_safe_files.py`
+- Ogni lettore nuovo entra nella tabella parametrizzata di `tests/test_safe_files_readers.py`
   (`test_harness_readers_refuse_a_planted_symlink`, `test_a_planted_fifo_is_refused_at_once`).
 - Una correzione di questo perimetro si verifica confrontando vecchio e nuovo comportamento su ogni classe di
   percorso (dentro, fuori, con `..` prima e dopo la cartella, con un link dell'operatore, su un file esistente, su un

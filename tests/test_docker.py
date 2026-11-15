@@ -75,7 +75,7 @@ def test_the_api_mounts_the_registry_as_the_host_user_and_keeps_its_projection_i
         ("bind", str(tmp_path), "/data")
     ]
     # Not read-only: a WAL registry closed by the engine does not open without creating its -shm
-    # (tests/test_insights.py, test_a_registry_that_cannot_be_opened_is_explained_not_crashed).
+    # (tests/test_insights_registry.py, test_a_registry_that_cannot_be_opened_is_explained_not_crashed).
     assert not api["volumes"][0].get("read_only", False)
     assert api["user"] == "1000:1000"
     assert api["environment"] == {"AGENCY_DATA_DIR": "/data", "AGENCY_PROJECTION_DIR": "/projection"}

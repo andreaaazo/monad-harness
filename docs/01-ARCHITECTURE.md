@@ -207,7 +207,7 @@ stanno sotto `/api`, quelle di un progetto sotto `/api/projects/{name}`.
 
 | Vista | Pagina | e2e | API · operationId | Modello · modulo di `insights` | pytest |
 |---|---|---|---|---|---|
-| Progetti | `/` | `run.spec.ts` | `/projects` · `listProjects`, `/provenance` · `provenance` | `ProjectSummary` · `views.py`, `Provenance` · `domain.py` | `test_server.py`, `test_insights.py` |
+| Progetti | `/` | `run.spec.ts` | `/projects` · `listProjects`, `/provenance` · `provenance` | `ProjectSummary` · `views.py`, `Provenance` · `domain.py` | `test_server.py`, `test_insights_registry.py`, `test_insights_projection.py` |
 | Run | `/projects/[name]` | `run.spec.ts` | `/report` · `projectReport` | `ProjectReport` · `views.py` | `test_report_views.py` |
 | Fasi | `…/phases` | `phases.spec.ts` | `/flow` · `projectFlow` | `FlowReport` · `flow.py` | `test_flow_view.py` |
 | Modello | `…/model` | `model.spec.ts` | `/behaviour` · `projectBehaviour` | `BehaviourReport` · `behaviour.py` | `test_behaviour_view.py` |

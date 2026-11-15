@@ -115,3 +115,29 @@ def report_of(tmp_path: Path) -> Callable[[Path, str], ProjectReport]:
         return application.report(projection, project)
 
     return read
+
+
+# The work folders the safe-files tests take by name: one with links of each shape, one with a FIFO.
+
+
+@pytest.fixture
+def tree(tmp_path: Path) -> tuple[Path, Path]:
+    """A work folder with a real folder and a real file, each beside a symlink of that shape to the host."""
+    root, host = tmp_path / "work", tmp_path / "host"
+    (root / "real").mkdir(parents=True)
+    host.mkdir()
+    (root / "real" / "kept.txt").write_bytes(b"dentro")
+    (root / "real.txt").write_bytes(b"dentro")
+    (host / "kept.txt").write_bytes(b"fuori")
+    (root / "link").symlink_to(host, target_is_directory=True)
+    (root / "link.txt").symlink_to(host / "kept.txt")
+    return root, host
+
+
+@pytest.fixture
+def fifo_tree(tmp_path: Path) -> tuple[Path, Path]:
+    work = tmp_path / "work"
+    (work / "real").mkdir(parents=True)
+    fifo = work / "real" / "trappola.png"
+    os.mkfifo(fifo)
+    return work, fifo

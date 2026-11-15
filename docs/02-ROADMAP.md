@@ -409,7 +409,7 @@ prima né dopo il refactor ([ADR-0056](adr/0056-m1-7-senza-prova-dal-vivo.md)). 
 snapshot di strumenti e system prompt e i test di flusso con risposte registrate. La prima misura dal vivo del motore diviso è
 `merlo4`, in M1.9. Principi e confini in [ADR-0021](adr/0021-monolite-modulare-a-slice.md), l'albero dei pacchetti in
 [ADR-0057](adr/0057-l-albero-dei-pacchetti-del-motore.md). I punti 1–3 seguono il
-[piano](superpowers/plans/2026-11-14-m1-7-slice-architecture.md), i punti 4–6 un secondo piano da scrivere dopo. L'audit ha
+[piano](superpowers/plans/2026-11-14-m1-7-slice-architecture.md), i punti 4–7 un secondo piano da scrivere dopo. L'audit ha
 rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SUMMARY.md`.
 
 ### Lavoro, in ordine
@@ -427,9 +427,16 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
 4. [ ] **Dominio e applicazione**: regole pure, casi d'uso e porte fuori dai framework. La CLI passa in `entrypoints/cli/`
    con il suo renderer, che oggi sta in `telemetry` (STR-007).
 5. [ ] **`import-linter` bloccante** su tutto il pacchetto, con le regole di ADR-0021 ancora mancanti: `langgraph` solo nel
-   processo e nei nodi, il registro solo dietro la sua porta (STR-003).
+   processo e nei nodi, `sqlmodel` solo nel registro, il registro solo dietro la sua porta (STR-003). Oggi `sqlmodel` sta
+   già solo nel registro, ma nessun contratto lo impone.
 6. [ ] **Piramide dei test**: nuovi test sulle regole pure. I test di flusso restano: sono la rete del refactor. I quattro file
    di test sopra le 500 righe e `globals.css` si dividono con le slice (STR-013).
+7. [ ] **Tipi espliciti** (principio 2 di ADR-0021, che i punti 1–6 coprono solo in parte):
+   - le fasi del direttore (`mode="plan"`, `"select"`, `"present"`) e le rotte del grafo diventano tipi. Nel checkpoint
+     restano le stringhe di oggi, così i progetti in pausa riprendono;
+   - i nodi restituiscono aggiornamenti tipizzati, non un `dict` qualsiasi, e i due nodi paralleli non ricevono più `Any`;
+   - il registro dei ruoli diventa un insieme di modelli tipizzati, non un `dict[str, dict]`. Si passa a chi lo usa,
+     invece di essere letto come variabile globale: oggi succede in 5 punti fuori da `agency.registry`.
 
 ### Criteri di uscita
 
@@ -437,6 +444,8 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
 - [ ] Gli snapshot di strumenti e system prompt sono identici a quelli di M1.6
 - [ ] I test di flusso passano con le sole modifiche agli import
 - [ ] Dominio e applicazione non importano framework (`import-linter`)
+- [ ] Fasi, rotte e ruoli sono tipi: nessuna stringa libera e nessun `dict` generico al loro posto
+- [ ] Ogni principio di ADR-0021 è verificato uno per uno, ciascuno con il comando che lo riproduce
 
 **Fuori da M1.7:** ruoli nuovi, comandi dal cruscotto, multi-tenancy, il quality gate (M1.8).
 

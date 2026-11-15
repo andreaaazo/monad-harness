@@ -381,31 +381,38 @@ Kind: refactor, all inside `src/agency/graph/workflow.py`. No move yet.
     `AgentRunner` satisfies it without importing it.
   - `@dataclass(frozen=True) class Crew`, with fields `runner: Runner`, `ledger: Ledger` and `settings: Settings`,
     and the method `work_dir(self, project: str) -> Path`, which is today's `work_dir` closure.
-  - `Node = Callable[[Any], dict]` for a node, and `Router = Callable[[ProjectState], list[Send] | str]` for a
-    fan-out router (`send_explorers`, `send_proposals`).
+  - `class Node(Protocol)`, with `def __call__(self, state: Any) -> dict: ...`, for a node. LangGraph's `add_node`
+    takes a callable whose parameter is named `state`, which `Callable[[Any], dict]` does not promise, and pyright
+    refuses it.
+  - `Router = Callable[[ProjectState], list[Send] | str]` for a router that needs the crew: `send_explorers`,
+    `send_proposals` and `after_lead`.
   - `attempt(ledger, ticket) -> int`, `rework_note(ledger, ticket) -> str` and
     `copy_capped(work, source, target, limit) -> None`: today's `_attempt`, `_rework_note` and `_copy`, now public
     because several slices will use them.
-  - One factory per node and per fan-out router, each `name(crew: Crew) -> Node`, or `-> Router` for the two
-    routers:
+  - One factory per node and per router that needs the crew, each `name(crew: Crew) -> Node`, or `-> Router` for
+    the three routers:
     - `plan`, `send_explorers`, `explore`;
     - `make_board`, `board_review`, `select`;
     - `prepare_proposals`, `send_proposals`, `proposal`;
     - `present`, `concept_gate`;
-    - `start_production`, `lead`, `team`;
+    - `start_production`, `lead`, `team`, `after_lead`;
     - `client_gate`.
 
     `_proposal_tickets(crew, state)` becomes a module-level helper.
   - `build(runner, ledger, settings, checkpointer)` keeps its signature. It builds `Crew` and wires the nodes, by
-    their current names, and the routers `begin`, `after_board`, `follow_route`, `after_lead` and `after_gate`,
-    which stay plain functions because they read only the state.
+    their current names, and the routers. `begin`, `after_board`, `follow_route` and `after_gate` stay plain
+    functions, because they read only the state. `after_lead` reads the root ticket's status from the ledger, so it
+    is a factory.
 
 - [ ] **Step 1:** check the baseline. `uv run ruff check --select C901 --config "lint.mccabe.max-complexity = 10"
   src/agency/graph/workflow.py` reports `build` at 65. SIM-012 measured 63 before the audit's last fixes.
 - [ ] **Step 2:** refactor. Each closure body moves unchanged into its factory's inner function, and the captured
   `runner`, `ledger`, `settings` and `work_dir` become `crew.<name>`.
-- [ ] **Step 3:** the same ruff command reports nothing. The flow, snapshot and recording tests pass unchanged.
-  `make check` exits 0. Handoff with `refactor(graph): turn the graph nodes into factories over a crew`.
+- [ ] **Step 3:** the same ruff command no longer reports `build` (it drops to 2). It still reports the `select`
+  factory at 11: its node body is 10, unchanged, and ruff counts one more for a nested `def`. Splitting `select`
+  would change a body this task only lifts. M1.8 sets `max-complexity = 8` and splits it, with `present` (8). The
+  flow, snapshot and recording tests pass unchanged. `make check` exits 0. Handoff with
+  `refactor(graph): turn the graph nodes into factories over a crew`.
 
 ### Task 9: the nodes move to their slices
 
@@ -421,7 +428,8 @@ Kind: move.
 | `src/agency/studio/refinement/nodes.py` | `start_production`, `lead`, `team` | |
 | `src/agency/studio/delivery/nodes.py` | `client_gate` | `__init__.py` for the new slice |
 
-`graph/workflow.py` keeps `build`, `Graph` and the five routers, and imports the factories.
+`graph/workflow.py` keeps `build`, `Graph`, the four plain routers and the `after_lead` factory, and imports the other
+factories.
 
 - [ ] **Step 1:** move. Update the imports of `presentation` in `src/` and `tests/`, found by
   `git grep -n "workshop import presentation\|workshop.presentation"`. Update `docs/PARITY.md` if it names it.
@@ -482,7 +490,7 @@ modules = [
 
 ---
 
-## Plan B (roadmap items 4–6), written after Task 11
+## Plan B (roadmap items 4–7), written after Task 11
 
 Plan B gets written once plan A has landed: which rules are pure becomes visible only when each slice's code sits
 apart. It must decide and cover:
@@ -496,3 +504,17 @@ apart. It must decide and cover:
   - "Domain and application import no framework".
 - **Item 6.** Unit tests on the pure rules. The flow tests stay. The four test files over 500 lines and
   `web/app/globals.css` get split by slice (STR-013).
+- **Item 7, explicit types (ADR-0021 principle 2).** Added on 2026-11-15: items 1–6 leave this principle only partly
+  covered. It fits with item 4, where the pure rules leave their frameworks.
+  - The director phases (`mode="plan"`, `"select"`, `"present"`) and the graph routes (`ProjectState.route`) become
+    types. The checkpoint must keep today's strings, or paused projects stop resuming (ADR-0021). LangGraph's
+    serializer can record an enum's module and class, so prefer `Literal` types, or a `StrEnum` turned into its value
+    before it enters the state. Prove it with a resume from a checkpoint written before the change.
+  - The nodes return a typed partial update (a `TypedDict` with `total=False`) instead of a bare `dict`. The two
+    nodes reached by `Send`, `explore` and `proposal`, take a typed payload instead of `Any`. Check first how
+    LangGraph treats a node input schema that differs from the state: it can add channels to the checkpoint.
+  - The role registry (`ROLES: dict[str, dict]`, and `CHECKS`) becomes typed models, passed to whoever uses it
+    instead of read as a module global. Today 5 reads sit outside `agency.registry`, in `agents.toolbox`,
+    `agents.loop`, `studio.refinement.tools` and `toolkit.craft`.
+- **Exit check.** M1.7 closes only after ADR-0021 is checked principle by principle, each with the command that
+  reproduces it. The roadmap's exit criteria carry the list.

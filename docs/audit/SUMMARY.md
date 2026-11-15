@@ -148,6 +148,8 @@ this refactor") or in the answers to Q1-Q22 below.
 - **Deferred:** 5. STR-004, STR-007, STR-013 and SIM-012 go to M1.7; SIM-014 goes to the next migration that has a
   reason of its own.
 - **Rejected:** 3, all by decision: CMT-014, CMT-017, STR-010.
+- **Since then (M1.7, 2026-11-15):** STR-004 and SIM-012 are fixed, and so is SIM-004's remainder; their rows name the
+  commits. SIM-012 leaves the `select` node factory to M1.8. STR-007 and STR-013 stay with M1.7 items 4 and 6.
 
 The final review found and fixed eleven more issues (R1-R11). They have no ID in this table; `PLAN.md` ("Final
 review" and the review rounds after it) and `99-result.md` list them.
@@ -215,7 +217,7 @@ review" and the review rounds after it) and `99-result.md` list them.
 | CMT-014 | Low | Rejected | by decision (Q14): no docstring campaign and no ruff D1; ports, contracts and platform modules got docstrings in their Phase 3 units |
 | STR-002 | Low | Fixed | 53eadda (the guard), 740e88e (the lists) |
 | STR-003 | Low | Fixed | 23b89e1 for `anthropic`; the `langgraph` and ledger-port rules are Deferred to M1.7 (Q19) |
-| STR-004 | Low | Deferred | M1.7 (Q19): the qa<->tools cycle and the sandbox's QA mount; the tools->agents edge went in 73881ee |
+| STR-004 | Low | Fixed | M1.7: 1754438 (the QA mount only for a check), 8953e00 (the qa<->tools cycle), 2f3ad00 (the acyclic contract); the tools->agents edge went in 73881ee |
 | STR-005 | Low | Fixed | 85cb4fb, b990dc9, 73881ee, 8a4edc1, a1c882e, 2b19b9f, 7948aed; typing ROLES and CHECKS as RoleSpec and CheckSpec is Deferred (PLAN Task 6.9) |
 | STR-006 | Low | Fixed | 272e68e |
 | STR-007 | Low | Deferred | M1.7 (Q18): the CLI moves to entrypoints/cli/ then, so moving report.py now would move it twice |
@@ -239,7 +241,7 @@ review" and the review rounds after it) and `99-result.md` list them.
 | SIM-001 | Low | Fixed | 2fb371e, be01c80 |
 | SIM-002 | Low | Fixed | 9da57c3 |
 | SIM-003 | Low | Fixed | 4ab753b |
-| SIM-004 | Low | Fixed | ab7d394 (declared and tested); moving the langchain_core import to the process layer is Deferred to M1.7 (Q7) |
+| SIM-004 | Low | Fixed | ab7d394 (declared and tested); the langchain_core import moved to the process layer in M1.7, 1b466f2 |
 | SIM-005 | Low | Fixed | 8a4edc1 |
 | SIM-006 | Low | Fixed | dd756d6, cc70e8b |
 | SIM-007 | Low | Fixed | 5a8173f for three parameters; Sandbox(read_only=...) stays because the spike uses it (5.10), and CommandIndex.load(app) stays |
@@ -247,7 +249,7 @@ review" and the review rounds after it) and `99-result.md` list them.
 | SIM-009 | Low | Fixed | f917fd8 |
 | SIM-010 | Low | Fixed | a770286, 6005cec; the `closes`/`conditional` tool fields were Rejected (they move facts without removing any) |
 | SIM-011 | Low | Fixed | fed289d for the hash; one `clip` and one BUSY_SECONDS were Rejected (merging changes output; two independent waits) |
-| SIM-012 | Low | Deferred | M1.7 (Q19): splitting surface.py and workflow.build |
+| SIM-012 | Low | Fixed | M1.7: 890fd06 and 386914d (surface.py split), 42ffc0e and 1a3d49e (workflow.build: McCabe 65 to 2); the `select` node factory, at 11, is Deferred to M1.8's gate (max-complexity 8) |
 | CMT-015 | Nit | Fixed | 1a14ea5, for the helpers the finding named; the framework entry points (Layout, NotFound, Projects, generateMetadata) stay as its own fix allowed |
 | CMT-016 | Nit | Fixed | e8a4531, 740e88e |
 | CMT-017 | Nit | Rejected | by decision (Q14): the fixture identifiers stay |

@@ -10,7 +10,7 @@ si aggiornano con i dati di M1.
 | M1 | Prova verticale | Un logo S dall'inizio alla fine, confrontato con la CLI | 40 $ | **chiuso**, confronto passato a M1.6 |
 | M1.5 | Esplorazione a schizzi | Idee in parallelo, schizzi veloci, scelta del concetto, poi produzione | 40 $ | **chiuso**, 38,83 $ spesi, criteri non verificati passati a M1.6 e M2 |
 | M1.6 | Misure e cruscotto | Dati confrontabili, `insights`, API Django, cruscotto Next.js | 30 $ | **chiuso**, 0 $ spesi, `merlo4` e confronto con la CLI passati a M1.9 |
-| M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte | 0 $ | prossimo |
+| M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte | 0 $ | **in corso**, punti 1–3 fatti |
 | M1.8 | Quality gate di Python | Un comando decide, niente soppressioni, hook che lo applicano da soli | 0 $ | |
 | M1.9 | Prova reale | `merlo4` misurato e giudicato, confronto con la CLI | 30 $ + CLI | |
 | M2 | Parità | Tutto lo studio, con replay di un'identità | 200 $ | |
@@ -447,7 +447,9 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
 
 - [ ] `tools/surface.py` non esiste più, e non ci sono cicli tra pacchetti (`make check`)
 - [ ] Gli snapshot di strumenti e system prompt sono identici a quelli di M1.6
-- [ ] I test di flusso passano con le sole modifiche agli import
+- [ ] I test di flusso passano con le sole modifiche agli import e ai bersagli di `monkeypatch`. Un'eccezione, registrata:
+  `test_agent_flow.py` legge l'insieme degli strumenti che chiudono da `Tool.closes` invece che da `CLOSE_ALWAYS`, perché il
+  refactor ha spostato proprio quel dato; l'asserzione resta la stessa
 - [ ] Dominio e applicazione non importano framework (`import-linter`)
 - [ ] Fasi, rotte e ruoli sono tipi: nessuna stringa libera e nessun `dict` generico al loro posto
 - [ ] Ogni principio di ADR-0021 è verificato uno per uno, ciascuno con il comando che lo riproduce
@@ -732,5 +734,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-Il punto 1 di M1.7, senza spesa: spezzare il ciclo tra `qa` e `tools`. Dopo M1.9, M2 parte dal contesto delle istanze lunghe,
-prima dei ruoli.
+Scrivere il secondo piano di M1.7, senza spesa: i punti 4–7, cioè dominio e applicazione, livelli imposti, piramide dei test e
+tipi espliciti. Dopo M1.9, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.

@@ -7,6 +7,7 @@ from pydantic import Field
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import RUNNABLE, Action, Medium, Status, TicketSpec, TicketType
 from agency.qa import delivery
+from agency.studio.refinement.domain import opening_refusal, rejection_refusal, rework_refusal
 from agency.toolkit.base import Refused, Strict, Tool, ToolContext, replayed
 from agency.workshop.files import is_file_under, sha256_under
 
@@ -45,12 +46,9 @@ def _coming(ctx: ToolContext) -> set[str]:
 
 
 def open_ticket(ctx: ToolContext, a: OpenTicket, operation_id: str) -> dict:
-    if not ctx.rules.can_open(ctx.actor, a.assignee):
-        raise Refused(f"{ctx.actor} non può aprire ticket verso {a.assignee}")
-    if a.assignee not in ctx.rules.roles:
-        raise Refused(f"ruolo inesistente: {a.assignee}")
-    if a.assignee not in ctx.rules.active:
-        raise Refused(f"{a.assignee} non è ancora attivo nello studio: affida il lavoro a un altro ruolo")
+    refusal = opening_refusal(ctx.rules, ctx.actor, a.assignee)
+    if refusal:
+        raise Refused(refusal)
     missing = [path for path in a.inputs if not is_file_under(ctx.work, path)]
     if missing:
         raise Refused(f"input inesistenti: {missing}")
@@ -99,8 +97,9 @@ def rework_ticket(ctx: ToolContext, a: TicketRef, _: str) -> dict:
     _own_child(ctx, a.ticket)
     if replayed(ctx, Status.REWORK, Action.REWORK, a.ticket):
         return {"ok": True, "status": "rework"}
-    if len(a.note.strip()) < 10:
-        raise Refused("scrivi cosa va cambiato")
+    refusal = rework_refusal(a.note)
+    if refusal:
+        raise Refused(refusal)
     ctx.ledger.apply(a.ticket, Action.REWORK, ctx.actor, a.note)
     return {"ok": True, "status": "rework"}
 
@@ -116,8 +115,9 @@ def hand_off(ctx: ToolContext, a: HandOff, _: str) -> dict:
 
 
 def reject_concept(ctx: ToolContext, a: RejectConcept, _: str) -> dict:
-    if len(a.reason.strip()) < 20:
-        raise Refused("spiega con una prova perché il concetto, e non l'esecuzione, non regge")
+    refusal = rejection_refusal(a.reason)
+    if refusal:
+        raise Refused(refusal)
     for ticket in ctx.ledger.children(ctx.ticket_id):
         if ctx.ledger.status(ticket)[0] in (
             Status.OPEN,

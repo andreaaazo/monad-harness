@@ -266,6 +266,8 @@ source_modules = [
   "agency.studio.proposal.application",
   "agency.studio.proposal.domain",
   "agency.studio.proposal.tools",
+  "agency.studio.refinement.application",
+  "agency.studio.refinement.domain",
   "agency.studio.refinement.tools",
   "agency.studio.selection.application",
   "agency.studio.selection.domain",

@@ -710,7 +710,9 @@ def test_every_domain_and_application_is_kept_free_of_frameworks() -> None:
         "agency.agents",
         "agency.workshop.sandbox",
     ]
-    assert contract["forbidden_modules"] == FRAMEWORKS + adapters
+    # The LangGraph adapters too: an application importing studio.graph or a nodes module reaches LangGraph.
+    graph_adapters = ["agency.studio.graph", *sorted(modules_named("nodes.py"))]
+    assert contract["forbidden_modules"] == FRAMEWORKS + adapters + graph_adapters
 
 
 def test_every_domain_depends_only_on_the_contracts() -> None:

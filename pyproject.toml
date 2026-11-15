@@ -301,7 +301,7 @@ source_modules = [
   "agency.workshop",
 ]
 forbidden_modules = ["sqlmodel", "sqlalchemy", "alembic"]
-# Direct imports only: the ledger's rows still cross its boundary until the ports of ADR-0058 replace them.
+# Direct imports only: the composition roots, the session and the CLI, reach the ledger and through it the ORM.
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -421,6 +421,14 @@ forbidden_modules = [
   "agency.process",
   "agency.agents",
   "agency.workshop.sandbox",
+  "agency.studio.graph",
+  "agency.studio.delivery.nodes",
+  "agency.studio.exploration.nodes",
+  "agency.studio.presentation.nodes",
+  "agency.studio.proposal.nodes",
+  "agency.studio.refinement.nodes",
+  "agency.studio.selection.nodes",
 ]
-# Direct imports only: an application may use a platform tool that draws with PIL (the board, the document).
+# Direct imports only: an application may use its slice's tool schemas, the board and the presentation document
+# (which draw with PIL) and qa; none of them reaches LangGraph, which the graph adapters above keep out (ADR-0058).
 allow_indirect_imports = true

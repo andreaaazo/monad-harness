@@ -16,6 +16,8 @@ models/
 /.claude/settings.local.json
 # The source fingerprints Task uses to decide whether to rebuild: they are regenerated.
 /.task/
+# mutmut's working copy of the code under mutation (quality gate, SPEC §4).
+mutants/
 /.worktrees/
 
 # Interface: the dependencies come back with make setup, from the versioned lock.

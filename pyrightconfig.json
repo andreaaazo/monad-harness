@@ -1,0 +1,7 @@
+// Today's pyright, until the switch of plan C deletes it with pyright itself (ADR-0060). basedpyright refuses a
+// pyproject.toml with both [tool.pyright] and [tool.basedpyright], and `uv run pyright` reads this file first.
+{
+  "include": ["src", "tests"],
+  "exclude": ["legacy", "src/agency/qa/scripts"],
+  "typeCheckingMode": "standard"
+}

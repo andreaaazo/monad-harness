@@ -1,0 +1,13 @@
+# wemake-python-styleguide for the quality gate (docs/quality-gate/SPEC.md §6.2, ADR-0060). The defaults of WPS
+# are already its strictest limits, so none is redefined.
+[flake8]
+select = WPS
+max-line-length = 80
+format = wemake
+show-source = true
+# (c) pytest idioms in test files only: many members per module, repeated strings, literal expected values, and
+# fixtures that share a name with an outer one.
+per-file-ignores =
+    tests/*.py: WPS202, WPS226, WPS432, WPS442
+    */tests/*.py: WPS202, WPS226, WPS432, WPS442
+    */conftest.py: WPS202, WPS226, WPS432, WPS442

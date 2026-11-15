@@ -76,11 +76,6 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 # The multiplication sign of sizes ("98 × 118.5 px") is meant; every other look-alike character still fails.
 allowed-confusables = ["×"]
 
-[tool.pyright]
-include = ["src", "tests"]
-exclude = ["legacy", "src/agency/qa/scripts"]
-typeCheckingMode = "standard"
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["tests"]
@@ -452,3 +447,81 @@ forbidden_modules = [
 # Direct imports only: an application may use its slice's tool schemas, the board and the presentation document
 # (which draw with PIL) and qa; none of them reaches LangGraph, which the graph adapters above keep out (ADR-0058).
 allow_indirect_imports = true
+
+# The quality gate's own tables (docs/quality-gate/SPEC.md §6, ADR-0060). Only the gate reads them; a change to one
+# is a change to the gate. Ruff, pytest and import-linter keep today's tables until the switch (plan C of M1.8).
+
+[tool.pydoclint]
+style = "google"
+arg-type-hints-in-signature = true
+arg-type-hints-in-docstring = false  # the types live in the signatures only
+check-return-types = false  # follows from the line above
+check-yield-types = false
+check-arg-order = true
+check-arg-defaults = false
+skip-checking-short-docstrings = false  # one-line docstrings are checked too
+skip-checking-raises = false
+allow-init-docstring = false
+check-class-attributes = true
+ignore-private-args = false
+ignore-underscore-only-args = true
+ignore-private-class-attributes = true
+treat-property-methods-as-class-attributes = false
+require-return-section-when-returning-nothing = false
+require-yield-section-when-yielding-nothing = true
+should-document-star-arguments = true
+check-style-mismatch = true
+
+[tool.basedpyright]
+typeCheckingMode = "all"
+pythonVersion = "3.13"
+enableTypeIgnoreComments = false
+failOnWarnings = true
+reportIgnoreCommentWithoutRule = "error"
+
+[tool.vulture]
+min_confidence = 0
+
+[tool.deptry]
+# No key: the default rules, with no exception.
+
+[tool.pylint.main]
+disable = ["all"]
+enable = ["duplicate-code"]
+jobs = 1
+
+[tool.pylint.similarities]
+min-similarity-lines = 4
+ignore-comments = true
+ignore-docstrings = true
+ignore-imports = true
+ignore-signatures = true
+
+[tool.coverage.run]
+branch = true
+source = ["."]
+relative_files = true
+# (f) The D4 paths: the frozen backup and the copied QA scripts (ADR-0060).
+omit = ["legacy/*", "src/agency/qa/scripts/*"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true
+# They replace coverage's defaults, so no pragma comment excludes a line or a branch.
+exclude_lines = ['^\s*if TYPE_CHECKING:', '^\s*@(typing\.)?overload']
+partial_branches = []
+
+[tool.mutmut]
+source_paths = ["src/agency", "quality_gate"]
+do_not_mutate = ["*/tests/*"]
+pytest_add_cli_args = ["-p", "no:randomly"]
+mutate_only_covered_lines = false
+
+[tool.quality_gate]
+# (f) The D4 paths: the frozen backup and the copied QA scripts (ADR-0060).
+exclude = ["legacy/**", "src/agency/qa/scripts/**"]
+# The variables the tests need in the cleaned environment: measured in plan B (ADR-0060, point 11).
+env_passthrough = []
+check_timeout_seconds = 600
+mutation_min_score = 0.90

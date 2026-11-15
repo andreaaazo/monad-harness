@@ -78,8 +78,10 @@ quality_gate/
     __init__.py  conftest.py  fakes.py  test_*.py
 ```
 
-Outside the package: the `quality` group and the gate's tables in `pyproject.toml`; `.flake8`; `/mutants/` in
-`.gitignore`; `docs/quality-gate/DEVIATIONS.md`; and ADR-0060, ADR-0061 and ADR-0062.
+Outside the package: the `quality` group and the gate's tables in `pyproject.toml`; `.flake8`; `mutants/` in
+`.gitignore`; `docs/quality-gate/DEVIATIONS.md`; ADR-0060, ADR-0061 and ADR-0062; and a temporary `pyrightconfig.json`
+that holds today's pyright settings until the switch, because basedpyright refuses a `pyproject.toml` with both
+`[tool.pyright]` and `[tool.basedpyright]` (Task 2's ruling).
 
 ## Global Constraints
 
@@ -107,7 +109,7 @@ Outside the package: the `quality` group and the gate's tables in `pyproject.tom
   uv run ruff format --check quality_gate
   uv run flake8 --config .flake8 --disable-noqa --format default quality_gate
   uv run pydoclint --config pyproject.toml --quiet quality_gate
-  uv run basedpyright --pythonpath .venv/bin/python quality_gate
+  uv run basedpyright --project pyproject.toml --pythonpath .venv/bin/python quality_gate
   uv run coverage erase
   uv run coverage run -m pytest -W error --strict-markers --strict-config quality_gate/tests
   uv run coverage report --include='quality_gate/*'
@@ -531,9 +533,9 @@ line names the test that pins it and the task that owns it.
   - Real-tool tests:
     - `test_pydoclint_reports_an_undocumented_argument` (`DOC101`);
     - `test_basedpyright_reports_a_real_error`;
-    - `test_basedpyright_reads_its_own_table_over_pyright_s`: a temporary `pyproject.toml` has `[tool.pyright]` in
-      mode `basic` and `[tool.basedpyright]` in mode `all`, and a file only mode `all` refuses
-      (`v = json.loads('1')`) FAILs.
+    - `test_basedpyright_reads_the_project_file_it_is_given`: a temporary repository has a `pyrightconfig.json` in
+      mode `basic` and a `pyproject.toml` with `[tool.basedpyright]` in mode `all`, as this repository has until the
+      switch (Task 2's ruling). A file only mode `all` refuses (`v = json.loads('1')`) FAILs.
 - [ ] **Step 2:** implement.
 - [ ] **Step 3:** the strict self-check passes and `make check` exits 0. Handoff with
   `feat(quality): check docstrings with pydoclint and types with basedpyright`.

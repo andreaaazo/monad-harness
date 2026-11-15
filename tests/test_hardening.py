@@ -26,6 +26,7 @@ from agency.config import Settings
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import ConceptGate, Gate
 from agency.contracts.layout import RelativeDataRoot
+from agency.contracts.ledger import ConceptEntry
 from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.run import Fingerprint
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
@@ -36,7 +37,7 @@ from agency.gateway import ModelGateway
 from agency.insights.domain import Provenance
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
-from agency.ledger.models import ArtifactRow, ConceptRow, EvidenceRow, JudgmentRow, RunRow, UsageRow
+from agency.ledger.models import ArtifactRow, EvidenceRow, JudgmentRow, RunRow, UsageRow
 from agency.qa import checks as qa
 from agency.qa import delivery, evidence
 from agency.toolkit.base import ToolContext
@@ -1846,7 +1847,7 @@ def board_critic(tmp_path: Path) -> ToolContext:
     for letter, anon in (("a", "X"), ("b", "Y")):
         open_idea(
             ctx.ledger,
-            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
+            ConceptEntry(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
         )
     return ctx
 
@@ -1924,7 +1925,9 @@ def proposal_ready(tmp_path: Path) -> ToolContext:
     ctx.settings = settings(tmp_path)
     open_idea(
         ctx.ledger,
-        ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="X", status="proposta"),
+        ConceptEntry(
+            project="p", round=1, letter="a", lever="l", idea_ticket="", anon="X", status="proposta"
+        ),
     )
     folder = ctx.work / "proposals/r1/x"
     folder.mkdir(parents=True)
@@ -2164,7 +2167,9 @@ def test_present_concepts_checks_the_pages_of_the_latest_draft(tmp_path: Path) -
     two = {**DRAFT, "proposals": [*DRAFT["proposals"], {**DRAFT["proposals"][0], "letter": "Y"}]}
     open_idea(
         ctx.ledger,
-        ConceptRow(project="p", round=1, letter="b", lever="l", idea_ticket="", anon="Y", status="proposta"),
+        ConceptEntry(
+            project="p", round=1, letter="b", lever="l", idea_ticket="", anon="Y", status="proposta"
+        ),
     )
     (ctx.work / "proposals/r1/y").mkdir()
     Image.new("RGB", (300, 200), (20, 20, 20)).save(ctx.work / "proposals/r1/y/proposta-y.png")
@@ -2196,7 +2201,9 @@ def evil_project(ctx: ToolContext, name: str = "../outside") -> ToolContext:
     ctx.project = name
     open_idea(
         ctx.ledger,
-        ConceptRow(project=name, round=1, letter="a", lever="l", idea_ticket="", anon="X", status="proposta"),
+        ConceptEntry(
+            project=name, round=1, letter="a", lever="l", idea_ticket="", anon="X", status="proposta"
+        ),
     )
     return ctx
 

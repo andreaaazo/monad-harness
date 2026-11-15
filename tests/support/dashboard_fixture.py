@@ -22,12 +22,13 @@ from unittest.mock import patch
 from agency.agents.transcript import Transcript
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
 from agency.contracts.layout import DataLayout
+from agency.contracts.ledger import ConceptEntry, GateEntry
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
-from agency.ledger.models import ConceptRow, EvidenceRow, GateRow, UsageRow
+from agency.ledger.models import EvidenceRow, UsageRow
 
 PROJECT = "officina-e2e"
 BEFORE = "officina-prima"
@@ -313,7 +314,9 @@ def build(folder: Path) -> None:
             prompt=prompt,
         )
         # Direction A's sketch ticket opens with its concept, as plan_exploration opens it.
-        concept = ConceptRow(project=PROJECT, round=1, letter="a", lever="il nome", idea_ticket="", anon="X")
+        concept = ConceptEntry(
+            project=PROJECT, round=1, letter="a", lever="il nome", idea_ticket="", anon="X"
+        )
         with clock(minute):
             ledger.open(spec, PROJECT, concept=concept if assignee == "direction-a" else None)
     turns: dict[str, int] = {}
@@ -354,7 +357,7 @@ def build(folder: Path) -> None:
         )
     write_transcripts(DataLayout(folder))
     ledger.add_gate(
-        GateRow(at=at(30), project=PROJECT, gate="concept", approved=True, choice="X", files_json="{}")
+        GateEntry(at=at(30), project=PROJECT, gate="concept", approved=True, choice="X", files_json="{}")
     )
     rating = Rating(letter="A", level=Level.GOOD, specific=True, why="Si legge da lontano")
     ledger.record_judgment(

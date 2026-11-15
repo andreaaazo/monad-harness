@@ -25,6 +25,7 @@ from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
 from agency.contracts import phase
 from agency.contracts.concept import ConceptCard
+from agency.contracts.ledger import ConceptEntry
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.phase import DirectorMode
 from agency.contracts.project import ProjectName, parse_project_name
@@ -33,7 +34,7 @@ from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketTy
 from agency.entrypoints import cli
 from agency.gateway import BudgetExceeded, ModelGateway
 from agency.ledger import Ledger
-from agency.ledger.models import ConceptRow, DerivationRow, EvidenceRow
+from agency.ledger.models import DerivationRow, EvidenceRow
 from agency.process import graph as workflow
 from agency.process.session import open_session
 from agency.qa import checks
@@ -1628,7 +1629,7 @@ def test_redelivery_with_identical_outputs_is_refused(tmp_path: Path) -> None:
 
 
 def closing_box(
-    tmp_path: Path, spec: TicketSpec, actor: str, *tools: str, concept: ConceptRow | None = None
+    tmp_path: Path, spec: TicketSpec, actor: str, *tools: str, concept: ConceptEntry | None = None
 ) -> tuple[Toolbox, ToolContext, str]:
     """A ticket of `spec` open for `actor`, its work folder ready: the toolbox, its context, the ticket. A
     `concept` is opened with it, as plan_exploration opens an idea."""
@@ -1747,7 +1748,7 @@ def test_a_replayed_submit_concept_closes_as_delivered(
         media=[Medium.NONE],
         medium_why="solo uno schizzo di prova",
     )
-    concept = ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="")
+    concept = ConceptEntry(project="p", round=1, letter="a", lever="l", idea_ticket="")
     box, context, ticket = closing_box(
         tmp_path, spec, "direction-a", "record_requirement", "submit_concept", concept=concept
     )
@@ -2137,7 +2138,7 @@ class Proposals:
         (folder / "applicazioni.json").write_text(json.dumps([{"name": "timbro", "size": "16 mm"}]))
         self.root = self.ledger.open(production_spec(), "p")
         idea = production_spec().model_copy(update={"title": "Idea", "assignee": "direction-a"})
-        row = ConceptRow(
+        row = ConceptEntry(
             project="p",
             round=1,
             letter="a",
@@ -2216,7 +2217,7 @@ def test_a_replayed_select_concepts_appends_no_second_concept_event(
     box, context, _ = closing_box(tmp_path, DIRECTOR, "design-director", "select_concepts")
     context.settings = settings(tmp_path)
     context.round = 1
-    row = ConceptRow(
+    row = ConceptEntry(
         project="p", round=1, letter="a", lever="il nome", idea_ticket="", anon="Z", card_json=CARD
     )
     context.ledger.open(production_spec(), "p", concept=row)
@@ -2237,7 +2238,7 @@ def test_a_replayed_select_concepts_appends_no_second_concept_event(
 
 def test_update_concept_writes_only_a_change(tmp_path: Path) -> None:
     ledger = Ledger(settings(tmp_path).layout.ledger)
-    row = ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="Z", card_json=CARD)
+    row = ConceptEntry(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="Z", card_json=CARD)
     ticket = ledger.open(production_spec(), "p", concept=row)
 
     def events() -> int:

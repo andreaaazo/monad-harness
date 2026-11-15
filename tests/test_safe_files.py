@@ -26,12 +26,12 @@ from agency.contracts import files as contract_files
 from agency.contracts.artifact import Origin
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import Decision
+from agency.contracts.ledger import ConceptEntry
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import parse_project_name
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.gateway import ModelGateway
 from agency.ledger import Ledger
-from agency.ledger.models import ConceptRow
 from agency.process import graph as workflow
 from agency.process import session as runtime
 from agency.process.session import Session
@@ -377,7 +377,7 @@ class Studio:
                 "checks": {"*.png": ["visual_review"]},
             }
         )
-        row = ConceptRow(
+        row = ConceptEntry(
             project=PROJECT,
             round=1,
             letter=LETTER,

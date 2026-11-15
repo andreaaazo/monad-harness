@@ -9,9 +9,9 @@ from pydantic import Field
 
 from agency.contracts.artifact import Origin
 from agency.contracts.concept import ConceptCard, ConceptStatus
+from agency.contracts.ledger import ConceptEntry
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
-from agency.ledger.models import ConceptRow
 from agency.qa import delivery
 from agency.toolkit.base import Refused, Strict, Tool, ToolContext, replayed
 from agency.workshop import board
@@ -90,7 +90,7 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
             prompt="explorer",
             effort=ctx.settings.explorer_effort,
         )
-        concept = ConceptRow(
+        concept = ConceptEntry(
             project=ctx.project, round=ctx.round, letter=letter, lever=lever.lever, idea_ticket=""
         )
         ticket = ctx.ledger.open(

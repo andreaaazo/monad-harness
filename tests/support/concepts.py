@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from agency.contracts.ledger import ConceptEntry
 from agency.contracts.ticket import Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
-from agency.ledger.models import ConceptRow
 
 
-def open_idea(ledger: Ledger, row: ConceptRow) -> str:
+def open_idea(ledger: Ledger, row: ConceptEntry) -> str:
     """Opens the sketch ticket of `row`'s letter together with the row, as `plan_exploration` does, and
-    returns the ticket. `row.idea_ticket` becomes that ticket's id."""
+    returns the ticket. The concept row the ledger writes takes that ticket's id as its `idea_ticket`."""
     letter = row.letter
     spec = TicketSpec(
         title=f"Esplorazione {letter.upper()}",

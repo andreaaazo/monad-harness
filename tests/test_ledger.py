@@ -8,15 +8,15 @@ from PIL import Image
 from pydantic import ValidationError
 from sqlalchemy import event as sa_event
 from sqlalchemy import text
-from sqlmodel import Session
+from sqlmodel import Session, col, select
 
 from agency.agents.toolbox import Toolbox
 from agency.artifacts import FileStore
-from agency.contracts.ledger import ForbiddenAction, IllegalTransition
+from agency.contracts.ledger import ConceptEntry, ForbiddenAction, GateEntry, IllegalTransition
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.entrypoints import cli
 from agency.ledger import Ledger, chain, store
-from agency.ledger.models import ConceptRow, EvidenceRow, GateRow, TicketRow, UsageRow
+from agency.ledger.models import EventRow, EvidenceRow, TicketRow, UsageRow
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.sandbox import Sandbox
@@ -447,14 +447,14 @@ def test_a_moved_ticket_stays_caught_after_its_next_event(
     ]
 
 
-def idea(**extra: object) -> ConceptRow:
-    return ConceptRow.model_validate(
+def idea(**extra: object) -> ConceptEntry:
+    return ConceptEntry.model_validate(
         {"project": "default", "round": 1, "letter": "A", "lever": "forma", "idea_ticket": ""} | extra
     )
 
 
-def decision() -> GateRow:
-    return GateRow(
+def decision() -> GateEntry:
+    return GateEntry(
         at="2026-11-10T10:00:00+00:00",
         project="default",
         gate="concept",
@@ -482,6 +482,40 @@ def test_a_concept_opened_with_its_ticket_starts_as_an_idea(ledger: Ledger) -> N
     """The status a concept row stores before its sketch arrives."""
     ticket = ledger.open(production(), concept=idea())
     assert [(row.idea_ticket, row.status) for row in ledger.concepts("default", 1)] == [(ticket, "idea")]
+
+
+FIXED_CLOCK = "2026-01-01T00:00:00+00:00"
+# The newest event's hash when these values are written with a fixed clock. Copied from the output of the row
+# API, before ADR-0058's entries replaced it: an entry must bind the same bytes into the chain.
+CONCEPT_CHAIN_HEAD = "6e5134d679a59e24478e914126db7a9b11da5232cee3b64fdc729ec2c522ab2d"
+GATE_CHAIN_HEAD = "9e94c4155636603f87cd9234afe0c1aa0ccfd81e47bd22f71b3d99159f6d21c0"
+
+
+def newest_hash(ledger: Ledger) -> str:
+    with Session(ledger.engine) as session:
+        event = session.exec(select(EventRow).order_by(col(EventRow.seq).desc())).first()
+    assert event is not None
+    return event.hash
+
+
+def test_a_concept_written_through_an_entry_chains_like_the_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("agency.ledger.store.now", lambda: FIXED_CLOCK)
+    ledger = Ledger(tmp_path / "l.sqlite")
+    ledger.open(production(), concept=idea(anon="X"))
+    assert ledger.verify_chain()
+    assert newest_hash(ledger) == CONCEPT_CHAIN_HEAD
+
+
+def test_a_gate_written_through_an_entry_chains_like_the_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("agency.ledger.store.now", lambda: FIXED_CLOCK)
+    ledger = Ledger(tmp_path / "l.sqlite")
+    ledger.add_gate(decision())
+    assert ledger.verify_chain()
+    assert newest_hash(ledger) == GATE_CHAIN_HEAD
 
 
 def with_rows(ledger: Ledger) -> str:

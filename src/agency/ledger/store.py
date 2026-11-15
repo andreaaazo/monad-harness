@@ -18,7 +18,7 @@ from sqlmodel import Session, col, create_engine, select
 
 from agency.contracts.clock import now
 from agency.contracts.judgment import Judged, Judgment
-from agency.contracts.ledger import ForbiddenAction, IllegalTransition
+from agency.contracts.ledger import ConceptEntry, ForbiddenAction, GateEntry, IllegalTransition
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import (
     REVIEW_TYPES,
@@ -261,14 +261,14 @@ class Ledger:
         project: str = "default",
         inputs: dict[str, str] | None = None,
         operation: tuple[str, str, str] | None = None,
-        concept: ConceptRow | None = None,
+        concept: ConceptEntry | None = None,
     ) -> str:
         """`inputs` are the hashes at opening. `operation` (id, instance, tool) makes the opening and its
         record one step: on resume the ticket is not opened twice.
 
         `concept` is written in the same transaction as the ticket, so an interruption cannot leave a ticket
-        without its concept row. The caller cannot know the new ticket id, so `open` sets
-        `concept.idea_ticket` to it."""
+        without its concept row. The caller cannot know the new ticket id, so the row `open` writes takes it
+        as its `idea_ticket`."""
         with self._writing() as session:
             count = session.exec(select(func.count()).select_from(TicketRow)).one()
             ticket_id = f"T-{count + 1:04d}"
@@ -289,10 +289,10 @@ class Ledger:
                     OperationRow(id=operation_id, instance=instance, tool=tool, result_json=result, at=now())
                 )
             if concept is not None:
-                concept.idea_ticket = ticket_id
-                session.add(concept)
+                idea = ConceptRow(**concept.model_copy(update={"idea_ticket": ticket_id}).model_dump())
+                session.add(idea)
                 session.flush()
-                self._append(session, NO_TICKET, HARNESS, "concept", "", None, concept)
+                self._append(session, NO_TICKET, HARNESS, "concept", "", None, idea)
             session.commit()
         return ticket_id
 
@@ -534,12 +534,14 @@ class Ledger:
 
     # Ideas and gates
 
-    def concepts(self, project: str, round_: int | None = None) -> list[ConceptRow]:
+    def concepts(self, project: str, round_: int | None = None) -> list[ConceptEntry]:
         with Session(self.engine) as session:
             query = select(ConceptRow).where(ConceptRow.project == project)
             if round_ is not None:
                 query = query.where(ConceptRow.round == round_)
-            return list(session.exec(query.order_by(col(ConceptRow.seq))).all())
+            return [
+                ConceptEntry.model_validate(row) for row in session.exec(query.order_by(col(ConceptRow.seq)))
+            ]
 
     def update_concept(self, idea_ticket: str, **fields: object) -> None:
         """A write that changes nothing (every field already holds the value) is skipped, with its chain
@@ -555,17 +557,18 @@ class Ledger:
             self._append(session, NO_TICKET, HARNESS, "concept", "", None, row)
             session.commit()
 
-    def add_gate(self, row: GateRow) -> None:
+    def add_gate(self, gate: GateEntry) -> None:
         with self._writing() as session:
+            row = GateRow(**gate.model_dump())
             session.add(row)
             session.flush()
             self._append(session, NO_TICKET, HARNESS, "gate", "", None, row)
             session.commit()
 
-    def gates(self, project: str) -> list[GateRow]:
+    def gates(self, project: str) -> list[GateEntry]:
         with Session(self.engine) as session:
             query = select(GateRow).where(GateRow.project == project).order_by(col(GateRow.seq))
-            return list(session.exec(query).all())
+            return [GateEntry.model_validate(row) for row in session.exec(query)]
 
     # Operations, so a resume has no double effects
 

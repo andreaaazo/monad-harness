@@ -16,6 +16,7 @@ from agency.agents.toolbox import TOOLS, Toolbox, tools_for
 from agency.artifacts import FileStore
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import ConceptGate
+from agency.contracts.ledger import ConceptEntry
 from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, changes
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
@@ -23,7 +24,6 @@ from agency.gateway import BudgetExceeded
 from agency.insights.adapters.ledger import ReadOnlyLedger
 from agency.insights.domain import derive_phase
 from agency.ledger import Ledger
-from agency.ledger.models import ConceptRow
 from agency.process.session import Session, open_session
 from agency.qa import delivery
 from agency.studio.exploration.tools import EXPLORE, PLAN
@@ -474,11 +474,13 @@ def test_present_refuses_what_was_not_developed(tmp_path: Path) -> None:
     ctx = context(tmp_path, "design-director")
     open_idea(
         ctx.ledger,
-        ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="X", status="proposta"),
+        ConceptEntry(
+            project="p", round=1, letter="a", lever="l", idea_ticket="", anon="X", status="proposta"
+        ),
     )
     open_idea(
         ctx.ledger,
-        ConceptRow(project="p", round=1, letter="b", lever="l", idea_ticket="", anon="Y", status="schizzo"),
+        ConceptEntry(project="p", round=1, letter="b", lever="l", idea_ticket="", anon="Y", status="schizzo"),
     )
     box = Toolbox(ctx, [TOOLS["draft_presentation"]])
     folder = tmp_path / "proposals/r1/x"
@@ -854,7 +856,7 @@ def test_every_letter_must_be_rated(tmp_path: Path) -> None:
     for letter, anon in (("a", "X"), ("b", "Y")):
         open_idea(
             ctx.ledger,
-            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
+            ConceptEntry(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
         )
     box = Toolbox(ctx, [TOOLS["rate_board"]])
     partial = {"ratings": [{"letter": "X", "first_look": "Un merlo", "passes": True}]}
@@ -866,7 +868,7 @@ def test_director_cannot_choose_what_failed_the_first_look(tmp_path: Path) -> No
     for letter, anon in (("a", "X"), ("b", "Y")):
         open_idea(
             ctx.ledger,
-            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
+            ConceptEntry(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
         )
     box = Toolbox(ctx, [TOOLS["select_concepts"]])
     assert box.call("a", "select_concepts", {"chosen": ["X"], "reasons": "r"})["is_error"]
@@ -917,7 +919,7 @@ def test_choice_outside_the_options_is_not_approved(tmp_path: Path) -> None:
 
 def test_select_refuses_unknown_letters(tmp_path: Path) -> None:
     ctx = context(tmp_path, "design-director")
-    open_idea(ctx.ledger, ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="X"))
+    open_idea(ctx.ledger, ConceptEntry(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="X"))
     box = Toolbox(ctx, [TOOLS["select_concepts"]])
     assert box.call("a", "select_concepts", {"chosen": ["Q"], "reasons": "perché sì"})["is_error"]
 
@@ -929,7 +931,7 @@ def test_select_concepts_refuses_more_than_three(tmp_path: Path) -> None:
     for letter, anon in anons.items():
         open_idea(
             ctx.ledger,
-            ConceptRow(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
+            ConceptEntry(project="p", round=1, letter=letter, lever="l", idea_ticket="", anon=anon),
         )
     verdicts = settings(tmp_path).layout.ratings(ProjectName("p"), 1)
     verdicts.parent.mkdir(parents=True)
@@ -1015,7 +1017,9 @@ def test_a_hidden_image_never_reaches_the_presentation(tmp_path: Path) -> None:
     )
     open_idea(
         ctx.ledger,
-        ConceptRow(project="p", round=1, letter="a", lever="l", idea_ticket="", anon="V", status="proposta"),
+        ConceptEntry(
+            project="p", round=1, letter="a", lever="l", idea_ticket="", anon="V", status="proposta"
+        ),
     )
     text = {"letter": "V", "title": "T", "idea": "I", "why": "W", "risk": "R"}
 
@@ -1312,7 +1316,7 @@ def test_explorer_is_warned_once_then_can_insist(tmp_path: Path) -> None:
         media=[Medium.NONE],
         medium_why="prova senza master",
     )
-    concept = ConceptRow(project="p", round=1, letter="a", lever="il nome", idea_ticket="")
+    concept = ConceptEntry(project="p", round=1, letter="a", lever="il nome", idea_ticket="")
     ticket = ledger.open(spec, "p", concept=concept)
     work = tmp_path / "work"
     work.mkdir()

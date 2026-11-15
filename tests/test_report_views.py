@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
+from agency.contracts.ledger import ConceptEntry, GateEntry
 from agency.entrypoints import cli
 from agency.insights import views
 from agency.insights.domain import (
@@ -23,7 +24,7 @@ from agency.insights.domain import (
 )
 from agency.insights.ports import ProjectData
 from agency.ledger import Ledger
-from agency.ledger.models import ConceptRow, GateRow, UsageRow
+from agency.ledger.models import UsageRow
 from support.concepts import open_idea
 
 PROVENANCE = Provenance(
@@ -389,12 +390,12 @@ def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ledger:
     ledger.record_usage(usage(1, T0))
     ledger.record_usage(usage(2, T1, phase="director-plan", effort="high", duration_ms=4000, ttft_ms=800))
     ledger.add_gate(
-        GateRow(at=T1, project="officina", gate="concept", approved=True, choice="X", files_json="{}")
+        GateEntry(at=T1, project="officina", gate="concept", approved=True, choice="X", files_json="{}")
     )
     ledger.record_usage(usage(3, T2, instance="T-0001-a2"))
     open_idea(
         ledger,
-        ConceptRow(project="officina", round=1, letter="a", lever="il nome", idea_ticket="", anon="X"),
+        ConceptEntry(project="officina", round=1, letter="a", lever="il nome", idea_ticket="", anon="X"),
     )
     judgment = Judgment(
         judge="andrea", ratings=[Rating(letter="A", level=Level.GOOD, specific=True, why="Regge")]

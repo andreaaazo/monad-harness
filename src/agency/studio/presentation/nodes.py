@@ -10,9 +10,9 @@ from langgraph.types import interrupt
 from agency.contracts.clock import now
 from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.gate import ConceptGate, Decision
+from agency.contracts.ledger import GateEntry
 from agency.contracts.outcome import OutcomeState
 from agency.contracts.ticket import Action, Status
-from agency.ledger.models import GateRow
 from agency.studio.graph import Node
 from agency.studio.presentation import document as presentation
 from agency.studio.presentation.tools import PresentConcepts
@@ -85,7 +85,7 @@ def concept_gate(crew: Crew) -> Node:
         recorded = {gate.files_json for gate in crew.ledger.gates(project) if gate.gate == "concept"}
         if json.dumps(digest) not in recorded:
             crew.ledger.add_gate(
-                GateRow(
+                GateEntry(
                     at=now(),
                     project=project,
                     gate="concept",

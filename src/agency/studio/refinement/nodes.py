@@ -8,7 +8,8 @@ from pathlib import PurePosixPath
 from agency.contracts.concept import ConceptStatus
 from agency.contracts.outcome import OutcomeState
 from agency.contracts.ticket import RUNNABLE, Medium, TicketSpec, TicketType
-from agency.studio.shared import Crew, Node, ProjectState, attempt, copy_capped, rework_note
+from agency.studio.graph import Node
+from agency.studio.shared import Crew, ProjectState, attempt, copy_capped, rework_note
 from agency.workshop.files import MAX_DOCUMENT_BYTES, ensure_dir_under, sha256_under
 
 

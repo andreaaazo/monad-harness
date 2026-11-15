@@ -7,7 +7,8 @@ from langgraph.types import interrupt
 from agency.contracts.gate import Decision, FinalGate
 from agency.contracts.ticket import Action, Status
 from agency.qa import delivery
-from agency.studio.shared import Crew, Node, ProjectState
+from agency.studio.graph import Node
+from agency.studio.shared import Crew, ProjectState
 from agency.workshop.sandbox import Sandbox
 
 

@@ -22,11 +22,12 @@ from agency.contracts.ticket import Status
 from agency.ledger import Ledger
 from agency.studio.delivery.nodes import client_gate
 from agency.studio.exploration.nodes import explore, plan, send_explorers
+from agency.studio.graph import Router
 from agency.studio.presentation.nodes import concept_gate, present
 from agency.studio.proposal.nodes import prepare_proposals, proposal, send_proposals
 from agency.studio.refinement.nodes import lead, start_production, team
 from agency.studio.selection.nodes import board_review, make_board, select
-from agency.studio.shared import Crew, ProjectState, Router
+from agency.studio.shared import Crew, ProjectState
 
 type Graph = CompiledStateGraph[ProjectState, None, ProjectState, ProjectState]
 

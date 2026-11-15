@@ -1,14 +1,11 @@
 """What the slices' graph nodes share: the graph state, the crew they work with, and the helpers more
-than one slice uses (ADR-0057)."""
+than one slice uses (ADR-0057). The types LangGraph sees are in `studio.graph` (ADR-0058)."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, TypedDict
-
-from langgraph.types import Send
+from typing import Protocol, TypedDict
 
 from agency.config import Settings
 from agency.contracts.outcome import Outcome
@@ -51,15 +48,6 @@ class Crew:
 
     def work_dir(self, project: str) -> Path:
         return self.settings.work_dir(parse_project_name(project))
-
-
-class Node(Protocol):
-    """A graph node. LangGraph passes the state by the name `state`, so the protocol names it."""
-
-    def __call__(self, state: Any) -> dict: ...
-
-
-type Router = Callable[[ProjectState], list[Send] | str]
 
 
 def attempt(ledger: Ledger, ticket: str) -> int:

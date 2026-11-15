@@ -7,8 +7,9 @@ from langgraph.graph import END
 from agency.contracts.concept import ConceptCard
 from agency.contracts.outcome import OutcomeState
 from agency.contracts.ticket import RUNNABLE, Action, Status, TicketSpec, TicketType
+from agency.studio.graph import Node
 from agency.studio.selection.tools import SelectConcepts
-from agency.studio.shared import Crew, Node, ProjectState, copy_capped
+from agency.studio.shared import Crew, ProjectState, copy_capped
 from agency.workshop import board
 from agency.workshop.files import (
     MAX_IMAGE_FILE_BYTES,

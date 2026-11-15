@@ -9,7 +9,8 @@ from langgraph.types import Send
 
 from agency.contracts.outcome import OutcomeState
 from agency.contracts.ticket import RUNNABLE
-from agency.studio.shared import Crew, Node, ProjectState, Router, attempt
+from agency.studio.graph import Node, Router
+from agency.studio.shared import Crew, ProjectState, attempt
 
 
 def plan(crew: Crew) -> Node:

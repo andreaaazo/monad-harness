@@ -14,9 +14,10 @@ from agency.contracts.outcome import OutcomeState
 from agency.contracts.ticket import Action, Status
 from agency.ledger.models import GateRow
 from agency.ledger.store import now
+from agency.studio.graph import Node
 from agency.studio.presentation import document as presentation
 from agency.studio.presentation.tools import PresentConcepts
-from agency.studio.shared import Crew, Node, ProjectState, proposal_tickets
+from agency.studio.shared import Crew, ProjectState, proposal_tickets
 from agency.workshop.files import sha256_under
 
 

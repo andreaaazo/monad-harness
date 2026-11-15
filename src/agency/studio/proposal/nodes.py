@@ -9,7 +9,8 @@ from langgraph.types import Send
 
 from agency.contracts.concept import ConceptStatus
 from agency.contracts.ticket import RUNNABLE, Medium, TicketSpec, TicketType
-from agency.studio.shared import Crew, Node, ProjectState, Router, attempt, copy_capped, proposal_tickets
+from agency.studio.graph import Node, Router
+from agency.studio.shared import Crew, ProjectState, attempt, copy_capped, proposal_tickets
 from agency.workshop.files import (
     MAX_IMAGE_FILE_BYTES,
     MAX_TEXT_FILE_BYTES,

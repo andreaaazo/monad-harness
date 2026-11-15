@@ -12,11 +12,18 @@ from sqlmodel import Session, col, select
 
 from agency.agents.toolbox import Toolbox
 from agency.artifacts import FileStore
-from agency.contracts.ledger import ConceptEntry, ForbiddenAction, GateEntry, IllegalTransition
+from agency.contracts.ledger import (
+    ConceptEntry,
+    DerivationEntry,
+    EvidenceEntry,
+    ForbiddenAction,
+    GateEntry,
+    IllegalTransition,
+)
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.entrypoints import cli
 from agency.ledger import Ledger, chain, store
-from agency.ledger.models import EventRow, EvidenceRow, TicketRow, UsageRow
+from agency.ledger.models import EventRow, TicketRow, UsageRow
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.sandbox import Sandbox
@@ -206,7 +213,7 @@ def test_every_new_event_binds_the_state_it_leaves(ledger: Ledger) -> None:
     ticket = ledger.open(review())
     ledger.apply(ticket, Action.DELIVER, "qa-inspector", verdict=Verdict.READY, delivered=DELIVERED)
     ledger.add_evidence(
-        EvidenceRow(
+        EvidenceEntry(
             at="2026-11-09T10:00:00+00:00",
             project="default",
             file="segno.svg",
@@ -242,7 +249,7 @@ def test_every_new_event_binds_the_state_it_leaves(ledger: Ledger) -> None:
 
 def test_an_event_without_a_ticket_binds_only_its_row(ledger: Ledger) -> None:
     ledger.add_evidence(
-        EvidenceRow(
+        EvidenceEntry(
             at="2026-11-09T10:00:00+00:00",
             project="default",
             file="segno.svg",
@@ -465,8 +472,8 @@ def decision() -> GateEntry:
     )
 
 
-def proof(ticket: str) -> EvidenceRow:
-    return EvidenceRow(
+def proof(ticket: str) -> EvidenceEntry:
+    return EvidenceEntry(
         at="2026-11-10T10:00:00+00:00",
         project="default",
         file="segno.svg",
@@ -489,6 +496,7 @@ FIXED_CLOCK = "2026-01-01T00:00:00+00:00"
 # API, before ADR-0058's entries replaced it: an entry must bind the same bytes into the chain.
 CONCEPT_CHAIN_HEAD = "6e5134d679a59e24478e914126db7a9b11da5232cee3b64fdc729ec2c522ab2d"
 GATE_CHAIN_HEAD = "9e94c4155636603f87cd9234afe0c1aa0ccfd81e47bd22f71b3d99159f6d21c0"
+EVIDENCE_CHAIN_HEAD = "838c7014e948d5d7f95adadc64e213a7e793ff8f1cd5a652865b80860737a92f"
 
 
 def newest_hash(ledger: Ledger) -> str:
@@ -516,6 +524,36 @@ def test_a_gate_written_through_an_entry_chains_like_the_row(
     ledger.add_gate(decision())
     assert ledger.verify_chain()
     assert newest_hash(ledger) == GATE_CHAIN_HEAD
+
+
+def test_evidence_written_through_an_entry_chains_like_the_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("agency.ledger.store.now", lambda: FIXED_CLOCK)
+    ledger = Ledger(tmp_path / "l.sqlite")
+    ledger.add_evidence(proof(ledger.open(production())))
+    assert ledger.verify_chain()
+    assert newest_hash(ledger) == EVIDENCE_CHAIN_HEAD
+
+
+def link() -> DerivationEntry:
+    return DerivationEntry(
+        at=FIXED_CLOCK,
+        project="default",
+        master="source/segno.vectorcraft",
+        master_sha="m1",
+        export="exports/segno.svg",
+        export_sha="e1",
+        how="export",
+    )
+
+
+def test_a_derivation_written_through_an_entry_is_stored_as_the_row(ledger: Ledger) -> None:
+    """Derivations are not chained: what matters is the stored link, and that a replay adds nothing."""
+    ledger.add_derivation(link())
+    ledger.add_derivation(link())
+    stored = ledger.derivations("default", "exports/segno.svg")
+    assert [row.model_dump() for row in stored] == [link().model_dump() | {"seq": 1}]
 
 
 def with_rows(ledger: Ledger) -> str:

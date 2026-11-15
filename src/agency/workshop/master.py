@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 
 from agency.contracts.clock import now
+from agency.contracts.ledger import DerivationEntry
 from agency.contracts.ticket import Medium
 from agency.ledger import Ledger
-from agency.ledger.models import DerivationRow
 from agency.workshop.files import ensure_dir_under, inside, open_under, sha256_under
 from agency.workshop.sandbox import JOB, Sandbox
 
@@ -89,7 +89,7 @@ def export(
     if done.code or not destination.exists():
         return f"export fallito: {done.output.strip()[:300]}"
     ledger.add_derivation(
-        DerivationRow(
+        DerivationEntry(
             at=now(),
             project=project,
             master=master,

@@ -8,10 +8,10 @@ from pathlib import Path
 
 from agency.contracts.clock import now
 from agency.contracts.files import is_file_under, sha256_under
+from agency.contracts.ledger import EvidenceEntry
 from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import AUTHOR_TYPES
 from agency.ledger import Ledger
-from agency.ledger.models import EvidenceRow
 
 
 class EvidenceRefused(Exception):
@@ -82,7 +82,7 @@ def record(
     operation: tuple[str, str, str, str] | None = None,
     *,
     rules: StudioRules,
-) -> EvidenceRow:
+) -> EvidenceEntry:
     """Records a proof on the file's current version, and on the current sha256 of each of `inputs`.
 
     `operation` is the resume record of the tool call behind this proof: it is written with the proof.
@@ -92,7 +92,7 @@ def record(
         raise EvidenceRefused(f"file inesistente: {file}")
     if check in rules.measurements() and result == "PASS":
         result = "MEASURED"
-    row = EvidenceRow(
+    row = EvidenceEntry(
         at=now(),
         project=project,
         file=file,
@@ -109,9 +109,9 @@ def record(
     return row
 
 
-def latest(ledger: Ledger, project: str, signer: str | None = None) -> dict[tuple[str, str], EvidenceRow]:
+def latest(ledger: Ledger, project: str, signer: str | None = None) -> dict[tuple[str, str], EvidenceEntry]:
     """The result per file and check: on the same version, a FAIL stands until its signer changes it."""
-    versions: dict[tuple[str, str], tuple[str, dict[str, EvidenceRow]]] = {}
+    versions: dict[tuple[str, str], tuple[str, dict[str, EvidenceEntry]]] = {}
     for row in ledger.evidence(project):
         if signer and row.signer != signer:
             continue
@@ -129,7 +129,7 @@ def latest(ledger: Ledger, project: str, signer: str | None = None) -> dict[tupl
     return table
 
 
-def freshness(row: EvidenceRow, work: Path) -> str:
+def freshness(row: EvidenceEntry, work: Path) -> str:
     """`fresh`; `STALE` if the file or one of its inputs changed or is gone; `MISSING` without the file."""
     if not is_file_under(work, row.file):
         return "MISSING"

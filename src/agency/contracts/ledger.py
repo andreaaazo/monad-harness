@@ -3,6 +3,7 @@ engine reaches it through. `agency.ledger` implements it on SQLite."""
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
@@ -67,3 +68,51 @@ class Gates(Protocol):
     def add_gate(self, gate: GateEntry) -> None: ...
 
     def gates(self, project: str) -> list[GateEntry]: ...
+
+
+class EvidenceEntry(_Entry):
+    """A proof on an exact version of a file. The harness signs it."""
+
+    seq: int | None = None
+    at: str
+    project: str
+    file: str
+    sha256: str
+    check_name: str
+    result: str
+    signer: str
+    ticket_id: str = ""
+    proof: str = ""
+    note: str = ""
+    inputs_json: str = "{}"
+
+
+class DerivationEntry(_Entry):
+    """An export, and the exact version of the master it was derived from."""
+
+    seq: int | None = None
+    at: str
+    project: str
+    master: str
+    master_sha: str
+    export: str
+    export_sha: str
+    how: str = ""
+
+
+class Proofs(Protocol):
+    """The proofs on the files: signed evidence, rendered proofs, and the masters exports come from."""
+
+    def add_evidence(
+        self, entry: EvidenceEntry, operation: tuple[str, str, str, str] | None = None
+    ) -> None: ...
+
+    def evidence(self, project: str) -> list[EvidenceEntry]: ...
+
+    def add_render(self, project: str, source: str, source_sha: str, proofs: Iterable[str]) -> None: ...
+
+    def renders_of(self, project: str, source: str, source_sha: str) -> list[str]: ...
+
+    def add_derivation(self, link: DerivationEntry) -> None: ...
+
+    def derivations(self, project: str, export: str) -> list[DerivationEntry]: ...

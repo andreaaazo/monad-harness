@@ -17,9 +17,9 @@ from agency.agents.toolbox import Toolbox, role_tools
 from agency.artifacts import FileStore
 from agency.config import REPO_ROOT
 from agency.contracts.clock import now
+from agency.contracts.ledger import DerivationEntry
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType, Verdict
 from agency.ledger import Ledger
-from agency.ledger.models import DerivationRow
 from agency.qa import checks, delivery, evidence
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
@@ -216,8 +216,8 @@ def test_an_export_must_derive_from_the_current_master(tmp_path: Path) -> None:
     studio.sign("svg_audit", "PASS", "identity-designer", ticket_id)
     assert studio.problems(spec) == [f"{FILE}: non risulta esportato da un master del ticket"]
 
-    def derived(master_sha: str) -> DerivationRow:
-        return DerivationRow(
+    def derived(master_sha: str) -> DerivationEntry:
+        return DerivationEntry(
             at=now(),
             project="p",
             master=MASTER,

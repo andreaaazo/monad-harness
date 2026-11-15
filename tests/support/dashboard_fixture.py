@@ -22,13 +22,13 @@ from unittest.mock import patch
 from agency.agents.transcript import Transcript
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
 from agency.contracts.layout import DataLayout
-from agency.contracts.ledger import ConceptEntry, GateEntry
+from agency.contracts.ledger import ConceptEntry, EvidenceEntry, GateEntry
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
-from agency.ledger.models import EvidenceRow, UsageRow
+from agency.ledger.models import UsageRow
 
 PROJECT = "officina-e2e"
 BEFORE = "officina-prima"
@@ -343,7 +343,7 @@ def build(folder: Path) -> None:
             ledger.apply(ticket, action, actor, note=note)
     for minute, ticket, file, check, result, signer, note in CHECKS:
         ledger.add_evidence(
-            EvidenceRow(
+            EvidenceEntry(
                 at=at(minute),
                 project=PROJECT,
                 file=file,

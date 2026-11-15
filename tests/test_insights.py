@@ -18,6 +18,7 @@ from sqlmodel import Session
 from agency.agents.transcript import Transcript
 from agency.contracts import phase
 from agency.contracts.layout import DataLayout
+from agency.contracts.ledger import EvidenceEntry
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, RunCommand
@@ -52,7 +53,7 @@ from agency.insights.domain import (
 )
 from agency.insights.ports import LedgerSnapshot
 from agency.ledger import Ledger
-from agency.ledger.models import EvidenceRow, TicketRow, UsageRow
+from agency.ledger.models import TicketRow, UsageRow
 from agency.ledger.schema import head
 
 
@@ -531,8 +532,8 @@ def proposal(ledger: Ledger) -> str:
     return ledger.open(spec, "merlo4")
 
 
-def evidence(ticket_id: str, check: str, result: str, note: str) -> EvidenceRow:
-    return EvidenceRow(
+def evidence(ticket_id: str, check: str, result: str, note: str) -> EvidenceEntry:
+    return EvidenceEntry(
         at="2026-11-02T10:00:00+00:00",
         project="merlo4",
         file="segno.svg",

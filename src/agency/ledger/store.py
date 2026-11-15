@@ -18,7 +18,14 @@ from sqlmodel import Session, col, create_engine, select
 
 from agency.contracts.clock import now
 from agency.contracts.judgment import Judged, Judgment
-from agency.contracts.ledger import ConceptEntry, ForbiddenAction, GateEntry, IllegalTransition
+from agency.contracts.ledger import (
+    ConceptEntry,
+    DerivationEntry,
+    EvidenceEntry,
+    ForbiddenAction,
+    GateEntry,
+    IllegalTransition,
+)
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import (
     REVIEW_TYPES,
@@ -462,10 +469,11 @@ class Ledger:
 
     # Proofs
 
-    def add_evidence(self, row: EvidenceRow, operation: tuple[str, str, str, str] | None = None) -> None:
+    def add_evidence(self, entry: EvidenceEntry, operation: tuple[str, str, str, str] | None = None) -> None:
         """`operation` (id, instance, tool, result) makes the proof and its resume record one transaction, as
         in `open`: a replay after a crash finds the record and does not add the proof twice."""
         with self._writing() as session:
+            row = EvidenceRow(**entry.model_dump())
             session.add(row)
             session.flush()
             note = f"{row.file}:{row.check_name}:{row.result}:{row.sha256[:16]}"
@@ -478,10 +486,10 @@ class Ledger:
                 )
             session.commit()
 
-    def evidence(self, project: str) -> list[EvidenceRow]:
+    def evidence(self, project: str) -> list[EvidenceEntry]:
         with Session(self.engine) as session:
             query = select(EvidenceRow).where(EvidenceRow.project == project).order_by(col(EvidenceRow.seq))
-            return list(session.exec(query).all())
+            return [EvidenceEntry.model_validate(row) for row in session.exec(query)]
 
     def add_render(self, project: str, source: str, source_sha: str, proofs: Iterable[str]) -> None:
         """A proof already stored for this source version is not stored again: a replay adds nothing."""
@@ -510,27 +518,27 @@ class Ledger:
             )
             return [row.proof for row in session.exec(query).all()]
 
-    def add_derivation(self, row: DerivationRow) -> None:
+    def add_derivation(self, link: DerivationEntry) -> None:
         """A link identical to a stored one (every column but `seq` and `at`) is not stored again."""
         with self._writing() as session:
             same = select(DerivationRow).where(
-                DerivationRow.project == row.project,
-                DerivationRow.master == row.master,
-                DerivationRow.master_sha == row.master_sha,
-                DerivationRow.export == row.export,
-                DerivationRow.export_sha == row.export_sha,
-                DerivationRow.how == row.how,
+                DerivationRow.project == link.project,
+                DerivationRow.master == link.master,
+                DerivationRow.master_sha == link.master_sha,
+                DerivationRow.export == link.export,
+                DerivationRow.export_sha == link.export_sha,
+                DerivationRow.how == link.how,
             )
             if session.exec(same).first() is None:
-                session.add(row)
+                session.add(DerivationRow(**link.model_dump()))
                 session.commit()
 
-    def derivations(self, project: str, export: str) -> list[DerivationRow]:
+    def derivations(self, project: str, export: str) -> list[DerivationEntry]:
         with Session(self.engine) as session:
             query = select(DerivationRow).where(
                 DerivationRow.project == project, DerivationRow.export == export
             )
-            return list(session.exec(query).all())
+            return [DerivationEntry.model_validate(row) for row in session.exec(query)]
 
     # Ideas and gates
 

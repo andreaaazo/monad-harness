@@ -26,7 +26,7 @@ from agency.config import Settings
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import ConceptGate, Gate
 from agency.contracts.layout import RelativeDataRoot
-from agency.contracts.ledger import ConceptEntry
+from agency.contracts.ledger import ConceptEntry, EvidenceEntry
 from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.run import Fingerprint
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
@@ -37,7 +37,7 @@ from agency.gateway import ModelGateway
 from agency.insights.domain import Provenance
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
-from agency.ledger.models import ArtifactRow, EvidenceRow, JudgmentRow, RunRow, UsageRow
+from agency.ledger.models import ArtifactRow, JudgmentRow, RunRow, UsageRow
 from agency.qa import checks as qa
 from agency.qa import delivery, evidence
 from agency.toolkit.base import ToolContext
@@ -536,7 +536,7 @@ def test_parallel_writers_never_hit_a_locked_database(tmp_path: Path) -> None:
             for step in range(25):
                 ledger.record_usage(usage(ticket, step))
                 ledger.add_evidence(
-                    EvidenceRow(
+                    EvidenceEntry(
                         at="2026-11-01T00:00:00+00:00",
                         project="p",
                         file=f"{ticket}-{step}.md",

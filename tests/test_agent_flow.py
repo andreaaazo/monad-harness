@@ -25,7 +25,7 @@ from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
 from agency.contracts import phase
 from agency.contracts.concept import ConceptCard
-from agency.contracts.ledger import ConceptEntry
+from agency.contracts.ledger import ConceptEntry, DerivationEntry, EvidenceEntry
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.phase import DirectorMode
 from agency.contracts.project import ProjectName, parse_project_name
@@ -34,7 +34,6 @@ from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketTy
 from agency.entrypoints import cli
 from agency.gateway import BudgetExceeded, ModelGateway
 from agency.ledger import Ledger
-from agency.ledger.models import DerivationRow, EvidenceRow
 from agency.process import graph as workflow
 from agency.process.session import open_session
 from agency.qa import checks
@@ -1832,7 +1831,7 @@ def delivered_note_box(tmp_path: Path) -> tuple[Toolbox, ToolContext, str]:
     (work / "nota.md").write_text("v1")
     digest = sha256_under(work, "nota.md")
     context.ledger.add_evidence(
-        EvidenceRow(
+        EvidenceEntry(
             at="2026-01-01T00:00:00+00:00",
             project="p",
             file="nota.md",
@@ -2054,7 +2053,7 @@ def test_add_render_keeps_a_new_source_version_and_a_new_proof(tmp_path: Path) -
     assert ledger.renders_of("p", "b.png", "s1") == ["x.png"]
 
 
-def derivation(**changes: str) -> DerivationRow:
+def derivation(**changes: str) -> DerivationEntry:
     fields: dict[str, Any] = {
         "at": "2026-01-01T00:00:00+00:00",
         "project": "p",
@@ -2064,7 +2063,7 @@ def derivation(**changes: str) -> DerivationRow:
         "export_sha": "e1",
         "how": "vectorcraft-cli convert",
     }
-    return DerivationRow(**{**fields, **changes})
+    return DerivationEntry(**{**fields, **changes})
 
 
 def test_add_derivation_skips_only_an_identical_row(tmp_path: Path) -> None:

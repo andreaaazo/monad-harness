@@ -30,6 +30,7 @@ from django.test import Client, RequestFactory, override_settings  # noqa: E402
 from agency.agents.transcript import Transcript  # noqa: E402
 from agency.config import REPO_ROOT  # noqa: E402
 from agency.contracts.layout import DataLayout  # noqa: E402
+from agency.contracts.ledger import UsageEntry  # noqa: E402
 from agency.contracts.project import ProjectName  # noqa: E402
 from agency.contracts.ticket import TicketSpec, TicketType  # noqa: E402
 from agency.entrypoints import cli  # noqa: E402
@@ -43,11 +44,10 @@ from agency.insights.quality import QualityReport  # noqa: E402
 from agency.insights.replay import ReplayReport  # noqa: E402
 from agency.insights.views import ProjectReport, ProjectSummary  # noqa: E402
 from agency.ledger import Ledger  # noqa: E402
-from agency.ledger.models import UsageRow  # noqa: E402
 
 
-def usage(seq: int, cost: float = 1.25, project: str = "officina") -> UsageRow:
-    return UsageRow(
+def usage(seq: int, cost: float = 1.25, project: str = "officina") -> UsageEntry:
+    return UsageEntry(
         at=f"2026-11-02T10:{seq:02d}:00+00:00",
         project=project,
         ticket_id="T-0001",

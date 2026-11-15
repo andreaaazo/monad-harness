@@ -19,10 +19,10 @@ from alembic.runtime.migration import MigrationContext
 from sqlalchemy import create_engine, text
 from sqlmodel import SQLModel
 
+from agency.contracts.ledger import TicketEntry
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.entrypoints import cli
 from agency.ledger import Ledger, LedgerOutdated, chain, schema
-from agency.ledger.models import TicketRow
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 
 REAL_SCHEMA = Path(__file__).parent / "fixtures" / "ledger_schema_0001.sql"
@@ -540,7 +540,7 @@ def test_migration_binds_every_contract_idea_gate_and_proof_into_the_chain(
     assert ledger.replay_mismatches() == unbound_projects(tickets)
 
 
-def binding(ticket: TicketRow) -> dict:
+def binding(ticket: TicketEntry) -> dict:
     """What the code binds of `ticket` today."""
     return chain.ticket_binding(
         ticket.status,
@@ -557,7 +557,7 @@ def without_project(bound: dict) -> dict:
     return {key: value for key, value in bound.items() if key != "project"}
 
 
-def unbound_projects(tickets: list[TicketRow]) -> list[str]:
+def unbound_projects(tickets: list[TicketEntry]) -> list[str]:
     """What `agency verify` says of a registry before 0009: no event binds a ticket's project yet."""
     return [f"{ticket.id}: progetto diverso dalla catena" for ticket in tickets]
 

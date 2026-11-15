@@ -19,12 +19,20 @@ from sqlmodel import Session, col, create_engine, select
 from agency.contracts.clock import now
 from agency.contracts.judgment import Judged, Judgment
 from agency.contracts.ledger import (
+    ArtifactEntry,
     ConceptEntry,
     DerivationEntry,
+    EventEntry,
     EvidenceEntry,
     ForbiddenAction,
     GateEntry,
     IllegalTransition,
+    JudgmentEntry,
+    OperationEntry,
+    ProjectEntry,
+    RunEntry,
+    TicketEntry,
+    UsageEntry,
 )
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import (
@@ -237,9 +245,10 @@ class Ledger:
 
     # Projects
 
-    def project(self, name: str) -> ProjectRow | None:
+    def project(self, name: str) -> ProjectEntry | None:
         with Session(self.engine) as session:
-            return session.get(ProjectRow, name)
+            row = session.get(ProjectRow, name)
+            return ProjectEntry.model_validate(row) if row else None
 
     def set_project(self, name: str, budget_usd: float, model: str = "", effort: str = "") -> None:
         """Every write of a project binds the row as it leaves it, outside any ticket (ADR-0050)."""
@@ -343,10 +352,10 @@ class Ledger:
                 raise KeyError(ticket_id)
             return json.loads(row.delivered_json)
 
-    def tickets(self, project: str) -> list[TicketRow]:
+    def tickets(self, project: str) -> list[TicketEntry]:
         with Session(self.engine) as session:
             query = select(TicketRow).where(TicketRow.project == project).order_by(literal_column("rowid"))
-            return list(session.exec(query).all())
+            return [TicketEntry.model_validate(row) for row in session.exec(query)]
 
     def apply(
         self,
@@ -391,10 +400,10 @@ class Ledger:
             session.commit()
             return target
 
-    def history(self, ticket_id: str) -> list[EventRow]:
+    def history(self, ticket_id: str) -> list[EventEntry]:
         with Session(self.engine) as session:
             query = select(EventRow).where(EventRow.ticket_id == ticket_id).order_by(col(EventRow.seq))
-            return list(session.exec(query).all())
+            return [EventEntry.model_validate(row) for row in session.exec(query)]
 
     def verify_chain(self) -> bool:
         with Session(self.engine) as session:
@@ -446,11 +455,12 @@ class Ledger:
 
     # Usage
 
-    def record_usage(self, row: UsageRow) -> None:
+    def record_usage(self, entry: UsageEntry) -> None:
         """A paid call and the event that binds it, in one transaction (ADR-0050). The event stays on the
         call's ticket with the ticket's state, as a proof's does; a call without a ticket binds only
         itself."""
         with self._writing() as session:
+            row = UsageRow(**entry.model_dump())
             session.add(row)
             session.flush()
             ticket = session.get(TicketRow, row.ticket_id) if row.ticket_id else None
@@ -462,10 +472,10 @@ class Ledger:
             query = select(func.coalesce(func.sum(UsageRow.cost_usd), 0.0)).where(UsageRow.project == project)
             return float(session.exec(query).one())
 
-    def usage(self, project: str) -> list[UsageRow]:
+    def usage(self, project: str) -> list[UsageEntry]:
         with Session(self.engine) as session:
             query = select(UsageRow).where(UsageRow.project == project).order_by(col(UsageRow.seq))
-            return list(session.exec(query).all())
+            return [UsageEntry.model_validate(row) for row in session.exec(query)]
 
     # Proofs
 
@@ -585,10 +595,10 @@ class Ledger:
             row = session.get(OperationRow, operation_id)
             return row.result_json if row else None
 
-    def operations(self, instance: str) -> list[OperationRow]:
+    def operations(self, instance: str) -> list[OperationEntry]:
         with Session(self.engine) as session:
             query = select(OperationRow).where(OperationRow.instance == instance)
-            return list(session.exec(query).all())
+            return [OperationEntry.model_validate(row) for row in session.exec(query)]
 
     def record_operation(self, operation_id: str, instance: str, tool: str, result_json: str) -> None:
         """The first record of an operation id stays: a replay reruns only the tools without an effect, and
@@ -615,14 +625,15 @@ class Ledger:
         assert row.seq is not None
         return row.seq
 
-    def runs(self, project: str) -> list[RunRow]:
+    def runs(self, project: str) -> list[RunEntry]:
         with Session(self.engine) as session:
             query = select(RunRow).where(RunRow.project == project).order_by(col(RunRow.seq))
-            return list(session.exec(query).all())
+            return [RunEntry.model_validate(row) for row in session.exec(query)]
 
-    def run(self, seq: int) -> RunRow | None:
+    def run(self, seq: int) -> RunEntry | None:
         with Session(self.engine) as session:
-            return session.get(RunRow, seq)
+            row = session.get(RunRow, seq)
+            return RunEntry.model_validate(row) if row else None
 
     # Blind judgments
 
@@ -652,39 +663,43 @@ class Ledger:
                 )
             session.commit()
 
-    def judgments(self, project: str) -> list[JudgmentRow]:
+    def judgments(self, project: str) -> list[JudgmentEntry]:
         with Session(self.engine) as session:
             query = select(JudgmentRow).where(JudgmentRow.project == project).order_by(col(JudgmentRow.seq))
-            return list(session.exec(query).all())
+            return [JudgmentEntry.model_validate(row) for row in session.exec(query)]
 
-    def comparison(self, comparison: str) -> list[JudgmentRow]:
+    def comparison(self, comparison: str) -> list[JudgmentEntry]:
         with Session(self.engine) as session:
             query = (
                 select(JudgmentRow).where(JudgmentRow.comparison == comparison).order_by(col(JudgmentRow.seq))
             )
-            return list(session.exec(query).all())
+            return [JudgmentEntry.model_validate(row) for row in session.exec(query)]
 
     # Artifacts
 
-    def record_artifacts(self, rows: list[ArtifactRow]) -> None:
+    def record_artifacts(self, entries: list[ArtifactEntry]) -> None:
         """A version already recorded for the same file and reason is not recorded again."""
-        if not rows:
+        if not entries:
             return
-        values = [row.model_dump(exclude={"seq"}) for row in rows]
+        values = [entry.model_dump(exclude={"seq"}) for entry in entries]
         with Session(self.engine) as session:
             session.execute(insert(ArtifactRow).values(values).on_conflict_do_nothing())
             session.commit()
 
-    def artifacts(self, project: str) -> list[ArtifactRow]:
+    def artifacts(self, project: str) -> list[ArtifactEntry]:
         with Session(self.engine) as session:
             query = select(ArtifactRow).where(ArtifactRow.project == project).order_by(col(ArtifactRow.seq))
-            return list(session.exec(query).all())
+            return [ArtifactEntry.model_validate(row) for row in session.exec(query)]
 
-    def artifacts_with(self, prefix: str) -> list[ArtifactRow]:
+    def artifacts_with(self, prefix: str) -> list[ArtifactEntry]:
         with Session(self.engine) as session:
             query = select(ArtifactRow).where(col(ArtifactRow.sha256).startswith(prefix, autoescape=True))
-            return list(session.exec(query.order_by(col(ArtifactRow.seq))).all())
+            return [
+                ArtifactEntry.model_validate(row)
+                for row in session.exec(query.order_by(col(ArtifactRow.seq)))
+            ]
 
-    def all_artifacts(self) -> list[ArtifactRow]:
+    def all_artifacts(self) -> list[ArtifactEntry]:
         with Session(self.engine) as session:
-            return list(session.exec(select(ArtifactRow).order_by(col(ArtifactRow.seq))).all())
+            query = select(ArtifactRow).order_by(col(ArtifactRow.seq))
+            return [ArtifactEntry.model_validate(row) for row in session.exec(query)]

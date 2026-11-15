@@ -22,13 +22,12 @@ from unittest.mock import patch
 from agency.agents.transcript import Transcript
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
 from agency.contracts.layout import DataLayout
-from agency.contracts.ledger import ConceptEntry, EvidenceEntry, GateEntry
+from agency.contracts.ledger import ConceptEntry, EvidenceEntry, GateEntry, UsageEntry
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
 from agency.ledger import Ledger
-from agency.ledger.models import UsageRow
 
 PROJECT = "officina-e2e"
 BEFORE = "officina-prima"
@@ -190,11 +189,11 @@ def usage(
     phase: str | None = None,
     duration_ms: int | None = None,
     ttft_ms: int | None = None,
-) -> UsageRow:
+) -> UsageEntry:
     """One call of the test. A measured call has a phase, effort, duration, TTFT and reasoning."""
     minute, instance, ticket, role, _, cost = row[:6]
     measured = duration_ms is not None
-    return UsageRow(
+    return UsageEntry(
         at=at(minute, day),
         project=project,
         ticket_id=ticket,

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
-from agency.contracts.ledger import ConceptEntry, GateEntry
+from agency.contracts.ledger import ConceptEntry, GateEntry, UsageEntry
 from agency.entrypoints import cli
 from agency.insights import views
 from agency.insights.domain import (
@@ -24,7 +24,6 @@ from agency.insights.domain import (
 )
 from agency.insights.ports import ProjectData
 from agency.ledger import Ledger
-from agency.ledger.models import UsageRow
 from support.concepts import open_idea
 
 PROVENANCE = Provenance(
@@ -353,7 +352,7 @@ def test_a_project_without_calls_has_a_report_of_zeros() -> None:
 # The command, from the registry to the text and the JSON
 
 
-def usage(seq: int, at: str, **extra: object) -> UsageRow:
+def usage(seq: int, at: str, **extra: object) -> UsageEntry:
     base: dict[str, object] = {
         "at": at,
         "project": "officina",
@@ -367,7 +366,7 @@ def usage(seq: int, at: str, **extra: object) -> UsageRow:
         "stop_reason": "tool_use",
         "request_id": f"req_{seq}",
     }
-    return UsageRow.model_validate(base | extra)
+    return UsageEntry.model_validate(base | extra)
 
 
 @pytest.fixture

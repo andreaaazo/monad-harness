@@ -26,7 +26,14 @@ from agency.config import Settings
 from agency.contracts.concept import ConceptCard
 from agency.contracts.gate import ConceptGate, Gate
 from agency.contracts.layout import RelativeDataRoot
-from agency.contracts.ledger import ConceptEntry, EvidenceEntry
+from agency.contracts.ledger import (
+    ArtifactEntry,
+    ConceptEntry,
+    EvidenceEntry,
+    JudgmentEntry,
+    RunEntry,
+    UsageEntry,
+)
 from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.run import Fingerprint
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
@@ -37,7 +44,6 @@ from agency.gateway import ModelGateway
 from agency.insights.domain import Provenance
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
-from agency.ledger.models import ArtifactRow, JudgmentRow, RunRow, UsageRow
 from agency.qa import checks as qa
 from agency.qa import delivery, evidence
 from agency.toolkit.base import ToolContext
@@ -588,8 +594,8 @@ def test_two_processes_share_one_chain_of_hashes(tmp_path: Path) -> None:
     assert sum(len(ledger.tickets(f"p{n}")) for n in range(4)) == 60
 
 
-def usage(ticket: str, step: int, at: str = "2026-11-01T00:00:00+00:00", instance: str = "i") -> UsageRow:
-    return UsageRow(
+def usage(ticket: str, step: int, at: str = "2026-11-01T00:00:00+00:00", instance: str = "i") -> UsageEntry:
+    return UsageEntry(
         at=at,
         project="p",
         ticket_id=ticket,
@@ -1564,7 +1570,7 @@ def test_a_report_filters_the_model_text_it_renders(
     assert len(out.splitlines()) > 5  # newlines survive
 
 
-def _run_row(seq: int, command: str) -> RunRow:
+def _run_row(seq: int, command: str) -> RunEntry:
     fingerprint = Fingerprint(
         model="",
         effort="",
@@ -1579,7 +1585,7 @@ def _run_row(seq: int, command: str) -> RunRow:
         python="3",
         tools={},
     )
-    return RunRow(
+    return RunEntry(
         seq=seq,
         at="2026-11-01",
         project="p",
@@ -1589,8 +1595,8 @@ def _run_row(seq: int, command: str) -> RunRow:
     )
 
 
-def _artifact_row(path: str) -> ArtifactRow:
-    return ArtifactRow(
+def _artifact_row(path: str) -> ArtifactEntry:
+    return ArtifactEntry(
         at="2026-11-01",
         sha256="a" * 64,
         project="p",
@@ -1602,8 +1608,8 @@ def _artifact_row(path: str) -> ArtifactRow:
     )
 
 
-def _judgment_row(file: str) -> JudgmentRow:
-    return JudgmentRow(
+def _judgment_row(file: str) -> JudgmentEntry:
+    return JudgmentEntry(
         at="2026-11-01",
         comparison="c1",
         judge="andrea",
@@ -1619,7 +1625,7 @@ def _judgment_row(file: str) -> JudgmentRow:
 
 
 class _RunsLedger:
-    def runs(self, _: str) -> list[RunRow]:
+    def runs(self, _: str) -> list[RunEntry]:
         return [_run_row(1, "run\x1b[31m"), _run_row(2, "resume\x07")]
 
 

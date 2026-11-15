@@ -18,8 +18,8 @@ from typing import BinaryIO
 from agency.contracts.artifact import ArtifactMissing, ArtifactStore, Origin
 from agency.contracts.clock import now
 from agency.contracts.files import OutsidePerimeter, ensure_dir_under, land, open_under, unlink_under
+from agency.contracts.ledger import ArtifactEntry
 from agency.ledger import Ledger
-from agency.ledger.models import ArtifactRow
 
 # Python's built-in table only: the system's own table differs from machine to machine.
 TYPES = mimetypes.MimeTypes()
@@ -50,14 +50,14 @@ def keep(
     run: int | None,
 ) -> dict[str, str]:
     """`files` maps the path to record to the file to keep. Returns the kept hashes, by recorded path."""
-    rows: list[ArtifactRow] = []
+    rows: list[ArtifactEntry] = []
     # Each source is a path relative to `root`. It is opened without following links, because the
     # sandbox may have swapped the file for one.
     for path, relative in files.items():
         with os.fdopen(open_under(root, relative, os.O_RDONLY), "rb") as source:
             blob = store.put(source)
         rows.append(
-            ArtifactRow(
+            ArtifactEntry(
                 at=now(),
                 sha256=blob.sha256,
                 project=project,
@@ -73,7 +73,7 @@ def keep(
     return {row.path: row.sha256 for row in rows}
 
 
-def find(ledger: Ledger, prefix: str) -> list[ArtifactRow]:
+def find(ledger: Ledger, prefix: str) -> list[ArtifactEntry]:
     """The rows of the one version whose hash starts with `prefix`. A short or ambiguous prefix is refused."""
     prefix = prefix.strip().lower()
     if not HEX.fullmatch(prefix):
@@ -91,7 +91,7 @@ def find(ledger: Ledger, prefix: str) -> list[ArtifactRow]:
 
 def restore(
     store: ArtifactStore, ledger: Ledger, prefix: str, destination: Path, *, projects_dir: Path
-) -> list[ArtifactRow]:
+) -> list[ArtifactEntry]:
     """Copies the version into a new file. It never overwrites: a file already there may be the only copy
     of its content."""
     rows = find(ledger, prefix)
@@ -152,7 +152,7 @@ def _create(destination: Path, real: Path, place: tuple[Path, str] | None) -> Bi
         raise CannotRestore(str(exc)) from exc
 
 
-def damaged(store: ArtifactStore, ledger: Ledger) -> list[ArtifactRow]:
+def damaged(store: ArtifactStore, ledger: Ledger) -> list[ArtifactEntry]:
     """The rows whose versions are missing from the store or no longer hash to their name."""
     rows = ledger.all_artifacts()
     broken = {digest for digest in {row.sha256 for row in rows} if not store.intact(digest)}

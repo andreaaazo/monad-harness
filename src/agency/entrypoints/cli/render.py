@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import re
 
+from agency.contracts.ledger import ArtifactEntry, JudgmentEntry, RunEntry
 from agency.contracts.run import Change, Fingerprint, changes, read_fingerprint
 from agency.contracts.text import plain
 from agency.insights.domain import Provenance
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
-from agency.ledger.models import ArtifactRow, JudgmentRow, RunRow
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
 NAMED = 5  # beyond these, `agency compare` lists the differences
@@ -138,7 +138,7 @@ def render_runs(ledger: Ledger, project: str) -> str:
     return plain("\n".join(lines))
 
 
-def render_comparison(first: RunRow, second: RunRow) -> str:
+def render_comparison(first: RunEntry, second: RunEntry) -> str:
     """Every difference between two runs' fingerprints, or which fingerprint cannot be read."""
     title = f"#{first.seq} {first.project} {first.command} → #{second.seq} {second.project} {second.command}"
     before, after = read_fingerprint(first.fingerprint_json), read_fingerprint(second.fingerprint_json)
@@ -159,7 +159,7 @@ def _quality(level: str, specific: bool) -> str:
     return f"{level}, {'specifico' if specific else 'generico'}"
 
 
-def render_reveal(rows: list[JudgmentRow]) -> str:
+def render_reveal(rows: list[JudgmentEntry]) -> str:
     """After the judgment, and only then: which file was behind each letter."""
     first = rows[0]
     count = _count(len(rows), "giudizio", "giudizi")
@@ -178,7 +178,7 @@ def _size(size: int) -> str:
     return f"{size} B"
 
 
-def render_artifacts(rows: list[ArtifactRow], project: str) -> str:
+def render_artifacts(rows: list[ArtifactEntry], project: str) -> str:
     """The versions kept for a project: hash, reason, ticket, size and path."""
     if not rows:
         return f"{project}: nessuna versione conservata. I lavori precedenti a M1.6 non ne hanno"
@@ -190,7 +190,7 @@ def render_artifacts(rows: list[ArtifactRow], project: str) -> str:
     return plain("\n".join(lines))
 
 
-def render_restored(rows: list[ArtifactRow], destination: str) -> str:
+def render_restored(rows: list[ArtifactEntry], destination: str) -> str:
     """What `agency restore` brought back, with every reason that version was kept for."""
     lines = [f"Ripristinato {destination} dalla versione {rows[0].sha256[:12]}, conservata per:"]
     for row in rows:
@@ -199,7 +199,7 @@ def render_restored(rows: list[ArtifactRow], destination: str) -> str:
     return plain("\n".join(lines))
 
 
-def render_damaged(rows: list[ArtifactRow]) -> str:
+def render_damaged(rows: list[ArtifactEntry]) -> str:
     """The kept versions that are missing from the store or no longer have their hash."""
     lines = ["ARTEFATTI DANNEGGIATI: queste versioni mancano dal deposito o non hanno più il loro hash"]
     lines += [f"  {row.sha256[:12]}  {row.project or '-'}  {row.path}" for row in rows]

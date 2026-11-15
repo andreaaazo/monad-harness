@@ -18,7 +18,7 @@ from sqlmodel import Session
 from agency.agents.transcript import Transcript
 from agency.contracts import phase
 from agency.contracts.layout import DataLayout
-from agency.contracts.ledger import EvidenceEntry
+from agency.contracts.ledger import EvidenceEntry, UsageEntry
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, RunCommand
@@ -53,7 +53,7 @@ from agency.insights.domain import (
 )
 from agency.insights.ports import LedgerSnapshot
 from agency.ledger import Ledger
-from agency.ledger.models import TicketRow, UsageRow
+from agency.ledger.models import TicketRow
 from agency.ledger.schema import head
 
 
@@ -468,7 +468,7 @@ def test_missing_transcripts_are_not_an_error(tmp_path: Path) -> None:
 def filled_registry(path: Path) -> Ledger:
     ledger = Ledger(path)
     ledger.record_usage(
-        UsageRow(
+        UsageEntry(
             at="2026-11-02T10:00:00+00:00",
             project="merlo4",
             ticket_id="T-0001",

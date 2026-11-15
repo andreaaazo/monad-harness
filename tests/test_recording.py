@@ -15,11 +15,11 @@ import httpx2
 import pytest
 
 from agency.config import Settings
+from agency.contracts.ledger import TicketEntry
 from agency.contracts.project import ProjectName
 from agency.entrypoints import cli
 from agency.gateway import AnthropicTransport, RecordingTransport, request_key
 from agency.ledger import Ledger
-from agency.ledger.models import TicketRow
 from agency.process.session import Session, open_session
 from support.replay import MissingRecording, ReplayTransport
 from support.scripted import ScriptedTransport, turn
@@ -318,7 +318,7 @@ AFTER_THE_REJECTION = [
 ]
 
 
-def delivered(row: TicketRow) -> dict[str, str]:
+def delivered(row: TicketEntry) -> dict[str, str]:
     """The delivered files and their hashes. VectorCraft stamps each master with the clock (`"created"`, in
     seconds), so a master's hash changes from run to run; no request carries it, and replay does not miss."""
     files = json.loads(row.delivered_json)

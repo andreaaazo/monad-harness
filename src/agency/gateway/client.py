@@ -11,10 +11,10 @@ from opentelemetry import trace
 
 from agency.config import Settings
 from agency.contracts.clock import now
+from agency.contracts.ledger import UsageEntry
 from agency.gateway.pricing import call_cost_usd, price_of
 from agency.gateway.transport import Transport
 from agency.ledger import Ledger
-from agency.ledger.models import UsageRow
 
 tracer = trace.get_tracer("agency.gateway")
 EXPECTED_OUTPUT_TOKENS = 4000
@@ -197,7 +197,7 @@ class ModelGateway:
     ) -> None:
         """A stream that died on unreadable tool JSON was billed but reported no usage: use the estimate."""
         self.ledger.record_usage(
-            UsageRow(
+            UsageEntry(
                 at=now(),
                 project=context.project,
                 ticket_id=context.ticket_id,
@@ -230,7 +230,7 @@ class ModelGateway:
         cost = call_cost_usd(model, usage, request.model)
         breakdown = usage.get("cache_creation") or {}
         self.ledger.record_usage(
-            UsageRow(
+            UsageEntry(
                 at=now(),
                 project=context.project,
                 ticket_id=context.ticket_id,

@@ -19,11 +19,12 @@ from agency.contracts.ledger import (
     ForbiddenAction,
     GateEntry,
     IllegalTransition,
+    UsageEntry,
 )
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
 from agency.entrypoints import cli
 from agency.ledger import Ledger, chain, store
-from agency.ledger.models import EventRow, TicketRow, UsageRow
+from agency.ledger.models import EventRow, TicketRow
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.sandbox import Sandbox
@@ -442,9 +443,8 @@ def test_a_moved_ticket_stays_caught_after_its_next_event(
     if next_event == "block":
         ledger.apply(ticket, Action.BLOCK, "identity-designer", "manca il brief")
     else:
-        call = paid(ticket)
-        call.project = "merlo4"  # the gateway charges the project it reads from the moved row
-        ledger.record_usage(call)
+        # the gateway charges the project it reads from the moved row
+        ledger.record_usage(paid(ticket).model_copy(update={"project": "merlo4"}))
 
     assert ledger.verify_chain()
     assert cli.main(["verify"]) == 1
@@ -497,6 +497,7 @@ FIXED_CLOCK = "2026-01-01T00:00:00+00:00"
 CONCEPT_CHAIN_HEAD = "6e5134d679a59e24478e914126db7a9b11da5232cee3b64fdc729ec2c522ab2d"
 GATE_CHAIN_HEAD = "9e94c4155636603f87cd9234afe0c1aa0ccfd81e47bd22f71b3d99159f6d21c0"
 EVIDENCE_CHAIN_HEAD = "838c7014e948d5d7f95adadc64e213a7e793ff8f1cd5a652865b80860737a92f"
+USAGE_CHAIN_HEAD = "49af0c7f6b1f2326e7de7e88fced8146aca9d9f68214ccfc19634f4a6bdfb2e1"
 
 
 def newest_hash(ledger: Ledger) -> str:
@@ -534,6 +535,16 @@ def test_evidence_written_through_an_entry_chains_like_the_row(
     ledger.add_evidence(proof(ledger.open(production())))
     assert ledger.verify_chain()
     assert newest_hash(ledger) == EVIDENCE_CHAIN_HEAD
+
+
+def test_a_paid_call_written_through_an_entry_chains_like_the_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("agency.ledger.store.now", lambda: FIXED_CLOCK)
+    ledger = Ledger(tmp_path / "l.sqlite")
+    ledger.record_usage(paid(ledger.open(production())))
+    assert ledger.verify_chain()
+    assert newest_hash(ledger) == USAGE_CHAIN_HEAD
 
 
 def link() -> DerivationEntry:
@@ -707,8 +718,8 @@ def test_every_idea_and_gate_write_binds_the_row(ledger: Ledger) -> None:
     assert ledger.replay_mismatches() == []
 
 
-def paid(ticket: str, cost: float = 0.25) -> UsageRow:
-    return UsageRow(
+def paid(ticket: str, cost: float = 0.25) -> UsageEntry:
+    return UsageEntry(
         at="2026-11-10T10:00:00+00:00",
         project="default",
         ticket_id=ticket,

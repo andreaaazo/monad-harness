@@ -12,12 +12,13 @@ from agency.agents.transcript import Transcript
 from agency.config import Settings
 from agency.contracts import phase
 from agency.contracts.artifact import ArtifactStore
+from agency.contracts.ledger import IllegalTransition
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import parse_project_name
 from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import RUNNABLE, Action, TicketSpec
 from agency.gateway import CallContext, ModelGateway, ModelRequest, ModelResponse
-from agency.ledger import IllegalTransition, Ledger
+from agency.ledger import Ledger
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.files import ensure_dir_under

@@ -10,11 +10,11 @@ from dataclasses import dataclass, field
 from opentelemetry import trace
 
 from agency.config import Settings
+from agency.contracts.clock import now
 from agency.gateway.pricing import call_cost_usd, price_of
 from agency.gateway.transport import Transport
 from agency.ledger import Ledger
 from agency.ledger.models import UsageRow
-from agency.ledger.store import now
 
 tracer = trace.get_tracer("agency.gateway")
 EXPECTED_OUTPUT_TOKENS = 4000

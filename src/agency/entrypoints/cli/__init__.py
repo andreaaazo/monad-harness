@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from agency.artifacts import FileStore, keeping
 from agency.config import DotenvHoldsSetting, Settings
 from agency.contracts.artifact import Origin
+from agency.contracts.clock import now
 from agency.contracts.files import MAX_IMAGE_FILE_BYTES, OutsidePerimeter, read_under
 from agency.contracts.gate import ConceptGate
 from agency.contracts.layout import RelativeDataRoot
@@ -35,7 +36,6 @@ from agency.insights.adapters.transcripts import JsonlTranscripts
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger, LedgerMissing, LedgerOutdated, require_registry
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
-from agency.ledger.store import now
 from agency.workshop.sandbox import JOB, Sandbox, SandboxUnavailable, scope_problem
 
 if TYPE_CHECKING:  # the session loads the engine: the light commands do not import it

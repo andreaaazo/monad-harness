@@ -16,10 +16,10 @@ from pathlib import Path
 from typing import BinaryIO
 
 from agency.contracts.artifact import ArtifactMissing, ArtifactStore, Origin
+from agency.contracts.clock import now
 from agency.contracts.files import OutsidePerimeter, ensure_dir_under, land, open_under, unlink_under
 from agency.ledger import Ledger
 from agency.ledger.models import ArtifactRow
-from agency.ledger.store import now
 
 # Python's built-in table only: the system's own table differs from machine to machine.
 TYPES = mimetypes.MimeTypes()

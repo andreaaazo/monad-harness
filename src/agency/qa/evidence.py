@@ -6,12 +6,12 @@ import fnmatch
 import json
 from pathlib import Path
 
+from agency.contracts.clock import now
 from agency.contracts.files import is_file_under, sha256_under
 from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import AUTHOR_TYPES
 from agency.ledger import Ledger
 from agency.ledger.models import EvidenceRow
-from agency.ledger.store import now
 
 
 class EvidenceRefused(Exception):

@@ -8,16 +8,12 @@ proof, paid call or project it writes. `agency verify` therefore finds a change 
 
 from agency.ledger.schema import LedgerOutdated
 from agency.ledger.store import (
-    ForbiddenAction,
-    IllegalTransition,
     Ledger,
     LedgerMissing,
     require_registry,
 )
 
 __all__ = [
-    "ForbiddenAction",
-    "IllegalTransition",
     "Ledger",
     "LedgerMissing",
     "LedgerOutdated",

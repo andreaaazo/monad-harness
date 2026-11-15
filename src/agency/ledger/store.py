@@ -8,7 +8,6 @@ import threading
 import time
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +16,9 @@ from sqlalchemy import func, literal_column
 from sqlalchemy.dialects.sqlite import insert
 from sqlmodel import Session, col, create_engine, select
 
+from agency.contracts.clock import now
 from agency.contracts.judgment import Judged, Judgment
+from agency.contracts.ledger import ForbiddenAction, IllegalTransition
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import (
     REVIEW_TYPES,
@@ -59,14 +60,6 @@ BOUND_ROWS: dict[type[BoundRow], tuple[str, str, str, type[int] | type[str]]] = 
 }
 
 
-class IllegalTransition(Exception):
-    """The action is not allowed from the ticket's current status."""
-
-
-class ForbiddenAction(Exception):
-    """The actor has no right to take the action."""
-
-
 class LedgerMissing(Exception):
     """There is no registry at the path: a command that only reads or amends must not create one."""
 
@@ -79,11 +72,6 @@ def require_registry(path: Path) -> None:
     """Raises `LedgerMissing` when there is no registry file at `path`."""
     if not path.is_file():
         raise LedgerMissing(path)
-
-
-def now() -> str:
-    """The registry's timestamps: UTC, ISO 8601, to the second."""
-    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _parsed(text: str) -> object:

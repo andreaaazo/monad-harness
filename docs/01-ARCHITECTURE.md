@@ -236,7 +236,8 @@ src/agency/
                  catalogo degli strumenti per ruolo e per fase
   artifacts/     le versioni conservate per sha256, e quando conservarle
   context/       riservato al contesto visivo di M3: per ora vuoto
-  contracts/     i contratti tipizzati: ticket, gate, esiti, impronte, giudizi, percorsi dei dati, file senza link
+  contracts/     i contratti tipizzati: ticket, gate, esiti, impronte, giudizi, percorsi dei dati, file senza link;
+                 le porte verso il registro (ledger.py) e l'orologio dei suoi tempi (clock.py)
   entrypoints/   cli/: la CLI `agency`, con i testi dei report (render.py) e `agency doctor` (doctor.py);
                  server/: il cruscotto Django, in sola lettura
   evaluation/    il giudizio alla cieca e la sua tavola

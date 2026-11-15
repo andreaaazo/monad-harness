@@ -10,7 +10,7 @@ design e specifiche, mai codice di produzione.
 
 ## Stato
 
-**M1.7 chiuso, il prossimo è M1.8.** Per un logo lo studio esplora 5 direzioni in parallelo, pensando e disegnando,
+**M1.7 chiuso, M1.8 in corso.** Per un logo lo studio esplora 5 direzioni in parallelo, pensando e disegnando,
 sceglie internamente, sviluppa le proposte e presenta al cliente un PDF con la sua raccomandazione, poi rifinisce la proposta
 scelta. Su `merlo3` il lavoro è arrivato al gate `concept` in 30 minuti e 13,29 $, e al gate `final` con 34,38 $.
 

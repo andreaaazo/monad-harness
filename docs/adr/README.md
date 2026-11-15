@@ -43,7 +43,7 @@ vecchio. Date: 2026-10-31.
 | [0036](0036-la-vista-strumenti-e-qa.md) | La vista Strumenti e QA | Accettata |
 | [0037](0037-la-vista-confronto.md) | La vista Confronto | Accettata |
 | [0038](0038-la-vista-replay.md) | La vista Replay | Accettata, rovescia le trascrizioni nella proiezione di 0029 |
-| [0039](0039-taskfile-come-ingresso-unico.md) | Taskfile come ingresso unico | Accettata; `check` comincia con i controlli veloci dell'hook (0051) |
+| [0039](0039-taskfile-come-ingresso-unico.md) | Taskfile come ingresso unico | Accettata; `check` comincia con i controlli veloci dell'hook (0051); i compiti di Python passano dal gate (0061) |
 | [0040](0040-il-cruscotto-in-docker.md) | Il cruscotto in Docker | Accettata, il nome della variabile dell'host passa a 0045 |
 | [0041](0041-la-tavola-del-giudizio.md) | La tavola del giudizio e il migliore coerente | Accettata, aggiunge a 0027 |
 | [0042](0042-il-riferimento-di-qualita-e-merlo3.md) | Il riferimento di qualità di E1 è `merlo3` | Accettata, sostituisce `merlo` in `07-EVALS.md` |
@@ -55,7 +55,7 @@ vecchio. Date: 2026-10-31.
 | [0048](0048-le-esecuzioni-si-registrano-e-si-ripetono.md) | Le esecuzioni si registrano e si ripetono | Accettata, sostituisce il registratore di M1: chiave per richiesta, `--record`, ripetizione nei test; la cassetta di `merlo4` non è più il golden master di M1.7 (0055) |
 | [0049](0049-la-catena-copre-cio-che-decide-la-consegna.md) | La catena copre ciò che decide la consegna | Accettata, estende 0047: contratto dei ticket, idee, gate e prove legati nella catena; il progetto del ticket in 0053 |
 | [0050](0050-la-catena-copre-anche-i-costi.md) | La catena copre anche i costi | Accettata, estende 0049: chiamate pagate e progetti legati nella catena, `operations` solo in aggiunta |
-| [0051](0051-il-controllo-gira-da-solo.md) | Il controllo gira da solo | Accettata, estende 0039: hook pre-commit con `task check:fast`, `task check:clean` sull'indice, CI con il remoto |
+| [0051](0051-il-controllo-gira-da-solo.md) | Il controllo gira da solo | Accettata, estende 0039: hook pre-commit con `task check:fast`, `task check:clean` sull'indice, CI con il remoto; corretta da 0061: pre-commit al posto di `.githooks/`, `check:clean` su un clone |
 | [0052](0052-le-dipendenze-le-dichiara-il-codice-che-le-importa.md) | Le dipendenze le dichiara il codice che le importa | Accettata: `sqlalchemy`, `langchain-core` e `httpx2` dichiarati, `tests/test_dependencies.py` lo controlla |
 | [0053](0053-la-catena-lega-il-progetto-di-ogni-ticket.md) | La catena lega il progetto di ogni ticket | Accettata, estende 0049: il progetto di ogni ticket legato nella catena, migrazione 0009; ogni evento confrontato in 0054 |
 | [0054](0054-agency-verify-confronta-il-progetto-di-ogni-evento.md) | `agency verify` confronta il progetto di ogni evento | Accettata, estende 0053: il progetto di ogni evento di versione 2 del ticket, non solo dell'ultimo |
@@ -64,3 +64,6 @@ vecchio. Date: 2026-10-31.
 | [0057](0057-l-albero-dei-pacchetti-del-motore.md) | L'albero dei pacchetti del motore | Accettata, concretizza 0021: `workshop`, `toolkit`, le slice in `studio`, `agents` sopra le slice, `process`; gli script QA solo nei controlli |
 | [0058](0058-porte-tipi-e-livelli-del-motore.md) | Porte, tipi e livelli del motore | Accettata, concretizza 0021 e 0057: porte in `contracts`, registro solo dietro le sue porte, fasi e rotte come `Literal`, regole dello studio passate, CLI in `entrypoints/cli`, dominio e applicazione per slice; corretta da 0059 nelle decisioni 2, 5, 6, 8 e 10 |
 | [0059](0059-correzioni-ad-adr-0058-dopo-il-secondo-piano.md) | Correzioni ad ADR-0058 dopo il secondo piano di M1.7 | Accettata, corregge 0058: la porta `Projects` e `Spending` per il gateway, `TicketTask` alias di un `TypedDict`, le regole caricate dalla sessione, gli import reali di un'applicazione, cosa è cambiato nei test di flusso |
+| [0060](0060-il-quality-gate-parametri-decisioni-e-ordine.md) | Il quality gate: parametri, decisioni e ordine di costruzione | Accettata, concretizza 0055: parametri della specifica, D1–D5, quarantena, memoria dell'assistente fuori dal guard, prove saltate, tre piani con il passaggio nell'ultimo |
+| [0061](0061-il-commit-e-il-controllo-di-ogni-giorno-passano-dal-gate.md) | Il commit e il controllo di ogni giorno passano dal gate | Accettata, corregge 0039 e 0051: hook pre-commit `repo: local`, `task check` con `task gate`, `check:clean` su un clone |
+| [0062](0062-docstring-complete-nei-file-che-cambiano.md) | Docstring complete nei file che cambiano | Accettata, rovescia per i file toccati la risposta a Q14 dell'audit |

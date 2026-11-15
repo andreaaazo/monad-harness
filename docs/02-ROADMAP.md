@@ -11,7 +11,7 @@ si aggiornano con i dati di M1.
 | M1.5 | Esplorazione a schizzi | Idee in parallelo, schizzi veloci, scelta del concetto, poi produzione | 40 $ | **chiuso**, 38,83 $ spesi, criteri non verificati passati a M1.6 e M2 |
 | M1.6 | Misure e cruscotto | Dati confrontabili, `insights`, API Django, cruscotto Next.js | 30 $ | **chiuso**, 0 $ spesi, `merlo4` e confronto con la CLI passati a M1.9 |
 | M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte | 0 $ | **chiuso**, 0 $ spesi, correzioni della revisione finale in [ADR-0059](adr/0059-correzioni-ad-adr-0058-dopo-il-secondo-piano.md) |
-| M1.8 | Quality gate di Python | Un comando decide, niente soppressioni, hook che lo applicano da soli | 0 $ | |
+| M1.8 | Quality gate di Python | Un comando decide, niente soppressioni, hook che lo applicano da soli | 0 $ | **in corso**, [piano A](superpowers/plans/2026-11-15-m1-8-plan-a-per-file-gate.md) |
 | M1.9 | Prova reale | `merlo4` misurato e giudicato, confronto con la CLI | 30 $ + CLI | |
 | M2 | Parità | Tutto lo studio, con replay di un'identità | 200 $ | |
 | M3 | Contesto visivo e parallelo | Scena, ricerca visiva, istanze per lavoro | 60 $ | |
@@ -507,11 +507,11 @@ specifica non dà l'ordine di costruzione, lo dà questa roadmap. Il codice esis
 lo ripulisce tutto, e così il repository va verso `full` verde. Motivi e conflitti con le decisioni già prese in
 [ADR-0055](adr/0055-il-quality-gate-prima-di-merlo4.md).
 
-### Parametri proposti
+### Parametri
 
-I parametri della §2 della specifica, da confermare al punto 1.
+I parametri della §2 della specifica, confermati da [ADR-0060](adr/0060-il-quality-gate-parametri-decisioni-e-ordine.md).
 
-| Parametro | Valore proposto | Da dove |
+| Parametro | Valore | Da dove |
 |---|---|---|
 | `<RUNNER>` | `uv run` | `CLAUDE.md` |
 | `<ENV_PY>` | `.venv/bin/python` | uv |
@@ -519,9 +519,18 @@ I parametri della §2 della specifica, da confermare al punto 1.
 | `<PKGS>` | `agency`, in `src/agency` | `pyproject.toml` |
 | `<TESTS>` | `tests` | `pyproject.toml` |
 | `<BASE_BRANCH>` | nessuno finché non c'è un remoto | ADR-0051 |
-| `<T_SUITE>` | da misurare con `coverage run`. Senza, pytest dura 84,6 s dentro `make check` | `docs/audit/99-result.md` |
+| `<T_SUITE>` | si misura con `coverage run` nel Task 11 del piano A. Senza, pytest dura 84,6 s dentro `make check` | `docs/audit/99-result.md` |
 
-### Decisioni da prendere prima di scrivere il gate
+### Decisioni prese prima di scrivere il gate
+
+Le registrano tre ADR:
+- [ADR-0060](adr/0060-il-quality-gate-parametri-decisioni-e-ordine.md): i parametri, D1–D5, i conflitti e l'ordine
+  di costruzione in tre piani;
+- [ADR-0061](adr/0061-il-commit-e-il-controllo-di-ogni-giorno-passano-dal-gate.md): l'hook di commit, `task check`
+  e `check:clean`;
+- [ADR-0062](adr/0062-docstring-complete-nei-file-che-cambiano.md): le docstring nei file che cambiano.
+
+I punti di partenza erano questi.
 
 - **D1–D5 della specifica (§3).**
   - D1: pyright va sostituito da basedpyright. Ruff oggi usa sette famiglie di regole e righe da 110. `[tool.pytest.ini_options]`
@@ -529,7 +538,7 @@ I parametri della §2 della specifica, da confermare al punto 1.
   - D2: i sette contratti di import-linter di oggi reggono già.
   - D3: la CI aspetta il remoto.
   - D4: i candidati sono `legacy/` e `src/agency/qa/scripts/`.
-- **I conflitti di ADR-0055.** Vanno decisi:
+- **I conflitti di ADR-0055.** Andavano decisi:
   - il pre-commit contro `.githooks/` (ADR-0051);
   - `task check` e i test che lo fissano;
   - la quarantena di ADR-0006;
@@ -544,7 +553,7 @@ I parametri della §2 della specifica, da confermare al punto 1.
 Il gate si costruisce in una sessione di manutenzione con gli hook spenti, perché il guard vieta di scrivere in `quality_gate/`.
 Gli hook si accendono per ultimi. Il blocco della configurazione lo genera Andrea dal suo terminale.
 
-1. [ ] **Parametri, decisioni e ADR**: parametri confermati, D1–D5 decise, un ADR per ogni decisione accettata che cambia.
+1. [x] **Parametri, decisioni e ADR**: parametri confermati, D1–D5 decise, un ADR per ogni decisione accettata che cambia.
 2. [ ] **Dipendenze**: il gruppo `quality` pinnato con `==` dentro la quarantena (ADR-0006), il lock aggiornato. Si tolgono gli
    strumenti che il gate sostituisce (D1).
 3. [ ] **Configurazione**: le tabelle della §6 in `pyproject.toml` e `.flake8`, con le sole eccezioni della §6.10.
@@ -773,5 +782,6 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-M1.8, il quality gate di Python, dalla sua [specifica](quality-gate/SPEC.md). Dopo M1.9, M2 parte dal contesto delle
-istanze lunghe, prima dei ruoli.
+M1.8, il quality gate di Python: il [piano A](superpowers/plans/2026-11-15-m1-8-plan-a-per-file-gate.md) arriva al modo `file`, poi i piani B e C
+([ADR-0060](adr/0060-il-quality-gate-parametri-decisioni-e-ordine.md)). Dopo M1.9, M2 parte dal contesto delle istanze
+lunghe, prima dei ruoli.

@@ -11,8 +11,9 @@ from agency.contracts.artifact import Origin
 from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.ledger import ConceptEntry
 from agency.contracts.outcome import Outcome, OutcomeState
-from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
+from agency.contracts.ticket import Action, Status
 from agency.qa import delivery
+from agency.studio.exploration.domain import banned_exclusions, exploration_spec, explorer_assignments
 from agency.toolkit.base import Refused, Strict, Tool, ToolContext, replayed
 from agency.workshop import board
 from agency.workshop.files import ensure_dir_under, read_under, replace_under, sha256_under
@@ -41,16 +42,13 @@ class PlanExploration(Strict):
 
 def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) -> dict:
     assert ctx.settings is not None
-    words = [word.lower() for word in a.assets]
-    banned = [item for item in a.excluded if any(word in item.lower() for word in words)]
+    banned = banned_exclusions(a.assets, a.excluded)
     if banned:
         raise Refused(
             f"questi esclusi vietano una risorsa del cliente: {banned}. "
             "Si esclude un cliché di esecuzione, mai il nome o il soggetto: riscrivili."
         )
     root = ctx.ledger.spec(ctx.ticket_id)
-    excluded = "\n".join(f"- {item}" for item in a.excluded)
-    assets = ", ".join(a.assets)
     ensure_dir_under(ctx.work, f"explorations/r{ctx.round}")
     replace_under(
         ctx.work,
@@ -58,9 +56,8 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
         json.dumps([item.model_dump() for item in a.applications]).encode("utf-8"),
     )
     opened = []
-    for (letter, role), lever in zip(
-        ctx.rules.directions().items(), a.levers[: ctx.settings.explorers], strict=False
-    ):
+    levers = [item.lever for item in a.levers]
+    for letter, role, lever in explorer_assignments(ctx.rules.directions(), levers, ctx.settings.explorers):
         operation = f"{operation_id}:{letter}"
         stored = ctx.ledger.operation(operation)
         if stored:
@@ -69,29 +66,20 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
         workspace = f"explorations/r{ctx.round}/{letter}"
         ensure_dir_under(ctx.work, workspace)
         replace_under(ctx.work, f"{workspace}/brief.md", read_under(ctx.work, "brief.md"))
-        spec = TicketSpec(
-            title=f"Esplorazione {letter.upper()}",
-            request=f"{root.request}\n\nLEVA: {lever.lever}\n\nRISORSE DEL CLIENTE: {assets}\n\n"
-            f"CLICHÉ DA EVITARE\n{excluded}",
-            type=TicketType.SKETCH,
+        spec = exploration_spec(
+            root_request=root.request,
+            letter=letter,
+            role=role,
+            lever=lever,
+            assets=a.assets,
+            excluded=a.excluded,
             sender=ctx.actor,
-            assignee=role,
-            outputs=[
-                "scheda.json",
-                f"schizzi-{letter}.vectorcraft",
-                f"foglio-{letter}.png",
-                f"schizzo-{letter}.png",
-            ],
-            checks={"*.vectorcraft": ["master_open"], "*.png": ["visual_review"]},
-            exempt={"scheda.json": "la scheda la giudicano critico e direttore"},
-            media=[Medium.VECTOR],
             parent=ctx.ticket_id,
             workspace=workspace,
-            prompt="explorer",
             effort=ctx.settings.explorer_effort,
         )
         concept = ConceptEntry(
-            project=ctx.project, round=ctx.round, letter=letter, lever=lever.lever, idea_ticket=""
+            project=ctx.project, round=ctx.round, letter=letter, lever=lever, idea_ticket=""
         )
         ticket = ctx.ledger.open(
             spec, ctx.project, operation=(operation, ctx.instance, "plan_exploration"), concept=concept

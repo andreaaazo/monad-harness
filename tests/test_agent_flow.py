@@ -37,6 +37,7 @@ from agency.ledger.models import ConceptRow, DerivationRow, EvidenceRow
 from agency.qa import checks
 from agency.qa.checks import CheckOutcome
 from agency.runtime import open_session
+from agency.studio.presentation import document
 from agency.toolkit.base import ToolContext
 from agency.workshop import craft, master
 from agency.workshop.craft import Command, CommandIndex
@@ -2147,8 +2148,8 @@ def test_a_replayed_present_node_appends_no_second_concept_event(
     studio.prepare()
     (proposal,) = studio.proposals()
     studio.ledger.apply(proposal, Action.DELIVER, "identity-designer", "fatto", None, {})
-    monkeypatch.setattr(workflow.presentation, "proposal_files", lambda *_: (Path("mark.png"), ()))
-    monkeypatch.setattr(workflow.presentation, "sheet", lambda *_: None)
+    monkeypatch.setattr(document, "proposal_files", lambda *_: (Path("mark.png"), ()))
+    monkeypatch.setattr(document, "sheet", lambda *_: None)
     studio.run("present")
     assert studio.status() == "proposta"
     events = studio.concept_events()

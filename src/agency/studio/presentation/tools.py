@@ -12,6 +12,7 @@ from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import (
     TicketType,
 )
+from agency.studio.presentation import document as presentation
 from agency.toolkit.base import (
     Refused,
     Strict,
@@ -19,7 +20,6 @@ from agency.toolkit.base import (
     ToolContext,
     viewed,
 )
-from agency.workshop import presentation
 from agency.workshop.files import (
     MAX_TEXT_FILE_BYTES,
     is_file_under,

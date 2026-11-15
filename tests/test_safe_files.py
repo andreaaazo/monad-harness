@@ -36,6 +36,9 @@ from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow
 from agency.qa import delivery
 from agency.runtime import Session
+from agency.studio import shared
+from agency.studio.presentation import document as presentation
+from agency.studio.presentation import nodes as presentation_nodes
 from agency.studio.presentation.tools import (
     ConfirmPresentation,
     PresentConcepts,
@@ -44,7 +47,7 @@ from agency.studio.presentation.tools import (
 )
 from agency.toolkit import files as file_tools
 from agency.toolkit.base import ToolContext
-from agency.workshop import board, craft, files, presentation, render
+from agency.workshop import board, craft, files, render
 from agency.workshop.craft import Command, CommandIndex
 from agency.workshop.files import OutsidePerimeter
 from agency.workshop.sandbox import JOB, Completed, Sandbox
@@ -590,7 +593,7 @@ def test_the_proposals_node_refuses_an_input_swapped_for_a_link_before_it_is_has
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     studio = proposals_studio(tmp_path)
-    link_after_write(monkeypatch, workflow, "schizzo.png", studio.host / "secret.png")
+    link_after_write(monkeypatch, shared, "schizzo.png", studio.host / "secret.png")
 
     with pytest.raises(OutsidePerimeter):
         studio.node("prepare_proposals")(studio.state())
@@ -687,7 +690,7 @@ def gate_studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Studio:
     studio = Studio(tmp_path)
     studio.put(presentation.pdf_of(1), b"%PDF- la presentazione")
     answer = Decision(approved=False, text="Ancora", choice="").model_dump()
-    monkeypatch.setattr(workflow, "interrupt", lambda _: answer)
+    monkeypatch.setattr(presentation_nodes, "interrupt", lambda _: answer)
     return studio
 
 

@@ -27,11 +27,12 @@ from agency.ledger.models import ConceptRow
 from agency.qa import delivery
 from agency.runtime import Session, open_session
 from agency.studio.exploration.tools import EXPLORE, PLAN
+from agency.studio.presentation import document as presentation
 from agency.studio.presentation.tools import PRESENT
 from agency.studio.proposal.tools import PROPOSAL
 from agency.studio.selection.tools import SELECT
 from agency.toolkit.base import ToolContext
-from agency.workshop import board, presentation
+from agency.workshop import board
 from agency.workshop.craft import CommandIndex
 from agency.workshop.files import sha256
 from agency.workshop.sandbox import Sandbox

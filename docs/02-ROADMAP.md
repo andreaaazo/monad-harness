@@ -485,7 +485,7 @@ I parametri della §2 della specifica, da confermare al punto 1.
 - **D1–D5 della specifica (§3).**
   - D1: pyright va sostituito da basedpyright. Ruff oggi usa sette famiglie di regole e righe da 110. `[tool.pytest.ini_options]`
     diventa `[tool.pytest]`, con pytest 9.
-  - D2: i cinque contratti di import-linter di oggi reggono già.
+  - D2: i sette contratti di import-linter di oggi reggono già.
   - D3: la CI aspetta il remoto.
   - D4: i candidati sono `legacy/` e `src/agency/qa/scripts/`.
 - **I conflitti di ADR-0055.** Vanno decisi:

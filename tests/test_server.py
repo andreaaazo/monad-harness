@@ -595,6 +595,17 @@ def test_every_package_but_the_gateway_is_forbidden_to_import_anthropic() -> Non
     assert {module.removeprefix("agency.") for module in contract["source_modules"]} == present - {"gateway"}
 
 
+def test_every_studio_slice_is_kept_apart_from_the_others() -> None:
+    """The independence contract lists the slices by hand: a new slice must not slip past it (ADR-0021)."""
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    contracts = config["tool"]["importlinter"]["contracts"]
+    independence = [contract for contract in contracts if contract["type"] == "independence"]
+    assert len(independence) == 1, "one contract keeps the slices from importing each other"
+    studio = REPO_ROOT / "src" / "agency" / "studio"
+    slices = {f"agency.studio.{path.name}" for path in studio.iterdir() if (path / "__init__.py").exists()}
+    assert set(independence[0]["modules"]) == slices
+
+
 def test_the_projection_can_live_away_from_the_registry(client: Client, tmp_path: Path) -> None:
     """In Docker the projection lives in memory: the server writes it there, and nothing beside the
     registry."""

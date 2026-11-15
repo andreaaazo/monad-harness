@@ -276,10 +276,16 @@ Le dipendenze puntano verso l'interno, a livelli. Ogni livello importa solo da q
 `evaluation` e `insights` dipendono solo dai contratti. Il punto 5 di M1.7 rende questi livelli un contratto di `import-linter`.
 
 Dentro una slice il dominio tiene le regole pure, l'applicazione casi d'uso e porte, gli adattatori strumenti e nodi. Le slice non
-si importano tra loro, e `import-linter` in `make check` lo impone. Oggi impone cinque confini: `insights` e il server leggono e
-basta, senza motore né `Ledger`; il giudizio alla cieca dipende solo dai contratti (ADR-0027); il motore non importa Django né il
-server; solo il gateway importa `anthropic`. Ogni contratto elenca a mano i pacchetti, e un test controlla che non ne manchi
-nessuno. Della tabella qui sotto vale già la riga di `anthropic`; le altre entrano con M1.7.
+si importano tra loro, e `import-linter` in `make check` lo impone. Oggi i contratti sono sette:
+- `insights` e il server leggono e basta, senza motore né `Ledger` (due contratti);
+- il giudizio alla cieca dipende solo dai contratti (ADR-0027);
+- il motore non importa Django né il server;
+- solo il gateway importa `anthropic`;
+- nessun ciclo di import tra moduli fratelli, a ogni livello di `agency`;
+- le slice di `studio` non si importano tra loro.
+
+I contratti che elencano a mano pacchetti o slice hanno ciascuno un test che controlla che non ne manchi nessuno. Della tabella
+qui sotto valgono già le righe di `anthropic` e di `django`; le altre entrano con il punto 5 di M1.7.
 
 | Libreria | Chi può importarla |
 |---|---|

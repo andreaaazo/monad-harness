@@ -215,3 +215,15 @@ allow_indirect_imports = true
 name = "no import cycles between sibling modules, at any depth (STR-004)"
 type = "acyclic_siblings"
 ancestors = ["agency"]
+
+[[tool.importlinter.contracts]]
+name = "the slices do not import each other (ADR-0021)"
+type = "independence"
+modules = [
+  "agency.studio.exploration",
+  "agency.studio.selection",
+  "agency.studio.proposal",
+  "agency.studio.presentation",
+  "agency.studio.refinement",
+  "agency.studio.delivery",
+]

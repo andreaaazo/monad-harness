@@ -235,7 +235,7 @@ Deferred by decision, with where each goes:
   of STR-003 (the `langgraph` and ledger-port import rules) and SIM-004 (where `langchain_core` is imported).
 - SIM-014: the next migration needed for its own sake.
 - DX-009's CI stage: when a Git remote exists, before M6 (ADR-0051). DX-008's web formatter and linter: its own ADR.
-- STR-005's remainder: typing `ROLES` and `CHECKS` as `RoleSpec` and `CheckSpec` (Task 6.9).
+- STR-005's remainder: typing `ROLES` and `CHECKS` as `RoleSpec` and `CheckSpec` (Task 6.9). Done in M1.7, b618742.
 
 Decisions the final review left for Andrea:
 - `agency budget` re-reads the project row and re-binds it whole, so a hand edit of its model or effort stops showing

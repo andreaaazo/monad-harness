@@ -10,7 +10,7 @@ si aggiornano con i dati di M1.
 | M1 | Prova verticale | Un logo S dall'inizio alla fine, confrontato con la CLI | 40 $ | **chiuso**, confronto passato a M1.6 |
 | M1.5 | Esplorazione a schizzi | Idee in parallelo, schizzi veloci, scelta del concetto, poi produzione | 40 $ | **chiuso**, 38,83 $ spesi, criteri non verificati passati a M1.6 e M2 |
 | M1.6 | Misure e cruscotto | Dati confrontabili, `insights`, API Django, cruscotto Next.js | 30 $ | **chiuso**, 0 $ spesi, `merlo4` e confronto con la CLI passati a M1.9 |
-| M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte | 0 $ | **in corso**, punti 1–7 fatti, manca la revisione finale |
+| M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte | 0 $ | **chiuso**, 0 $ spesi, correzioni della revisione finale in [ADR-0059](adr/0059-correzioni-ad-adr-0058-dopo-il-secondo-piano.md) |
 | M1.8 | Quality gate di Python | Un comando decide, niente soppressioni, hook che lo applicano da soli | 0 $ | |
 | M1.9 | Prova reale | `merlo4` misurato e giudicato, confronto con la CLI | 30 $ + CLI | |
 | M2 | Parità | Tutto lo studio, con replay di un'identità | 200 $ | |
@@ -475,7 +475,9 @@ Verificati il 2026-11-15, ciascuno con il comando che lo riproduce.
   - `test_the_reminder_offers_every_closing_tool_but_reject_concept` legge da `Tool.closes` l'insieme che prima leggeva
     da `CLOSE_ALWAYS`, perché il refactor ha spostato proprio quel dato;
   - `test_each_phase_has_only_its_tools` passa `RULES` a `tools_for`, perché le regole ora si passano.
-- [x] Dominio e applicazione non importano framework: `uv run lint-imports` → i due contratti di ADR-0058 KEPT
+- [x] Dominio e applicazione non importano framework, negli import diretti: `uv run lint-imports` → i due contratti di
+  ADR-0058 KEPT. Un'applicazione può usare gli schemi degli strumenti della sua slice, la tavola, il documento della
+  presentazione e `qa`, mai gli adattatori di LangGraph ([ADR-0059](adr/0059-correzioni-ad-adr-0058-dopo-il-secondo-piano.md))
 - [x] Fasi, rotte e ruoli sono tipi: `git grep -nE "mode: str|route: str" src/agency` non trova niente, e
   `uv run pytest tests/test_explicit_types.py tests/test_registry.py tests/test_gate_sandbox.py` → 58 passed
 - [x] Ogni principio di ADR-0021 è verificato uno per uno: la tabella qui sotto
@@ -486,7 +488,7 @@ Verificati il 2026-11-15, ciascuno con il comando che lo riproduce.
 |---|---|---|---|
 | Modular monolith in vertical slices | Un solo pacchetto. Le sei capacità sono slice di `agency.studio` (`exploration`, `selection`, `proposal`, `presentation`, `refinement`, `delivery`), `insights` è la slice di lettura, la piattaforma è condivisa | `uv run lint-imports` | «the slices do not import each other» KEPT |
 | Explicit over implicit | Stato del grafo in `ProjectState` e `ProjectUpdate`, fasi in `DirectorMode`, rotte in `Route`, gate in `ConceptGate` e `FinalGate`, regole in `StudioRules`. Strumenti e slice elencati a mano. Il `Crew` porta runner, registro, regole e sandbox ai nodi | `uv run pytest tests/test_explicit_types.py tests/test_registry.py tests/test_gate_sandbox.py` | 58 passed. Restano `dict[str, Any]` solo per il JSON grezzo prima della convalida, la catena degli hash, il `.env` e il risultato di LangGraph: nessuno è uno stato o un contratto |
-| Clean Architecture | I livelli di ADR-0057. Il dominio dipende solo dai contratti, l'applicazione non importa framework né adattatori. Porte ai confini: modello (`Transport`), registro (`LedgerPort`), sandbox (`SandboxPort`), artefatti (`ArtifactStore`), lettura (le porte di `insights`) | `uv run lint-imports` e `uv run pytest tests/test_ledger.py tests/test_qa_gates.py -k "ledger_port or sandbox_port"` | 13 kept; il registro SQLite e la sandbox bwrap soddisfano le loro porte, metodo per metodo (pyright) |
+| Clean Architecture | I livelli di ADR-0057. Il dominio dipende solo dai contratti. L'applicazione non importa framework, adattatori concreti né gli adattatori di LangGraph, negli import diretti (ADR-0059). Porte ai confini: modello (`Transport`), registro (`LedgerPort`), sandbox (`SandboxPort`), artefatti (`ArtifactStore`), lettura (le porte di `insights`) | `uv run lint-imports` e `uv run pyright`, che verifica `port: LedgerPort = Ledger(...)` e `port: SandboxPort = Sandbox(...)` nei test | 13 kept; 0 errori: il registro SQLite e la sandbox bwrap soddisfano le loro porte, metodo per metodo |
 | Schema-First Design | Lo schema OpenAPI generato e i tipi TypeScript che ne derivano (ADR-0022) | `pnpm --dir web run api:check` | esce con 0 |
 | Testing pyramid | 32 test sulle regole pure delle slice, più quelli di `insights`; 47 test di flusso per slice; 18 flussi completi (`test_flow_gates.py`, `test_recording.py`); 24 prove Playwright per le viste | `make check` | 1.284 test Python e 24 Playwright passano |
 | Confini delle librerie | `anthropic` solo nel gateway; `langgraph` solo nel processo, nei nodi e in `studio.graph`; l'ORM solo nel registro; Django solo nel server | `uv run lint-imports` | i quattro contratti KEPT |
@@ -771,5 +773,5 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-La revisione finale del secondo piano di M1.7, con un revisore che non ha scritto il codice. Poi M1.7 si chiude, e il
-prossimo è M1.8, il quality gate. Dopo M1.9, M2 parte dal contesto delle istanze lunghe, prima dei ruoli.
+M1.8, il quality gate di Python, dalla sua [specifica](quality-gate/SPEC.md). Dopo M1.9, M2 parte dal contesto delle
+istanze lunghe, prima dei ruoli.

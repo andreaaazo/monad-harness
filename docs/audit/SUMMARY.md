@@ -219,7 +219,7 @@ review" and the review rounds after it) and `99-result.md` list them.
 | STR-002 | Low | Fixed | 53eadda (the guard), 740e88e (the lists) |
 | STR-003 | Low | Fixed | 23b89e1 for `anthropic`; M1.7: 98e96bd (layers, `langgraph`, the ORM), b3a56b9, 085deb1, c93e627 and 126db73 (the ledger behind its ports) |
 | STR-004 | Low | Fixed | M1.7: 1754438 (the QA mount only for a check), 8953e00 (the qa<->tools cycle), 2f3ad00 (the acyclic contract); the tools->agents edge went in 73881ee |
-| STR-005 | Low | Fixed | 85cb4fb, b990dc9, 73881ee, 8a4edc1, a1c882e, 2b19b9f, 7948aed; typing ROLES and CHECKS as RoleSpec and CheckSpec is Deferred (PLAN Task 6.9) |
+| STR-005 | Low | Fixed | 85cb4fb, b990dc9, 73881ee, 8a4edc1, a1c882e, 2b19b9f, 7948aed; typing ROLES and CHECKS as RoleSpec and CheckSpec came in M1.7, b618742 (StudioRules) |
 | STR-006 | Low | Fixed | 272e68e |
 | STR-007 | Low | Fixed | M1.7: 33951bc (the CLI with its renderer and doctor in entrypoints/cli, the fingerprint in process) |
 | STR-008 | Low | Fixed | 0b2f5dd |

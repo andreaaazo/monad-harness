@@ -256,7 +256,7 @@ src/agency/
   toolkit/       il kit degli strumenti (`Tool`, `ToolContext`) e gli strumenti condivisi: file, Craft, revisione, chiusura
   workshop/      la sandbox, i file, i comandi Craft, render, master, la tavola anonima
   registry.py    `load_rules` carica e controlla le regole dello studio di `registry/` (`StudioRules`), che la sessione
-                 e la CLI passano a chi le usa; le ricerche nella libreria dei prompt
+                 passa a chi le usa; le ricerche nella libreria dei prompt
   config.py      le impostazioni del motore: variabili `AGENCY_*` e chiave API
 tests/           test_*.py; support/ ha gli aiuti condivisi (ScriptedTransport, ReplayTransport, i disegni di prova,
                  il registro di prova del cruscotto); fixtures/ e snapshots/ i dati
@@ -275,7 +275,7 @@ Le dipendenze puntano verso l'interno, a livelli. Ogni livello importa solo da q
 - le slice di `studio`;
 - `toolkit`;
 - `qa`;
-- la piattaforma: `config`, `registry`, `ledger`, `gateway`, `telemetry`, `artifacts`, `workshop`;
+- la piattaforma: `config`, `registry`, `ledger`, `gateway`, `telemetry`, `artifacts`, `workshop`, `context`;
 - `contracts`.
 
 `evaluation` e `insights` dipendono solo dai contratti. Un contratto `layers` di `import-linter` impone questi livelli.
@@ -295,8 +295,9 @@ Dentro una slice `domain.py` tiene le regole pure, `application.py` i casi d'uso
 - solo la sessione e la CLI arrivano al registro SQLite: il resto del motore usa le sue porte, in
   `contracts/ledger.py`, con record al posto delle righe;
 - un dominio, delle slice o di `insights`, dipende solo dai contratti;
-- dominio e applicazione non importano framework né adattatori: niente `langgraph`, ORM, `anthropic`, Django,
-  OpenTelemetry o PIL, e niente registro SQLite, gateway, processo, agenti o sandbox concreta.
+- dominio e applicazione non importano framework né adattatori, negli import diretti: niente `langgraph`, ORM,
+  `anthropic`, Django, OpenTelemetry o PIL, niente registro SQLite, gateway, processo, agenti o sandbox concreta, e
+  niente adattatori di LangGraph (`studio.graph`, i `nodes.py`) ([ADR-0059](adr/0059-correzioni-ad-adr-0058-dopo-il-secondo-piano.md)).
 
 I contratti che elencano a mano pacchetti, moduli o slice hanno ciascuno un test che controlla che non ne manchi nessuno. Le
 righe della tabella qui sotto valgono tutte per gli import diretti.

@@ -1,0 +1,73 @@
+/* The replay view: one turn after another, with what the model thought, wrote and asked for. */
+.turns {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.turn {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+
+.turn h3 {
+  margin: 0 0 6px;
+}
+
+.text {
+  margin: 6px 0;
+  padding: 8px 10px;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  background: var(--panel);
+  border-radius: 6px;
+}
+
+.said-model {
+  margin: 6px 0;
+}
+
+.tool {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--line);
+  min-width: 0;
+}
+
+.tool.refused {
+  border-left-color: var(--back);
+}
+
+.tool p {
+  margin: 0 0 4px;
+}
+
+.tool summary,
+.thinking summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.seen {
+  display: block;
+  max-width: min(100%, 480px);
+  height: auto;
+  margin: 8px 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: repeating-conic-gradient(var(--panel) 0% 25%, var(--paper) 0% 50%) 50% / 16px 16px;
+}
+
+.note {
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.discarded {
+  margin: 6px 0;
+}
+

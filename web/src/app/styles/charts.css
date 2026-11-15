@@ -1,0 +1,102 @@
+/* Small multiples: one instance per box, the same scale for all. */
+.multiples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.multiples > li {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.multiples h3 {
+  font-size: 14px;
+  font-weight: 400;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.multiples p {
+  font-size: 13px;
+  margin: 2px 0 8px;
+}
+
+.multiples details {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.chart {
+  position: relative;
+}
+
+.chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+}
+
+.chart .baseline,
+.chart .crosshair {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.chart .trace {
+  fill: none;
+  stroke: var(--series);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart .wash {
+  fill: var(--series);
+  fill-opacity: 0.1;
+}
+
+/* The point has a ring in the box's colour, so it stays readable where it crosses the line. */
+.chart .dot {
+  fill: var(--series);
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+
+.chart .tip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%);
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.chart .tip.left {
+  transform: translateX(-100%);
+}
+
+.chart .tip strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.notice {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 16px 20px;
+}

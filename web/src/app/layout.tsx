@@ -2,7 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+// The stylesheet in its original order: each file follows the one before it in the cascade, so keep the order.
 import "./globals.css";
+import "./styles/timeline.css";
+import "./styles/compare.css";
+import "./styles/replay.css";
+import "./styles/project.css";
+import "./styles/refusals.css";
+import "./styles/charts.css";
 
 export const metadata: Metadata = {
   title: "Cruscotto dello studio",

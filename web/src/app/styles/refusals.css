@@ -1,0 +1,134 @@
+/* A step back reads even without colour: it is written, and the colour underlines it. */
+.back {
+  color: var(--back);
+  font-weight: 600;
+}
+
+.outcome dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.outcome dl > div {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.outcome dt {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.outcome dd {
+  margin: 4px 0 0;
+}
+
+.outcome dd ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* Lists of refusals: steps back, failed proofs, tool refusals. When, what and why, with the phase aside. */
+.setbacks,
+.noes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.setbacks li,
+.noes li {
+  display: grid;
+  grid-template-columns: 170px 1fr auto;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+/* A long line without spaces (a JSON, a path) wraps where it must: it never widens the page. */
+.setbacks li > *,
+.noes li > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.setbacks .when,
+.noes .when {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.said {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.said summary {
+  cursor: pointer;
+}
+
+.said pre {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  background: var(--panel);
+  border-radius: 6px;
+  color: var(--ink);
+}
+
+h3 {
+  font-size: 15px;
+  margin: 20px 0 8px;
+}
+
+/* A group of refusals: closed, with the count in the title; it opens to show the reasons. */
+.group {
+  border-bottom: 1px solid var(--line);
+}
+
+.group > summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.group[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.path li + li::before {
+  content: "→ ";
+  color: var(--muted);
+}
+
+.stops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.stops .cut strong,
+.stops .cut code {
+  color: var(--back);
+}
+

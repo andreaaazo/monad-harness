@@ -1,0 +1,39 @@
+/* A project's header: its name and its views. */
+.project h1 {
+  margin-bottom: 8px;
+}
+
+.project ul {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.project a {
+  display: block;
+  padding: 6px 12px;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.project a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+/* A wide table scrolls inside its box, never the page. */
+.scroll {
+  overflow-x: auto;
+}
+
+.scroll:focus-visible,
+.chart svg:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+

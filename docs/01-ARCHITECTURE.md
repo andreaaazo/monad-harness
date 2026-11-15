@@ -259,7 +259,8 @@ src/agency/
   config.py      le impostazioni del motore: variabili `AGENCY_*` e chiave API
 tests/           test_*.py; support/ ha gli aiuti condivisi (ScriptedTransport, ReplayTransport, i disegni di prova,
                  il registro di prova del cruscotto); fixtures/ e snapshots/ i dati
-web/src/         app/ le pagine, components/, lib/ gli aiuti puri con le loro prove, api/ il client e i tipi, proxy.ts
+web/src/         app/ le pagine, con globals.css e styles/ (i fogli delle viste, importati da layout.tsx in ordine);
+                 components/, lib/ gli aiuti puri con le loro prove, api/ il client e i tipi, proxy.ts
 ```
 
 ### Forma di arrivo

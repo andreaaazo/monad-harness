@@ -263,6 +263,8 @@ source_modules = [
   "agency.studio.presentation.tools",
   "agency.studio.proposal.tools",
   "agency.studio.refinement.tools",
+  "agency.studio.selection.application",
+  "agency.studio.selection.domain",
   "agency.studio.selection.tools",
 ]
 forbidden_modules = ["langgraph", "langchain_core"]

@@ -8,12 +8,12 @@ from pathlib import Path
 from typing import Final, Literal, Protocol, TypedDict
 
 from agency.config import Settings
+from agency.contracts.ledger import LedgerPort, Tickets
 from agency.contracts.outcome import Outcome
 from agency.contracts.phase import DirectorMode
 from agency.contracts.project import parse_project_name
 from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import TicketType
-from agency.ledger import Ledger
 from agency.workshop.files import read_under, replace_under
 
 # Every value a router returns and every value `ProjectState.route` holds: the 13 nodes, the director's
@@ -100,7 +100,7 @@ class Crew:
     """What the nodes work with: who runs the agents, the registry, the settings and the studio rules."""
 
     runner: Runner
-    ledger: Ledger
+    ledger: LedgerPort
     settings: Settings
     rules: StudioRules
 
@@ -108,11 +108,11 @@ class Crew:
         return self.settings.work_dir(parse_project_name(project))
 
 
-def attempt(ledger: Ledger, ticket: str) -> int:
+def attempt(ledger: Tickets, ticket: str) -> int:
     return 1 + sum(1 for event in ledger.history(ticket) if event.action in ("rework", "resume"))
 
 
-def rework_note(ledger: Ledger, ticket: str) -> str:
+def rework_note(ledger: Tickets, ticket: str) -> str:
     return next((e.note for e in reversed(ledger.history(ticket)) if e.action == "rework"), "")
 
 

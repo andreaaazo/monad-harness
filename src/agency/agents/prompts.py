@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from agency.ledger import Ledger
+from agency.contracts.ledger import Tickets
 from agency.registry import PROMPTS, skills_index
 
 
@@ -18,7 +18,7 @@ def system_prompt(name: str) -> str:
     )
 
 
-def packet(ledger: Ledger, ticket_id: str, rework_note: str = "") -> str:
+def packet(ledger: Tickets, ticket_id: str, rework_note: str = "") -> str:
     """An instance's first message: the ticket's contract, the note of this turn, and its children's state."""
     spec = ledger.spec(ticket_id)
     lines = [
@@ -46,7 +46,7 @@ def packet(ledger: Ledger, ticket_id: str, rework_note: str = "") -> str:
     return "\n".join(lines)
 
 
-def _child_line(ledger: Ledger, ticket_id: str) -> str:
+def _child_line(ledger: Tickets, ticket_id: str) -> str:
     spec = ledger.spec(ticket_id)
     status, verdict = ledger.status(ticket_id)
     note = next((e.note for e in reversed(ledger.history(ticket_id)) if e.note), "")

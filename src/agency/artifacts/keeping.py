@@ -18,8 +18,7 @@ from typing import BinaryIO
 from agency.contracts.artifact import ArtifactMissing, ArtifactStore, Origin
 from agency.contracts.clock import now
 from agency.contracts.files import OutsidePerimeter, ensure_dir_under, land, open_under, unlink_under
-from agency.contracts.ledger import ArtifactEntry
-from agency.ledger import Ledger
+from agency.contracts.ledger import ArtifactEntry, KeptArtifacts
 
 # Python's built-in table only: the system's own table differs from machine to machine.
 TYPES = mimetypes.MimeTypes()
@@ -40,7 +39,7 @@ def media_type(path: str) -> str:
 
 def keep(
     store: ArtifactStore,
-    ledger: Ledger,
+    ledger: KeptArtifacts,
     root: Path,
     files: Mapping[str, str],
     *,
@@ -73,7 +72,7 @@ def keep(
     return {row.path: row.sha256 for row in rows}
 
 
-def find(ledger: Ledger, prefix: str) -> list[ArtifactEntry]:
+def find(ledger: KeptArtifacts, prefix: str) -> list[ArtifactEntry]:
     """The rows of the one version whose hash starts with `prefix`. A short or ambiguous prefix is refused."""
     prefix = prefix.strip().lower()
     if not HEX.fullmatch(prefix):
@@ -90,7 +89,7 @@ def find(ledger: Ledger, prefix: str) -> list[ArtifactEntry]:
 
 
 def restore(
-    store: ArtifactStore, ledger: Ledger, prefix: str, destination: Path, *, projects_dir: Path
+    store: ArtifactStore, ledger: KeptArtifacts, prefix: str, destination: Path, *, projects_dir: Path
 ) -> list[ArtifactEntry]:
     """Copies the version into a new file. It never overwrites: a file already there may be the only copy
     of its content."""
@@ -152,13 +151,13 @@ def _create(destination: Path, real: Path, place: tuple[Path, str] | None) -> Bi
         raise CannotRestore(str(exc)) from exc
 
 
-def damaged(store: ArtifactStore, ledger: Ledger) -> list[ArtifactEntry]:
+def damaged(store: ArtifactStore, ledger: KeptArtifacts) -> list[ArtifactEntry]:
     """The rows whose versions are missing from the store or no longer hash to their name."""
     rows = ledger.all_artifacts()
     broken = {digest for digest in {row.sha256 for row in rows} if not store.intact(digest)}
     return [row for row in rows if row.sha256 in broken]
 
 
-def versions(ledger: Ledger) -> int:
+def versions(ledger: KeptArtifacts) -> int:
     """How many distinct contents the registry keeps."""
     return len({row.sha256 for row in ledger.all_artifacts()})

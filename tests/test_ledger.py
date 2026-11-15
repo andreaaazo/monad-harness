@@ -19,6 +19,7 @@ from agency.contracts.ledger import (
     ForbiddenAction,
     GateEntry,
     IllegalTransition,
+    LedgerPort,
     UsageEntry,
 )
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
@@ -505,6 +506,12 @@ def newest_hash(ledger: Ledger) -> str:
         event = session.exec(select(EventRow).order_by(col(EventRow.seq).desc())).first()
     assert event is not None
     return event.hash
+
+
+def test_the_sqlite_ledger_is_a_ledger_port(tmp_path: Path) -> None:
+    """The engine reaches the registry through its ports (ADR-0058): pyright checks every method here."""
+    port: LedgerPort = Ledger(tmp_path / "l.sqlite")
+    assert port.tickets("default") == []
 
 
 def test_a_concept_written_through_an_entry_chains_like_the_row(

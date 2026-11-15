@@ -12,13 +12,12 @@ from agency.agents.transcript import Transcript
 from agency.config import Settings
 from agency.contracts import phase
 from agency.contracts.artifact import ArtifactStore
-from agency.contracts.ledger import IllegalTransition
+from agency.contracts.ledger import IllegalTransition, LedgerPort
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import parse_project_name
 from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import RUNNABLE, Action, TicketSpec
 from agency.gateway import CallContext, ModelGateway, ModelRequest, ModelResponse
-from agency.ledger import Ledger
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.files import ensure_dir_under
@@ -75,7 +74,7 @@ class AgentRunner:
     def __init__(
         self,
         gateway: ModelGateway,
-        ledger: Ledger,
+        ledger: LedgerPort,
         settings: Settings,
         index: CommandIndex,
         artifacts: ArtifactStore,

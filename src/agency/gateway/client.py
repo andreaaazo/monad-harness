@@ -11,10 +11,9 @@ from opentelemetry import trace
 
 from agency.config import Settings
 from agency.contracts.clock import now
-from agency.contracts.ledger import UsageEntry
+from agency.contracts.ledger import Spending, UsageEntry
 from agency.gateway.pricing import call_cost_usd, price_of
 from agency.gateway.transport import Transport
-from agency.ledger import Ledger
 
 tracer = trace.get_tracer("agency.gateway")
 EXPECTED_OUTPUT_TOKENS = 4000
@@ -93,7 +92,7 @@ class ModelGateway:
     def __init__(
         self,
         transport: Transport,
-        ledger: Ledger,
+        ledger: Spending,
         settings: Settings,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:

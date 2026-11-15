@@ -434,7 +434,8 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
    con il suo renderer (STR-007): fatto il 2026-11-15, con `doctor`; l'impronta delle esecuzioni è passata in `process`.
 5. [ ] **`import-linter` bloccante** su tutto il pacchetto, con le regole di ADR-0021 ancora mancanti: `langgraph` solo nel
    processo e nei nodi, `sqlmodel` solo nel registro, il registro solo dietro la sua porta (STR-003). Fatto il 2026-11-15:
-   i livelli di ADR-0057, `langgraph` e l'ORM sono contratti (`uv run lint-imports`); resta il registro dietro le sue porte.
+   i livelli di ADR-0057, `langgraph` e l'ORM sono contratti, e solo la sessione e la CLI arrivano al registro SQLite: il
+   resto del motore usa le porte di `contracts/ledger.py` (`uv run lint-imports`).
 6. [ ] **Piramide dei test**: nuovi test sulle regole pure. I test di flusso restano: sono la rete del refactor. I quattro file
    di test sopra le 500 righe e `globals.css` si dividono con le slice (STR-013).
 7. [ ] **Tipi espliciti** (principio 2 di ADR-0021, che i punti 1–6 coprono solo in parte):

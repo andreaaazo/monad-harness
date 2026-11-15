@@ -215,10 +215,12 @@ def test_what_was_not_measured_stays_empty_not_zero(tmp_path: Path) -> None:
 def test_calls_belong_to_the_run_the_session_started(tmp_path: Path) -> None:
     gw = gateway(tmp_path, ScriptedTransport([reply(), reply()]))
     taken = fingerprint.take(Settings(_env_file=None), "", "", tools=())  # type: ignore[call-arg]
-    first = gw.ledger.record_run("p", RunCommand.RUN, taken)
+    ledger = gw.ledger
+    assert isinstance(ledger, Ledger)  # the gateway sees only its port; the test recorded the runs itself
+    first = ledger.record_run("p", RunCommand.RUN, taken)
     gw.belongs_to(first)
     gw.call(CONTEXT, request())
-    second = gw.ledger.record_run("p", RunCommand.RESUME, taken)
+    second = ledger.record_run("p", RunCommand.RESUME, taken)
     gw.belongs_to(second)
     gw.call(CONTEXT, request())
     assert [row.run for row in gw.ledger.usage("p")] == [first, second]
@@ -512,7 +514,9 @@ def test_a_malformed_stream_retry_is_authorized_and_recorded(tmp_path: Path) -> 
     estimate = gw.estimate_usd(request(), None)
     authorized = count_authorizations(gw)
     taken = fingerprint.take(Settings(_env_file=None), "", "", tools=())  # type: ignore[call-arg]
-    run = gw.ledger.record_run("p", RunCommand.RUN, taken)
+    ledger = gw.ledger
+    assert isinstance(ledger, Ledger)  # the gateway sees only its port; the test records the run itself
+    run = ledger.record_run("p", RunCommand.RUN, taken)
     gw.belongs_to(run)
 
     response = gw.call(CONTEXT, request())

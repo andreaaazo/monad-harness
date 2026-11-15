@@ -666,6 +666,20 @@ def test_every_package_but_the_ledger_is_forbidden_the_orm() -> None:
     assert set(contract["source_modules"]) == {f"agency.{name}" for name in top_level_packages() - {"ledger"}}
 
 
+def test_only_the_composition_roots_import_the_sqlite_ledger() -> None:
+    """The ledger contract lists the packages by hand: everything but the ledger itself, the session and the
+    CLI must reach the registry through its ports (ADR-0058). The server has its own, stricter contract."""
+    contract = contract_named("only the composition roots reach the SQLite ledger")
+    assert contract["forbidden_modules"] == ["agency.ledger"]
+    process = REPO_ROOT / "src" / "agency" / "process"
+    inner = {f"agency.process.{path.stem}" for path in process.glob("*.py")} - {
+        "agency.process.__init__",
+        "agency.process.session",
+    }
+    packages = {f"agency.{name}" for name in top_level_packages() - {"ledger", "process", "entrypoints"}}
+    assert set(contract["source_modules"]) == packages | inner
+
+
 def test_the_projection_can_live_away_from_the_registry(client: Client, tmp_path: Path) -> None:
     """In Docker the projection lives in memory: the server writes it there, and nothing beside the
     registry."""

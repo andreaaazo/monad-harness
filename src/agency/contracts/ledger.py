@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 from agency.contracts.concept import ConceptStatus
 from agency.contracts.judgment import Judged, Judgment
 from agency.contracts.run import Fingerprint, RunCommand
+from agency.contracts.ticket import Action, Status, TicketSpec, Verdict
 
 
 class IllegalTransition(Exception):
@@ -277,3 +278,68 @@ class Runs(Protocol):
     def judgments(self, project: str) -> list[JudgmentEntry]: ...
 
     def comparison(self, comparison: str) -> list[JudgmentEntry]: ...
+
+
+class Projects(Protocol):
+    """The client's choices for a project."""
+
+    def project(self, name: str) -> ProjectEntry | None: ...
+
+
+class Tickets(Protocol):
+    """The tickets: their contracts, their state and the hash-chained history of what happened to them."""
+
+    def open(
+        self,
+        spec: TicketSpec,
+        project: str = "default",
+        inputs: dict[str, str] | None = None,
+        operation: tuple[str, str, str] | None = None,
+        concept: ConceptEntry | None = None,
+    ) -> str: ...
+
+    def apply(
+        self,
+        ticket_id: str,
+        action: Action,
+        actor: str,
+        note: str = "",
+        verdict: Verdict | None = None,
+        delivered: dict[str, str] | None = None,
+    ) -> Status: ...
+
+    def spec(self, ticket_id: str) -> TicketSpec: ...
+
+    def status(self, ticket_id: str) -> tuple[Status, Verdict | None]: ...
+
+    def children(self, ticket_id: str) -> list[str]: ...
+
+    def history(self, ticket_id: str) -> list[EventEntry]: ...
+
+    def delivered(self, ticket_id: str) -> dict[str, str]: ...
+
+    def tickets(self, project: str) -> list[TicketEntry]: ...
+
+    def project_of(self, ticket_id: str) -> str: ...
+
+    def inputs(self, ticket_id: str) -> dict[str, str]: ...
+
+
+class Operations(Protocol):
+    """The tools' results, so a resume has no double effects."""
+
+    def operation(self, operation_id: str) -> str | None: ...
+
+    def operations(self, instance: str) -> list[OperationEntry]: ...
+
+    def record_operation(self, operation_id: str, instance: str, tool: str, result_json: str) -> None: ...
+
+
+class Spending(Usage, Projects, Protocol):
+    """What the gateway needs: the paid calls, and the client's budget and choices."""
+
+
+class LedgerPort(
+    Tickets, Operations, Projects, Concepts, Gates, Proofs, Usage, KeptArtifacts, Runs, Protocol
+):
+    """The whole registry, as the engine sees it. A module that needs only one concern takes that port."""

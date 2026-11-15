@@ -291,3 +291,26 @@ source_modules = [
 forbidden_modules = ["sqlmodel", "sqlalchemy", "alembic"]
 # Direct imports only: the ledger's rows still cross its boundary until the ports of ADR-0058 replace them.
 allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "only the composition roots reach the SQLite ledger: the session and the CLI (ADR-0058)"
+type = "forbidden"
+source_modules = [
+  "agency.agents",
+  "agency.artifacts",
+  "agency.config",
+  "agency.context",
+  "agency.contracts",
+  "agency.evaluation",
+  "agency.gateway",
+  "agency.insights",
+  "agency.qa",
+  "agency.registry",
+  "agency.studio",
+  "agency.telemetry",
+  "agency.toolkit",
+  "agency.workshop",
+  "agency.process.fingerprint",
+  "agency.process.graph",
+]
+forbidden_modules = ["agency.ledger"]

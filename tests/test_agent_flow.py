@@ -25,7 +25,7 @@ from agency.artifacts import FileStore
 from agency.config import REPO_ROOT, Settings
 from agency.contracts import phase
 from agency.contracts.concept import ConceptCard
-from agency.contracts.ledger import ConceptEntry, DerivationEntry, EvidenceEntry
+from agency.contracts.ledger import ConceptEntry, DerivationEntry, EvidenceEntry, LedgerPort, Tickets
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.phase import DirectorMode
 from agency.contracts.project import ProjectName, parse_project_name
@@ -1846,7 +1846,9 @@ def delivered_note_box(tmp_path: Path) -> tuple[Toolbox, ToolContext, str]:
     return box, context, ticket
 
 
-def intact(ledger: Ledger) -> None:
+def intact(ledger: LedgerPort) -> None:
+    """The chain checks are the SQLite ledger's, not the engine's port: the context holds that ledger."""
+    assert isinstance(ledger, Ledger)
     assert ledger.verify_chain()
     assert ledger.replay_mismatches() == []
 
@@ -1912,7 +1914,7 @@ def resume_record_dies(
     return killed
 
 
-def evidence_events(ledger: Ledger) -> int:
+def evidence_events(ledger: Tickets) -> int:
     return sum(event.action == "evidence" for row in ledger.tickets("p") for event in ledger.history(row.id))
 
 

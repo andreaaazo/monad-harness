@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agency.contracts.files import ensure_dir_under, glob_under, is_file_under, sha256_under
+from agency.contracts.ledger import LedgerPort
 from agency.contracts.registry import StudioRules
-from agency.ledger import Ledger
 from agency.qa import evidence
 from agency.workshop import master
 from agency.workshop.files import clip
@@ -69,7 +69,7 @@ def execute(sandbox: Sandbox, check: str, file: str) -> CheckOutcome:
 
 def run(
     sandbox: Sandbox,
-    ledger: Ledger,
+    ledger: LedgerPort,
     project: str,
     ticket_id: str,
     actor: str,

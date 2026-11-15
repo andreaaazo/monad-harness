@@ -279,7 +279,7 @@ Le dipendenze puntano verso l'interno, a livelli. Ogni livello importa solo da q
 `evaluation` e `insights` dipendono solo dai contratti. Un contratto `layers` di `import-linter` impone questi livelli.
 
 Dentro una slice il dominio tiene le regole pure, l'applicazione casi d'uso e porte, gli adattatori strumenti e nodi. Le slice non
-si importano tra loro, e `import-linter` in `make check` lo impone. Oggi i contratti sono dieci:
+si importano tra loro, e `import-linter` in `make check` lo impone. Oggi i contratti sono undici:
 - `insights` e il server leggono e basta, senza motore né `Ledger` (due contratti);
 - il giudizio alla cieca dipende solo dai contratti (ADR-0027);
 - il motore e la CLI non importano Django né il server;
@@ -288,11 +288,13 @@ si importano tra loro, e `import-linter` in `make check` lo impone. Oggi i contr
 - le slice di `studio` non si importano tra loro;
 - i livelli qui sopra, dagli ingressi ai contratti;
 - `langgraph` e `langchain_core` solo nel processo, nei `nodes.py` delle slice e in `studio.graph`;
-- `sqlmodel`, `sqlalchemy` e `alembic` solo nel registro.
+- `sqlmodel`, `sqlalchemy` e `alembic` solo nel registro;
+- solo la sessione e la CLI arrivano al registro SQLite: il resto del motore usa le sue porte, in
+  `contracts/ledger.py`, con record al posto delle righe.
 
 I contratti che elencano a mano pacchetti, moduli o slice hanno ciascuno un test che controlla che non ne manchi nessuno. Le
-righe della tabella qui sotto valgono tutte per gli import diretti. Il registro dietro le sue porte e dominio e applicazione
-senza framework entrano con i punti 4 e 5 di M1.7 ([ADR-0058](adr/0058-porte-tipi-e-livelli-del-motore.md)).
+righe della tabella qui sotto valgono tutte per gli import diretti. Dominio e applicazione senza framework entrano con il
+punto 4 di M1.7 ([ADR-0058](adr/0058-porte-tipi-e-livelli-del-motore.md)).
 
 | Libreria | Chi può importarla |
 |---|---|

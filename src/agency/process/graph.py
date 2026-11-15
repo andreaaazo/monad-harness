@@ -16,9 +16,9 @@ from langgraph.graph.state import CompiledStateGraph
 
 from agency.agents.loop import AgentRunner
 from agency.config import Settings
+from agency.contracts.ledger import LedgerPort
 from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import Status
-from agency.ledger import Ledger
 from agency.studio.delivery.nodes import client_gate
 from agency.studio.exploration.nodes import explore, plan, send_explorers
 from agency.studio.graph import Router
@@ -65,7 +65,7 @@ def after_gate(state: ProjectState) -> Route:
 
 def build(
     runner: AgentRunner,
-    ledger: Ledger,
+    ledger: LedgerPort,
     settings: Settings,
     checkpointer: BaseCheckpointSaver,
     rules: StudioRules,

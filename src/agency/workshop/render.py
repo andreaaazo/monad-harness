@@ -7,8 +7,8 @@ from pathlib import Path, PurePosixPath
 
 from PIL import Image
 
+from agency.contracts.ledger import Proofs
 from agency.contracts.media import open_image
-from agency.ledger import Ledger
 from agency.workshop.files import (
     MAX_IMAGE_FILE_BYTES,
     ensure_dir_under,
@@ -43,7 +43,7 @@ def _save(image: Image.Image, work: Path, relative: str) -> None:
 
 def render_one(
     sandbox: Sandbox,
-    ledger: Ledger,
+    ledger: Proofs,
     project: str,
     relative: str,
     zooms: list[tuple[float, float, float, float]] | None = None,

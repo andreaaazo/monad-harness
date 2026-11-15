@@ -8,10 +8,9 @@ from pathlib import Path
 
 from agency.contracts.clock import now
 from agency.contracts.files import is_file_under, sha256_under
-from agency.contracts.ledger import EvidenceEntry
+from agency.contracts.ledger import EvidenceEntry, LedgerPort
 from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import AUTHOR_TYPES
-from agency.ledger import Ledger
 
 
 class EvidenceRefused(Exception):
@@ -40,7 +39,7 @@ def accepted(name: str, rules: StudioRules) -> tuple[str, ...]:
     )
 
 
-def authors(ledger: Ledger, project: str, file: str) -> set[str]:
+def authors(ledger: LedgerPort, project: str, file: str) -> set[str]:
     """Who made the file: the assignees of the authoring tickets that declare it or delivered it."""
     found = set()
     for row in ledger.tickets(project):
@@ -53,7 +52,7 @@ def authors(ledger: Ledger, project: str, file: str) -> set[str]:
     return found
 
 
-def guard(ledger: Ledger, project: str, file: str, check: str, actor: str, rules: StudioRules) -> None:
+def guard(ledger: LedgerPort, project: str, file: str, check: str, actor: str, rules: StudioRules) -> None:
     """Refuses an unknown check, and an independent one signed by the file's author or by a role it does not
     allow."""
     why = check_problem(check, rules)
@@ -68,7 +67,7 @@ def guard(ledger: Ledger, project: str, file: str, check: str, actor: str, rules
 
 
 def record(
-    ledger: Ledger,
+    ledger: LedgerPort,
     work: Path,
     project: str,
     file: str,
@@ -109,7 +108,9 @@ def record(
     return row
 
 
-def latest(ledger: Ledger, project: str, signer: str | None = None) -> dict[tuple[str, str], EvidenceEntry]:
+def latest(
+    ledger: LedgerPort, project: str, signer: str | None = None
+) -> dict[tuple[str, str], EvidenceEntry]:
     """The result per file and check: on the same version, a FAIL stands until its signer changes it."""
     versions: dict[tuple[str, str], tuple[str, dict[str, EvidenceEntry]]] = {}
     for row in ledger.evidence(project):

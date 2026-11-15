@@ -326,3 +326,101 @@ source_modules = [
   "agency.process.graph",
 ]
 forbidden_modules = ["agency.ledger"]
+
+[[tool.importlinter.contracts]]
+name = "a domain depends only on the contracts: no other package of the engine, no module beside it (ADR-0021, ADR-0058)"
+type = "forbidden"
+source_modules = [
+  "agency.insights.domain",
+  "agency.studio.delivery.domain",
+  "agency.studio.exploration.domain",
+  "agency.studio.presentation.domain",
+  "agency.studio.proposal.domain",
+  "agency.studio.refinement.domain",
+  "agency.studio.selection.domain",
+]
+forbidden_modules = [
+  "agency.agents",
+  "agency.artifacts",
+  "agency.config",
+  "agency.context",
+  "agency.entrypoints",
+  "agency.evaluation",
+  "agency.gateway",
+  "agency.ledger",
+  "agency.process",
+  "agency.qa",
+  "agency.registry",
+  "agency.telemetry",
+  "agency.toolkit",
+  "agency.workshop",
+  "agency.insights.adapters",
+  "agency.insights.application",
+  "agency.insights.behaviour",
+  "agency.insights.compare",
+  "agency.insights.flow",
+  "agency.insights.ports",
+  "agency.insights.quality",
+  "agency.insights.replay",
+  "agency.insights.sums",
+  "agency.insights.views",
+  "agency.studio.delivery.application",
+  "agency.studio.delivery.nodes",
+  "agency.studio.exploration.application",
+  "agency.studio.exploration.nodes",
+  "agency.studio.exploration.tools",
+  "agency.studio.graph",
+  "agency.studio.presentation.application",
+  "agency.studio.presentation.document",
+  "agency.studio.presentation.nodes",
+  "agency.studio.presentation.tools",
+  "agency.studio.proposal.application",
+  "agency.studio.proposal.nodes",
+  "agency.studio.proposal.tools",
+  "agency.studio.refinement.application",
+  "agency.studio.refinement.nodes",
+  "agency.studio.refinement.tools",
+  "agency.studio.selection.application",
+  "agency.studio.selection.nodes",
+  "agency.studio.selection.tools",
+  "agency.studio.shared",
+]
+
+[[tool.importlinter.contracts]]
+name = "domain and application import no framework and no adapter (ADR-0021, ADR-0058)"
+type = "forbidden"
+source_modules = [
+  "agency.insights.application",
+  "agency.insights.domain",
+  "agency.studio.delivery.application",
+  "agency.studio.delivery.domain",
+  "agency.studio.exploration.application",
+  "agency.studio.exploration.domain",
+  "agency.studio.presentation.application",
+  "agency.studio.presentation.domain",
+  "agency.studio.proposal.application",
+  "agency.studio.proposal.domain",
+  "agency.studio.refinement.application",
+  "agency.studio.refinement.domain",
+  "agency.studio.selection.application",
+  "agency.studio.selection.domain",
+]
+forbidden_modules = [
+  "anthropic",
+  "langgraph",
+  "langchain_core",
+  "sqlmodel",
+  "sqlalchemy",
+  "alembic",
+  "django",
+  "ninja",
+  "opentelemetry",
+  "PIL",
+  "agency.ledger",
+  "agency.gateway",
+  "agency.process",
+  "agency.agents",
+  "agency.workshop.sandbox",
+]
+# Direct imports only: an application may use a platform tool that draws with PIL (the board, the document).
+allow_indirect_imports = true

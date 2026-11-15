@@ -552,8 +552,7 @@ def forbidden_contracts() -> list[dict]:
 
 def test_every_engine_package_is_forbidden_to_import_django() -> None:
     """The contract lists the packages by hand: a new package must not slip past it."""
-    contracts = forbidden_contracts()
-    (engine,) = [contract for contract in contracts if "django" in contract["forbidden_modules"]]
+    engine = contract_named("the engine imports neither Django nor the server")
     source = REPO_ROOT / "src" / "agency"
     present = {
         path.stem for path in source.iterdir() if path.suffix == ".py" or (path / "__init__.py").exists()
@@ -678,6 +677,54 @@ def test_only_the_composition_roots_import_the_sqlite_ledger() -> None:
     }
     packages = {f"agency.{name}" for name in top_level_packages() - {"ledger", "process", "entrypoints"}}
     assert set(contract["source_modules"]) == packages | inner
+
+
+FRAMEWORKS = [
+    "anthropic",
+    "langgraph",
+    "langchain_core",
+    "sqlmodel",
+    "sqlalchemy",
+    "alembic",
+    "django",
+    "ninja",
+]
+FRAMEWORKS += ["opentelemetry", "PIL"]
+
+
+def modules_named(*names: str) -> set[str]:
+    """The dotted names of the studio's and insights' modules with one of these file names."""
+    source = REPO_ROOT / "src"
+    found = [*(source / "agency" / "studio").rglob("*.py"), *(source / "agency" / "insights").rglob("*.py")]
+    return {".".join(path.relative_to(source).with_suffix("").parts) for path in found if path.name in names}
+
+
+def test_every_domain_and_application_is_kept_free_of_frameworks() -> None:
+    """The framework contract lists the modules by hand: a new domain or application must not slip past it."""
+    contract = contract_named("domain and application import no framework")
+    assert set(contract["source_modules"]) == modules_named("domain.py", "application.py")
+    adapters = [
+        "agency.ledger",
+        "agency.gateway",
+        "agency.process",
+        "agency.agents",
+        "agency.workshop.sandbox",
+    ]
+    assert contract["forbidden_modules"] == FRAMEWORKS + adapters
+
+
+def test_every_domain_depends_only_on_the_contracts() -> None:
+    """A domain imports the contracts and nothing else of the engine: every other package, and every module
+    of the studio and of insights that is not a domain, is forbidden to it (ADR-0058)."""
+    contract = contract_named("a domain depends only on the contracts")
+    assert set(contract["source_modules"]) == modules_named("domain.py")
+    others = {f"agency.{name}" for name in top_level_packages() - {"contracts", "studio", "insights"}}
+    siblings = modules_named(*{path.name for path in (REPO_ROOT / "src/agency").rglob("*.py")}) - {
+        *modules_named("domain.py", "__init__.py"),
+    }
+    adapters_package = {module for module in siblings if module.startswith("agency.insights.adapters.")}
+    siblings = (siblings - adapters_package) | {"agency.insights.adapters"}
+    assert set(contract["forbidden_modules"]) == others | siblings
 
 
 def test_the_projection_can_live_away_from_the_registry(client: Client, tmp_path: Path) -> None:

@@ -253,7 +253,8 @@ src/agency/
   telemetry/     tracce OpenTelemetry
   toolkit/       il kit degli strumenti (`Tool`, `ToolContext`) e gli strumenti condivisi: file, Craft, revisione, chiusura
   workshop/      la sandbox, i file, i comandi Craft, render, master, la tavola anonima
-  registry.py    le regole dello studio di `registry/`, caricate una volta, e le ricerche sui prompt
+  registry.py    `load_rules` carica e controlla le regole dello studio di `registry/` (`StudioRules`), che la sessione
+                 e la CLI passano a chi le usa; le ricerche nella libreria dei prompt
   config.py      le impostazioni del motore: variabili `AGENCY_*` e chiave API
 tests/           test_*.py; support/ ha gli aiuti condivisi (ScriptedTransport, ReplayTransport, i disegni di prova,
                  il registro di prova del cruscotto); fixtures/ e snapshots/ i dati

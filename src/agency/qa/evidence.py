@@ -7,37 +7,37 @@ import json
 from pathlib import Path
 
 from agency.contracts.files import is_file_under, sha256_under
-from agency.contracts.registry import CheckKind
+from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import AUTHOR_TYPES
 from agency.ledger import Ledger
 from agency.ledger.models import EvidenceRow
 from agency.ledger.store import now
-from agency.registry import CHECKS
-
-MEASUREMENTS = {name for name, spec in CHECKS.items() if spec["kind"] == CheckKind.MEASURE}
 
 
 class EvidenceRefused(Exception):
     """The proof cannot be recorded; the message says why."""
 
 
-def check_problem(name: str) -> str | None:
+def check_problem(name: str, rules: StudioRules) -> str | None:
     """Why `name` is not a check, or None for a registry check or a project requirement (`req:<name>`)."""
-    if name in CHECKS or (name.startswith("req:") and len(name) > 4):
+    if name in rules.checks or (name.startswith("req:") and len(name) > 4):
         return None
     return (
         f"controllo sconosciuto '{name}': usa un nome del registro o req:<nome> per un requisito del progetto"
     )
 
 
-def is_independent(name: str) -> bool:
+def is_independent(name: str, rules: StudioRules) -> bool:
     """Whether the check must be signed by someone other than the file's author."""
-    return bool(CHECKS.get(name, {}).get("independent"))
+    spec = rules.checks.get(name)
+    return bool(spec and spec.independent)
 
 
-def accepted(name: str) -> tuple[str, ...]:
+def accepted(name: str, rules: StudioRules) -> tuple[str, ...]:
     """The results that let a file pass the check; a measurement also passes as MEASURED."""
-    return ("PASS", "NOT_APPLICABLE", "MEASURED") if name in MEASUREMENTS else ("PASS", "NOT_APPLICABLE")
+    return (
+        ("PASS", "NOT_APPLICABLE", "MEASURED") if name in rules.measurements() else ("PASS", "NOT_APPLICABLE")
+    )
 
 
 def authors(ledger: Ledger, project: str, file: str) -> set[str]:
@@ -53,18 +53,18 @@ def authors(ledger: Ledger, project: str, file: str) -> set[str]:
     return found
 
 
-def guard(ledger: Ledger, project: str, file: str, check: str, actor: str) -> None:
+def guard(ledger: Ledger, project: str, file: str, check: str, actor: str, rules: StudioRules) -> None:
     """Refuses an unknown check, and an independent one signed by the file's author or by a role it does not
     allow."""
-    why = check_problem(check)
+    why = check_problem(check, rules)
     if why:
         raise EvidenceRefused(why)
-    spec = CHECKS.get(check, {})
-    if spec.get("independent"):
+    spec = rules.checks.get(check)
+    if spec and spec.independent:
         if actor in authors(ledger, project, file):
             raise EvidenceRefused(f"'{check}' è indipendente: {actor} è l'autore di {file}")
-        if spec.get("roles") and actor not in spec["roles"]:
-            raise EvidenceRefused(f"'{check}' lo firma {', '.join(spec['roles'])}, non {actor}")
+        if spec.roles and actor not in spec.roles:
+            raise EvidenceRefused(f"'{check}' lo firma {', '.join(spec.roles)}, non {actor}")
 
 
 def record(
@@ -80,15 +80,17 @@ def record(
     note: str = "",
     inputs: list[str] | None = None,
     operation: tuple[str, str, str, str] | None = None,
+    *,
+    rules: StudioRules,
 ) -> EvidenceRow:
     """Records a proof on the file's current version, and on the current sha256 of each of `inputs`.
 
     `operation` is the resume record of the tool call behind this proof: it is written with the proof.
     """
-    guard(ledger, project, file, check, actor)
+    guard(ledger, project, file, check, actor, rules)
     if not is_file_under(work, file):
         raise EvidenceRefused(f"file inesistente: {file}")
-    if check in MEASUREMENTS and result == "PASS":
+    if check in rules.measurements() and result == "PASS":
         result = "MEASURED"
     row = EvidenceRow(
         at=now(),

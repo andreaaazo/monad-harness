@@ -1,19 +1,25 @@
-"""The studio rules of `registry/`, loaded and checked once, and the lookups on the prompt library."""
+"""The studio rules of `registry/`, loaded and checked by `load_rules`, and the prompt library lookups."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from agency.config import REPO_ROOT
-from agency.contracts.registry import read_checks, read_org, read_roles
+from agency.contracts.registry import StudioRules, read_checks, read_org, read_roles
 
 PROMPTS = REPO_ROOT / "prompts"
-ROLES: dict[str, dict] = read_roles(REPO_ROOT / "registry/roles.json")
-ORG: dict[str, list[str]] = read_org(REPO_ROOT / "registry/org.json")
-CHECKS: dict[str, dict] = read_checks(REPO_ROOT / "registry/checks.json")
-# The roles that judge the work and never edit it: those roles.json gives the reviewer's tool set.
-REVIEWERS = frozenset(name for name, spec in ROLES.items() if spec["tools"] == "reviewer")
-# The explorers in the order roles.json lists them, by the letter after their prefix: the first lever goes to
-# the first, and the letter names its folder, its files and its idea.
-DIRECTIONS = {name.removeprefix("direction-"): name for name in ROLES if name.startswith("direction-")}
+
+
+def load_rules(root: Path = REPO_ROOT) -> StudioRules:
+    """The studio rules of `<root>/registry`, checked. The composition roots load them once and pass them on;
+    a role is active when `<root>/prompts/roles` holds its prompt."""
+    roles = read_roles(root / "registry/roles.json")
+    return StudioRules(
+        roles=roles,
+        org=read_org(root / "registry/org.json"),
+        checks=read_checks(root / "registry/checks.json"),
+        active=frozenset(role for role in roles if (root / "prompts/roles" / f"{role}.md").is_file()),
+    )
 
 
 def skill_names() -> list[str]:
@@ -24,14 +30,3 @@ def skill_names() -> list[str]:
 def skills_index() -> str:
     """The skill names as the system prompt lists them."""
     return ", ".join(skill_names())
-
-
-def has_prompt(role: str) -> bool:
-    """A role without a prompt has not been ported yet: it cannot receive work."""
-    return (PROMPTS / "roles" / f"{role}.md").is_file()
-
-
-def can_open(sender: str, assignee: str) -> bool:
-    """Whether `sender` may open a ticket for `assignee`, by registry/org.json (`*` allows anyone)."""
-    allowed = ORG.get(sender, [])
-    return "*" in allowed or assignee in allowed

@@ -95,7 +95,7 @@ def list_files(ctx: ToolContext, a: ListFiles, _: str) -> dict:
 
 def write_file(ctx: ToolContext, a: WriteFile, _: str) -> dict:
     _text_only(a.path)
-    if ctx.actor in registry.REVIEWERS and not a.path.startswith("reviews/"):
+    if ctx.actor in ctx.rules.reviewers() and not a.path.startswith("reviews/"):
         raise Refused("un revisore scrive solo in reviews/: non modifica il lavoro che giudica")
     folder = PurePosixPath(a.path).parent
     if folder.parts:

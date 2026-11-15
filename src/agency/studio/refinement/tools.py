@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from agency import registry
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.ticket import RUNNABLE, Action, Medium, Status, TicketSpec, TicketType
 from agency.qa import delivery
@@ -42,15 +41,15 @@ class RejectConcept(Strict):
 def _coming(ctx: ToolContext) -> set[str]:
     """The files this work plans to produce; those asked of reviewers do not count."""
     specs = [ctx.ledger.spec(ticket) for ticket in (ctx.ticket_id, *ctx.ledger.children(ctx.ticket_id))]
-    return {output for spec in specs if spec.assignee not in registry.REVIEWERS for output in spec.outputs}
+    return {output for spec in specs if spec.assignee not in ctx.rules.reviewers() for output in spec.outputs}
 
 
 def open_ticket(ctx: ToolContext, a: OpenTicket, operation_id: str) -> dict:
-    if not registry.can_open(ctx.actor, a.assignee):
+    if not ctx.rules.can_open(ctx.actor, a.assignee):
         raise Refused(f"{ctx.actor} non può aprire ticket verso {a.assignee}")
-    if a.assignee not in registry.ROLES:
+    if a.assignee not in ctx.rules.roles:
         raise Refused(f"ruolo inesistente: {a.assignee}")
-    if not registry.has_prompt(a.assignee):
+    if a.assignee not in ctx.rules.active:
         raise Refused(f"{a.assignee} non è ancora attivo nello studio: affida il lavoro a un altro ruolo")
     missing = [path for path in a.inputs if not is_file_under(ctx.work, path)]
     if missing:
@@ -71,8 +70,8 @@ def open_ticket(ctx: ToolContext, a: OpenTicket, operation_id: str) -> dict:
             no_master=a.no_master,
             parent=ctx.ticket_id,
         )
-        delivery.validate(spec)
-        delivery.validate_review(spec, ctx.work, _coming(ctx))
+        delivery.validate(spec, ctx.rules)
+        delivery.validate_review(spec, ctx.work, _coming(ctx), ctx.rules)
     except (ValueError, delivery.ContractRefused) as exc:
         raise Refused(str(exc)) from exc
     hashes = {path: sha256_under(ctx.work, path) for path in a.inputs}
@@ -89,7 +88,7 @@ def accept_ticket(ctx: ToolContext, a: TicketRef, _: str) -> dict:
     _own_child(ctx, a.ticket)
     if replayed(ctx, Status.ACCEPTED, Action.ACCEPT, a.ticket):
         return {"ok": True, "status": "accepted"}
-    problems = delivery.acceptance_problems(ctx.ledger, ctx.project, ctx.sandbox, a.ticket)
+    problems = delivery.acceptance_problems(ctx.ledger, ctx.project, ctx.sandbox, a.ticket, ctx.rules)
     if problems:
         raise Refused("accettazione rifiutata:\n" + "\n".join(problems[:12]))
     ctx.ledger.apply(a.ticket, Action.ACCEPT, ctx.actor, a.note)

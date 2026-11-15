@@ -46,6 +46,7 @@ from agency.workshop.craft import Command, CommandIndex
 from agency.workshop.files import OutsidePerimeter, is_file_under
 from agency.workshop.sandbox import Completed, Sandbox
 from support.concepts import open_idea
+from support.rules import RULES
 from support.scripted import ScriptedTransport
 from support.settings import settings
 
@@ -76,6 +77,7 @@ def context(tmp_path: Path, actor: str = "identity-designer", ticket: str = "T-1
         Sandbox(work, ops=inputs),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
 
 
@@ -87,7 +89,7 @@ needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason
 
 def call(ctx: ToolContext, tool_name: str, **arguments: object) -> dict:
     """Each call has its own id: with the same id, the system repeats the first outcome, as it should."""
-    return Toolbox(ctx, role_tools(ctx.actor)).call(f"t{next(OPERATIONS)}", tool_name, arguments)
+    return Toolbox(ctx, role_tools(RULES, ctx.actor)).call(f"t{next(OPERATIONS)}", tool_name, arguments)
 
 
 def spec(**extra: Any) -> TicketSpec:
@@ -391,7 +393,12 @@ def runner(config: Settings, responses: list[dict]) -> tuple[AgentRunner, Script
     index = CommandIndex([])
     return (
         AgentRunner(
-            ModelGateway(transport, ledger, config), ledger, config, index, FileStore(config.layout.artifacts)
+            ModelGateway(transport, ledger, config),
+            ledger,
+            config,
+            index,
+            FileStore(config.layout.artifacts),
+            rules=RULES,
         ),
         transport,
         ledger,
@@ -984,13 +991,23 @@ def signed_by(director: ToolContext, role: str, ticket: str) -> ToolContext:
         director.sandbox,
         CommandIndex([]),
         director.artifacts,
+        rules=RULES,
     )
 
 
 def proof(reviewer: ToolContext, check: str, result: str = "PASS") -> None:
     file = "exports/segno.svg"
     evidence.record(
-        reviewer.ledger, reviewer.work, "p", file, check, result, reviewer.actor, reviewer.ticket_id, "x.png"
+        reviewer.ledger,
+        reviewer.work,
+        "p",
+        file,
+        check,
+        result,
+        reviewer.actor,
+        reviewer.ticket_id,
+        "x.png",
+        rules=RULES,
     )
 
 
@@ -1038,7 +1055,7 @@ def test_the_refusal_shows_the_director_the_contract_to_write(tmp_path: Path) ->
 def test_a_visual_check_needs_something_that_can_be_rendered(check: str) -> None:
     """An observation and a judgement are both made by looking at a render of the file."""
     with pytest.raises(delivery.ContractRefused, match="render"):
-        delivery.validate(spec(checks={"*.md": [check]}))
+        delivery.validate(spec(checks={"*.md": [check]}), rules=RULES)
 
 
 def test_a_review_delivers_and_is_accepted_with_the_contract_the_refusal_suggests(tmp_path: Path) -> None:
@@ -1846,6 +1863,7 @@ def selector(critic: ToolContext) -> ToolContext:
         CommandIndex([]),
         critic.artifacts,
         settings=critic.settings,
+        rules=RULES,
     )
     return ctx
 
@@ -2078,7 +2096,16 @@ def test_deliver_never_hashes_an_output_that_is_a_link(tmp_path: Path, where: st
     ctx.ticket_id = ctx.ledger.open(spec(), "p")
     (ctx.work / "a.md").write_text("nota", encoding="utf-8")
     evidence.record(
-        ctx.ledger, ctx.work, "p", "a.md", "req:testo", "PASS", ctx.actor, ctx.ticket_id, note="ok"
+        ctx.ledger,
+        ctx.work,
+        "p",
+        "a.md",
+        "req:testo",
+        "PASS",
+        ctx.actor,
+        ctx.ticket_id,
+        note="ok",
+        rules=RULES,
     )
     (ctx.work / "a.md").unlink()
     (ctx.work / "a.md").symlink_to(host / "segreto.txt")

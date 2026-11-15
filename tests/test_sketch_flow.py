@@ -37,6 +37,7 @@ from agency.workshop.craft import CommandIndex
 from agency.workshop.files import sha256
 from agency.workshop.sandbox import Sandbox
 from support.concepts import open_idea
+from support.rules import RULES
 from support.scripted import turn
 from support.settings import settings
 
@@ -285,6 +286,7 @@ def context(tmp_path: Path, role: str = "critic", ticket: str = "T-1", round_: i
         FileStore(tmp_path / "artifacts"),
         round=round_,
         settings=settings(tmp_path),
+        rules=RULES,
     )
 
 
@@ -556,12 +558,12 @@ def test_each_phase_has_only_its_tools() -> None:
         checks={"a": ["master_open"]},
         media=[Medium.VECTOR],
     )
-    assert {tool.name for tool in tools_for("direction-a", base)} == set(EXPLORE)
+    assert {tool.name for tool in tools_for(RULES, "direction-a", base)} == set(EXPLORE)
     proposal = base.model_copy(update={"type": TicketType.PROPOSAL})
-    assert {tool.name for tool in tools_for("identity-designer", proposal)} == set(PROPOSAL)
-    assert {t.name for t in tools_for("design-director", base, "plan")} == set(PLAN)
-    assert {t.name for t in tools_for("design-director", base, "select")} == set(SELECT)
-    assert {t.name for t in tools_for("design-director", base, "present")} == set(PRESENT)
+    assert {tool.name for tool in tools_for(RULES, "identity-designer", proposal)} == set(PROPOSAL)
+    assert {t.name for t in tools_for(RULES, "design-director", base, "plan")} == set(PLAN)
+    assert {t.name for t in tools_for(RULES, "design-director", base, "select")} == set(SELECT)
+    assert {t.name for t in tools_for(RULES, "design-director", base, "present")} == set(PRESENT)
     assert all(name in TOOLS for name in (*EXPLORE, *PLAN, *SELECT, *PRESENT, *PROPOSAL))
 
 
@@ -1050,7 +1052,9 @@ def test_finisher_cannot_explore(tmp_path: Path) -> None:
     inputs = config.layout.ops_inputs(ProjectName("p"), "i")
     inputs.mkdir(parents=True)
     sandbox, store = Sandbox(tmp_path, ops=inputs), FileStore(tmp_path / "a")
-    ctx = ToolContext("identity-designer", "p", ticket, "i", ledger, sandbox, index, store, settings=config)
+    ctx = ToolContext(
+        "identity-designer", "p", ticket, "i", ledger, sandbox, index, store, settings=config, rules=RULES
+    )
     box = Toolbox(ctx)
     refused = box.call("a", "craft_run", {"document": "source/prova.vectorcraft", "steps": DRAW})
     assert refused["is_error"] and "niente file di esplorazione" in refused["content"]
@@ -1323,8 +1327,9 @@ def test_explorer_is_warned_once_then_can_insist(tmp_path: Path) -> None:
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
         settings=settings(tmp_path),
+        rules=RULES,
     )
-    toolbox = Toolbox(ctx, tools_for("direction-a", spec))
+    toolbox = Toolbox(ctx, tools_for(RULES, "direction-a", spec))
     evidence = {
         "file": "schizzo-a.png",
         "check": "req:forma",

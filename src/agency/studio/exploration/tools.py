@@ -7,7 +7,6 @@ import json
 
 from pydantic import Field
 
-from agency import registry
 from agency.contracts.artifact import Origin
 from agency.contracts.concept import ConceptCard, ConceptStatus
 from agency.contracts.outcome import Outcome, OutcomeState
@@ -60,7 +59,7 @@ def plan_exploration(ctx: ToolContext, a: PlanExploration, operation_id: str) ->
     )
     opened = []
     for (letter, role), lever in zip(
-        registry.DIRECTIONS.items(), a.levers[: ctx.settings.explorers], strict=False
+        ctx.rules.directions().items(), a.levers[: ctx.settings.explorers], strict=False
     ):
         operation = f"{operation_id}:{letter}"
         stored = ctx.ledger.operation(operation)
@@ -109,7 +108,9 @@ def submit_concept(ctx: ToolContext, a: ConceptCard, _: str) -> dict:
         return {"ok": True}
     replace_under(ctx.work, "scheda.json", a.model_dump_json(indent=2).encode("utf-8"))
     spec = ctx.ledger.spec(ctx.ticket_id)
-    present, problems = delivery.delivery_problems(ctx.ledger, ctx.project, ctx.sandbox, spec, None)
+    present, problems = delivery.delivery_problems(
+        ctx.ledger, ctx.project, ctx.sandbox, spec, None, rules=ctx.rules
+    )
     if problems:
         raise Refused("consegna rifiutata:\n" + "\n".join(problems[:20]))
     sketch = next(path for path in spec.outputs if path.startswith("schizzo-"))

@@ -19,6 +19,7 @@ from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.gate import GATE, Decision, Gate
 from agency.contracts.project import parse_project_name
+from agency.contracts.registry import StudioRules
 from agency.contracts.run import RunCommand
 from agency.contracts.ticket import TicketSpec, TicketType
 from agency.gateway import AnthropicTransport, ModelGateway, RecordingTransport, Transport
@@ -27,6 +28,7 @@ from agency.ledger.store import BUSY_SECONDS
 from agency.process import fingerprint
 from agency.process.graph import Graph, build
 from agency.qa import delivery
+from agency.registry import load_rules
 from agency.studio.shared import ProjectState
 from agency.telemetry import configure
 from agency.workshop.craft import CommandIndex
@@ -96,6 +98,7 @@ class Session:
     graph: Graph
     gateway: ModelGateway
     transport: Transport  # the one `open_session` chose: every recorded run wraps this one, never a recorder
+    rules: StudioRules
     record: bool = False
 
     def _config(self, project: str) -> RunnableConfig:
@@ -144,7 +147,7 @@ class Session:
             inputs=["brief.md"],
             exempt={"construction.md": "documento di costruzione, verificato dal critico con il segno"},
         )
-        delivery.validate(spec)
+        delivery.validate(spec, self.rules)
         work = self.settings.work_dir(folder)
         work.mkdir(parents=True, exist_ok=True)
         replace_under(work, "brief.md", brief.read_bytes())
@@ -193,7 +196,8 @@ def open_session(settings: Settings, transport: Transport | None = None, record:
         transport = AnthropicTransport(key.get_secret_value() if key else None)
     gateway = ModelGateway(transport, ledger, settings)
     index = CommandIndex.load(settings.layout.craft_index)
-    runner = AgentRunner(gateway, ledger, settings, index, FileStore(settings.layout.artifacts))
+    rules = load_rules()
+    runner = AgentRunner(gateway, ledger, settings, index, FileStore(settings.layout.artifacts), rules)
     connection = sqlite3.connect(settings.layout.checkpoints, check_same_thread=False, timeout=BUSY_SECONDS)
-    graph = build(runner, ledger, settings, SqliteSaver(connection))
-    return Session(settings, ledger, graph, gateway, transport, record)
+    graph = build(runner, ledger, settings, SqliteSaver(connection), rules)
+    return Session(settings, ledger, graph, gateway, transport, rules, record)

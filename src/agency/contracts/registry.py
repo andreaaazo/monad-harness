@@ -56,18 +56,14 @@ def _parse(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def read_roles(path: Path) -> dict[str, dict]:
-    """Validate the roles file and return its raw `roles` object, unchanged."""
-    data = _parse(path)
-    RolesFile.model_validate(data)
-    return data["roles"]
+def read_roles(path: Path) -> dict[str, RoleSpec]:
+    """Validate the roles file and return its roles, typed, in the file's order."""
+    return RolesFile.model_validate(_parse(path)).roles
 
 
-def read_checks(path: Path) -> dict[str, dict]:
-    """Validate the checks file and return its raw `checks` object, unchanged."""
-    data = _parse(path)
-    ChecksFile.model_validate(data)
-    return data["checks"]
+def read_checks(path: Path) -> dict[str, CheckSpec]:
+    """Validate the checks file and return its checks, typed, in the file's order."""
+    return ChecksFile.model_validate(_parse(path)).checks
 
 
 def read_org(path: Path) -> dict[str, list[str]]:
@@ -75,3 +71,38 @@ def read_org(path: Path) -> dict[str, list[str]]:
     data = _parse(path)
     OrgFile.model_validate(data)
     return data["can_open"]
+
+
+class StudioRules(BaseModel):
+    """The studio's rules from `registry/`, loaded once by the composition roots and passed to whoever uses
+    them, never reached as a module global (ADR-0058)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    roles: dict[str, RoleSpec]
+    org: dict[str, list[str]]
+    checks: dict[str, CheckSpec]
+    active: frozenset[str]  # the roles with a prompt: one without has not been ported and cannot receive work
+
+    def can_open(self, sender: str, assignee: str) -> bool:
+        """Whether `sender` may open a ticket for `assignee`, by org.json (`*` allows anyone)."""
+        allowed = self.org.get(sender, [])
+        return "*" in allowed or assignee in allowed
+
+    def reviewers(self) -> frozenset[str]:
+        """The roles that judge the work and never edit it: those roles.json gives the reviewer's tool set."""
+        return frozenset(name for name, spec in self.roles.items() if spec.tools == "reviewer")
+
+    def directions(self) -> dict[str, str]:
+        """The explorers in the order roles.json lists them, by the letter after their prefix: the first lever
+        goes to the first, and the letter names its folder, its files and its idea."""
+        return {name.removeprefix("direction-"): name for name in self.roles if name.startswith("direction-")}
+
+    def kind_of(self, check: str) -> CheckKind | None:
+        """The kind of a registry check, or None for a name the registry does not list."""
+        spec = self.checks.get(check)
+        return spec.kind if spec else None
+
+    def measurements(self) -> frozenset[str]:
+        """The checks that measure: they also pass as MEASURED."""
+        return frozenset(name for name, spec in self.checks.items() if spec.kind is CheckKind.MEASURE)

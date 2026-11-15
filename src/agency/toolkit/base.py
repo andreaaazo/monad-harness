@@ -19,6 +19,7 @@ from agency.config import Settings
 from agency.contracts.artifact import ArtifactStore, Origin
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.phase import DirectorMode
+from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import Action, Status
 from agency.ledger import Ledger
 from agency.workshop import craft
@@ -44,6 +45,7 @@ class ToolContext:
     sandbox: Sandbox
     index: craft.CommandIndex
     artifacts: ArtifactStore
+    rules: StudioRules
     finished: Outcome | None = None
     warned_sketch: str = ""  # sha256 of the sketch already warned about: one warning per version
     mode: DirectorMode | None = None

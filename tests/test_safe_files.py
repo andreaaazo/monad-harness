@@ -51,6 +51,7 @@ from agency.workshop import board, craft, files, render
 from agency.workshop.craft import Command, CommandIndex
 from agency.workshop.files import OutsidePerimeter
 from agency.workshop.sandbox import JOB, Completed, Sandbox
+from support.rules import RULES
 
 Use = Callable[[Path, str], object]
 
@@ -182,7 +183,7 @@ def shows_red(data: bytes) -> bool:
 
 def tool_context(work: Path) -> ToolContext:
     ledger, store = Ledger(work.parent / "l.sqlite"), FileStore(work.parent / "artifacts")
-    return ToolContext("critic", "p", "T-1", "i", ledger, Sandbox(work), CommandIndex([]), store)
+    return ToolContext("critic", "p", "T-1", "i", ledger, Sandbox(work), CommandIndex([]), store, rules=RULES)
 
 
 def rendering(work: Path, host: Path) -> Read:
@@ -218,7 +219,7 @@ def accepting(work: Path, host: Path) -> Read:
     digest = hashlib.sha256(SECRET_SVG).hexdigest()
     ledger.apply(ticket, Action.DELIVER, "identity-designer", "consegna", None, {"exports/segno.svg": digest})
     (work / "exports").symlink_to(host, target_is_directory=True)
-    return lambda: delivery.acceptance_problems(ledger, "p", Sandbox(work), ticket)
+    return lambda: delivery.acceptance_problems(ledger, "p", Sandbox(work), ticket, rules=RULES)
 
 
 def boarding(work: Path, host: Path) -> Read:
@@ -333,7 +334,7 @@ class Studio:
         self.ledger = Ledger(tmp_path / "l.sqlite")
         runner = MagicMock()
         runner.run.return_value = Outcome(state=OutcomeState.BLOCKED, note="fermo")
-        self.graph = workflow.build(runner, self.ledger, self.settings, InMemorySaver())
+        self.graph = workflow.build(runner, self.ledger, self.settings, InMemorySaver(), rules=RULES)
         self.work = self.settings.project_dir(parse_project_name(PROJECT)) / "work"
         self.work.mkdir(parents=True)
         self.host = tmp_path / "host"
@@ -736,7 +737,9 @@ def runner_for(studio: Studio, workspace: str, tmp_path: Path) -> Callable[[], O
     spec = ROOT_SPEC.model_copy(update={"workspace": workspace})
     ticket = studio.ledger.open(spec, PROJECT)
     gateway: ModelGateway = Gateway()  # type: ignore[assignment]
-    runner = AgentRunner(gateway, studio.ledger, studio.settings, CommandIndex([]), FileStore(tmp_path / "a"))
+    runner = AgentRunner(
+        gateway, studio.ledger, studio.settings, CommandIndex([]), FileStore(tmp_path / "a"), rules=RULES
+    )
     return lambda: runner.run(ticket)
 
 
@@ -770,7 +773,7 @@ def started(studio: Studio, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(Session, "_record", lambda *_: None)
     brief = tmp_path / "brief.md"
     brief.write_bytes(BRIEF)
-    session = Session(studio.settings, studio.ledger, StopGraph(), MagicMock(), MagicMock())  # type: ignore[arg-type]
+    session = Session(studio.settings, studio.ledger, StopGraph(), MagicMock(), MagicMock(), RULES)  # type: ignore[arg-type]
     outputs_ = ["source/segno.vectorcraft", "exports/segno.svg", "construction.md"]
     checks = {"*.vectorcraft": ["master_open"], "*.svg": ["svg_audit", "critique"]}
     return lambda: session.start(PROJECT, brief, outputs_, checks, budget=10.0)

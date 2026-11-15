@@ -444,9 +444,11 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
    - il registro dei ruoli diventa un insieme di modelli tipizzati, non un `dict[str, dict]`. Si passa a chi lo usa,
      invece di essere letto come variabile globale: oggi succede in 5 punti fuori da `agency.registry`.
 
-   Fatti il 2026-11-15 i primi due: `DirectorMode` e `Route` sono `Literal`, i nodi restituiscono `ProjectUpdate`, e i due
-   nodi paralleli ricevono `TicketTask`. Un test fissa canali e schemi d'ingresso del grafo:
-   `uv run pytest tests/test_gate_sandbox.py -k channels`.
+   Fatti il 2026-11-15:
+   - `DirectorMode` e `Route` sono `Literal`, i nodi restituiscono `ProjectUpdate`, e i due nodi paralleli ricevono
+     `TicketTask`. Un test fissa canali e schemi d'ingresso del grafo: `uv run pytest tests/test_gate_sandbox.py -k channels`;
+   - le regole dello studio sono `StudioRules`, tipizzate, caricate da `load_rules` e passate a chi le usa. Nessun modulo
+     legge più il registro come variabile globale: `uv run pytest tests/test_registry.py -k "typed_rules or global"`.
 
 ### Criteri di uscita
 

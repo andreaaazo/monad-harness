@@ -22,6 +22,7 @@ from agency.contracts.ticket import Medium, TicketSpec, TicketType
 from agency.gateway import ModelGateway
 from agency.ledger import Ledger
 from agency.workshop.craft import CommandIndex
+from support.rules import RULES
 
 SNAPSHOTS = Path(__file__).parent / "snapshots" / "requests"
 ROLE_PROMPTS = REPO_ROOT / "prompts" / "roles"
@@ -83,6 +84,7 @@ def prefix(phase: Phase, tmp_path: Path) -> str:
         settings,
         CommandIndex([]),
         FileStore(settings.layout.artifacts),
+        rules=RULES,
     )
     spec = TicketSpec(
         title="Prova",

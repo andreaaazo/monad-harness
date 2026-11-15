@@ -16,6 +16,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from agency.agents.loop import AgentRunner
 from agency.config import Settings
+from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import Status
 from agency.ledger import Ledger
 from agency.studio.delivery.nodes import client_gate
@@ -63,10 +64,14 @@ def after_gate(state: ProjectState) -> Route:
 
 
 def build(
-    runner: AgentRunner, ledger: Ledger, settings: Settings, checkpointer: BaseCheckpointSaver
+    runner: AgentRunner,
+    ledger: Ledger,
+    settings: Settings,
+    checkpointer: BaseCheckpointSaver,
+    rules: StudioRules,
 ) -> Graph:
     """The compiled studio graph. `checkpointer` keeps its state, so a run stopped at a gate resumes."""
-    crew = Crew(runner, ledger, settings)
+    crew = Crew(runner, ledger, settings, rules)
     graph = StateGraph(ProjectState)
     graph.add_node("plan", plan(crew))
     graph.add_node("explore", explore(crew))

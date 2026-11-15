@@ -53,6 +53,7 @@ from agency.workshop.sandbox import (
     Sandbox,
     SandboxUnavailable,
 )
+from support.rules import RULES
 from support.scripted import ScriptedTransport, turn
 from support.settings import settings
 
@@ -86,7 +87,12 @@ def runner(config: Settings, responses: list[dict]) -> tuple[AgentRunner, Script
     index = CommandIndex.load(config.data_dir / "craft-index")
     return (
         AgentRunner(
-            ModelGateway(transport, ledger, config), ledger, config, index, FileStore(config.layout.artifacts)
+            ModelGateway(transport, ledger, config),
+            ledger,
+            config,
+            index,
+            FileStore(config.layout.artifacts),
+            rules=RULES,
         ),
         transport,
         ledger,
@@ -137,6 +143,7 @@ def test_schemas_have_no_identity_field(tmp_path: Path) -> None:
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     text = json.dumps(Toolbox(context).definitions())
     for field in ('"by"', '"actor"', '"signer"', '"from"', '"sender"'):
@@ -156,6 +163,7 @@ def test_role_cannot_use_tools_outside_its_set(tmp_path: Path) -> None:
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     result = Toolbox(context).call("x", "craft_run", {"document": "a.vectorcraft", "steps": []})
     assert result["is_error"]
@@ -173,6 +181,7 @@ def test_reviewer_writes_only_reports(tmp_path: Path) -> None:
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     box = Toolbox(context)
     assert box.call("a", "write_file", {"path": "source/note.md", "content": "x"})["is_error"]
@@ -191,6 +200,7 @@ def test_author_cannot_write_vectors_by_hand(tmp_path: Path) -> None:
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     result = Toolbox(context).call("a", "write_file", {"path": "exports/a.svg", "content": "<svg/>"})
     assert result["is_error"]
@@ -208,6 +218,7 @@ def test_path_outside_the_job_is_refused(tmp_path: Path) -> None:
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     assert Toolbox(context).call("a", "read_file", {"path": "../../etc/passwd"})["is_error"]
 
@@ -261,7 +272,12 @@ def test_interruption_resumes_without_repeating_effects(tmp_path: Path) -> None:
     dying = Dies([turn(use("open_ticket", "t1", **child))])
     index = CommandIndex([])
     first = AgentRunner(
-        ModelGateway(dying, ledger, config), ledger, config, index, FileStore(config.layout.artifacts)
+        ModelGateway(dying, ledger, config),
+        ledger,
+        config,
+        index,
+        FileStore(config.layout.artifacts),
+        rules=RULES,
     )
     with pytest.raises(ConnectionError):
         first.run(root)
@@ -269,7 +285,12 @@ def test_interruption_resumes_without_repeating_effects(tmp_path: Path) -> None:
     # It restarts from the transcript: no call repeated, no ticket opened twice.
     again = ScriptedTransport([turn(use("hand_off", "t2", note="attendo il segno"))])
     second = AgentRunner(
-        ModelGateway(again, ledger, config), ledger, config, index, FileStore(config.layout.artifacts)
+        ModelGateway(again, ledger, config),
+        ledger,
+        config,
+        index,
+        FileStore(config.layout.artifacts),
+        rules=RULES,
     )
     assert second.run(root).state == "handed_off"
     assert len(ledger.children(root)) == 1
@@ -319,6 +340,7 @@ def test_interrupted_between_response_and_tools_does_not_duplicate(tmp_path: Pat
         config,
         CommandIndex([]),
         FileStore(config.layout.artifacts),
+        rules=RULES,
     )
     assert runner_.run(root).state == "handed_off"
     assert len(ledger.children(root)) == 1
@@ -526,7 +548,7 @@ def bare_context(tmp_path: Path, role: str) -> ToolContext:
     inputs = config.layout.ops_inputs(ProjectName("p"), "i")
     inputs.mkdir(parents=True, exist_ok=True)
     sandbox = Sandbox(tmp_path, ops=inputs)
-    return ToolContext(role, "p", "T-1", "i", ledger, sandbox, CommandIndex([]), artifacts)
+    return ToolContext(role, "p", "T-1", "i", ledger, sandbox, CommandIndex([]), artifacts, rules=RULES)
 
 
 @pytest.mark.parametrize(
@@ -547,7 +569,7 @@ def test_the_reminder_names_each_phase_closing_tools(
     tmp_path: Path, role: str, spec: TicketSpec, mode: DirectorMode | None, closers: str
 ) -> None:
     """The nudge after a turn that closed nothing names only this phase's closing tools, in a fixed order."""
-    box = Toolbox(bare_context(tmp_path, role), tools_for(role, spec, mode))
+    box = Toolbox(bare_context(tmp_path, role), tools_for(RULES, role, spec, mode))
     if mode is None and role == "design-director":
         assert "reject_concept" in box.tools  # it closes, yet the reminder leaves it out
     assert AgentRunner._reminder(box) == f"{REMINDER}{closers}."
@@ -653,7 +675,15 @@ def test_observe_needs_a_render_really_viewed(tmp_path: Path) -> None:
     ledger = Ledger(config.layout.ledger)
     ticket = ledger.open(production_spec(), "p")
     context = ToolContext(
-        "critic", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), FileStore(tmp_path / "artifacts")
+        "critic",
+        "p",
+        ticket,
+        "i",
+        ledger,
+        Sandbox(work),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     box = Toolbox(context)
     seen = "Quadrato rosso pieno, bordi netti, nessun difetto visibile nel render."
@@ -672,7 +702,9 @@ def critic_box(tmp_path: Path) -> tuple[Toolbox, Path]:
     ledger = Ledger(settings(tmp_path).layout.ledger)
     ticket = ledger.open(production_spec(), "p")
     artifacts = FileStore(tmp_path / "artifacts")
-    context = ToolContext("critic", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), artifacts)
+    context = ToolContext(
+        "critic", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), artifacts, rules=RULES
+    )
     return Toolbox(context), work
 
 
@@ -850,7 +882,9 @@ def test_compute_script_lives_outside_the_work_folder(tmp_path: Path) -> None:
         [turn(use("compute", "c1", code=probe)), turn(use("block", "c2", reason="prova finita"))]
     )
     gateway = ModelGateway(transport, ledger, config)
-    run = AgentRunner(gateway, ledger, config, CommandIndex([]), FileStore(config.layout.artifacts))
+    run = AgentRunner(
+        gateway, ledger, config, CommandIndex([]), FileStore(config.layout.artifacts), rules=RULES
+    )
     ticket = ledger.open(production_spec(), "p")
 
     run.run(ticket)
@@ -937,6 +971,7 @@ def test_big_images_are_reduced_and_rereads_are_allowed(tmp_path: Path) -> None:
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     box = Toolbox(context)
     reduced = box.call("a", "view_image", {"path": "big.png"})
@@ -959,6 +994,7 @@ def test_child_ticket_outside_org_is_refused(tmp_path: Path) -> None:
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     arguments = {
         "title": "Ricerca",
@@ -1278,6 +1314,7 @@ def test_view_image_refuses_a_huge_file(tmp_path: Path) -> None:
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     tracemalloc.start()
     try:
@@ -1532,6 +1569,7 @@ def test_observe_accepts_an_image_really_viewed(tmp_path: Path) -> None:
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     box = Toolbox(context)
     arguments = {
@@ -1572,6 +1610,7 @@ def test_redelivery_with_identical_outputs_is_refused(tmp_path: Path) -> None:
         Sandbox(work),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     box = Toolbox(context)
     box.call(
@@ -1599,7 +1638,15 @@ def closing_box(
     ledger = Ledger(config.layout.ledger)
     ticket = ledger.open(spec, "p", concept=concept)
     context = ToolContext(
-        actor, "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), FileStore(tmp_path / "artifacts")
+        actor,
+        "p",
+        ticket,
+        "i",
+        ledger,
+        Sandbox(work),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     return Toolbox(context, [TOOLS[name] for name in tools]), context, ticket
 
@@ -1677,6 +1724,7 @@ def test_a_close_by_another_actor_is_not_taken_for_a_replay(tmp_path: Path) -> N
         Sandbox(tmp_path / "work"),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     result = Toolbox(other, [TOOLS["block"]]).call("t2", "block", {"reason": "anche io"})
     assert result.get("is_error")
@@ -2079,7 +2127,7 @@ class Proposals:
         self.ledger = Ledger(tmp_path / "l.sqlite")
         self.runner = MagicMock()
         self.runner.run.return_value = Outcome(state=OutcomeState.BLOCKED, note="fermo")
-        self.graph = workflow.build(self.runner, self.ledger, self.settings, InMemorySaver())
+        self.graph = workflow.build(self.runner, self.ledger, self.settings, InMemorySaver(), rules=RULES)
         self.work = self.settings.project_dir(parse_project_name("p")) / "work"
         folder = self.work / "explorations/r1"
         (folder / "a").mkdir(parents=True)

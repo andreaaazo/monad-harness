@@ -19,6 +19,7 @@ from agency.ledger import Ledger
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.sandbox import Sandbox
+from support.rules import RULES
 
 
 def sha(data: bytes) -> str:
@@ -186,7 +187,7 @@ def note_ticket(tmp_path: Path) -> tuple[Toolbox, ToolContext, Ledger, Path, str
     ticket = ledger.open(spec, "p")
     store = FileStore(tmp_path / "artifacts")
     context = ToolContext(
-        "copywriter", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), store, run=None
+        "copywriter", "p", ticket, "i", ledger, Sandbox(work), CommandIndex([]), store, run=None, rules=RULES
     )
     return Toolbox(context), context, ledger, work, ticket
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from agency import registry
 from agency.contracts.project import parse_project_name
 from agency.toolkit.base import Refused, Strict, Tool, ToolContext
 from agency.workshop import craft, master, render
@@ -54,7 +53,7 @@ CRAFT_APP = "vectorcraft"  # every craft tool drives VectorCraft in this phase
 
 
 def require_craft_app(ctx: ToolContext, app: str = CRAFT_APP) -> None:
-    if app not in registry.ROLES[ctx.actor]["craft"]:
+    if app not in ctx.rules.roles[ctx.actor].craft:
         raise Refused(f"{ctx.actor} non lavora con {app}")
 
 

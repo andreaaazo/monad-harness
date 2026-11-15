@@ -25,6 +25,7 @@ from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.files import OutsidePerimeter, sha256
 from agency.workshop.sandbox import Completed, Sandbox
+from support.rules import RULES
 
 needs_craft = pytest.mark.skipif(shutil.which("vectorcraft-cli") is None, reason="needs VectorCraft")
 
@@ -78,8 +79,8 @@ def test_a_measurement_is_stored_as_measured_and_passes_as_measured(tmp_path: Pa
     assert [(row.check_name, row.result) for row in studio.ledger.evidence("p")] == [
         ("diversity", "MEASURED")
     ]
-    assert evidence.accepted("diversity") == ("PASS", "NOT_APPLICABLE", "MEASURED")
-    assert evidence.accepted("critique") == ("PASS", "NOT_APPLICABLE")
+    assert evidence.accepted("diversity", rules=RULES) == ("PASS", "NOT_APPLICABLE", "MEASURED")
+    assert evidence.accepted("critique", rules=RULES) == ("PASS", "NOT_APPLICABLE")
 
 
 class Studio:
@@ -109,7 +110,17 @@ class Studio:
         inputs: list[str] | None = None,
     ) -> None:
         evidence.record(
-            self.ledger, self.work, "p", file, check, result, actor, ticket_id, "proof.png", inputs=inputs
+            self.ledger,
+            self.work,
+            "p",
+            file,
+            check,
+            result,
+            actor,
+            ticket_id,
+            "proof.png",
+            inputs=inputs,
+            rules=RULES,
         )
 
     def deliver(self, ticket_id: str, actor: str, verdict: Verdict | None = None) -> None:
@@ -119,15 +130,19 @@ class Studio:
     def problems(
         self, spec: TicketSpec, verdict: Verdict | None = None, inputs: dict[str, str] | None = None
     ) -> list[str]:
-        return delivery.delivery_problems(self.ledger, "p", self.sandbox, spec, verdict, inputs=inputs)[1]
+        return delivery.delivery_problems(
+            self.ledger, "p", self.sandbox, spec, verdict, inputs=inputs, rules=RULES
+        )[1]
 
     def acceptance(self, ticket_id: str) -> list[str]:
-        return delivery.acceptance_problems(self.ledger, "p", self.sandbox, ticket_id)
+        return delivery.acceptance_problems(self.ledger, "p", self.sandbox, ticket_id, rules=RULES)
 
     def context(self, actor: str, ticket_id: str) -> ToolContext:
         instance = f"{ticket_id}-i"
         index = CommandIndex([])
-        return ToolContext(actor, "p", ticket_id, instance, self.ledger, self.sandbox, index, self.artifacts)
+        return ToolContext(
+            actor, "p", ticket_id, instance, self.ledger, self.sandbox, index, self.artifacts, rules=RULES
+        )
 
 
 # Delivery stops on a failed check and on stale proofs (TST-001, TST-003)
@@ -139,7 +154,9 @@ def test_a_failed_svg_audit_refuses_delivery(tmp_path: Path) -> None:
     (studio.work / FILE).write_text("<svg")
     ticket_id, spec = studio.open()
     author = "identity-designer"
-    outcome = checks.run(studio.sandbox, studio.ledger, "p", ticket_id, author, "svg_audit", FILE)
+    outcome = checks.run(
+        studio.sandbox, studio.ledger, "p", ticket_id, author, "svg_audit", FILE, rules=RULES
+    )
     assert outcome.result == "FAIL"
     assert studio.problems(spec) == [f"{FILE}: 'svg_audit' è FAIL"]
 
@@ -221,13 +238,13 @@ def test_an_export_must_derive_from_the_current_master(tmp_path: Path) -> None:
 
 def test_an_unknown_check_name_is_refused_at_opening() -> None:
     with pytest.raises(delivery.ContractRefused, match="controllo sconosciuto 'svg-audit'"):
-        delivery.validate(ticket(checks={"*.svg": ["svg-audit"]}))
+        delivery.validate(ticket(checks={"*.svg": ["svg-audit"]}), rules=RULES)
 
 
 def test_an_output_without_a_check_is_refused_at_opening() -> None:
     refusal = re.escape("output senza controllo: exports/extra.png")
     with pytest.raises(delivery.ContractRefused, match=refusal):
-        delivery.validate(ticket(outputs=[FILE, "exports/extra.png"]))
+        delivery.validate(ticket(outputs=[FILE, "exports/extra.png"]), rules=RULES)
 
 
 def test_every_file_under_a_glob_output_needs_its_checks(tmp_path: Path) -> None:
@@ -292,7 +309,9 @@ def test_accept_ticket_refuses_a_child_without_its_independent_check(tmp_path: P
     studio.sign("svg_audit", "PASS", "identity-designer", child)
     studio.deliver(child, "identity-designer")
     director = studio.context("design-director", root)
-    result = Toolbox(director, role_tools("design-director")).call("t1", "accept_ticket", {"ticket": child})
+    result = Toolbox(director, role_tools(RULES, "design-director")).call(
+        "t1", "accept_ticket", {"ticket": child}
+    )
     assert result.get("is_error"), result
     assert "accettazione rifiutata" in result["content"]
     assert f"{FILE}: manca la prova 'critique'" in result["content"]
@@ -372,7 +391,7 @@ def test_a_glob_output_through_a_linked_folder_matches_nothing(tmp_path: Path) -
     link_exports_to(studio, host)
     spec = ticket(outputs=["exports/*.svg"])
     assert delivery.expected(spec, studio.work) == ([], ["exports/*.svg"])
-    _, problems = delivery.delivery_problems(studio.ledger, "p", studio.sandbox, spec, None)
+    _, problems = delivery.delivery_problems(studio.ledger, "p", studio.sandbox, spec, None, rules=RULES)
     assert problems == ["exports/*.svg: nessun file corrisponde"]
     assert host_state(host) == {"riservato.svg": SVG.encode()}
 
@@ -381,10 +400,10 @@ def test_a_review_of_a_linked_folder_is_refused_without_its_names(tmp_path: Path
     studio = Studio(tmp_path)
     host = plant_host(tmp_path)
     spec = ticket(**(REVIEW | {"outputs": ["exports/*.svg", "reviews/critica.md"]}))
-    delivery.validate_review(spec, studio.work, set())  # the folder is real: the review may open
+    delivery.validate_review(spec, studio.work, set(), rules=RULES)  # the folder is real: the review may open
     link_exports_to(studio, host)
     with pytest.raises(delivery.ContractRefused) as refused:
-        delivery.validate_review(spec, studio.work, set())
+        delivery.validate_review(spec, studio.work, set(), rules=RULES)
     assert "exports/*.svg" in str(refused.value)
     assert "riservato" not in str(refused.value)
 
@@ -557,7 +576,9 @@ def test_the_render_hash_of_a_proof_never_follows_a_link(
     monkeypatch.setattr(checks, "is_file_under", lambda root, relative: True)
     ticket_id, _ = studio.open()
     with pytest.raises(OutsidePerimeter):
-        checks.run(sandbox, studio.ledger, "p", ticket_id, "identity-designer", "optical_check", FILE)
+        checks.run(
+            sandbox, studio.ledger, "p", ticket_id, "identity-designer", "optical_check", FILE, rules=RULES
+        )
     assert studio.ledger.evidence("p") == []
 
 
@@ -568,7 +589,14 @@ def test_a_check_is_refused_for_a_file_that_is_a_link_inside_the_work_folder(tmp
     (studio.work / "exports/via.svg").symlink_to(studio.work / "exports/vero.svg")
     with pytest.raises(evidence.EvidenceRefused, match=re.escape("file inesistente: exports/via.svg")):
         checks.run(
-            sandbox, studio.ledger, "p", ticket_id, "identity-designer", "optical_check", "exports/via.svg"
+            sandbox,
+            studio.ledger,
+            "p",
+            ticket_id,
+            "identity-designer",
+            "optical_check",
+            "exports/via.svg",
+            rules=RULES,
         )
     assert sandbox.outs == []
 

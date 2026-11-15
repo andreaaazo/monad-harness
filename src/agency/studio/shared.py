@@ -11,6 +11,7 @@ from agency.config import Settings
 from agency.contracts.outcome import Outcome
 from agency.contracts.phase import DirectorMode
 from agency.contracts.project import parse_project_name
+from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import TicketType
 from agency.ledger import Ledger
 from agency.workshop.files import read_under, replace_under
@@ -96,11 +97,12 @@ class Runner(Protocol):
 
 @dataclass(frozen=True)
 class Crew:
-    """What the nodes work with: who runs the agents, the registry and the settings."""
+    """What the nodes work with: who runs the agents, the registry, the settings and the studio rules."""
 
     runner: Runner
     ledger: Ledger
     settings: Settings
+    rules: StudioRules
 
     def work_dir(self, project: str) -> Path:
         return self.settings.work_dir(parse_project_name(project))

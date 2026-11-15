@@ -31,6 +31,7 @@ def deliver(ctx: ToolContext, a: Deliver, _: str) -> dict:
         spec,
         a.verdict,
         inputs=ctx.ledger.inputs(ctx.ticket_id),
+        rules=ctx.rules,
     )
     if problems:
         raise Refused("consegna rifiutata:\n" + "\n".join(problems[:20]))

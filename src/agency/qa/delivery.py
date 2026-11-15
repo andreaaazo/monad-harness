@@ -5,9 +5,8 @@ from __future__ import annotations
 import fnmatch
 from pathlib import Path
 
-from agency import registry
 from agency.contracts.files import glob_under, inside, is_file_under, sha256_under
-from agency.contracts.registry import CheckKind
+from agency.contracts.registry import CheckKind, StudioRules
 from agency.contracts.ticket import (
     AUTHOR_TYPES,
     NO_CHECK_TYPES,
@@ -59,11 +58,11 @@ def _needs_coverage(spec: TicketSpec, file: str) -> bool:
     return not (spec.type in REVIEW_TYPES and file.endswith(".md"))
 
 
-def validate(spec: TicketSpec) -> None:
+def validate(spec: TicketSpec, rules: StudioRules) -> None:
     """Refuses, at opening, a contract that would let an output through unchecked."""
     for names in spec.checks.values():
         for name in names:
-            why = evidence.check_problem(name)
+            why = evidence.check_problem(name, rules)
             if why:
                 raise ContractRefused(why)
     for pattern in spec.checks:
@@ -73,7 +72,7 @@ def validate(spec: TicketSpec) -> None:
                 f"il pattern '{pattern}' non corrisponde a nessun output: non controllerebbe nulla.{hint}"
             )
     for output in spec.outputs:
-        unseen = [name for name in checks_for(spec, output) if _looked_at(name)]
+        unseen = [name for name in checks_for(spec, output) if _looked_at(name, rules)]
         if unseen and Path(output).suffix.lower() not in ("", *render.RENDERABLE):
             hint = f" {REVIEW_SHAPE}" if spec.type in REVIEW_TYPES else ""
             raise ContractRefused(
@@ -87,16 +86,16 @@ def validate(spec: TicketSpec) -> None:
             )
 
 
-def _looked_at(check: str) -> bool:
-    return registry.CHECKS.get(check, {}).get("kind") in LOOKED_AT
+def _looked_at(check: str, rules: StudioRules) -> bool:
+    return rules.kind_of(check) in LOOKED_AT
 
 
-def validate_review(spec: TicketSpec, work: Path, coming: set[str]) -> None:
+def validate_review(spec: TicketSpec, work: Path, coming: set[str], rules: StudioRules) -> None:
     """A reviewer writes only in reviews/: any other contract would end in a report that cannot be delivered.
 
     `coming` are the files others are producing: a review can be opened before they exist.
     """
-    if spec.assignee not in registry.REVIEWERS:
+    if spec.assignee not in rules.reviewers():
         return
     absent = [
         output
@@ -144,6 +143,7 @@ def evidence_problems(
     files: list[str],
     include_independent: bool,
     verdict: Verdict | None,
+    rules: StudioRules,
 ) -> list[str]:
     """One problem per required proof that is missing, signed by the author when it must be independent,
     stale, or not passed. Outside reviews, independent checks count only at acceptance
@@ -157,7 +157,7 @@ def evidence_problems(
         for check in checks_for(spec, file):
             if review and verdict is Verdict.NOT_VERIFIED:
                 continue
-            independent = evidence.is_independent(check)
+            independent = evidence.is_independent(check, rules)
             if independent and not include_independent and not review:
                 continue
             row = table.get((file, check))
@@ -167,7 +167,9 @@ def evidence_problems(
                 problems.append(f"{file}: '{check}' è firmata dall'autore, serve un revisore")
             elif evidence.freshness(row, work) != "fresh":
                 problems.append(f"{file}: '{check}' è {evidence.freshness(row, work)}: il file è cambiato")
-            elif not (review and verdict is Verdict.REVISE) and row.result not in evidence.accepted(check):
+            elif not (review and verdict is Verdict.REVISE) and row.result not in evidence.accepted(
+                check, rules
+            ):
                 problems.append(f"{file}: '{check}' è {row.result}")
     return problems
 
@@ -214,6 +216,8 @@ def delivery_problems(
     spec: TicketSpec,
     verdict: Verdict | None,
     inputs: dict[str, str] | None = None,
+    *,
+    rules: StudioRules,
 ) -> tuple[list[str], list[str]]:
     """The output files present, and what blocks the delivery: missing outputs, inputs changed since the
     opening, coverage, proofs and masters."""
@@ -229,12 +233,14 @@ def delivery_problems(
     problems += stale
     present = [file for file in files if is_file_under(work, file)]
     problems += coverage_problems(spec, present)
-    problems += evidence_problems(ledger, project, work, spec, present, False, verdict)
+    problems += evidence_problems(ledger, project, work, spec, present, False, verdict, rules)
     problems += master_problems(ledger, project, sandbox, spec, present)
     return present, problems
 
 
-def acceptance_problems(ledger: Ledger, project: str, sandbox: Sandbox, ticket_id: str) -> list[str]:
+def acceptance_problems(
+    ledger: Ledger, project: str, sandbox: Sandbox, ticket_id: str, rules: StudioRules
+) -> list[str]:
     """What blocks acceptance: a delivered file changed since the delivery, or a required proof, independent
     ones included, that is not in order."""
     spec = ledger.spec(ticket_id)
@@ -245,5 +251,5 @@ def acceptance_problems(ledger: Ledger, project: str, sandbox: Sandbox, ticket_i
         for file, digest in delivered.items()
         if not inside(sandbox.work, file).exists() or sha256_under(sandbox.work, file) != digest
     ]
-    problems += evidence_problems(ledger, project, sandbox.work, spec, list(delivered), True, verdict)
+    problems += evidence_problems(ledger, project, sandbox.work, spec, list(delivered), True, verdict, rules)
     return problems

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pydantic import ValidationError
 
-from agency import registry
 from agency.contracts.outcome import Outcome
 from agency.contracts.phase import DirectorMode
+from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import TicketSpec, TicketType
 from agency.ledger import ForbiddenAction, IllegalTransition
 from agency.qa import evidence
@@ -54,19 +54,21 @@ KIND_TOOLS = {
 }
 
 
-def _without_craft(role: str, names: list[str]) -> list[str]:
+def _without_craft(rules: StudioRules, role: str, names: list[str]) -> list[str]:
     """A role that lists no Craft app gets no craft_* tool, whatever set it is given."""
-    if registry.ROLES[role]["craft"]:
+    if rules.roles[role].craft:
         return names
     return [name for name in names if not name.startswith("craft_")]
 
 
-def role_tools(role: str) -> list[Tool]:
-    names = _without_craft(role, KIND_TOOLS[registry.ROLES[role]["tools"]])
+def role_tools(rules: StudioRules, role: str) -> list[Tool]:
+    names = _without_craft(rules, role, KIND_TOOLS[rules.roles[role].tools])
     return [TOOLS[name] for name in sorted(names)]
 
 
-def tools_for(role: str, spec: TicketSpec, mode: DirectorMode | None = None) -> list[Tool]:
+def tools_for(
+    rules: StudioRules, role: str, spec: TicketSpec, mode: DirectorMode | None = None
+) -> list[Tool]:
     """The set depends on the phase: who looks for the idea cannot draw, and who draws cannot finish."""
     names = PHASE_TOOLS[mode] if mode is not None else None
     if names is None and spec.prompt == "critic-board":
@@ -76,8 +78,8 @@ def tools_for(role: str, spec: TicketSpec, mode: DirectorMode | None = None) -> 
     if names is None and spec.type is TicketType.PROPOSAL:
         names = PROPOSAL
     if not names:
-        return role_tools(role)
-    return [TOOLS[name] for name in sorted(_without_craft(role, names))]
+        return role_tools(rules, role)
+    return [TOOLS[name] for name in sorted(_without_craft(rules, role, names))]
 
 
 class Toolbox:
@@ -87,7 +89,7 @@ class Toolbox:
     def __init__(self, context: ToolContext, tools: list[Tool] | None = None) -> None:
         self.context = context
         # The set does not change during the instance: changing it would invalidate the prompt cache.
-        chosen = tools if tools is not None else role_tools(context.actor)
+        chosen = tools if tools is not None else role_tools(context.rules, context.actor)
         self.tools = {tool.name: tool for tool in chosen}
         self._definitions = [definition(tool) for tool in self.tools.values()]
 

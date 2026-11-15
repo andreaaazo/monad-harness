@@ -19,6 +19,7 @@ from agency.ledger.models import ConceptRow, EvidenceRow, GateRow, TicketRow, Us
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.sandbox import Sandbox
+from support.rules import RULES
 
 
 def production(**extra: object) -> TicketSpec:
@@ -874,7 +875,15 @@ def test_a_replayed_view_image_shows_the_image_and_keeps_the_first_record(
     Image.new("RGB", (40, 40), (200, 0, 0)).save(work / "a.png")
     ledger = Ledger(tmp_path / "ledger.sqlite")
     context = ToolContext(
-        "critic", "p", "T-1", "i", ledger, Sandbox(work), CommandIndex([]), FileStore(tmp_path / "artifacts")
+        "critic",
+        "p",
+        "T-1",
+        "i",
+        ledger,
+        Sandbox(work),
+        CommandIndex([]),
+        FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     toolbox = Toolbox(context)
     first = toolbox.call("t1", "view_image", {"path": "a.png"})

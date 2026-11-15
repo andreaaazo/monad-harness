@@ -24,7 +24,7 @@ def client_gate(crew: Crew) -> Node:
             return {"client_note": decision.text, "outcome": ""}
         project = state["project"]
         sandbox = Sandbox(crew.work_dir(project), crew.settings.toolchain_dir)
-        problems = delivery.acceptance_problems(crew.ledger, project, sandbox, root)
+        problems = delivery.acceptance_problems(crew.ledger, project, sandbox, root, crew.rules)
         if problems:
             text = "Accettazione rifiutata dal sistema:\n" + "\n".join(problems[:12])
             crew.ledger.apply(root, Action.REWORK, "router", text)

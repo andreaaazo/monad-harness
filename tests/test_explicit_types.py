@@ -23,6 +23,7 @@ from agency.studio.shared import END_ROUTE
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.sandbox import Sandbox
+from support.rules import RULES
 
 # The payloads as the graph has always written them: a paused checkpoint must still read.
 CONCEPT_PAYLOAD = {
@@ -147,6 +148,7 @@ def test_a_closing_tool_already_run_closes_again_on_resume(
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "a"),
+        rules=RULES,
     )
     ledger.record_operation("i:t1", "i", tool, stored)
     result = Toolbox(context, [TOOLS[tool]]).call("t1", tool, {})
@@ -165,6 +167,7 @@ def test_a_draft_with_pages_does_not_close_on_resume(tmp_path: Path) -> None:
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "a"),
+        rules=RULES,
     )
     ledger.record_operation("i:t1", "i", "draft_presentation", '{"pagine": ["p1.png"], "poi": "guarda"}')
     Toolbox(context, [TOOLS["draft_presentation"]]).call("t1", "draft_presentation", {})

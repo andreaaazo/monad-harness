@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agency.contracts.files import ensure_dir_under, glob_under, is_file_under, sha256_under
+from agency.contracts.registry import StudioRules
 from agency.ledger import Ledger
 from agency.qa import evidence
 from agency.workshop import master
@@ -75,6 +76,8 @@ def run(
     check: str,
     file: str,
     resume: Callable[[CheckOutcome], tuple[str, str, str, str]] | None = None,
+    *,
+    rules: StudioRules,
 ) -> CheckOutcome:
     """Runs a runnable check and records its proof, signed by `actor`.
 
@@ -82,7 +85,7 @@ def run(
     """
     if check not in RUNNABLE:
         raise evidence.EvidenceRefused(f"{check} non si esegue: usa observe, judge o record_requirement")
-    evidence.guard(ledger, project, file, check, actor)
+    evidence.guard(ledger, project, file, check, actor, rules)
     if not is_file_under(sandbox.work, file):
         raise evidence.EvidenceRefused(f"file inesistente: {file}")
     outcome = execute(sandbox, check, file)
@@ -101,5 +104,6 @@ def run(
             proof=outcome.proofs[0] if outcome.proofs else "",
             note=outcome.detail[:400],
             operation=resume(outcome) if resume else None,
+            rules=rules,
         )
     return outcome

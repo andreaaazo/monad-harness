@@ -6,7 +6,6 @@ import contextlib
 
 from opentelemetry import trace
 
-from agency import registry
 from agency.agents import prompts
 from agency.agents.toolbox import Toolbox, tools_for
 from agency.agents.transcript import Transcript
@@ -15,6 +14,7 @@ from agency.contracts import phase
 from agency.contracts.artifact import ArtifactStore
 from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import parse_project_name
+from agency.contracts.registry import StudioRules
 from agency.contracts.ticket import RUNNABLE, Action, TicketSpec
 from agency.gateway import CallContext, ModelGateway, ModelRequest, ModelResponse
 from agency.ledger import IllegalTransition, Ledger
@@ -78,12 +78,14 @@ class AgentRunner:
         settings: Settings,
         index: CommandIndex,
         artifacts: ArtifactStore,
+        rules: StudioRules,
     ) -> None:
         self.gateway = gateway
         self.ledger = ledger
         self.settings = settings
         self.index = index
         self.artifacts = artifacts
+        self.rules = rules
 
     def run(
         self,
@@ -124,12 +126,13 @@ class AgentRunner:
                 sandbox=Sandbox(work, self.settings.toolchain_dir, ops=inputs),
                 index=self.index,
                 artifacts=self.artifacts,
+                rules=self.rules,
                 mode=mode,
                 round=exploration or attempt,
                 settings=self.settings,
                 run=self.gateway.run,
             ),
-            tools_for(role, spec, mode),
+            tools_for(self.rules, role, spec, mode),
         )
         context = CallContext(project, ticket_id, role, instance, phase=prompt)
         with tracer.start_as_current_span("agent.run") as span:
@@ -151,7 +154,7 @@ class AgentRunner:
         rework_note: str,
     ) -> Outcome:
         role = spec.assignee
-        config = registry.ROLES[role]
+        config = self.rules.roles[role]
         choice = self.ledger.project(context.project)  # the client's model and effort override the role's
         system = [
             {"type": "text", "text": prompts.system_prompt(prompt), "cache_control": {"type": "ephemeral"}}
@@ -179,8 +182,8 @@ class AgentRunner:
                     reminded = True
             paused = False
             request = ModelRequest(
-                model=choice.model if choice and choice.model else config["model"],
-                effort=(choice.effort if choice and choice.effort else "") or spec.effort or config["effort"],
+                model=choice.model if choice and choice.model else config.model,
+                effort=(choice.effort if choice and choice.effort else "") or spec.effort or config.effort,
                 system=system,
                 messages=messages,
                 tools=toolbox.definitions(),

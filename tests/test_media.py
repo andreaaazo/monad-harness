@@ -14,6 +14,7 @@ from agency.ledger import Ledger
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex
 from agency.workshop.sandbox import Sandbox
+from support.rules import RULES
 
 EPS = b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n"
 
@@ -43,6 +44,7 @@ def test_view_image_takes_the_media_type_from_the_content(tmp_path: Path) -> Non
         Sandbox(tmp_path),
         CommandIndex([]),
         FileStore(tmp_path / "artifacts"),
+        rules=RULES,
     )
     result = Toolbox(context).call("a", "view_image", {"path": "x.png"})
     assert not result.get("is_error")

@@ -6,7 +6,6 @@ import os
 
 from pydantic import Field
 
-from agency import registry
 from agency.contracts.registry import CheckKind
 from agency.qa import checks as qa
 from agency.qa import evidence
@@ -54,7 +53,17 @@ def run_check(ctx: ToolContext, a: RunCheck, operation_id: str) -> dict:
     def resume(outcome: qa.CheckOutcome) -> tuple[str, str, str, str]:
         return _recorded(ctx, operation_id, "run_check", _check_result(outcome))
 
-    outcome = qa.run(ctx.sandbox, ctx.ledger, ctx.project, ctx.ticket_id, ctx.actor, a.check, a.file, resume)
+    outcome = qa.run(
+        ctx.sandbox,
+        ctx.ledger,
+        ctx.project,
+        ctx.ticket_id,
+        ctx.actor,
+        a.check,
+        a.file,
+        resume,
+        rules=ctx.rules,
+    )
     return _check_result(outcome)
 
 
@@ -73,7 +82,7 @@ def _seen_proof(ctx: ToolContext, file: str) -> str:
 def observe(ctx: ToolContext, a: Observe, operation_id: str) -> dict:
     if len(a.seen.strip()) < 40:
         raise Refused("descrivi cosa hai visto, con almeno una frase concreta")
-    if registry.CHECKS.get(a.check, {}).get("kind") != CheckKind.OBSERVATION:
+    if ctx.rules.kind_of(a.check) != CheckKind.OBSERVATION:
         raise Refused(f"{a.check} non è un controllo di osservazione")
     proof = _seen_proof(ctx, a.file)
     value = {"ok": True, "check": a.check, "result": a.result, "proof": proof}
@@ -89,12 +98,13 @@ def observe(ctx: ToolContext, a: Observe, operation_id: str) -> dict:
         proof,
         a.seen,
         operation=_recorded(ctx, operation_id, "observe", value),
+        rules=ctx.rules,
     )
     return value
 
 
 def judge(ctx: ToolContext, a: Judge, operation_id: str) -> dict:
-    if registry.CHECKS.get(a.check, {}).get("kind") != CheckKind.JUDGEMENT:
+    if ctx.rules.kind_of(a.check) != CheckKind.JUDGEMENT:
         raise Refused(f"{a.check} non è un giudizio")
     if len(a.why.strip()) < 60:
         raise Refused("motiva con elementi visibili del confronto")
@@ -119,12 +129,13 @@ def judge(ctx: ToolContext, a: Judge, operation_id: str) -> dict:
         note,
         a.compare,
         operation=_recorded(ctx, operation_id, "judge", value),
+        rules=ctx.rules,
     )
     return value
 
 
 def record_requirement(ctx: ToolContext, a: RecordRequirement, operation_id: str) -> dict:
-    kind = registry.CHECKS.get(a.check, {}).get("kind")
+    kind = ctx.rules.kind_of(a.check)
     if kind in (CheckKind.OBSERVATION, CheckKind.JUDGEMENT, CheckKind.MEASURE) or a.check in qa.RUNNABLE:
         raise Refused(f"{a.check} ha il suo strumento: run_check, observe o judge")
     value = {"ok": True}
@@ -139,6 +150,7 @@ def record_requirement(ctx: ToolContext, a: RecordRequirement, operation_id: str
         ctx.ticket_id,
         note=a.note,
         operation=_recorded(ctx, operation_id, "record_requirement", value),
+        rules=ctx.rules,
     )
     return value
 

@@ -10,6 +10,7 @@ import selectors
 import signal
 import subprocess
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from agency.contracts.sandbox import JOB, OPS, Completed
@@ -82,6 +83,14 @@ def scope_problem() -> str | None:
     return f"systemd-run non crea lo scope (uscita {done.returncode}): {said[:300]}"
 
 
+@dataclass
+class _Scope:
+    """Whether a capped scope was probed. One holder for a sandbox and every copy `with_mount` makes of it:
+    `copy.copy` shares it, so a probe made by either counts for all."""
+
+    checked: bool = False
+
+
 class Sandbox:
     """Runs commands under bubblewrap, in a capped cgroup scope: the work folder is /job and the only host
     folder it can write; no network, and an environment with nothing from the host's."""
@@ -100,12 +109,12 @@ class Sandbox:
         self.read_only = read_only
         self.ops = ops
         self.mounts: tuple[tuple[Path, str], ...] = ()
-        self._scope_checked = False
+        self._scope = _Scope()
 
     def with_mount(self, source: Path, target: str) -> Sandbox:
         """A copy that also binds `source` read-only at `target`. Whoever needs the folder adds it: the QA
         checks add their scripts, and no other command sees them (ADR-0057). A copy, not a new instance, so a
-        subclass keeps its behaviour and the scope check already done carries over."""
+        subclass keeps its behaviour; the copy shares the original's scope probe, so one probe serves both."""
         mounted = copy.copy(self)
         mounted.mounts = (*self.mounts, (source, target))
         return mounted
@@ -166,11 +175,11 @@ class Sandbox:
     def run(self, command: list[str], timeout: float = 120) -> Completed:
         """Runs `command` in the sandbox. A timeout answers 124, and a stream past `OUTPUT_BYTES` answers 125.
         The first run checks that a capped scope can start, and raises `SandboxUnavailable` if not."""
-        if not self._scope_checked:
+        if not self._scope.checked:
             why = scope_problem()
             if why:
                 raise SandboxUnavailable(f"la sandbox non parte senza i limiti di memoria e processi: {why}")
-            self._scope_checked = True
+            self._scope.checked = True
         # Its own process group, so that the kill below reaches systemd-run and bwrap (and, through bwrap's
         # --die-with-parent, everything in the sandbox) even though the command itself runs in a new session.
         proc = subprocess.Popen(

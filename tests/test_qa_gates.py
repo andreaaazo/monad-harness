@@ -23,6 +23,7 @@ from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType, Verd
 from agency.ledger import Ledger
 from agency.qa import checks, delivery, evidence
 from agency.toolkit.base import ToolContext
+from agency.workshop import sandbox as sandbox_module
 from agency.workshop.craft import CommandIndex
 from agency.workshop.files import OutsidePerimeter, sha256
 from agency.workshop.sandbox import Completed, Sandbox
@@ -655,6 +656,28 @@ def test_a_check_mounts_the_qa_scripts_and_keeps_everything_else(tmp_path: Path)
     assert plain[bound - 1 : bound + 2] == ["--ro-bind", str(toolchain), str(toolchain)]
     assert copy.python() == sandbox.python() == str(toolchain / "venv/bin/python")
     assert sandbox.argv(["true"]) == plain  # the original gains no mount
+
+
+@pytest.mark.sandbox
+def test_a_probe_on_a_mounted_copy_counts_for_the_original(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A check is often an instance's first sandbox command: the scope it probed holds for the commands after
+    it, on the original as on the copy."""
+    probes: list[str | None] = []
+    real = sandbox_module.scope_problem
+
+    def counted() -> str | None:
+        probes.append(real())
+        return probes[-1]
+
+    monkeypatch.setattr(sandbox_module, "scope_problem", counted)
+    work = tmp_path / "w"
+    work.mkdir()
+    sandbox = Sandbox(work)
+    assert sandbox.with_mount(checks.SCRIPTS, checks.QA_MOUNT).run(["true"]).code == 0
+    assert sandbox.run(["true"]).code == 0
+    assert probes == [None]
 
 
 def test_the_bwrap_sandbox_is_a_sandbox_port(tmp_path: Path) -> None:

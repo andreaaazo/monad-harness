@@ -24,10 +24,11 @@ from agency.contracts.ticket import TicketSpec, TicketType
 from agency.gateway import AnthropicTransport, ModelGateway, RecordingTransport, Transport
 from agency.ledger import Ledger
 from agency.ledger.store import BUSY_SECONDS
+from agency.process import fingerprint
 from agency.process.graph import Graph, build
 from agency.qa import delivery
 from agency.studio.shared import ProjectState
-from agency.telemetry import configure, fingerprint
+from agency.telemetry import configure
 from agency.workshop.craft import CommandIndex
 from agency.workshop.files import replace_under, sha256_under
 

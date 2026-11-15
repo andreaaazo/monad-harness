@@ -15,7 +15,6 @@ from pathlib import Path
 import pytest
 from sqlmodel import Session
 
-from agency import cli
 from agency.agents.transcript import Transcript
 from agency.contracts import phase
 from agency.contracts.layout import DataLayout
@@ -23,6 +22,7 @@ from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import ProjectName
 from agency.contracts.run import Fingerprint, RunCommand
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
+from agency.entrypoints import cli
 from agency.insights import application
 from agency.insights.adapters.ledger import ReadOnlyLedger
 from agency.insights.adapters.projection import SqliteProjection

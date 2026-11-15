@@ -19,8 +19,8 @@ from alembic.runtime.migration import MigrationContext
 from sqlalchemy import create_engine, text
 from sqlmodel import SQLModel
 
-from agency import cli
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
+from agency.entrypoints import cli
 from agency.ledger import Ledger, LedgerOutdated, chain, schema
 from agency.ledger.models import TicketRow
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate

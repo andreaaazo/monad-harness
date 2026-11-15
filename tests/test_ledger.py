@@ -10,10 +10,10 @@ from sqlalchemy import event as sa_event
 from sqlalchemy import text
 from sqlmodel import Session
 
-from agency import cli
 from agency.agents.toolbox import Toolbox
 from agency.artifacts import FileStore
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
+from agency.entrypoints import cli
 from agency.ledger import ForbiddenAction, IllegalTransition, Ledger, chain, store
 from agency.ledger.models import ConceptRow, EvidenceRow, GateRow, TicketRow, UsageRow
 from agency.toolkit.base import ToolContext

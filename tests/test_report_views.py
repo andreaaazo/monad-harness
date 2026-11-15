@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from agency import cli
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
+from agency.entrypoints import cli
 from agency.insights import views
 from agency.insights.domain import (
     Call,

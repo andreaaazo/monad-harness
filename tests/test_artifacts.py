@@ -9,12 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from agency import cli
 from agency.agents.toolbox import Toolbox
 from agency.artifacts import FileStore, keeping
 from agency.config import Settings
 from agency.contracts.artifact import ArtifactMissing, Blob, Origin
 from agency.contracts.ticket import Action, Medium, TicketSpec, TicketType
+from agency.entrypoints import cli
 from agency.ledger import Ledger
 from agency.toolkit.base import ToolContext
 from agency.workshop.craft import CommandIndex

@@ -14,8 +14,8 @@ from pathlib import Path, PurePosixPath
 import pytest
 from PIL import Image
 
-from agency import cli
 from agency.contracts.files import MAX_IMAGE_FILE_BYTES
+from agency.entrypoints import cli
 from agency.evaluation import board
 from agency.evaluation.blind import CannotCompare
 from agency.workshop import sandbox

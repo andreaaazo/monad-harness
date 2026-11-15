@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-agency = "agency.cli:main"
+agency = "agency.entrypoints.cli:main"
 agency-server = "agency.entrypoints.server.serve:main"
 agency-schemas = "agency.entrypoints.server.schema:main"
 
@@ -80,10 +80,9 @@ source_modules = ["agency.insights"]
 forbidden_modules = [
   "agency.agents",
   "agency.artifacts",
-  "agency.cli",
   "agency.config",
   "agency.context",
-  "agency.doctor",
+  "agency.entrypoints.cli",
   "agency.evaluation",
   "agency.gateway",
   "agency.ledger",
@@ -108,11 +107,10 @@ type = "forbidden"
 source_modules = [
   "agency.agents",
   "agency.artifacts",
-  "agency.cli",
   "agency.config",
   "agency.context",
   "agency.contracts",
-  "agency.doctor",
+  "agency.entrypoints.cli",
   "agency.evaluation",
   "agency.gateway",
   "agency.insights",
@@ -125,7 +123,7 @@ source_modules = [
   "agency.toolkit",
   "agency.workshop",
 ]
-forbidden_modules = ["django", "ninja", "agency.entrypoints"]
+forbidden_modules = ["django", "ninja", "agency.entrypoints.server"]
 
 [[tool.importlinter.contracts]]
 name = "the server only reads: no engine, no Ledger, no .env (ADR-0019)"
@@ -134,10 +132,9 @@ source_modules = ["agency.entrypoints.server"]
 forbidden_modules = [
   "agency.agents",
   "agency.artifacts",
-  "agency.cli",
   "agency.config",
   "agency.context",
-  "agency.doctor",
+  "agency.entrypoints.cli",
   "agency.evaluation",
   "agency.gateway",
   "agency.ledger",
@@ -162,10 +159,9 @@ source_modules = ["agency.evaluation"]
 forbidden_modules = [
   "agency.agents",
   "agency.artifacts",
-  "agency.cli",
   "agency.config",
   "agency.context",
-  "agency.doctor",
+  "agency.entrypoints.cli",
   "agency.gateway",
   "agency.insights",
   "agency.ledger",
@@ -190,11 +186,9 @@ type = "forbidden"
 source_modules = [
   "agency.agents",
   "agency.artifacts",
-  "agency.cli",
   "agency.config",
   "agency.context",
   "agency.contracts",
-  "agency.doctor",
   "agency.entrypoints",
   "agency.evaluation",
   "agency.insights",

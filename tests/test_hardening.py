@@ -18,7 +18,6 @@ import pytest
 from PIL import Image
 from pydantic import ValidationError
 
-from agency import cli
 from agency.agents.loop import AgentRunner
 from agency.agents.toolbox import TOOLS, Toolbox, role_tools
 from agency.agents.transcript import Transcript
@@ -30,6 +29,8 @@ from agency.contracts.layout import RelativeDataRoot
 from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.run import Fingerprint
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType
+from agency.entrypoints import cli
+from agency.entrypoints.cli import render as report
 from agency.evaluation.blind import CannotCompare
 from agency.gateway import ModelGateway
 from agency.insights.domain import Provenance
@@ -38,7 +39,6 @@ from agency.ledger import Ledger
 from agency.ledger.models import ArtifactRow, ConceptRow, EvidenceRow, JudgmentRow, RunRow, UsageRow
 from agency.qa import checks as qa
 from agency.qa import delivery, evidence
-from agency.telemetry import report
 from agency.toolkit.base import ToolContext
 from agency.toolkit.review import _seen_proof
 from agency.workshop import craft

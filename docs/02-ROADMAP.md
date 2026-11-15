@@ -431,7 +431,7 @@ rimandato qui alcuni problemi trovati; il codice e gli ID sono in `docs/audit/SU
    `uv run ruff check --select C901 --config "lint.mccabe.max-complexity = 10" src/agency/process src/agency/studio` e
    `grep -rn langchain_core src`.
 4. [ ] **Dominio e applicazione**: regole pure, casi d'uso e porte fuori dai framework. La CLI passa in `entrypoints/cli/`
-   con il suo renderer, che oggi sta in `telemetry` (STR-007).
+   con il suo renderer (STR-007): fatto il 2026-11-15, con `doctor`; l'impronta delle esecuzioni è passata in `process`.
 5. [ ] **`import-linter` bloccante** su tutto il pacchetto, con le regole di ADR-0021 ancora mancanti: `langgraph` solo nel
    processo e nei nodi, `sqlmodel` solo nel registro, il registro solo dietro la sua porta (STR-003). Oggi `sqlmodel` sta
    già solo nel registro, ma nessun contratto lo impone.

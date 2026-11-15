@@ -102,7 +102,7 @@ Restano Markdown versionati: il gateway le carica a richiesta.
 | `start-agency.sh` | dismesso: `agency` CLI | M2 | dismesso |
 | `start-craft.sh` | `agency.workshop.craft`: fatto per VectorCraft, restano gli altri Craft | M2 | in corso |
 | `ticket.py` | `agency.ledger`, `agency.contracts.ticket` | M0–M1 | fatto |
-| `tools.py` | `agency.doctor` | M0 | fatto |
+| `tools.py` | `agency.entrypoints.cli.doctor` | M0 | fatto |
 | `validate_agency.py` | `tests/test_registry.py` | M2 | in corso |
 | `workdir.py` | `agency.workshop.files` | M1 | fatto |
 
@@ -153,5 +153,5 @@ Diventano strumenti con schema per gli agenti o controlli in `agency.qa`; la log
 | `TOOLS.md` | `prompts/org/TOOLS.md` | M2 | da portare |
 | `checks.json` | `registry/checks.json` | M0 | fatto |
 | `budgets.json` | dismesso: i vincoli sono modello e budget del cliente (ADR-0015) | M1.5 | dismesso |
-| `tools/registry.json` | `agency.doctor` | M1 | fatto |
+| `tools/registry.json` | `agency.entrypoints.cli.doctor` | M1 | fatto |
 | `templates/*`, `references/*` | `prompts/org/` | M2 | da portare |

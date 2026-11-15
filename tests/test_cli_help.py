@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from agency import cli
+from agency.entrypoints import cli
 from agency.entrypoints.server import schema, serve
 
 SNAPSHOTS = Path(__file__).parent / "snapshots" / "cli"

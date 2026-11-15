@@ -27,12 +27,12 @@ from django.conf import settings  # noqa: E402
 from django.http import HttpRequest, HttpResponse  # noqa: E402
 from django.test import Client, RequestFactory, override_settings  # noqa: E402
 
-from agency import cli  # noqa: E402
 from agency.agents.transcript import Transcript  # noqa: E402
 from agency.config import REPO_ROOT  # noqa: E402
 from agency.contracts.layout import DataLayout  # noqa: E402
 from agency.contracts.project import ProjectName  # noqa: E402
 from agency.contracts.ticket import TicketSpec, TicketType  # noqa: E402
+from agency.entrypoints import cli  # noqa: E402
 from agency.entrypoints.server import serve  # noqa: E402
 from agency.entrypoints.server.middleware import ReadOnly  # noqa: E402
 from agency.insights.behaviour import BehaviourReport  # noqa: E402
@@ -559,7 +559,9 @@ def test_every_engine_package_is_forbidden_to_import_django() -> None:
         path.stem for path in source.iterdir() if path.suffix == ".py" or (path / "__init__.py").exists()
     }
     present -= {"__init__", "entrypoints"}
-    assert {module.removeprefix("agency.") for module in engine["source_modules"]} == present
+    # The CLI is an entry point, and it runs the engine: it must not import Django either.
+    sources = {module.removeprefix("agency.") for module in engine["source_modules"]}
+    assert sources == present | {"entrypoints.cli"}
 
 
 # What each read-only slice may import from the engine. Every other package on disk must be forbidden.

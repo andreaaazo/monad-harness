@@ -73,7 +73,7 @@ conosce.
 
 ## Prevenzione
 
-- Ogni processo figlio dell'harness riceve un `env=` esplicito, come già `src/agency/telemetry/fingerprint.py` per le CLI.
+- Ogni processo figlio dell'harness riceve un `env=` esplicito, come già `src/agency/process/fingerprint.py` per le CLI.
   Anche `CommandIndex.load` in `src/agency/workshop/craft.py` lancia `vectorcraft-cli` sull'host con il solo `PATH`, dal
   2026-11-14 (`tests/test_craft_index.py`); prima gli passava l'ambiente intero (`docs/audit/PLAN.md`, R1).
 - Una prova di isolamento cerca il segreto dove un attaccante lo cercherebbe: `test_no_process_in_the_sandbox_holds_the_key`

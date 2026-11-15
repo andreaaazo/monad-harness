@@ -13,14 +13,14 @@ import pytest
 from PIL import Image
 from pydantic import ValidationError
 
-from agency import cli
 from agency.artifacts import FileStore
 from agency.config import Settings
 from agency.contracts.judgment import Judged, Judgment, Level, Rating
+from agency.entrypoints import cli
+from agency.entrypoints.cli import render as report
 from agency.evaluation import blind
 from agency.insights.views import ProjectReport
 from agency.ledger import Ledger
-from agency.telemetry import report
 from support.drawings import FakeVectorcraft, red_pixels, svg
 
 

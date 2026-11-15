@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import importlib
 import os
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
 
-from agency import cli
 from agency.config import REPO_ROOT, DotenvHoldsSetting, Settings
 from agency.contracts.layout import DataLayout
 from agency.contracts.project import ProjectName, parse_project_name
+from agency.entrypoints import cli
 from agency.process.session import open_session
 from agency.workshop.craft import CommandIndex
 from support.scripted import ScriptedTransport
@@ -191,3 +193,10 @@ def test_an_old_env_example_copy_stops_with_one_line(
     assert len(out.splitlines()) == 1
     assert "ambiente del processo" in out
     assert not list(tmp_path.rglob("ledger.sqlite"))
+
+
+def test_the_agency_script_is_the_cli_main() -> None:
+    """The `agency` command starts the CLI in the entry points, with its renderer (ADR-0058)."""
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert config["project"]["scripts"]["agency"] == "agency.entrypoints.cli:main"
+    assert callable(importlib.import_module("agency.entrypoints.cli").main)

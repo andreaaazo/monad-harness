@@ -3,17 +3,16 @@ from pathlib import Path
 
 import pytest
 
-from agency import doctor
-from agency.cli import _doctor
 from agency.config import Settings
-from agency.doctor import Finding, run_checks
+from agency.entrypoints.cli import _doctor, doctor
+from agency.entrypoints.cli.doctor import Finding, run_checks
 from agency.workshop.sandbox import MEMORY_MAX_BYTES, TASKS_MAX
 
 
 @pytest.fixture(autouse=True)
 def no_gpu_probe(monkeypatch: pytest.MonkeyPatch) -> None:
     """`nvidia-smi` can take seconds on a GPU machine, and none of these tests asserts on the GPU."""
-    monkeypatch.setattr("agency.doctor._gpu", lambda: "non rilevata")
+    monkeypatch.setattr("agency.entrypoints.cli.doctor._gpu", lambda: "non rilevata")
 
 
 def test_doctor_never_exposes_the_key(monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]

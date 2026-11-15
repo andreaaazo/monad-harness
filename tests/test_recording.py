@@ -14,9 +14,9 @@ import anthropic
 import httpx2
 import pytest
 
-from agency import cli
 from agency.config import Settings
 from agency.contracts.project import ProjectName
+from agency.entrypoints import cli
 from agency.gateway import AnthropicTransport, RecordingTransport, request_key
 from agency.ledger import Ledger
 from agency.ledger.models import TicketRow

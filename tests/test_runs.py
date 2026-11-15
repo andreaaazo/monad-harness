@@ -8,12 +8,12 @@ from pathlib import Path
 import pytest
 from sqlmodel import Session
 
-from agency import cli
 from agency.config import REPO_ROOT, Settings
 from agency.contracts.run import Change, Fingerprint, RunCommand, changes, read_fingerprint
+from agency.entrypoints import cli
 from agency.ledger import Ledger
 from agency.ledger.models import RunRow
-from agency.telemetry import fingerprint
+from agency.process import fingerprint
 
 A, B, C, D, E = ("a" * 64, "b" * 64, "c" * 64, "d" * 64, "e" * 64)
 
@@ -210,7 +210,7 @@ def test_real_fingerprint_names_every_role_and_the_production_tools() -> None:
     taken = fingerprint.take(plain(), "", "")
     roles = {path.relative_to(REPO_ROOT).as_posix() for path in (REPO_ROOT / "prompts/roles").glob("*.md")}
     assert len(roles) == 11 and roles <= set(taken.prompts)
-    assert "src/agency/telemetry/fingerprint.py" in taken.code
+    assert "src/agency/process/fingerprint.py" in taken.code
     assert set(taken.tools) == {
         "vectorcraft-cli",
         "effectcraft-cli",

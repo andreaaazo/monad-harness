@@ -22,7 +22,8 @@ from agency.contracts.gate import ConceptGate
 from agency.contracts.layout import RelativeDataRoot
 from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.text import one_line
-from agency.doctor import run_checks
+from agency.entrypoints.cli import render as report
+from agency.entrypoints.cli.doctor import run_checks
 from agency.evaluation import blind, board
 from agency.gateway import APIError, BudgetExceeded
 from agency.gateway.pricing import PRICES
@@ -35,7 +36,6 @@ from agency.insights.views import ProjectReport
 from agency.ledger import Ledger, LedgerMissing, LedgerOutdated, require_registry
 from agency.ledger.schema import ChainBroken, LedgerMismatch, migrate
 from agency.ledger.store import now
-from agency.telemetry import report
 from agency.workshop.sandbox import JOB, Sandbox, SandboxUnavailable, scope_problem
 
 if TYPE_CHECKING:  # the session loads the engine: the light commands do not import it

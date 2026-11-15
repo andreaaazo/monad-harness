@@ -18,7 +18,6 @@ import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 from PIL import Image
 
-from agency import cli
 from agency.agents.loop import CLOSING, AgentRunner, _after_fallback
 from agency.agents.toolbox import TOOLS, Toolbox, tools_for
 from agency.agents.transcript import Transcript
@@ -30,6 +29,7 @@ from agency.contracts.outcome import Outcome, OutcomeState
 from agency.contracts.project import ProjectName, parse_project_name
 from agency.contracts.secrets import API_KEY_VARIABLES
 from agency.contracts.ticket import Action, Medium, Status, TicketSpec, TicketType, Verdict
+from agency.entrypoints import cli
 from agency.gateway import BudgetExceeded, ModelGateway
 from agency.ledger import Ledger
 from agency.ledger.models import ConceptRow, DerivationRow, EvidenceRow

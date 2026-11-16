@@ -31,6 +31,9 @@ class CheckInput:
     files: tuple[str, ...]
 
 
+type Check = Callable[[CheckInput], CheckResult]
+
+
 @dataclass(frozen=True, slots=True)
 class ToolCheck:
     """A check made of one run of one tool on the given files.

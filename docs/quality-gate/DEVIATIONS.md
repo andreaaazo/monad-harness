@@ -25,8 +25,10 @@ I piani B e C di M1.8 aggiungono le loro.
   file indebolisce i suoi controlli. Il passaggio li cancella tutti e due, e da lì in poi `shadow-config` li vieta.
 - **Fino al passaggio.** Proprio perché il gate legge la configurazione di Ruff alla radice, che oggi chiede virgolette
   doppie, il gate lanciato sul suo stesso codice fallisce `ruff-format` su ogni file del gate. Gli altri cinque controlli
-  per file passano. Il formato della §6.1 lo verifica `ruff format --check quality_gate`, che legge
-  `quality_gate/ruff.toml`. Dal passaggio in poi, il gate sul suo codice deve uscire con 0.
+  per file passano, ma `ruff-lint` applica le regole blande di oggi: fino al passaggio, questa esecuzione non prova nulla
+  sulla §6.1. Le regole e il formato della §6.1 li verificano `ruff check quality_gate` e
+  `ruff format --check quality_gate`, che leggono `quality_gate/ruff.toml`. Dal passaggio in poi, il gate sul suo codice
+  deve uscire con 0.
 - **Prova** (2026-11-16):
   - con le due tabelle nello stesso `pyproject.toml`,
     `uv run basedpyright --outputjson src/agency/contracts` stampa sei volte l'errore citato e conta 0 errori;
@@ -82,3 +84,15 @@ I piani B e C di M1.8 aggiungono le loro.
   - `test_git_comes_from_path`: `git --version` risponde dal `PATH`;
   - `test_git_missing_from_path_is_a_failure`: senza `PATH`, con un `PATH` vuoto o con uno che non contiene git, il
     risultato è `missing executable: git`.
+
+## 5. isort è installato
+
+- **Specifica.** La §5 vuole pylint nel gruppo `quality`, solo per la duplicazione, e vieta di installare isort.
+- **Repository.** isort 9.0.2 è installato, perché pylint 4.1.3 lo dichiara come dipendenza propria.
+- **Perché.** È una contraddizione interna alla §5: con pylint, isort arriva per forza. Nessuno lo esegue. Il gate non
+  lo lancia, nessun compito del Taskfile lo usa, e l'ordine degli import lo controlla Ruff. Il rischio che il divieto
+  chiude, una seconda configurazione dell'ordinamento che contraddice Ruff, oggi non esiste: nel repository non c'è né
+  una tabella `[tool.isort]` né un `.isort.cfg`. L'elenco della §8.2 non nomina isort; se aggiungerlo fra le
+  configurazioni ombra lo decide il piano B.
+- **Prova** (2026-11-16): `uv tree --invert --package isort` stampa `isort v9.0.2`, poi `pylint v4.1.3`, poi
+  `design-agency-harness v0.1.0 (group: quality)`.

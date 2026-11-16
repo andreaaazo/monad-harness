@@ -3,10 +3,13 @@
 A fake tool is an executable Python script written into a test's own folder.
 """
 
+import dataclasses
 import stat
 import sys
 from pathlib import Path
 from typing import Final
+
+from quality_gate.execution import Runner
 
 # The per-file checks, in the order of SPEC §7.4, which every mode keeps.
 PER_FILE_ORDER: Final = (
@@ -17,6 +20,19 @@ PER_FILE_ORDER: Final = (
     'basedpyright',
     'suppressions',
 )
+
+
+def with_fakes(repository: Runner, scripts: Path) -> Runner:
+    """Give a copy of a repository's runner whose tools are the fakes.
+
+    Args:
+        repository: A runner rooted in a test's repository.
+        scripts: The folder that holds the fake tools.
+
+    Returns:
+        The same runner, taking its tools from `scripts`.
+    """
+    return dataclasses.replace(repository, scripts=scripts)
 
 
 def write_tool(scripts: Path, name: str, body: str) -> None:

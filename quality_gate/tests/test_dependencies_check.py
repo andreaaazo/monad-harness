@@ -9,7 +9,7 @@ from quality_gate.checks import dependencies
 from quality_gate.checks.verdict import CheckInput
 from quality_gate.execution import Runner
 from quality_gate.model import Status, Violation
-from quality_gate.tests.fakes import write_file, write_tool
+from quality_gate.tests.fakes import with_fakes, write_file, write_tool
 
 ROOT = Path('/repository')
 DISCOVERED = frozenset(('src/a.py', 'quality_gate/tests/test_x.py'))
@@ -86,12 +86,7 @@ def test_missing_deptry_report_is_an_error(
         scripts: A scripts folder with a deptry that writes nothing.
     """
     write_tool(scripts, 'deptry', 'import sys\nsys.exit(0)\n')
-    runner = Runner(
-        root=repository.root,
-        scripts=scripts,
-        environment=repository.environment,
-        timeout=30,
-    )
+    runner = with_fakes(repository, scripts)
     given = CheckInput(runner=runner, files=('src/a.py',))
     outcome = dependencies.run(given, repository.root.parent)
     assert outcome.status is Status.ERROR
@@ -174,12 +169,7 @@ def test_filtered_findings_pass(repository: Runner, scripts: Path) -> None:
         'sys.exit(1)\n'
     )
     write_tool(scripts, 'deptry', body)
-    runner = Runner(
-        root=repository.root,
-        scripts=scripts,
-        environment=repository.environment,
-        timeout=30,
-    )
+    runner = with_fakes(repository, scripts)
     given = CheckInput(runner=runner, files=('src/a.py',))
     outcome = dependencies.run(given, repository.root.parent)
     assert outcome.status is Status.PASS

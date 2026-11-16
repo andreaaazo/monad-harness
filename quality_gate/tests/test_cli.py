@@ -13,7 +13,12 @@ from quality_gate.jsonvalue import is_table, load_json
 from quality_gate.model import CheckResult, Report, Status
 from quality_gate.modes.file import run_file_mode
 from quality_gate.settings import Settings
-from quality_gate.tests.fakes import PER_FILE_ORDER, write_file, write_tool
+from quality_gate.tests.fakes import (
+    PER_FILE_ORDER,
+    with_fakes,
+    write_file,
+    write_tool,
+)
 
 SETTINGS = Settings(
     exclude=('legacy/**',),
@@ -60,12 +65,7 @@ def _fake_tools(repository: Runner, ruff_exit: int = 0) -> Runner:
     _fake(scripts, 'ruff', '[]', code=ruff_exit)
     for name, stdout in CLEAN_OUTPUTS:
         _fake(scripts, name, stdout)
-    return Runner(
-        root=repository.root,
-        scripts=scripts,
-        environment=repository.environment,
-        timeout=30,
-    )
+    return with_fakes(repository, scripts)
 
 
 def _broken(*_arguments: object) -> Report:

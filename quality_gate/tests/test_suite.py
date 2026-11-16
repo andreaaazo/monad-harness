@@ -7,7 +7,7 @@ import pytest
 from quality_gate.checks import suite
 from quality_gate.execution import Runner, runner_for
 from quality_gate.model import Status
-from quality_gate.tests.fakes import write_file, write_tool
+from quality_gate.tests.fakes import with_fakes, write_file, write_tool
 
 MODULE = 'def double(number):\n    return number * 2\n'
 PASSING = (
@@ -91,12 +91,7 @@ def test_missing_junit_is_an_error(repository: Runner, scripts: Path) -> None:
         scripts: A scripts folder with a coverage that writes nothing.
     """
     write_tool(scripts, 'coverage', 'import sys\nsys.exit(0)\n')
-    runner = Runner(
-        root=repository.root,
-        scripts=scripts,
-        environment=repository.environment,
-        timeout=30,
-    )
+    runner = with_fakes(repository, scripts)
     assert _codes(runner) == (Status.ERROR, [])
 
 
@@ -114,12 +109,7 @@ def test_unreadable_junit_is_an_error(
         "pathlib.Path(sys.argv[-1]).write_text('<testsuites><broken')\n"
     )
     write_tool(scripts, 'coverage', body)
-    runner = Runner(
-        root=repository.root,
-        scripts=scripts,
-        environment=repository.environment,
-        timeout=30,
-    )
+    runner = with_fakes(repository, scripts)
     assert _codes(runner) == (Status.ERROR, [])
 
 

@@ -6,7 +6,7 @@ from quality_gate.checks import covered, diff_coverage, suite
 from quality_gate.execution import Runner
 from quality_gate.model import Status
 from quality_gate.tests.conftest import commit_all
-from quality_gate.tests.fakes import write_file, write_tool
+from quality_gate.tests.fakes import with_fakes, write_file, write_tool
 
 CONFIG = (
     '[tool.coverage.run]\n'
@@ -55,15 +55,6 @@ def _found(
 ) -> tuple[Status, list[str]]:
     outcome = covered.run(repository, _suite(repository), files, whole=whole)
     return outcome.status, [found.render() for found in outcome.violations]
-
-
-def _with_fake(repository: Runner, scripts: Path) -> Runner:
-    return Runner(
-        root=repository.root,
-        scripts=scripts,
-        environment=repository.environment,
-        timeout=30,
-    )
 
 
 def test_coherent_sets_pass_in_changed(repository: Runner) -> None:
@@ -158,7 +149,7 @@ def test_a_report_without_files_is_an_error(
         "    pathlib.Path(sys.argv[-1]).write_text('{}')\n"
     )
     write_tool(scripts, 'coverage', body)
-    runner = _with_fake(repository, scripts)
+    runner = with_fakes(repository, scripts)
     outcome = covered.run(runner, repository.root.parent, FILES, whole=False)
     assert (outcome.status, outcome.raw) == (
         Status.ERROR,
@@ -219,7 +210,7 @@ def test_missing_diff_report_is_an_error(
         scripts: A scripts folder with a fake diff-cover.
     """
     write_tool(scripts, 'diff-cover', 'import sys\nsys.exit(0)\n')
-    runner = _with_fake(repository, scripts)
+    runner = with_fakes(repository, scripts)
     workspace = repository.root.parent
     assert diff_coverage.run(runner, workspace, 'HEAD').status is Status.ERROR
     body = (

@@ -11,7 +11,12 @@ from quality_gate.model import GateError
 from quality_gate.modes.whole import run_full, run_staged
 from quality_gate.settings import Settings
 from quality_gate.tests.conftest import commit_all
-from quality_gate.tests.fakes import PER_FILE_ORDER, write_file, write_tool
+from quality_gate.tests.fakes import (
+    PER_FILE_ORDER,
+    with_fakes,
+    write_file,
+    write_tool,
+)
 
 SETTINGS = Settings(
     exclude=(),
@@ -77,12 +82,7 @@ def faked(repository: Runner) -> Runner:
     scripts.mkdir()
     for name, body in FAKES:
         write_tool(scripts, name, body)
-    return Runner(
-        root=repository.root,
-        scripts=scripts,
-        environment=repository.environment,
-        timeout=60,
-    )
+    return with_fakes(repository, scripts)
 
 
 def _host(runner: Runner) -> Host:

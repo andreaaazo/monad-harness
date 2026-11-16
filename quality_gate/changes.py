@@ -2,7 +2,9 @@
 
 `changed` compares the working tree, staged and unstaged, with the merge-base
 of a reference and HEAD, and adds the untracked files git does not ignore.
-Every path counts here, Python or not: the ratchet decides from all of them.
+Every path counts here, Python or not, deleted or not: the ratchet decides
+from all of them. A rename counts as its old path deleted and its new one
+added, so a module moved into the docs still runs the suite.
 """
 
 from quality_gate.execution import Runner
@@ -31,7 +33,7 @@ def changed_paths(runner: Runner, base: str) -> tuple[str, ...] | None:
     if found.exit_code:
         message = f'unknown base: {base}'
         raise GateError(message)
-    diff = ('diff', '--name-only', '-z', _ADDED_COPIED_MODIFIED_RENAMED)
+    diff = ('diff', '--name-only', '-z', '--no-renames')
     changed = _names(runner, (*diff, found.stdout.strip()))
     untracked = _names(
         runner, ('ls-files', '-z', '--others', '--exclude-standard')

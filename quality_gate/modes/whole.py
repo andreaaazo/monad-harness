@@ -44,7 +44,7 @@ def run_full(runner: Runner, settings: Settings, host: Host) -> Report:
         checks = (
             *(check(given) for check in PER_FILE_CHECKS),
             *analyse(given, workspace),
-            *measure(given, workspace, whole=True),
+            *measure(given, workspace),
             *run_integrity(runner, discovered, host),
         )
     return Report(

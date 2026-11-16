@@ -19,7 +19,7 @@ def _head(runner: Runner) -> str:
 
 
 def test_untracked_and_unstaged_files_count(repository: Runner) -> None:
-    """Staged, unstaged and untracked changes count; deletions do not.
+    """Staged, unstaged and untracked changes count, and so do deletions.
 
     Args:
         repository: A fresh repository.
@@ -37,9 +37,25 @@ def test_untracked_and_unstaged_files_count(repository: Runner) -> None:
     assert changed_paths(repository, 'HEAD') == (
         'README.md',
         'edited.py',
+        'gone.py',
         'staged.py',
         'untracked.py',
     )
+
+
+def test_a_rename_counts_both_paths(repository: Runner) -> None:
+    """A module renamed into the docs still counts as a module gone.
+
+    Args:
+        repository: A fresh repository.
+    """
+    write_file(repository.root, 'lib.py', MODULE)
+    commit_all(repository)
+    (repository.root / 'docs').mkdir()
+    moved = ('mv', 'lib.py', 'docs/lib.md')
+    assert repository.git(moved).exit_code == 0
+    expected = ('docs/lib.md', 'lib.py')
+    assert changed_paths(repository, 'HEAD') == expected
 
 
 def test_the_merge_base_is_the_reference(repository: Runner) -> None:

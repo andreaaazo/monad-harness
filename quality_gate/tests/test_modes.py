@@ -271,7 +271,29 @@ def test_a_new_top_level_folder_is_seen(faked: Runner) -> None:
     write_file(faked.root, 'brand_new/module.py', MODULE)
     report = _changed(faked)
     assert report.python_files == 1
-    assert _check(report, 'coverage').status is Status.PASS
+    coverage = _check(report, 'coverage').violations
+    assert [(found.path, found.code) for found in coverage] == [
+        ('brand_new/module.py', 'never-imported'),
+    ]
+    assert _names(report) == (
+        *PER_FILE_ORDER,
+        *PROJECT,
+        'diff-coverage',
+        *INTEGRITY,
+    )
+
+
+def test_a_deletion_runs_the_suite(faked: Runner) -> None:
+    """A deleted module is a change, even beside a Markdown file.
+
+    Args:
+        faked: A repository whose tools are fakes.
+    """
+    _committed(faked)
+    (faked.root / 'old.py').unlink()
+    write_file(faked.root, 'NOTES.md', '# Notes\n')
+    report = _changed(faked)
+    assert report.python_files == 0
     assert _names(report) == (
         *PER_FILE_ORDER,
         *PROJECT,

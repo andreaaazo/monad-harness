@@ -105,12 +105,13 @@ def _project(
         # and diff-cover has no base to compare with.
         return (
             *analyse(given, workspace),
-            *measure(given, workspace, whole=True),
+            *measure(given, workspace),
         )
     analysed = analyse_changes(given, workspace, frozenset(changed))
     if _documentation_only(changed):
         return analysed
-    return (*analysed, *measure_changes(given, workspace, base))
+    measured = measure_changes(given, workspace, changed=changed, base=base)
+    return (*analysed, *measured)
 
 
 def _documentation_only(changed: Sequence[str]) -> bool:

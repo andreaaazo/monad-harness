@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from quality_gate.checks import covered, diff_coverage, suite
+from quality_gate.checks.verdict import CheckInput
 from quality_gate.execution import Runner
 from quality_gate.model import Status
 from quality_gate.tests.conftest import commit_all
@@ -32,6 +33,7 @@ HALF = (
 )
 BOTH = f"{HALF}\n\ndef test_other():\n    assert sign(0) == 'other'\n"
 FILES = ('pkg/__init__.py', 'pkg/m.py', 'tests/test_m.py')
+SCRIPT = '#!/usr/bin/env python3\nVALUE = 1\n'
 
 
 def _project(root: Path, tests: str, module: str = MODULE) -> None:
@@ -39,6 +41,10 @@ def _project(root: Path, tests: str, module: str = MODULE) -> None:
     write_file(root, 'pkg/__init__.py', '')
     write_file(root, 'pkg/m.py', module)
     write_file(root, 'tests/test_m.py', tests)
+
+
+def _given(runner: Runner, files: tuple[str, ...] = FILES) -> CheckInput:
+    return CheckInput(runner=runner, files=files)
 
 
 def _suite(repository: Runner) -> Path:
@@ -53,7 +59,12 @@ def _found(
     whole: bool,
     files: tuple[str, ...] = FILES,
 ) -> tuple[Status, list[str]]:
-    outcome = covered.run(repository, _suite(repository), files, whole=whole)
+    outcome = covered.run(
+        _given(repository, files),
+        _suite(repository),
+        required=files,
+        whole=whole,
+    )
     return outcome.status, [found.render() for found in outcome.violations]
 
 
@@ -110,16 +121,46 @@ def test_an_ignored_module_fails_coherence(repository: Runner) -> None:
 def test_a_never_imported_file_fails_in_full(repository: Runner) -> None:
     """In `full`, a discovered file no test imports counts as 0%; a stub not.
 
+    A script without a suffix is discovered by its shebang, and counts too.
+
     Args:
         repository: A fresh repository.
     """
     write_file(repository.root, 'scripts/tool.py', 'VALUE = 1\n')
+    write_file(repository.root, 'scripts/run', SCRIPT)
     _project(repository.root, BOTH)
-    files = (*FILES, 'scripts/tool.py', 'pkg/types.pyi')
+    files = (*FILES, 'scripts/run', 'scripts/tool.py', 'pkg/types.pyi')
     assert _found(repository, whole=True, files=files) == (
         Status.FAIL,
-        ['scripts/tool.py:1:1 never-imported no test ever imports it'],
+        [
+            'scripts/run:1:1 never-imported no test ever imports it',
+            'scripts/tool.py:1:1 never-imported no test ever imports it',
+        ],
     )
+
+
+def test_a_changed_module_nothing_imports_fails(
+    repository: Runner,
+) -> None:
+    """In `changed`, a changed file no test imports fails; an unchanged not.
+
+    Args:
+        repository: A fresh repository.
+    """
+    write_file(repository.root, 'scripts/tool.py', 'VALUE = 1\n')
+    _project(repository.root, HALF)
+    files = (*FILES, 'scripts/tool.py')
+    workspace = _suite(repository)
+    statuses = [
+        covered.run(
+            _given(repository, files),
+            workspace,
+            required=required,
+            whole=False,
+        ).status
+        for required in (('pkg/m.py', 'NOTES.md'), ('scripts/tool.py',))
+    ]
+    assert statuses == [Status.PASS, Status.FAIL]
 
 
 def test_no_coverage_data_is_an_error(repository: Runner) -> None:
@@ -129,7 +170,12 @@ def test_no_coverage_data_is_an_error(repository: Runner) -> None:
         repository: A fresh repository.
     """
     write_file(repository.root, 'pyproject.toml', CONFIG)
-    outcome = covered.run(repository, repository.root.parent, FILES, whole=True)
+    outcome = covered.run(
+        _given(repository),
+        repository.root.parent,
+        required=FILES,
+        whole=True,
+    )
     assert outcome.status is Status.ERROR
 
 
@@ -150,7 +196,12 @@ def test_a_report_without_files_is_an_error(
     )
     write_tool(scripts, 'coverage', body)
     runner = with_fakes(repository, scripts)
-    outcome = covered.run(runner, repository.root.parent, FILES, whole=False)
+    outcome = covered.run(
+        _given(runner),
+        repository.root.parent,
+        required=FILES,
+        whole=False,
+    )
     assert (outcome.status, outcome.raw) == (
         Status.ERROR,
         'coverage wrote a report with no files',
@@ -171,10 +222,10 @@ def test_an_untested_branch_fails_diff_coverage(repository: Runner) -> None:
     )
     write_file(repository.root, 'pkg/m.py', added)
     workspace = _suite(repository)
-    assert (
-        covered.run(repository, workspace, FILES, whole=False).status
-        is Status.PASS
+    coverage = covered.run(
+        _given(repository), workspace, required=FILES, whole=False
     )
+    assert coverage.status is Status.PASS
     outcome = diff_coverage.run(repository, workspace, 'HEAD')
     assert outcome.status is Status.FAIL
     assert {found.path for found in outcome.violations} == {'pkg/m.py'}
@@ -191,10 +242,10 @@ def test_tested_changes_pass_diff_coverage(repository: Runner) -> None:
     renamed = MODULE.replace("'plus'", "'positive'")
     _project(repository.root, BOTH.replace("'plus'", "'positive'"), renamed)
     workspace = _suite(repository)
-    assert (
-        covered.run(repository, workspace, FILES, whole=False).status
-        is Status.PASS
+    coverage = covered.run(
+        _given(repository), workspace, required=FILES, whole=False
     )
+    assert coverage.status is Status.PASS
     outcome = diff_coverage.run(repository, workspace, 'HEAD')
     assert (outcome.name, outcome.status) == ('diff-coverage', Status.PASS)
 

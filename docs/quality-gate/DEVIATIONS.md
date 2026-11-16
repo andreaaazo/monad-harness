@@ -7,7 +7,7 @@ Ogni differenza fra il repository e [`SPEC.md`](SPEC.md), con la sua prova. Per 
 - la prova: un comando e il suo risultato.
 
 Le decisioni dietro le differenze stanno in [ADR-0060](../adr/0060-il-quality-gate-parametri-decisioni-e-ordine.md).
-Le voci 1–5 vengono dal piano A di M1.8, le 6–16 dal piano B; il piano C aggiunge le sue.
+Le voci 1–5 vengono dal piano A di M1.8, le 6–18 dal piano B; il piano C aggiunge le sue.
 
 ## 1. Due file di configurazione temporanei, fino al passaggio
 
@@ -225,7 +225,8 @@ Le voci 1–5 vengono dal piano A di M1.8, le 6–16 dal piano B; il piano C agg
     entrambe attese; ogni altra, o la mancanza di dati, è un errore.
   - **Le violazioni.** Sono tre:
     - `not-discovered`: un file misurato che il gate non vede;
-    - `never-imported`, solo in `full`: un file `.py` scoperto che nessun test importa (gli stub `.pyi` no);
+    - `never-imported`: un file scoperto che nessun test importa, gli stub `.pyi` esclusi. In `full` vale per ogni
+      file, in `changed` per i file cambiati (voce 18);
     - `not-covered`, solo in `full`: righe o rami mancanti.
 - **Perché.** Sotto `fail_under = 100` coverage esce con 2 in tutti e tre i comandi, anche quando ha scritto il
   rapporto. Il codice d'uscita farebbe fallire `changed` per la copertura totale, che in `changed` non va giudicata.
@@ -268,3 +269,49 @@ Le voci 1–5 vengono dal piano A di M1.8, le 6–16 dal piano B; il piano C agg
   - `test_without_a_commit_everything_has_changed`: in un repository senza commit girano tutti i controlli di `full`, e
     un file che nessuna prova importa fa fallire `coverage` con `never-imported`;
   - `test_docs_only_skips_the_suite`: con un `README.md` e un `docs/x.md` cambiati, i tre controlli non compaiono.
+
+## 17. In `changed` conta ogni percorso cambiato, anche cancellato
+
+- **Specifica.**
+  - La §7.2 definisce i file cambiati con `git diff --diff-filter=ACMR`, uniti ai non tracciati e intersecati con i
+    file scoperti.
+  - La §7.5 fa girare solo l'integrità quando nessun file è cambiato, e salta i test quando sono cambiati solo file
+    `.md` o sotto `docs/`. Un file `.md` però non è mai fra i file scoperti: questa seconda regola parla di tutti i
+    percorsi.
+- **Repository.**
+  - I controlli per file girano sui file cambiati e scoperti, come vuole la §7.2.
+  - «Nulla è cambiato» e «solo documenti» si decidono da tutti i percorsi cambiati, di qualunque tipo, cancellazioni
+    comprese.
+  - `git diff` gira senza filtro e con `--no-renames`: una rinomina conta come il vecchio percorso cancellato più il
+    nuovo aggiunto.
+- **Perché.**
+  - Con `ACMR` una cancellazione non era un cambiamento. Se l'unica modifica era cancellare un modulo che la suite
+    importa, `changed` faceva girare solo l'integrità.
+  - Una cancellazione accanto a un `.md` saltava la suite come «solo documenti», e lo stesso valeva per un modulo
+    rinominato dentro `docs/`.
+  - Letta alla lettera, la §7.2 farebbe girare solo l'integrità anche quando cambia soltanto `pyproject.toml`.
+  - Ogni scelta qui fa girare più controlli, mai meno (revisione finale del piano B).
+- **Prova** (2026-11-17):
+  - `test_untracked_and_unstaged_files_count` e `test_a_rename_counts_both_paths`, in
+    `quality_gate/tests/test_changes.py`: un file cancellato è nell'elenco, e una rinomina dà entrambi i percorsi;
+  - `test_a_deletion_runs_the_suite`, in `quality_gate/tests/test_modes.py`: un modulo cancellato accanto a un
+    `NOTES.md` fa girare `tests`, `coverage` e `diff-coverage`.
+
+## 18. In `changed`, un file cambiato che nessuna prova importa fallisce `coverage`
+
+- **Specifica.** In `changed` la §7.5 chiede a `coverage` solo la coerenza degli insiemi di file. Le righe cambiate le
+  giudica `diff-coverage`.
+- **Repository.** In `changed`, ogni file cambiato e scoperto che coverage non ha misurato è `never-imported`, come in
+  `full`. Uno stub `.pyi` non conta. Uno script senza suffisso, scoperto per lo shebang, conta.
+- **Perché.**
+  - Con `source = ["."]`, coverage cerca da solo i file mai eseguiti solo nelle cartelle con `__init__.py`, e `src/`
+    non ne ha uno.
+  - diff-cover salta un file su cui non ha dati: «No lines with coverage information in this diff».
+  - Un modulo nuovo che nessuna prova importa passava così `tests`, `coverage` e `diff-coverage` senza che una sola
+    sua riga girasse. È più severo della §7.5 (revisione finale del piano B).
+- **Prova** (2026-11-17):
+  - `test_a_changed_module_nothing_imports_fails`, in `quality_gate/tests/test_covered.py`: un file cambiato che nessun
+    test importa fallisce, uno non cambiato no;
+  - `test_a_never_imported_file_fails_in_full`: anche uno script senza suffisso;
+  - `test_a_new_top_level_folder_is_seen`, in `quality_gate/tests/test_modes.py`: il modulo nuovo in una cartella nuova
+    fallisce `coverage` con `never-imported`.

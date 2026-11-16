@@ -79,21 +79,29 @@ def judge(check: ToolCheck, completed: Completed, root: Path) -> CheckResult:
         root: The repository root, for the paths the tool reports.
 
     Returns:
-        PASS, FAIL or ERROR, with the violations and the raw output.
+        PASS, FAIL or ERROR, with the violations and the raw output. An
+        ERROR's raw output starts with the reason the gate could not judge.
     """
-    raw = f'{completed.stdout}{completed.stderr}'
-    expected = completed.exit_code in check.failing | {0}
-    try:
-        found = (
-            check.parse(check.findings(completed), root) if expected else None
+    expected = sorted(check.failing | {0})
+    if completed.exit_code not in expected:
+        return _error(
+            check,
+            completed,
+            f'{check.tool} exited {completed.exit_code}, not one of {expected}',
         )
-    except ValueError:
-        found = None
-    if found is None:
-        return _outcome(check, Status.ERROR, seconds=completed.seconds, raw=raw)
+    try:
+        found = check.parse(check.findings(completed), root)
+    except ValueError as error:
+        return _error(check, completed, str(error))
     clean = completed.exit_code == 0 and not found
     status = Status.PASS if clean else Status.FAIL
-    return CheckResult(check.name, status, completed.seconds, found, raw)
+    return CheckResult(
+        check.name,
+        status,
+        completed.seconds,
+        found,
+        f'{completed.stdout}{completed.stderr}',
+    )
 
 
 def run_tool_check(check: ToolCheck, given: CheckInput) -> CheckResult:
@@ -110,14 +118,14 @@ def run_tool_check(check: ToolCheck, given: CheckInput) -> CheckResult:
         The check's result.
     """
     if not given.files:
-        return _outcome(check, Status.PASS, seconds=0, raw='')
+        return CheckResult(check.name, Status.PASS, 0, (), '')
     arguments = (*check.options, *(f'./{name}' for name in given.files))
     started = time.perf_counter()
     try:
         completed = given.runner.tool(check.tool, arguments)
     except ToolError as error:
         seconds = time.perf_counter() - started
-        return _outcome(check, Status.ERROR, seconds=seconds, raw=str(error))
+        return CheckResult(check.name, Status.ERROR, seconds, (), str(error))
     return judge(check, completed, given.runner.root)
 
 
@@ -138,7 +146,7 @@ def run_once(check: ToolCheck, runner: Runner) -> CheckResult:
         completed = runner.tool(check.tool, check.options)
     except ToolError as error:
         seconds = time.perf_counter() - started
-        return _outcome(check, Status.ERROR, seconds=seconds, raw=str(error))
+        return CheckResult(check.name, Status.ERROR, seconds, (), str(error))
     return judge(check, completed, runner.root)
 
 
@@ -166,11 +174,6 @@ def relative_path(root: Path, reported: str) -> str:
     raise ValueError(message)
 
 
-def _outcome(
-    check: ToolCheck,
-    status: Status,
-    *,
-    seconds: float,
-    raw: str,
-) -> CheckResult:
-    return CheckResult(check.name, status, seconds, (), raw)
+def _error(check: ToolCheck, completed: Completed, reason: str) -> CheckResult:
+    raw = f'{reason}\n{completed.stdout}{completed.stderr}'
+    return CheckResult(check.name, Status.ERROR, completed.seconds, (), raw)

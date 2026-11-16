@@ -88,13 +88,15 @@ def test_exit_zero_with_violations_reported_fails() -> None:
 
 
 def test_an_unexpected_exit_code_is_an_error() -> None:
-    """An exit code the check does not expect gives no verdict."""
-    assert _judged(2, 'out', 'err') == (Status.ERROR, 0, 'outerr')
+    """An exit code the check does not expect gives no verdict, and says so."""
+    reason = 'fake exited 2, not one of [0, 1]'
+    assert _judged(2, 'out', 'err') == (Status.ERROR, 0, f'{reason}\nouterr')
 
 
 def test_output_that_cannot_be_read_is_an_error() -> None:
-    """Output the parser refuses gives no verdict, even on exit 0."""
-    assert _judged(0, 'garbled') == (Status.ERROR, 0, 'garbled')
+    """Output the parser refuses gives no verdict, even on exit 0, and why."""
+    reason = 'cannot read the output under /repository'
+    assert _judged(0, 'garbled') == (Status.ERROR, 0, f'{reason}\ngarbled')
 
 
 def test_a_missing_tool_is_an_error(tmp_path: Path, scripts: Path) -> None:

@@ -11,7 +11,7 @@ si aggiornano con i dati di M1.
 | M1.5 | Esplorazione a schizzi | Idee in parallelo, schizzi veloci, scelta del concetto, poi produzione | 40 $ | **chiuso**, 38,83 $ spesi, criteri non verificati passati a M1.6 e M2 |
 | M1.6 | Misure e cruscotto | Dati confrontabili, `insights`, API Django, cruscotto Next.js | 30 $ | **chiuso**, 0 $ spesi, `merlo4` e confronto con la CLI passati a M1.9 |
 | M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte | 0 $ | **chiuso**, 0 $ spesi, correzioni della revisione finale in [ADR-0059](adr/0059-correzioni-ad-adr-0058-dopo-il-secondo-piano.md) |
-| M1.8 | Quality gate di Python | Un comando decide, niente soppressioni, hook che lo applicano da soli | 0 $ | **in corso**, [piano A](superpowers/plans/2026-11-15-m1-8-plan-a-per-file-gate.md) |
+| M1.8 | Quality gate di Python | Un comando decide, niente soppressioni, hook che lo applicano da soli | 0 $ | **in corso**, [piano A](superpowers/plans/2026-11-15-m1-8-plan-a-per-file-gate.md) fatto (modo `file`), poi i piani B e C |
 | M1.9 | Prova reale | `merlo4` misurato e giudicato, confronto con la CLI | 30 $ + CLI | |
 | M2 | Parità | Tutto lo studio, con replay di un'identità | 200 $ | |
 | M3 | Contesto visivo e parallelo | Scena, ricerca visiva, istanze per lavoro | 60 $ | |
@@ -519,7 +519,7 @@ I parametri della §2 della specifica, confermati da [ADR-0060](adr/0060-il-qual
 | `<PKGS>` | `agency`, in `src/agency` | `pyproject.toml` |
 | `<TESTS>` | `tests` | `pyproject.toml` |
 | `<BASE_BRANCH>` | nessuno finché non c'è un remoto | ADR-0051 |
-| `<T_SUITE>` | si misura con `coverage run` nel Task 11 del piano A. Senza, pytest dura 84,6 s dentro `make check` | `docs/audit/99-result.md` |
+| `<T_SUITE>` | 107 s: `uv run coverage run -m pytest`, 1423 prove, misurato il 2026-11-16. Senza coverage, pytest dura circa 90 s dentro `make check` | Task 11 del piano A |
 
 ### Decisioni prese prima di scrivere il gate
 
@@ -554,11 +554,13 @@ Il gate si costruisce in una sessione di manutenzione con gli hook spenti, perch
 Gli hook si accendono per ultimi. Il blocco della configurazione lo genera Andrea dal suo terminale.
 
 1. [x] **Parametri, decisioni e ADR**: parametri confermati, D1–D5 decise, un ADR per ogni decisione accettata che cambia.
-2. [ ] **Dipendenze**: il gruppo `quality` pinnato con `==` dentro la quarantena (ADR-0006), il lock aggiornato. Si tolgono gli
-   strumenti che il gate sostituisce (D1).
-3. [ ] **Configurazione**: le tabelle della §6 in `pyproject.toml` e `.flake8`, con le sole eccezioni della §6.10.
+2. [x] **Dipendenze**: il gruppo `quality` pinnato con `==` dentro la quarantena (ADR-0006), il lock aggiornato. Si tolgono gli
+   strumenti che il gate sostituisce (D1). Fatto nel piano A, tranne la rimozione, che D1 rimanda al passaggio del piano C.
+3. [ ] **Configurazione**: le tabelle della §6 in `pyproject.toml` e `.flake8`, con le sole eccezioni della §6.10. Il piano A
+   ha scritto le tabelle proprie del gate e `.flake8`. Ruff, pytest e import-linter cambiano al passaggio del piano C.
 4. [ ] **Nucleo**: modi `file`, `changed` e `full`, scoperta dei file, esecuzione e rapporto, con i controlli per file (§7). Solo
-   `execution.py` lancia processi.
+   `execution.py` lancia processi. Il piano A ha fatto il modo `file` e i controlli per file; `changed` e `full` arrivano con
+   il piano B.
 5. [ ] **Controlli di progetto**: contratti, codice morto, dipendenze, duplicazione, test, copertura e copertura delle righe
    cambiate, con i filtri del ratchet (§7.5).
 6. [ ] **Anti-aggiramento**: soppressioni, configurazioni ombra, blocco della configurazione e modo `lock`, integrità di hook,
@@ -782,6 +784,7 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-M1.8, il quality gate di Python: il [piano A](superpowers/plans/2026-11-15-m1-8-plan-a-per-file-gate.md) arriva al modo `file`, poi i piani B e C
+La revisione finale del [piano A](superpowers/plans/2026-11-15-m1-8-plan-a-per-file-gate.md) di M1.8, con un revisore che non ha
+scritto il codice. Poi il piano B: i modi `changed`, `full` e `staged`, i controlli sul progetto e quelli di integrità
 ([ADR-0060](adr/0060-il-quality-gate-parametri-decisioni-e-ordine.md)). Dopo M1.9, M2 parte dal contesto delle istanze
 lunghe, prima dei ruoli.

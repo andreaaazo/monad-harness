@@ -23,6 +23,10 @@ I piani B e C di M1.8 aggiungono le loro.
   dentro, il controllo di ogni giorno diventerebbe rosso su tutto `src/` e `tests/` (ADR-0060, punto 13). Il gate
   passa sempre `--config pyproject.toml` a Ruff e `--project pyproject.toml` a basedpyright, quindi nessuno dei due
   file indebolisce i suoi controlli. Il passaggio li cancella tutti e due, e da lì in poi `shadow-config` li vieta.
+- **Fino al passaggio.** Proprio perché il gate legge la configurazione di Ruff alla radice, che oggi chiede virgolette
+  doppie, il gate lanciato sul suo stesso codice fallisce `ruff-format` su ogni file del gate. Gli altri cinque controlli
+  per file passano. Il formato della §6.1 lo verifica `ruff format --check quality_gate`, che legge
+  `quality_gate/ruff.toml`. Dal passaggio in poi, il gate sul suo codice deve uscire con 0.
 - **Prova** (2026-11-16):
   - con le due tabelle nello stesso `pyproject.toml`,
     `uv run basedpyright --outputjson src/agency/contracts` stampa sei volte l'errore citato e conta 0 errori;

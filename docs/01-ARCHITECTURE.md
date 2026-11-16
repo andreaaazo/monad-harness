@@ -227,8 +227,13 @@ Cinque principi: modular monolith in vertical slices, explicit over implicit, Cl
 ### Oggi
 
 Il motore ha le sue slice in `studio/`, e `process/` compone il grafo
-([ADR-0057](adr/0057-l-albero-dei-pacchetti-del-motore.md)). Dentro le slice mancano ancora dominio e applicazione: arrivano con
-i punti 4–7 di M1.7. `insights` ha già la forma completa.
+([ADR-0057](adr/0057-l-albero-dei-pacchetti-del-motore.md)). Ogni slice ha il suo dominio e la sua applicazione
+([ADR-0058](adr/0058-porte-tipi-e-livelli-del-motore.md)), e `insights` ha la stessa forma.
+
+Fuori dal motore, alla radice, `quality_gate/` è il quality gate di Python di M1.8
+([ADR-0060](adr/0060-il-quality-gate-parametri-decisioni-e-ordine.md)). Usa solo la libreria standard, lancia gli strumenti
+del gruppo `quality` e non importa nulla di `agency`, che a sua volta non lo importa. Oggi ha il modo `file`; gli altri modi
+arrivano con i piani B e C di M1.8.
 
 ```text
 src/agency/
@@ -260,14 +265,17 @@ src/agency/
   config.py      le impostazioni del motore: variabili `AGENCY_*` e chiave API
 tests/           test_*.py; support/ ha gli aiuti condivisi (ScriptedTransport, ReplayTransport, i disegni di prova,
                  il registro di prova del cruscotto); fixtures/ e snapshots/ i dati
+quality_gate/    il quality gate (M1.8): cli.py e command.py la riga di comando, modes.py i modi, discovery.py i file,
+                 execution.py l'unico modulo che lancia processi, report.py il rapporto, checks/ un modulo per controllo,
+                 tests/ le sue prove; ruff.toml è temporaneo, fino al passaggio del piano C
 web/src/         app/ le pagine, con globals.css e styles/ (i fogli delle viste, importati da layout.tsx in ordine);
                  components/, lib/ gli aiuti puri con le loro prove, api/ il client e i tipi, proxy.ts
 ```
 
 ### Forma di arrivo
 
-L'albero dei pacchetti lo fissa [ADR-0057](adr/0057-l-albero-dei-pacchetti-del-motore.md), e il motore lo ha già. Il secondo
-piano di M1.7 (punti 4–7) aggiunge dentro le slice dominio e applicazione, e le porte ai confini.
+L'albero dei pacchetti lo fissa [ADR-0057](adr/0057-l-albero-dei-pacchetti-del-motore.md), e il motore lo ha già, con dominio
+e applicazione dentro le slice e le porte ai confini (M1.7).
 Le dipendenze puntano verso l'interno, a livelli. Ogni livello importa solo da quelli sotto:
 - gli ingressi;
 - `process`;

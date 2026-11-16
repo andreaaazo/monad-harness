@@ -92,3 +92,18 @@ def test_pydoclint_finds_an_undocumented_argument(repository: Runner) -> None:
     assert ('src/a.py', 'DOC101') in {
         (found.path, found.code) for found in outcome.violations
     }
+
+
+def test_pydoclint_checks_a_file_under_github(repository: Runner) -> None:
+    """A file pydoclint's default exclude would skip is still checked.
+
+    Args:
+        repository: A fresh repository.
+    """
+    config = '[tool.pydoclint]\nstyle = "google"\n'
+    write_file(repository.root, 'pyproject.toml', config)
+    write_file(repository.root, '.github/scripts/bad.py', UNDOCUMENTED)
+    given = CheckInput(runner=repository, files=('.github/scripts/bad.py',))
+    outcome = pydoclint.run(given)
+    assert outcome.status is Status.FAIL
+    assert 'DOC101' in {found.code for found in outcome.violations}

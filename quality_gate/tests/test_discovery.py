@@ -193,3 +193,32 @@ def test_a_given_path_outside_is_a_gate_error(
     outside = str(tmp_path / 'outside.py')
     with pytest.raises(GateError, match='outside the repository'):
         pytest.fail(repr(select_given(repository.root, (outside,), ())))
+
+
+def test_a_given_folder_selects_the_files_in_it(
+    repository: Runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A folder stands for the discovered files below it, `.` for all.
+
+    Args:
+        repository: A fresh repository.
+        monkeypatch: Moves into the repository.
+    """
+    _write_all(repository.root, 'src/a.py', 'src/inner/b.py', 'srcx/c.py')
+    monkeypatch.chdir(repository.root)
+    discovered = discover(repository, ())
+    selected = select_given(repository.root, ('src',), discovered)
+    assert selected == ('src/a.py', 'src/inner/b.py')
+    assert select_given(repository.root, ('.',), discovered) == discovered
+
+
+def test_a_non_utf8_asset_name_is_ignored(repository: Runner) -> None:
+    """A name that is not UTF-8 but cannot be Python does not stop the gate.
+
+    Args:
+        repository: A fresh repository.
+    """
+    write_file(repository.root, os.fsdecode(b'logo\xff.png'), 'not python')
+    _write_all(repository.root, 'a.py')
+    assert discover(repository, ()) == ('a.py',)

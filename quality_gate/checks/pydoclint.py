@@ -55,7 +55,9 @@ def parse_pydoclint(stdout: str, root: Path) -> tuple[Violation, ...]:
 CHECK = ToolCheck(
     name='pydoclint',
     tool='pydoclint',
-    options=('--config', 'pyproject.toml', '--quiet'),
+    # An empty exclude: pydoclint's default, `\.git|\.tox`, also drops a named
+    # file such as one under .github/, which would then pass unread.
+    options=('--config', 'pyproject.toml', '--quiet', '--exclude='),
     parse=parse_pydoclint,
     failing=frozenset((1,)),
     stream='stderr',

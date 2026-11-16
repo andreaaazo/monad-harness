@@ -30,8 +30,8 @@ SETTINGS = Settings(
     mutation_min_score=0.9,
 )
 QUIET_PYRIGHT = (
-    '{"generalDiagnostics": [], '
-    '"summary": {"errorCount": 0, "warningCount": 0}}'
+    '{"generalDiagnostics": [], "summary": '
+    '{"filesAnalyzed": 1, "errorCount": 0, "warningCount": 0}}'
 )
 CONFIG = (
     '[tool.quality_gate]\n'

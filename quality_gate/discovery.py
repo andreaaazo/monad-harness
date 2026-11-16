@@ -15,6 +15,8 @@ from quality_gate.model import GateError
 
 _LISTING = ('ls-files', '-z', '--cached', '--others', '--exclude-standard')
 _SUFFIXES = frozenset(('.py', '.pyi'))
+# The suffixes a name could have and still be Python, or a Python script.
+_MAYBE_PYTHON = _SUFFIXES | {''}
 _OUTSIDE_GIT = 'not inside a git repository'
 
 
@@ -48,13 +50,18 @@ def discover(runner: Runner, exclude: Sequence[str]) -> tuple[str, ...]:
 
     Raises:
         GateError: The root is not inside a git repository, or git gave a
-            name that is not UTF-8, which would otherwise go unseen.
+            name that is not UTF-8 and could be Python, which would
+            otherwise go unseen.
     """
     completed = runner.git(_LISTING)
     if completed.exit_code != 0:
         raise GateError(_OUTSIDE_GIT)
     names = {name for name in completed.stdout.split('\0') if name}
-    unreadable = sorted(name for name in names if '�' in name)
+    unreadable = sorted(
+        name
+        for name in names
+        if '\ufffd' in name and PurePosixPath(name).suffix in _MAYBE_PYTHON
+    )
     if unreadable:
         message = f'git gave file names that are not UTF-8: {unreadable}'
         raise GateError(message)
@@ -72,9 +79,10 @@ def select_given(
     given: Sequence[str],
     discovered: Sequence[str],
 ) -> tuple[str, ...]:
-    """Keep the given paths that are discovered files, in discovery's order.
+    """Keep the discovered files the given paths name, in discovery's order.
 
-    A path is read from the current folder, as a shell would read it.
+    A path is read from the current folder, as a shell would read it. A
+    folder stands for every discovered file below it, `.` for all of them.
 
     Args:
         root: The repository's top folder.
@@ -82,10 +90,14 @@ def select_given(
         discovered: The output of `discover`.
 
     Returns:
-        The given paths that discovery saw, root-relative.
+        The discovered files the given paths name, root-relative.
     """
     wanted = {_relative(root, name) for name in given}
-    return tuple(name for name in discovered if name in wanted)
+    return tuple(
+        name
+        for name in discovered
+        if any(PurePosixPath(name).is_relative_to(path) for path in wanted)
+    )
 
 
 def _relative(root: Path, given: str) -> str:

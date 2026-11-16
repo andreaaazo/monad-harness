@@ -33,7 +33,11 @@ def _diagnostic(
 
 
 def _output(diagnostics: list[object], errors: int, warnings: int) -> str:
-    summary = {'errorCount': errors, 'warningCount': warnings}
+    summary = {
+        'filesAnalyzed': 1,
+        'errorCount': errors,
+        'warningCount': warnings,
+    }
     return json.dumps({'generalDiagnostics': diagnostics, 'summary': summary})
 
 
@@ -48,7 +52,7 @@ def test_basedpyright_json_becomes_violations() -> None:
         errors=1,
         warnings=1,
     )
-    assert basedpyright.parse_basedpyright(stdout, ROOT) == (
+    assert basedpyright.parse_basedpyright(stdout, ROOT, 1) == (
         Violation('src/a.py', 13, 5, 'reportAny', 'a error'),
         Violation('src/a.py', 1, 5, 'basedpyright', 'a warning'),
     )
@@ -57,7 +61,7 @@ def test_basedpyright_json_becomes_violations() -> None:
 def test_a_count_without_diagnostics_still_fails() -> None:
     """A summary that counts errors it did not list is still a finding."""
     stdout = _output([], errors=2, warnings=0)
-    found = basedpyright.parse_basedpyright(stdout, ROOT)
+    found = basedpyright.parse_basedpyright(stdout, ROOT, 1)
     assert [(finding.path, finding.code) for finding in found] == [
         ('.', 'summary'),
     ]
@@ -81,7 +85,7 @@ def test_unreadable_basedpyright_json_is_refused(stdout: str) -> None:
         stdout: What a broken or changed basedpyright might print.
     """
     with pytest.raises(ValueError, match='basedpyright'):
-        pytest.fail(repr(basedpyright.parse_basedpyright(stdout, ROOT)))
+        pytest.fail(repr(basedpyright.parse_basedpyright(stdout, ROOT, 1)))
 
 
 def test_basedpyright_reports_a_real_error(repository: Runner) -> None:
@@ -127,3 +131,28 @@ def test_a_clean_file_passes(repository: Runner) -> None:
     write_file(repository.root, 'src/a.py', '"""A module."""\n')
     given = CheckInput(runner=repository, files=('src/a.py',))
     assert basedpyright.run(given).status is Status.PASS
+
+
+@pytest.mark.parametrize('name', ['.hidden/bad.py', 'node_modules/pkg/bad.py'])
+def test_a_file_basedpyright_skips_is_an_error(
+    repository: Runner,
+    name: str,
+) -> None:
+    """A named file that basedpyright leaves out never passes.
+
+    Args:
+        repository: A fresh repository.
+        name: A file where basedpyright's default excludes would apply.
+    """
+    config = '[tool.basedpyright]\ntypeCheckingMode = "all"\n'
+    write_file(repository.root, 'pyproject.toml', config)
+    write_file(repository.root, name, ALL_ONLY)
+    outcome = basedpyright.run(CheckInput(runner=repository, files=(name,)))
+    assert outcome.status is Status.ERROR
+
+
+def test_fewer_files_analyzed_is_refused() -> None:
+    """A report that analyzed fewer files than it was given is unreadable."""
+    stdout = _output([], errors=0, warnings=0)
+    with pytest.raises(ValueError, match='analyzed 1 of the 2 files'):
+        pytest.fail(repr(basedpyright.parse_basedpyright(stdout, ROOT, 2)))

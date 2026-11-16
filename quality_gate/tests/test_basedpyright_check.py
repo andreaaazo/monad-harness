@@ -1,4 +1,4 @@
-"""Tests of the check of basedpyright: types in mode `all` (SPEC §6.4)."""
+"""Tests of the check of basedpyright, for types in mode `all` (SPEC §6.4)."""
 
 import json
 from pathlib import Path

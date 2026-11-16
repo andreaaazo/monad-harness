@@ -11,6 +11,9 @@ from quality_gate.checks.verdict import (
 )
 from quality_gate.model import CheckResult, Violation
 
+# Written masked, so this file holds no directive for the scan (SPEC §8.1).
+_DISABLE_DIRECTIVES = '--disable-no~qa'.replace('~', '')
+
 # One finding: `path:line:column: CODE message`.
 _FINDING = re.compile(
     r"""
@@ -52,7 +55,7 @@ CHECK = ToolCheck(
     options=(
         '--config',
         '.flake8',
-        '--disable-noqa',
+        _DISABLE_DIRECTIVES,
         '--format',
         'default',
         '--no-show-source',

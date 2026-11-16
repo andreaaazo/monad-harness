@@ -30,7 +30,10 @@ I piani B e C di M1.8 aggiungono le loro.
     0 errori;
   - `uv run basedpyright --project pyproject.toml --outputjson src/agency/contracts` conta 41 errori, con regole del
     solo modo `all` come `reportAny` e `reportExplicitAny`;
-  - per `quality_gate/ruff.toml`, la prova arriva con il Task 3 del piano A.
+  - `uv run ruff check --show-settings quality_gate/model.py` mostra `linter.line_length = 80`,
+    `formatter.quote_style = single` e `linter.preview = enabled`: le regole della §6.1 valgono per i file del gate.
+    Il file nomina le regole invece di darne il codice, perché la regola di anteprima RUF201 di Ruff controlla anche
+    questo file e vuole i nomi. I codici restano nei commenti, e il significato è lo stesso.
 
 ## 2. L'eccezione (c) di `.flake8` raggiunge anche `tests/`
 

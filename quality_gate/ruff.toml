@@ -1,0 +1,74 @@
+# TEMPORARY: SPEC §6.1 for the gate's own files until the switch moves it into pyproject.toml (ADR-0060, B1).
+# The rules are named, not coded: Ruff's preview rule RUF201 checks this file too. The codes are in the comments.
+required-version = "==0.17.1"
+target-version = "py313"
+line-length = 80
+preview = true
+
+[format]
+quote-style = "single"  # the same choice as WPS's reference config
+docstring-code-format = true
+
+[lint]
+select = ["ALL"]
+preview = true
+explicit-preview-rules = false  # ALL includes the preview rules too
+ignore = [
+  # (a) covered by the formatter: Ruff itself advises against them beside "ruff format"
+  "tab-indentation",  # W191
+  "indentation-with-invalid-multiple",  # E111
+  "indentation-with-invalid-multiple-comment",  # E114
+  "over-indented",  # E117
+  "docstring-tab-indentation",  # D206
+  "triple-single-quotes",  # D300
+  "bad-quotes-inline-string",  # Q000
+  "bad-quotes-multiline-string",  # Q001
+  "bad-quotes-docstring",  # Q002
+  "avoidable-escaped-quote",  # Q003
+  "unnecessary-escaped-quote",  # Q004
+  "missing-trailing-comma",  # COM812
+  "prohibited-trailing-comma",  # COM819
+  # (e) decision D5: no copyright header (ADR-0060)
+  "missing-copyright-notice",  # CPY001
+]
+
+[lint.per-file-ignores]
+# (c) assert and literal expected values (S101, PLR2004)
+"**/tests/**/*.py" = ["assert", "magic-value-comparison"]
+"**/conftest.py" = ["assert", "magic-value-comparison"]
+# (d) the only module allowed to launch processes (S404, S603)
+"execution.py" = [
+  "suspicious-subprocess-import",
+  "subprocess-without-shell-equals-true",
+]
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.mccabe]
+max-complexity = 8
+
+[lint.pylint]
+max-args = 4
+max-positional-args = 3
+max-branches = 8
+max-returns = 4
+max-statements = 30
+max-bool-expr = 3
+max-locals = 8
+max-nested-blocks = 3
+max-public-methods = 10
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[lint.flake8-tidy-imports.banned-api]
+"typing.cast".msg = "Fix the types instead of escaping them."
+"typing.Any".msg = "Fix the types instead of escaping them."
+"typing_extensions.Any".msg = "Fix the types instead of escaping them."
+
+[lint.flake8-type-checking]
+strict = true
+
+[lint.isort]
+known-first-party = ["agency", "quality_gate"]

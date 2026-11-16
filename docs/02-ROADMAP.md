@@ -11,7 +11,7 @@ si aggiornano con i dati di M1.
 | M1.5 | Esplorazione a schizzi | Idee in parallelo, schizzi veloci, scelta del concetto, poi produzione | 40 $ | **chiuso**, 38,83 $ spesi, criteri non verificati passati a M1.6 e M2 |
 | M1.6 | Misure e cruscotto | Dati confrontabili, `insights`, API Django, cruscotto Next.js | 30 $ | **chiuso**, 0 $ spesi, `merlo4` e confronto con la CLI passati a M1.9 |
 | M1.7 | Architettura a slice | Motore diviso in slice, dipendenze imposte | 0 $ | **chiuso**, 0 $ spesi, correzioni della revisione finale in [ADR-0059](adr/0059-correzioni-ad-adr-0058-dopo-il-secondo-piano.md) |
-| M1.8 | Quality gate di Python | Un comando decide, niente soppressioni, hook che lo applicano da soli | 0 $ | **in corso**, [piano A](superpowers/plans/2026-11-15-m1-8-plan-a-per-file-gate.md) fatto (modo `file`), poi i piani B e C |
+| M1.8 | Quality gate di Python | Un comando decide, niente soppressioni, hook che lo applicano da soli | 0 $ | **in corso**, [piano A](superpowers/plans/2026-11-15-m1-8-plan-a-per-file-gate.md) fatto (modo `file`), [piano B](superpowers/plans/2026-11-16-m1-8-plan-b-project-and-integrity.md) fatto (modi `staged`, `changed`, `full` e `lock`, [`BASELINE.md`](quality-gate/BASELINE.md)) e in revisione finale, poi il piano C |
 | M1.9 | Prova reale | `merlo4` misurato e giudicato, confronto con la CLI | 30 $ + CLI | |
 | M2 | Parità | Tutto lo studio, con replay di un'identità | 200 $ | |
 | M3 | Contesto visivo e parallelo | Scena, ricerca visiva, istanze per lavoro | 60 $ | |
@@ -557,16 +557,21 @@ Gli hook si accendono per ultimi. Il blocco della configurazione lo genera Andre
 2. [x] **Dipendenze**: il gruppo `quality` pinnato con `==` dentro la quarantena (ADR-0006), il lock aggiornato. Si tolgono gli
    strumenti che il gate sostituisce (D1). Fatto nel piano A, tranne la rimozione, che D1 rimanda al passaggio del piano C.
 3. [ ] **Configurazione**: le tabelle della §6 in `pyproject.toml` e `.flake8`, con le sole eccezioni della §6.10. Il piano A
-   ha scritto le tabelle proprie del gate e `.flake8`. Ruff, pytest e import-linter cambiano al passaggio del piano C.
+   ha scritto le tabelle proprie del gate e `.flake8`, il piano B la chiave di deptry e `env_passthrough`. Resta al piano C il
+   passaggio: Ruff, pytest e import-linter prendono la forma della §6, con i due contratti fissi della §6.5, e se ne vanno
+   `quality_gate/ruff.toml` e `pyrightconfig.json`.
 4. [ ] **Nucleo**: modi `file`, `changed` e `full`, scoperta dei file, esecuzione e rapporto, con i controlli per file (§7). Solo
-   `execution.py` lancia processi. Il piano A ha fatto il modo `file` e i controlli per file; `changed` e `full` arrivano con
-   il piano B.
-5. [ ] **Controlli di progetto**: contratti, codice morto, dipendenze, duplicazione, test, copertura e copertura delle righe
+   `execution.py` lancia processi. Il piano A ha fatto il modo `file` e i controlli per file, il piano B `staged`, `changed` e
+   `full`. Resta al piano C il modo `mutation` (punto 9), e il gate che legge Ruff dalla §6.1 alla radice: fino al passaggio
+   `ruff-lint` e `ruff-format` leggono le tabelle di oggi, e `changed` su un albero pulito esce 1 (A2).
+5. [x] **Controlli di progetto**: contratti, codice morto, dipendenze, duplicazione, test, copertura e copertura delle righe
    cambiate, con i filtri del ratchet (§7.5).
-6. [ ] **Anti-aggiramento**: soppressioni, configurazioni ombra, blocco della configurazione e modo `lock`, integrità di hook,
-   versioni e test (§8).
-7. [ ] **`BASELINE.md`**: conteggi e durate iniziali di `full`, regole più frequenti, copertura di oggi, contratti attivi e in
-   attesa, eccezioni.
+6. [x] **Anti-aggiramento**: soppressioni, configurazioni ombra, blocco della configurazione e modo `lock`, integrità di hook,
+   versioni e test (§8). I controlli ci sono tutti. Sul repository tre falliscono per costruzione finché il piano C non li
+   soddisfa: `shadow-config` e `hook-integrity` al passaggio e con gli hook (punti 8 e 10), `config-lock` con il blocco di
+   Andrea (punto 12).
+7. [x] **[`BASELINE.md`](quality-gate/BASELINE.md)**: conteggi e durate iniziali di `full`, regole più frequenti, copertura
+   di oggi, contratti attivi e in attesa, eccezioni.
 8. [ ] **Collegamenti**: l'hook di commit, secondo la decisione su ADR-0051. Gli alias `gate`, `gate-full`, `gate-mutation` e
    `gate-lock` nel Taskfile, con gli alias `make`. La parte Python di `task check` passa dal gate.
 9. [ ] **Il gate rispetta se stesso**: zero violazioni, rami coperti al 100% e mutation ≥ 90% su `quality_gate/` (P5).
@@ -784,7 +789,8 @@ Si dettaglia dopo M6, con i dati del primo cliente reale. Motivi e decisioni ape
 
 ## Primo passo concreto
 
-La revisione finale del [piano A](superpowers/plans/2026-11-15-m1-8-plan-a-per-file-gate.md) di M1.8, con un revisore che non ha
-scritto il codice. Poi il piano B: i modi `changed`, `full` e `staged`, i controlli sul progetto e quelli di integrità
-([ADR-0060](adr/0060-il-quality-gate-parametri-decisioni-e-ordine.md)). Dopo M1.9, M2 parte dal contesto delle istanze
-lunghe, prima dei ruoli.
+La revisione finale del [piano B](superpowers/plans/2026-11-16-m1-8-plan-b-project-and-integrity.md) di M1.8, con un revisore
+che non ha scritto il codice. Poi il piano C: il passaggio del controllo di ogni giorno al gate, gli hook, `AGENTS.md`, il
+mutation testing, le prove e il blocco di Andrea ([ADR-0060](adr/0060-il-quality-gate-parametri-decisioni-e-ordine.md),
+[ADR-0061](adr/0061-il-commit-e-il-controllo-di-ogni-giorno-passano-dal-gate.md)). Dopo M1.9, M2 parte dal contesto delle
+istanze lunghe, prima dei ruoli.

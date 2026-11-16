@@ -232,8 +232,9 @@ Il motore ha le sue slice in `studio/`, e `process/` compone il grafo
 
 Fuori dal motore, alla radice, `quality_gate/` è il quality gate di Python di M1.8
 ([ADR-0060](adr/0060-il-quality-gate-parametri-decisioni-e-ordine.md)). Usa solo la libreria standard, lancia gli strumenti
-del gruppo `quality` e non importa nulla di `agency`, che a sua volta non lo importa. Oggi ha il modo `file`; gli altri modi
-arrivano con i piani B e C di M1.8.
+del gruppo `quality` e non importa nulla di `agency`, che a sua volta non lo importa. Ha i modi `file`, `staged`, `changed`
+e `full`, i controlli sul progetto e quelli di integrità, e il modo `lock`, che solo Andrea esegue dal suo terminale. Il
+mutation testing arriva con il piano C di M1.8, che fa passare dal gate anche il controllo di ogni giorno.
 
 ```text
 src/agency/
@@ -265,9 +266,11 @@ src/agency/
   config.py      le impostazioni del motore: variabili `AGENCY_*` e chiave API
 tests/           test_*.py; support/ ha gli aiuti condivisi (ScriptedTransport, ReplayTransport, i disegni di prova,
                  il registro di prova del cruscotto); fixtures/ e snapshots/ i dati
-quality_gate/    il quality gate (M1.8): cli.py e command.py la riga di comando, modes.py i modi, discovery.py i file,
-                 execution.py l'unico modulo che lancia processi, report.py il rapporto, checks/ un modulo per controllo,
-                 tests/ le sue prove; ruff.toml è temporaneo, fino al passaggio del piano C
+quality_gate/    il quality gate (M1.8): cli.py e command.py la riga di comando, modes/ i modi e la sessione,
+                 discovery.py i file, changes.py ciò che git vede cambiato, execution.py l'unico modulo che lancia
+                 processi, report.py il rapporto, checks/ un modulo per controllo, integrity/ i controlli di integrità
+                 e il blocco della configurazione, tests/ le sue prove; ruff.toml è temporaneo, fino al passaggio del
+                 piano C
 web/src/         app/ le pagine, con globals.css e styles/ (i fogli delle viste, importati da layout.tsx in ordine);
                  components/, lib/ gli aiuti puri con le loro prove, api/ il client e i tipi, proxy.ts
 ```

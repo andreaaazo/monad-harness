@@ -7,7 +7,7 @@ Ogni differenza fra il repository e [`SPEC.md`](SPEC.md), con la sua prova. Per 
 - la prova: un comando e il suo risultato.
 
 Le decisioni dietro le differenze stanno in [ADR-0060](../adr/0060-il-quality-gate-parametri-decisioni-e-ordine.md).
-I piani B e C di M1.8 aggiungono le loro.
+Le voci 1–5 vengono dal piano A di M1.8, le 6–16 dal piano B; il piano C aggiunge le sue.
 
 ## 1. Due file di configurazione temporanei, fino al passaggio
 
@@ -249,3 +249,22 @@ I piani B e C di M1.8 aggiungono le loro.
 - **Prova:**
   - l'aiuto di diff-cover 10.6.0, e il suo `config_parser.py`, che legge un file solo se `config_file` è dato;
   - in `quality_gate/tests/test_covered.py`, il canarino `test_an_untested_branch_fails_diff_coverage`.
+
+## 16. `changed` senza commit, e senza prove da eseguire
+
+- **Specifica.** La §7.5 elenca per `changed` i controlli `tests`, `coverage` (la sola coerenza dei file) e
+  `diff-coverage`, e dice che quando cambiano solo file `.md` o sotto `docs/` i test non girano. Non dice che cosa fare
+  in un repository senza commit.
+- **Repository.**
+  - **Senza commit** non c'è una base da confrontare, e ogni file scoperto conta come cambiato. I controlli sul
+    progetto non si filtrano. `coverage` chiede anche il 100%, come in `full`. `diff-coverage` non gira.
+  - **Con soli documenti cambiati** non girano `tests`, `coverage` e `diff-coverage`: i due controlli di copertura
+    leggono i dati che scrive la suite.
+  - Un controllo che il modo non esegue non compare nel rapporto.
+- **Perché.** Senza una base, diff-cover non ha righe cambiate da leggere. Ogni riga è nuova, quindi il 100% di
+  `coverage` chiede su tutto il repository quello che `diff-coverage` chiederebbe sulle righe cambiate: è almeno
+  altrettanto severo.
+- **Prova** (2026-11-16), in `quality_gate/tests/test_modes.py`:
+  - `test_without_a_commit_everything_has_changed`: in un repository senza commit girano tutti i controlli di `full`, e
+    un file che nessuna prova importa fa fallire `coverage` con `never-imported`;
+  - `test_docs_only_skips_the_suite`: con un `README.md` e un `docs/x.md` cambiati, i tre controlli non compaiono.

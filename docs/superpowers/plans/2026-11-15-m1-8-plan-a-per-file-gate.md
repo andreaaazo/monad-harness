@@ -65,7 +65,7 @@ quality_gate/
   model.py             Status, Violation, CheckResult, Report, GateError
   jsonvalue.py         load_json, is_array, is_table
   settings.py          Settings, load_settings
-  execution.py         Completed, ToolFailure, Runner, clean_environment, runner_for (the only module that launches processes)
+  execution.py         Completed, ToolError, Runner, clean_environment, runner_for (the only module that launches processes)
   discovery.py         find_root, discover, select_given
   report.py            render_text, render_json
   ruff.toml            TEMPORARY: §6.1 for the gate's files, deleted at the switch (plan C)
@@ -303,7 +303,7 @@ line names the test that pins it and the task that owns it.
 - Consumes: `Settings` (Task 3).
 - Produces:
   - `Completed(exit_code: int, stdout: str, stderr: str, seconds: float)`, frozen.
-  - `ToolFailure(Exception)`, raised for a missing executable or a timeout. Its message is
+  - `ToolError(Exception)`, raised for a missing executable or a timeout. Its message is
     `missing executable: <path>` or `timeout after <seconds>s`.
   - `ALLOWED_VARIABLES: Final = ('PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR', 'VIRTUAL_ENV')`.
   - `clean_environment(source: Mapping[str, str], passthrough: Sequence[str]) -> dict[str, str]`.
@@ -318,7 +318,7 @@ line names the test that pins it and the task that owns it.
   - `test_a_tool_runs_from_the_scripts_folder_in_the_repository_root`: a fake prints `os.getcwd()`; stdout equals the
     root.
   - `test_a_tool_never_comes_from_path`: the tool exists only in a folder on the environment's `PATH`, so
-    `ToolFailure('missing executable: …')` is raised.
+    `ToolError('missing executable: …')` is raised.
   - `test_exit_code_and_both_streams_are_returned`: a fake writes `out` and `err` and exits 3. The result is
     `Completed(3, 'out', 'err', …)`, with `seconds >= 0`.
   - `test_arguments_reach_the_tool_unchanged`: `['./-x.py', './a b.py', './è.py']` comes back from a fake that echoes
@@ -330,16 +330,16 @@ line names the test that pins it and the task that owns it.
     runner's environment, apart from what the interpreter adds by itself (`LC_CTYPE` if the platform sets it); the
     test lists those explicitly.
   - `test_a_tool_that_runs_too_long_is_a_failure`: a fake sleeps 5 s with timeout 0.5, so
-    `ToolFailure('timeout after 0.5s')` is raised.
+    `ToolError('timeout after 0.5s')` is raised.
   - `test_git_comes_from_path`: `runner.git(['--version'])` stdout starts with `git version`.
-  - `test_git_missing_from_path_is_a_failure`: the environment's `PATH` is an empty folder, so `ToolFailure` is
+  - `test_git_missing_from_path_is_a_failure`: the environment's `PATH` is an empty folder, so `ToolError` is
     raised.
   - `test_runner_for_takes_the_interpreter_scripts_and_cleans_the_environment` (monkeypatch `PYTEST_ADDOPTS`).
 - [ ] **Step 2:** implement.
   - `subprocess.run` with an argument list: `cwd=root`, `env=environment`, `stdin=DEVNULL`, captured output,
     `encoding='utf-8'`, `errors='replace'`, `timeout`, `check=False`.
   - git is found with `shutil.which('git', path=environment['PATH'])`.
-  - A missing `PATH` key is a `ToolFailure`, not a `KeyError`.
+  - A missing `PATH` key is a `ToolError`, not a `KeyError`.
   - Time is measured with `time.perf_counter`.
 - [ ] **Step 3:** add B2 to `DEVIATIONS.md`, with `test_git_comes_from_path` and `test_a_tool_never_comes_from_path`
   as proof.
@@ -442,7 +442,7 @@ line names the test that pins it and the task that owns it.
   `quality_gate/tests/test_ruff_checks.py`, `quality_gate/tests/test_wps_check.py`
 
 **Interfaces:**
-- Consumes: `Runner`, `Completed`, `ToolFailure` (Task 4); `CheckResult`, `Violation`, `Status` (Task 3);
+- Consumes: `Runner`, `Completed`, `ToolError` (Task 4); `CheckResult`, `Violation`, `Status` (Task 3);
   `load_json`, `is_array`, `is_table` (Task 3).
 - Produces:
   - `type Parser = Callable[[str, Path], tuple[Violation, ...]]`: stdout and root to violations. It raises
@@ -500,7 +500,7 @@ line names the test that pins it and the task that owns it.
   ```
 
   `run_tool_check` returns PASS, with count 0, for an empty `files` without calling the runner. It turns a
-  `ToolFailure` into an ERROR, timed around the call.
+  `ToolError` into an ERROR, timed around the call.
 - [ ] **Step 4:** the strict self-check passes and `make check` exits 0. Handoff with
   `feat(quality): judge a tool by its exit code and check Ruff and WPS`.
 

@@ -61,3 +61,20 @@ I piani B e C di M1.8 aggiungono le loro.
 - **Prova.** Prima della correzione,
   `uv run pytest -p no:randomly "tests/test_server.py::test_django_owns_no_model_and_no_database"` falliva con
   `KeyError: 'default'`. Dopo passa da solo, e passa su `tests/test_server.py` con `--randomly-seed` 1, 2 e 3.
+
+## 4. git si trova nel `PATH`
+
+- **Specifica.** La §7.3 vuole che ogni eseguibile si risolva nella cartella degli script dell'interprete
+  (`sysconfig.get_path("scripts")`), mai dal `PATH`.
+- **Repository.** `quality_gate/execution.py` cerca così gli strumenti Python. git lo cerca nel `PATH` dell'ambiente
+  ripulito, con `shutil.which("git", path=...)`. Senza `PATH`, o con un `PATH` vuoto, git manca e il gate dà errore.
+- **Perché.** git non è un pacchetto Python e non può stare nell'ambiente virtuale. Il rischio che la §7.3 chiude, un
+  finto strumento di qualità messo prima nel `PATH`, resta chiuso: nessuno strumento Python arriva dal `PATH`. Un
+  finto git potrebbe nascondere dei file alla scoperta. È un limite della §12: una shell può sempre offuscare, e il
+  commit resta di Andrea (ADR-0060, punto 14).
+- **Prova** (2026-11-16), in `quality_gate/tests/test_execution.py`:
+  - `test_a_tool_never_comes_from_path`: uno strumento che c'è solo in una cartella del `PATH` dà
+    `missing executable`;
+  - `test_git_comes_from_path`: `git --version` risponde dal `PATH`;
+  - `test_git_missing_from_path_is_a_failure`: senza `PATH`, con un `PATH` vuoto o con uno che non contiene git, il
+    risultato è `missing executable: git`.

@@ -127,3 +127,15 @@ I piani B e C di M1.8 aggiungono le loro.
   - `test_git_sees_the_index_variable`: git risponde con l'indice indicato;
   - `test_tools_never_see_the_index_variable`: un finto strumento non vede la variabile;
   - `test_a_timeout_kills_the_process_group`: il figlio di uno strumento fermato dal timeout non scrive più il suo file.
+
+## 8. Nel blocco, un file assente vale `"absent"`
+
+- **Specifica.** La §8.3 marca `"absent"` una tabella che manca, così che aggiungerla sia una differenza. Per i file
+  dice solo che un file in più o in meno è una differenza.
+- **Repository.** Anche un file bloccato che manca vale `"absent"`. Il gruppo di dipendenze `quality` è bloccato con la
+  chiave `dependency-groups.quality`. Il documento del blocco sta in `quality_gate/integrity/lockfile.py`, il controllo
+  in `quality_gate/integrity/config_lock.py`.
+- **Perché.** Fino al piano C mancano `.pre-commit-config.yaml`, `.claude/settings.json` e `AGENTS.md`: con
+  `"absent"`, crearli è una differenza visibile, come per le tabelle.
+- **Prova** (2026-11-16): `test_absent_tables_and_files_are_marked` e `test_a_file_added_to_the_gate_fails`
+  (`quality_gate/tests/test_config_lock.py`). Sul repository, oggi, `config-lock` dà FAIL con `lock missing`.

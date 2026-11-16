@@ -1,8 +1,22 @@
-"""Fake tools: executable Python scripts written into a test's own folder."""
+"""What the gate's tests share: fake tools, files, and the per-file order.
+
+A fake tool is an executable Python script written into a test's own folder.
+"""
 
 import stat
 import sys
 from pathlib import Path
+from typing import Final
+
+# The per-file checks, in the order of SPEC §7.4, which every mode keeps.
+PER_FILE_ORDER: Final = (
+    'ruff-lint',
+    'ruff-format',
+    'wps',
+    'pydoclint',
+    'basedpyright',
+    'suppressions',
+)
 
 
 def write_tool(scripts: Path, name: str, body: str) -> None:

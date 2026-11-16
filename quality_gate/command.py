@@ -10,8 +10,14 @@ from dataclasses import dataclass
 
 from quality_gate.model import GateError
 
-USAGE = 'usage: python -m quality_gate file PATH... [--format text|json]'
+USAGE = (
+    'usage: python -m quality_gate file PATH... [--format text|json]\n'
+    '       python -m quality_gate staged|full [--format text|json]\n'
+    '       python -m quality_gate lock'
+)
 _FORMATS = frozenset(('text', 'json'))
+_PATHLESS = frozenset(('staged', 'full'))
+_LOCK = 'lock'
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,7 +26,7 @@ class Command:
 
     Attributes:
         mode: The mode to run.
-        paths: The paths the user gave.
+        paths: The paths the user gave, which only `file` takes.
         output: The report's format: `text` or `json`.
     """
 
@@ -32,6 +38,9 @@ class Command:
 def parse_command(words: Sequence[str]) -> Command:
     """Read the arguments after `python -m quality_gate`.
 
+    `file` takes one path or more, `staged` and `full` none, and every mode
+    but `lock` takes `--format`. `lock` takes nothing at all.
+
     Args:
         words: The command line, without the program.
 
@@ -42,8 +51,12 @@ def parse_command(words: Sequence[str]) -> Command:
         GateError: The command is not one the gate knows.
     """
     mode = words[0] if words else ''
+    if mode == _LOCK and len(words) == 1:
+        return Command(mode=mode, paths=(), output='text')
     output, paths = _split_format(words[1:])
-    if mode != 'file' or not paths or output not in _FORMATS:
+    takes_paths = mode == 'file'
+    known = takes_paths or mode in _PATHLESS
+    if not known or bool(paths) != takes_paths or output not in _FORMATS:
         raise GateError(USAGE)
     return Command(mode=mode, paths=paths, output=output)
 

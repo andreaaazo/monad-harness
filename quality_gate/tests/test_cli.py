@@ -1,4 +1,4 @@
-"""Tests of the command line: the `file` mode and `python -m quality_gate`."""
+"""Tests of the command line: its modes and `python -m quality_gate`."""
 
 import logging
 import runpy
@@ -13,16 +13,8 @@ from quality_gate.jsonvalue import is_table, load_json
 from quality_gate.model import CheckResult, Report, Status
 from quality_gate.modes.file import run_file_mode
 from quality_gate.settings import Settings
-from quality_gate.tests.fakes import write_file, write_tool
+from quality_gate.tests.fakes import PER_FILE_ORDER, write_file, write_tool
 
-ORDER = (
-    'ruff-lint',
-    'ruff-format',
-    'wps',
-    'pydoclint',
-    'basedpyright',
-    'suppressions',
-)
 SETTINGS = Settings(
     exclude=('legacy/**',),
     env_passthrough=(),
@@ -103,7 +95,7 @@ def test_file_mode_runs_the_six_checks_in_order(
     write_file(repository.root, 'src/a.py', MODULE)
     monkeypatch.chdir(repository.root)
     report = run_file_mode(_fake_tools(repository), SETTINGS, ['src/a.py'])
-    assert tuple(check.name for check in report.checks) == ORDER
+    assert tuple(check.name for check in report.checks) == PER_FILE_ORDER
     assert {check.status for check in report.checks} == {Status.PASS}
     assert (report.mode, report.base, report.python_files) == ('file', None, 1)
 
@@ -264,7 +256,7 @@ def test_an_unexpected_error_returns_two(
         caplog: Reads what the gate logs.
     """
     _real_repository(repository, monkeypatch)
-    monkeypatch.setattr(cli, 'run_file_mode', _broken)
+    monkeypatch.setattr('quality_gate.modes.launch.run_file_mode', _broken)
     with caplog.at_level(logging.ERROR):
         assert cli.main(['file', 'src/greeting.py']) == 2
     assert 'RuntimeError: a bug' in caplog.text
@@ -274,7 +266,7 @@ def test_an_unexpected_error_returns_two(
     'command',
     [
         [],
-        ['full'],
+        ['mutation'],
         ['file'],
         ['file', 'a.py', '--format'],
         ['file', 'a.py', '--format', 'xml'],
@@ -293,6 +285,24 @@ def test_a_bad_command_is_a_usage_error(
     """
     assert cli.main(command) == 2
     assert 'usage: python -m quality_gate' in capsys.readouterr().err
+
+
+def test_lock_without_a_terminal_returns_two(
+    repository: Runner,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`lock` writes nothing where its output is not a terminal.
+
+    Args:
+        repository: A fresh repository.
+        monkeypatch: Moves into it.
+        capsys: Captures the output, which is then no terminal.
+    """
+    _real_repository(repository, monkeypatch)
+    assert cli.main(['lock']) == 2
+    assert 'lock needs a terminal' in capsys.readouterr().err
+    assert not (repository.root / 'quality_gate/config.lock').exists()
 
 
 def test_python_m_exits_with_the_code_of_main(

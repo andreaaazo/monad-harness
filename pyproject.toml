@@ -483,7 +483,9 @@ reportIgnoreCommentWithoutRule = "error"
 min_confidence = 0
 
 [tool.deptry]
-# No key: the default rules, with no exception.
+# The default rules, with no exception. The one key names the engine's package, which deptry
+# cannot find in the src/ layout and would report as a dependency of itself (plan B of M1.8, B4).
+known_first_party = ["agency"]
 
 [tool.pylint.main]
 disable = ["all"]

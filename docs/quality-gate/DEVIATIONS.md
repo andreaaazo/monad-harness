@@ -152,3 +152,38 @@ I piani B e C di M1.8 aggiungono le loro.
   (`quality_gate/tests/test_hook_integrity.py`). Sul repository, oggi, `hook-integrity` dà FAIL per tre ragioni:
   manca `.claude/settings.json`, manca l'hook di pre-commit e `core.hooksPath` vale `.githooks`. Tutte e tre se ne
   vanno con il passaggio del piano C (ADR-0061).
+
+## 10. deptry: il pacchetto del motore, il filtro e il verdetto
+
+- **Specifica.** La §6.6 vuole `[tool.deptry]` senza chiavi, e la §7.3 trae il verdetto dal codice d'uscita.
+- **Repository.**
+  - **La chiave.** `[tool.deptry]` ha una sola chiave, `known_first_party = ["agency"]`.
+  - **Il filtro.** Il gate tiene solo le segnalazioni in un file scoperto o in `pyproject.toml`, e scarta DEP004 in un
+    file di test.
+  - **Il verdetto.** Il controllo `dependencies` giudica dalle segnalazioni rimaste. Le uscite 0 e 1 sono entrambe
+    attese; ogni altra, o un rapporto illeggibile, è un errore.
+- **Perché.**
+  - Senza la chiave, deptry non trova `agency` nel layout `src/` e lo segnala 408 volte come dipendenza transitiva di
+    sé stesso. La chiave non esclude nulla.
+  - deptry analizza tutto l'albero: `legacy/` (D4) dà 49 segnalazioni che il gate non deve vedere.
+  - deptry scarta da solo solo la cartella `tests/` alla radice, quindi pytest in `quality_gate/tests` dà 11 DEP004.
+  - Se il gate scarta tutte le segnalazioni, deptry è comunque uscito con 1: il codice d'uscita da solo darebbe un FAIL
+    sbagliato.
+- **Prova** (2026-11-16):
+  - sul repository, `dependencies` dà PASS: delle 67 segnalazioni di deptry, nessuna resta;
+  - in `quality_gate/tests/test_dependencies_check.py`: `test_findings_outside_discovery_are_dropped`,
+    `test_dep004_in_test_files_is_dropped`, `test_filtered_findings_pass`, e il canarino
+    `test_an_undeclared_import_fails`.
+
+## 11. pylint: niente cache, e i blocchi letti per modulo
+
+- **Specifica.** La §7.3 spegne le cache. La §7.5 tiene in `changed` solo i blocchi duplicati che toccano un file
+  cambiato.
+- **Repository.**
+  - pylint gira con `--persistent n`.
+  - Il gate risale dal nome di modulo di un blocco al suo file, come pylint nomina i moduli: il percorso a punti dalla
+    prima cartella senza `__init__.py`.
+- **Perché.** pylint scrive le sue statistiche in `~/.cache/pylint` se non glielo si vieta. Per un blocco duplicato dà
+  solo i nomi di modulo, e il suo campo `path` indica l'ultimo file letto, non quelli duplicati.
+- **Prova** (2026-11-16): `test_module_names_follow_packages`, `test_duplicate_blocks_become_violations` e il
+  canarino `test_a_copied_block_is_found` (`quality_gate/tests/test_duplication.py`).

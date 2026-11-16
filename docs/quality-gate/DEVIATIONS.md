@@ -139,3 +139,16 @@ I piani B e C di M1.8 aggiungono le loro.
   `"absent"`, crearli è una differenza visibile, come per le tabelle.
 - **Prova** (2026-11-16): `test_absent_tables_and_files_are_marked` e `test_a_file_added_to_the_gate_fails`
   (`quality_gate/tests/test_config_lock.py`). Sul repository, oggi, `config-lock` dà FAIL con `lock missing`.
+
+## 9. `hook-integrity` fallisce anche con `core.hooksPath`
+
+- **Specifica.** La §8.4 chiede che `.git/hooks/pre-commit` esista e sia quello installato da pre-commit.
+- **Repository.** `hook-integrity` fallisce anche quando `git config --get core.hooksPath` trova un valore, a qualunque
+  livello della configurazione di git.
+- **Perché.** Con `core.hooksPath` impostato git non esegue mai `.git/hooks/pre-commit`: l'hook ci sarebbe, ma il commit
+  lo salterebbe. È più severo della §8.4. Un hook è di pre-commit se contiene la riga
+  `# ID: 138fd403232d2ddd5efb44317e38bf03`, che pre-commit 4.7.0 scrive in ogni hook che installa.
+- **Prova** (2026-11-16): `test_a_hooks_path_fails` e `test_a_foreign_pre_commit_hook_fails`
+  (`quality_gate/tests/test_hook_integrity.py`). Sul repository, oggi, `hook-integrity` dà FAIL per tre ragioni:
+  manca `.claude/settings.json`, manca l'hook di pre-commit e `core.hooksPath` vale `.githooks`. Tutte e tre se ne
+  vanno con il passaggio del piano C (ADR-0061).

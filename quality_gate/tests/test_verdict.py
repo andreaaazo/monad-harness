@@ -165,3 +165,17 @@ def test_a_path_outside_the_root_cannot_be_read() -> None:
     """A path outside the root is output the gate cannot place."""
     with pytest.raises(ValueError, match='outside the root'):
         pytest.fail(relative_path(ROOT, '/elsewhere/a.py'))
+
+
+def test_a_check_can_read_its_tool_s_stderr() -> None:
+    """A tool that writes its findings to standard error is read there."""
+    check = ToolCheck(
+        name='fake-check',
+        tool='fake',
+        options=(),
+        parse=_one_per_line,
+        failing=frozenset((1,)),
+        stream='stderr',
+    )
+    outcome = judge(check, Completed(1, 'noise', 'a.py\n', 0.5), ROOT)
+    assert [found.path for found in outcome.violations] == ['a.py']

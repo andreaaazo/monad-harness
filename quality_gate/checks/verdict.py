@@ -9,11 +9,13 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import Literal
 
 from quality_gate.execution import Completed, Runner, ToolError
 from quality_gate.model import CheckResult, Status, Violation
 
 type Parser = Callable[[str, Path], tuple[Violation, ...]]
+type Stream = Literal['stdout', 'stderr']
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +42,8 @@ class ToolCheck:
         parse: Reads the tool's standard output into violations, and
             raises ValueError when it cannot.
         failing: The exit codes that mean "found something".
+        stream: The output that holds the findings: pydoclint writes them
+            to standard error.
     """
 
     name: str
@@ -47,6 +51,20 @@ class ToolCheck:
     options: tuple[str, ...]
     parse: Parser
     failing: frozenset[int]
+    stream: Stream = 'stdout'
+
+    def findings(self, completed: Completed) -> str:
+        """Pick the output that holds the tool's findings.
+
+        Args:
+            completed: What the tool gave back.
+
+        Returns:
+            Its standard output, or its standard error for `stderr`.
+        """
+        if self.stream == 'stderr':
+            return completed.stderr
+        return completed.stdout
 
 
 def judge(check: ToolCheck, completed: Completed, root: Path) -> CheckResult:
@@ -63,7 +81,9 @@ def judge(check: ToolCheck, completed: Completed, root: Path) -> CheckResult:
     raw = f'{completed.stdout}{completed.stderr}'
     expected = completed.exit_code in check.failing | {0}
     try:
-        found = check.parse(completed.stdout, root) if expected else None
+        found = (
+            check.parse(check.findings(completed), root) if expected else None
+        )
     except ValueError:
         found = None
     if found is None:

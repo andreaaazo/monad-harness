@@ -16,14 +16,15 @@ FUNCTIONS = (
     ('file', 'run_file_mode'),
     ('staged', 'run_staged'),
     ('full', 'run_full'),
+    ('changed', 'run_changed'),
 )
 
 
-def _report(mode: str, *_arguments: object) -> Report:
+def _report(mode: str, *_arguments: object, **_options: object) -> Report:
     return Report(mode=mode, base=None, python_files=0, checks=())
 
 
-@pytest.mark.parametrize('mode', ['file', 'staged', 'full'])
+@pytest.mark.parametrize('mode', ['file', 'staged', 'full', 'changed'])
 def test_each_mode_runs_its_own_function(
     mode: str,
     repository: Runner,

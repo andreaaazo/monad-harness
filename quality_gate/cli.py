@@ -2,7 +2,8 @@
 
 `python -m quality_gate MODE ...` runs one mode and prints its report:
 `file PATH...` the per-file checks on the given Python files, `staged` the
-commit hook's checks, `full` every check on the whole repository. The exit
+commit hook's checks, `changed [--base REF]` the ratchet on what changed
+since the base, `full` every check on the whole repository. The exit
 code is 0 when every check passes, 1 when one fails or gives no verdict,
 and 2 for a usage error, an internal error, or a folder outside a git
 repository. `lock` writes a new lock after a person confirms it, and exits

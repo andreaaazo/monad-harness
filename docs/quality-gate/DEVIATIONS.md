@@ -187,3 +187,31 @@ I piani B e C di M1.8 aggiungono le loro.
   solo i nomi di modulo, e il suo campo `path` indica l'ultimo file letto, non quelli duplicati.
 - **Prova** (2026-11-16): `test_module_names_follow_packages`, `test_duplicate_blocks_become_violations` e il
   canarino `test_a_copied_block_is_found` (`quality_gate/tests/test_duplication.py`).
+
+## 12. `env_passthrough`: due variabili per la sandbox
+
+- **Specifica.** La §7.3 passa ai processi solo poche variabili fisse, più quelle di `env_passthrough`, che il
+  repository decide.
+- **Repository.** `env_passthrough = ["XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"]`.
+- **Perché.** La sandbox di ADR-0046 lancia `systemd-run --user`, che senza queste due variabili non raggiunge la
+  sessione dell'utente. Non è una deviazione: è il valore che la specifica lascia al repository, misurato.
+- **Prova** (2026-11-16):
+  - con le sole variabili fisse, le prove della sandbox si fermano: `systemd-run` scrive «$DBUS_SESSION_BUS_ADDRESS
+    and $XDG_RUNTIME_DIR not defined»;
+  - con le due variabili, l'intera suite passa: 1429 test, nessuno saltato;
+  - il controllo `tests` del gate, sul repository, dà PASS: 1562 test in 119,7 s sotto coverage, nessuno saltato.
+
+## 13. Il controllo `tests` legge JUnit con `expat`, e l'uscita 5 è un fallimento
+
+- **Specifica.** La §8.6 chiede al rapporto JUnit almeno un test raccolto, nessun test saltato o atteso in errore, e
+  nessun errore di raccolta.
+- **Repository.**
+  - **Lettura.** Il rapporto si legge con `xml.parsers.expat`.
+  - **I test.** Ogni test fallito o saltato è una violazione col suo nome, e un rapporto senza test ne dà una.
+  - **L'uscita 5** di pytest, «nessun test raccolto», conta come fallimento leggibile: il rapporto lo dice.
+  - **Un errore di raccolta** fa uscire pytest con 2, che è un errore del controllo.
+- **Perché.** Ruff, in modo ALL, rifiuta `xml.etree` come parser di XML non fidato (S314, S405), e sopprimere la regola
+  non è ammesso. `expat` è il parser a eventi su cui `xml.etree` poggia, e il file è quello di pytest, nella cartella
+  temporanea del gate.
+- **Prova:** `quality_gate/tests/test_suite.py`, con i canarini `test_a_runtime_skip_fails_the_suite` (un test
+  saltato con `SkipTest` importato sotto un altro nome) e `test_pytest_addopts_does_not_reach_pytest`.

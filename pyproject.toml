@@ -523,7 +523,8 @@ mutate_only_covered_lines = false
 [tool.quality_gate]
 # (f) The D4 paths: the frozen backup and the copied QA scripts (ADR-0060).
 exclude = ["legacy/**", "src/agency/qa/scripts/**"]
-# The variables the tests need in the cleaned environment: measured in plan B (ADR-0060, point 11).
-env_passthrough = []
+# The variables the tests need in the cleaned environment (ADR-0060, point 11): systemd-run --user, which the
+# sandbox launches, needs both to reach the user's session (measured in plan B of M1.8, B1).
+env_passthrough = ["XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"]
 check_timeout_seconds = 600
 mutation_min_score = 0.90

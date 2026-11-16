@@ -132,7 +132,7 @@ def test_repository_settings_are_decided() -> None:
     root = Path(__file__).resolve().parents[2]
     assert load_settings(root) == Settings(
         exclude=('legacy/**', 'src/agency/qa/scripts/**'),
-        env_passthrough=(),
+        env_passthrough=('XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS'),
         check_timeout_seconds=600,
         mutation_min_score=0.9,
     )

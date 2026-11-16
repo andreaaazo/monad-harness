@@ -9,6 +9,7 @@ from quality_gate.checks.verdict import (
     ToolCheck,
     judge,
     relative_path,
+    run_once,
     run_tool_check,
 )
 from quality_gate.execution import Completed, Runner
@@ -179,3 +180,35 @@ def test_a_check_can_read_its_tool_s_stderr() -> None:
     )
     outcome = judge(check, Completed(1, 'noise', 'a.py\n', 0.5), ROOT)
     assert [found.path for found in outcome.violations] == ['a.py']
+
+
+def test_run_once_passes_no_files(tmp_path: Path, scripts: Path) -> None:
+    """A project check's tool gets its options and nothing else.
+
+    Args:
+        tmp_path: The repository root.
+        scripts: The scripts folder.
+    """
+    body = (
+        'import json, sys\n'
+        'sys.stdout.write(json.dumps(sys.argv[1:]))\n'
+        'sys.exit(1)\n'
+    )
+    write_tool(scripts, 'fake', body)
+    outcome = run_once(CHECK, _runner(tmp_path, scripts))
+    assert load_json(outcome.raw) == ['--strict']
+
+
+def test_run_once_on_a_missing_tool_is_an_error(
+    tmp_path: Path,
+    scripts: Path,
+) -> None:
+    """A project check whose tool is not installed gives no verdict.
+
+    Args:
+        tmp_path: The repository root.
+        scripts: The scripts folder, without the tool.
+    """
+    outcome = run_once(CHECK, _runner(tmp_path, scripts))
+    assert outcome.status is Status.ERROR
+    assert outcome.raw.startswith('missing executable:')

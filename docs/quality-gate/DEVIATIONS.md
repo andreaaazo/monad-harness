@@ -96,3 +96,34 @@ I piani B e C di M1.8 aggiungono le loro.
   configurazioni ombra lo decide il piano B.
 - **Prova** (2026-11-16): `uv tree --invert --package isort` stampa `isort v9.0.2`, poi `pylint v4.1.3`, poi
   `design-agency-harness v0.1.0 (group: quality)`.
+
+## 6. I test del gate fanno commit, ma solo nei repository temporanei
+
+- **Specifica.** Non dice come provare `changed`. CLAUDE.md vieta all'assistente ogni commit nel repository.
+- **Repository.** I test di `changed` costruiscono una storia: creano un repository temporaneo sotto `tmp_path` e ci
+  fanno commit con `commit_all` (`quality_gate/tests/conftest.py`), attraverso `Runner.git` e con
+  `-c commit.gpgsign=false`. Nel repository del progetto non scrivono mai.
+- **Perché.** `changed` confronta con la merge-base di un riferimento e di `HEAD`: senza commit non c'è nulla da
+  confrontare. La regola di CLAUDE.md protegge la storia del progetto, e un repository temporaneo non ne ha. Andrea l'ha
+  lasciato all'esecuzione («You make the decisions», piano B, B2).
+- **Prova.** `quality_gate/tests/test_changes.py`: ogni test parte da `repository`, una cartella sotto `tmp_path` con il
+  suo `git init`.
+
+## 7. git riceve `GIT_INDEX_FILE`, e un timeout ferma tutto il gruppo di processi
+
+- **Specifica.** La §7.3 passa ai processi solo le variabili elencate e quelle di `env_passthrough`, e ferma un
+  controllo al suo timeout.
+- **Repository.**
+  - **`GIT_INDEX_FILE`.** `Runner.git` aggiunge la variabile, se il gate la ha. Nessun altro strumento la riceve.
+  - **Il timeout.** Ogni processo parte in una sessione propria, e a un timeout il gate uccide l'intero gruppo di
+    processi.
+  - **L'output.** Va su file in una cartella temporanea fuori dal repository.
+- **Perché.**
+  - Dentro un hook di commit git può usare un indice temporaneo: `staged` deve leggere quello, non l'indice di sempre.
+  - Prima, uno strumento che avvia altri processi (basedpyright avvia node) lasciava vivi i figli dopo il timeout
+    (revisione finale del piano A).
+  - Entrambe le scelte sono più severe, o uguali, a quanto chiede la §7.3.
+- **Prova** (2026-11-16), in `quality_gate/tests/test_execution.py`:
+  - `test_git_sees_the_index_variable`: git risponde con l'indice indicato;
+  - `test_tools_never_see_the_index_variable`: un finto strumento non vede la variabile;
+  - `test_a_timeout_kills_the_process_group`: il figlio di uno strumento fermato dal timeout non scrive più il suo file.

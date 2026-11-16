@@ -42,3 +42,18 @@ def repository(tmp_path: Path) -> Runner:
     ):
         assert runner.git(arguments).exit_code == 0
     return runner
+
+
+def commit_all(runner: Runner) -> None:
+    """Commit every file of a temporary repository, as one snapshot.
+
+    Tests commit only in repositories they made themselves (plan B, B2).
+
+    Args:
+        runner: A runner rooted in a temporary repository.
+    """
+    for arguments in (
+        ('add', '-A'),
+        ('-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'snapshot'),
+    ):
+        assert runner.git(arguments).exit_code == 0

@@ -4,17 +4,24 @@ Every process gets a list of arguments and no shell, the repository root as
 its working folder, a cleaned environment and a timeout. The Python tools
 come from the interpreter's scripts folder, never from PATH; git, which is
 no Python package, comes from the cleaned environment's PATH (ADR-0060).
+
+Each process starts in a session of its own, so a timeout stops the tool and
+every process it started. Its output goes to files in a temporary folder
+outside the repository, read once it has ended.
 """
 
+import contextlib
 import os
 import shutil
+import signal
 import subprocess
 import sysconfig
+import tempfile
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Final
+from typing import IO, Final
 
 ALLOWED_VARIABLES: Final = (
     'PATH',
@@ -24,6 +31,9 @@ ALLOWED_VARIABLES: Final = (
     'TMPDIR',
     'VIRTUAL_ENV',
 )
+# Git's own variables: inside a commit hook git may use another index, and
+# only git receives them (plan B, B6).
+GIT_ONLY_VARIABLES: Final = ('GIT_INDEX_FILE',)
 
 
 class ToolError(Exception):
@@ -97,7 +107,7 @@ class Runner:
         if not executable.is_file():
             message = f'missing executable: {executable}'
             raise ToolError(message)
-        return self._run(executable, arguments)
+        return self._run(executable, arguments, self.environment)
 
     def git(self, arguments: Sequence[str]) -> Completed:
         """Run git, found on the environment's PATH.
@@ -115,35 +125,90 @@ class Runner:
         if found is None:
             message = 'missing executable: git'
             raise ToolError(message)
-        return self._run(Path(found), arguments)
+        own = {
+            name: os.environ[name]
+            for name in GIT_ONLY_VARIABLES
+            if name in os.environ
+        }
+        return self._run(Path(found), arguments, {**self.environment, **own})
 
-    def _run(self, executable: Path, arguments: Sequence[str]) -> Completed:
+    def with_environment(self, extra: Mapping[str, str]) -> 'Runner':
+        """Copy the runner, with more variables for its processes.
+
+        Args:
+            extra: The variables to add, such as a coverage data file.
+
+        Returns:
+            A runner like this one whose processes also see `extra`.
+        """
+        environment = {**self.environment, **extra}
+        return replace(self, environment=environment)
+
+    def _run(
+        self,
+        executable: Path,
+        arguments: Sequence[str],
+        environment: Mapping[str, str],
+    ) -> Completed:
         started = time.perf_counter()
-        try:
-            finished = subprocess.run(
+        with tempfile.TemporaryDirectory() as folder:
+            exit_code, stdout, stderr = self._capture(
                 [str(executable), *arguments],
-                cwd=self.root,
-                env=dict(self.environment),
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                encoding='utf-8',
-                errors='replace',
-                timeout=self.timeout,
-                check=False,
+                environment,
+                Path(folder),
             )
+        return Completed(
+            exit_code, stdout, stderr, time.perf_counter() - started
+        )
+
+    def _capture(
+        self,
+        command: list[str],
+        environment: Mapping[str, str],
+        folder: Path,
+    ) -> tuple[int, str, str]:
+        out_path, err_path = folder / 'stdout', folder / 'stderr'
+        with (
+            out_path.open('wb') as out,
+            err_path.open('wb') as err,
+        ):
+            exit_code = self._spawn(command, environment, (out, err))
+        return exit_code, _decoded(out_path), _decoded(err_path)
+
+    def _spawn(
+        self,
+        command: list[str],
+        environment: Mapping[str, str],
+        outputs: tuple[IO[bytes], IO[bytes]],
+    ) -> int:
+        try:
+            with subprocess.Popen(
+                command,
+                cwd=self.root,
+                env=dict(environment),
+                stdin=subprocess.DEVNULL,
+                stdout=outputs[0],
+                stderr=outputs[1],
+                start_new_session=True,
+            ) as process:
+                return self._wait(process)
+        except OSError as error:
+            message = f'cannot run {command[0]}: {error}'
+            raise ToolError(message) from error
+
+    def _wait(self, process: subprocess.Popen[bytes]) -> int:
+        try:
+            return process.wait(timeout=self.timeout)
         except subprocess.TimeoutExpired as error:
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
             seconds = format(self.timeout, 'g')
             message = f'timeout after {seconds}s'
             raise ToolError(message) from error
-        except OSError as error:
-            message = f'cannot run {executable}: {error}'
-            raise ToolError(message) from error
-        return Completed(
-            exit_code=finished.returncode,
-            stdout=finished.stdout,
-            stderr=finished.stderr,
-            seconds=time.perf_counter() - started,
-        )
+
+
+def _decoded(path: Path) -> str:
+    return path.read_bytes().decode('utf-8', 'replace')
 
 
 def runner_for(

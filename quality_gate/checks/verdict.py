@@ -121,6 +121,27 @@ def run_tool_check(check: ToolCheck, given: CheckInput) -> CheckResult:
     return judge(check, completed, given.runner.root)
 
 
+def run_once(check: ToolCheck, runner: Runner) -> CheckResult:
+    """Run a check's tool once, with its options and no file, and judge it.
+
+    The project checks look at the whole repository by themselves.
+
+    Args:
+        check: The check to run.
+        runner: The runner of this run of the gate.
+
+    Returns:
+        The check's result.
+    """
+    started = time.perf_counter()
+    try:
+        completed = runner.tool(check.tool, check.options)
+    except ToolError as error:
+        seconds = time.perf_counter() - started
+        return _outcome(check, Status.ERROR, seconds=seconds, raw=str(error))
+    return judge(check, completed, runner.root)
+
+
 def relative_path(root: Path, reported: str) -> str:
     """Bring a path as a tool printed it back to the root-relative form.
 

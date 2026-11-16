@@ -2,6 +2,7 @@
 
 import os
 import sysconfig
+import time
 from pathlib import Path
 
 import pytest
@@ -236,3 +237,88 @@ def test_runner_for_cleans_the_environment(
     assert 'PYTEST_ADDOPTS' not in runner.environment
     assert runner.environment['XDG_RUNTIME_DIR'] == '/run/user/1000'
     assert (runner.root, runner.timeout) == (tmp_path, 7)
+
+
+def test_with_environment_adds_variables(tmp_path: Path) -> None:
+    """The copy keeps the runner's variables and adds the new ones.
+
+    Args:
+        tmp_path: The repository root.
+    """
+    runner = Runner(
+        root=tmp_path,
+        scripts=tmp_path,
+        environment={'PATH': '/bin'},
+        timeout=10,
+    )
+    extended = runner.with_environment({'COVERAGE_FILE': '/srv/data'})
+    assert extended.environment == {
+        'PATH': '/bin',
+        'COVERAGE_FILE': '/srv/data',
+    }
+    assert runner.environment == {'PATH': '/bin'}
+
+
+def test_git_sees_the_index_variable(
+    repository: Runner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Inside a commit hook git may use another index, and git sees it.
+
+    Args:
+        repository: A fresh repository.
+        monkeypatch: Sets the gate's own GIT_INDEX_FILE.
+    """
+    index = str(repository.root.parent / 'other-index')
+    monkeypatch.setenv('GIT_INDEX_FILE', index)
+    completed = repository.git(('rev-parse', '--git-path', 'index'))
+    assert completed.stdout.strip() == index
+
+
+def test_tools_never_see_the_index_variable(
+    tmp_path: Path,
+    scripts: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The index variable is git's alone: no other tool receives it.
+
+    Args:
+        tmp_path: The repository root.
+        scripts: The scripts folder.
+        monkeypatch: Sets the gate's own GIT_INDEX_FILE.
+    """
+    monkeypatch.setenv('GIT_INDEX_FILE', '/srv/index')
+    body = (
+        'import json, os, sys\n'
+        'sys.stdout.write(json.dumps(sorted(os.environ)))\n'
+    )
+    write_tool(scripts, 'fake', body)
+    seen = load_json(_runner(tmp_path, scripts).tool('fake', ()).stdout)
+    assert is_array(seen)
+    assert 'GIT_INDEX_FILE' not in seen
+
+
+def test_a_timeout_kills_the_process_group(
+    tmp_path: Path,
+    scripts: Path,
+) -> None:
+    """A child the tool started dies with it when the timeout strikes.
+
+    Args:
+        tmp_path: The repository root, where the child would write.
+        scripts: The scripts folder.
+    """
+    late = tmp_path / 'late'
+    child = (
+        f'import pathlib, time; time.sleep(2); '
+        f'pathlib.Path({str(late)!r}).touch()'
+    )
+    body = (
+        'import subprocess, sys, time\n'
+        f'subprocess.Popen([sys.executable, "-c", {child!r}])\n'
+        'time.sleep(30)\n'
+    )
+    write_tool(scripts, 'fake', body)
+    _assert_fails(_runner(tmp_path, scripts, timeout=0.5), 'fake', 'timeout')
+    time.sleep(3)
+    assert not late.exists()

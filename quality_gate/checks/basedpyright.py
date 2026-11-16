@@ -89,18 +89,24 @@ def _violation(entry: object, root: Path) -> Violation:
             'message': str(message),
             'range': {'start': {'line': int(line), 'character': int(column)}},
         }:
-            return Violation(
-                path=relative_path(root, path),
-                line=line + 1,
-                column=column + 1,
-                code=_rule(entry),
-                message=message,
-            )
-        case _:
-            message = (
-                f'basedpyright printed a diagnostic without place: {entry}'
-            )
+            place = (line + 1, column + 1)
+        case {'file': str(), 'message': str(), 'range': object()}:
+            message = f'basedpyright printed a range it cannot read: {entry}'
             raise ValueError(message)
+        case {'file': str(path), 'message': str(message)}:
+            # A finding about the whole file, such as an import cycle.
+            place = (1, 1)
+        case _:
+            message = f'basedpyright printed a diagnostic without file: {entry}'
+            raise ValueError(message)
+    line, column = place
+    return Violation(
+        path=relative_path(root, path),
+        line=line,
+        column=column,
+        code=_rule(entry),
+        message=message,
+    )
 
 
 def _rule(entry: object) -> str:

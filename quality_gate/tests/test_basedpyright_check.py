@@ -76,6 +76,7 @@ def test_a_count_without_diagnostics_still_fails() -> None:
         _output([1], errors=1, warnings=0),
         json.dumps({'generalDiagnostics': [], 'summary': {'errorCount': 1}}),
         _output([{'severity': 'error'}], errors=1, warnings=0),
+        _output([{**_diagnostic('error', 1, None), 'range': {}}], 1, 0),
     ],
 )
 def test_unreadable_basedpyright_json_is_refused(stdout: str) -> None:
@@ -86,6 +87,43 @@ def test_unreadable_basedpyright_json_is_refused(stdout: str) -> None:
     """
     with pytest.raises(ValueError, match='basedpyright'):
         pytest.fail(repr(basedpyright.parse_basedpyright(stdout, ROOT, 1)))
+
+
+def test_a_file_finding_sits_at_line_one() -> None:
+    """A diagnostic about a whole file, without a range, is still a finding."""
+    cycle = {
+        'file': '/repository/src/a.py',
+        'severity': 'error',
+        'message': 'Cycle detected in import chain',
+        'rule': 'reportImportCycles',
+    }
+    stdout = _output([cycle], errors=1, warnings=0)
+    assert basedpyright.parse_basedpyright(stdout, ROOT, 1) == (
+        Violation(
+            'src/a.py',
+            1,
+            1,
+            'reportImportCycles',
+            'Cycle detected in import chain',
+        ),
+    )
+
+
+def test_an_import_cycle_fails(repository: Runner) -> None:
+    """The pinned basedpyright reports a cycle without a place: a FAIL.
+
+    Args:
+        repository: A fresh repository.
+    """
+    config = '[tool.basedpyright]\ntypeCheckingMode = "all"\n'
+    write_file(repository.root, 'pyproject.toml', config)
+    write_file(repository.root, 'pkg/__init__.py', '')
+    write_file(repository.root, 'pkg/a.py', 'from pkg import b\n\nVALUE = b\n')
+    write_file(repository.root, 'pkg/b.py', 'from pkg import a\n\nVALUE = a\n')
+    files = ('pkg/__init__.py', 'pkg/a.py', 'pkg/b.py')
+    outcome = basedpyright.run(CheckInput(runner=repository, files=files))
+    assert outcome.status is Status.FAIL
+    assert 'reportImportCycles' in {found.code for found in outcome.violations}
 
 
 def test_basedpyright_reports_a_real_error(repository: Runner) -> None:

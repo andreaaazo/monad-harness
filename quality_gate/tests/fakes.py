@@ -17,3 +17,17 @@ def write_tool(scripts: Path, name: str, body: str) -> None:
     with tool.open('w', encoding='utf-8') as script:
         script.writelines((f'#!{sys.executable}\n', body))
     tool.chmod(tool.stat().st_mode | stat.S_IXUSR)
+
+
+def write_file(root: Path, name: str, text: str) -> None:
+    """Write a text file under a root, with the folders it needs.
+
+    Args:
+        root: The folder the name is relative to.
+        name: The file's path below the root, in POSIX form.
+        text: The file's content.
+    """
+    path = root / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('w', encoding='utf-8') as written:
+        written.writelines((text,))

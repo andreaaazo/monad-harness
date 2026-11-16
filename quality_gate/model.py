@@ -25,9 +25,11 @@ class GateError(Exception):
     """A usage error or an internal error of the gate: exit code 2."""
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, order=True)
 class Violation:
     """One finding of a check, at a place in a file.
+
+    Violations sort by path, then line and column as numbers.
 
     Attributes:
         path: The file, relative to the root, in POSIX form.

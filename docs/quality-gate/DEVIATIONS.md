@@ -215,3 +215,37 @@ I piani B e C di M1.8 aggiungono le loro.
   temporanea del gate.
 - **Prova:** `quality_gate/tests/test_suite.py`, con i canarini `test_a_runtime_skip_fails_the_suite` (un test
   saltato con `SkipTest` importato sotto un altro nome) e `test_pytest_addopts_does_not_reach_pytest`.
+
+## 14. `coverage` giudica dal JSON, non dal codice d'uscita
+
+- **Specifica.** La §7.3 trae il verdetto dal codice d'uscita. La §7.5 chiede al controllo `coverage`, in `changed`, solo
+  la coerenza degli insiemi di file, e in `full` anche il 100%.
+- **Repository.**
+  - **Il verdetto.** Il controllo esegue `coverage json`, `xml` e `report` e giudica dal JSON. Le uscite 0 e 2 sono
+    entrambe attese; ogni altra, o la mancanza di dati, è un errore.
+  - **Le violazioni.** Sono tre:
+    - `not-discovered`: un file misurato che il gate non vede;
+    - `never-imported`, solo in `full`: un file `.py` scoperto che nessun test importa (gli stub `.pyi` no);
+    - `not-covered`, solo in `full`: righe o rami mancanti.
+- **Perché.** Sotto `fail_under = 100` coverage esce con 2 in tutti e tre i comandi, anche quando ha scritto il
+  rapporto. Il codice d'uscita farebbe fallire `changed` per la copertura totale, che in `changed` non va giudicata.
+- **Prova** (2026-11-16): sul repository, dopo la suite, `coverage` dà PASS in `changed` e FAIL in `full`, con 80 file
+  non coperti del tutto e 3 mai importati. In `quality_gate/tests/test_covered.py`: `test_coherent_sets_pass_in_changed`
+  e il canarino `test_an_ignored_module_fails_coherence`.
+
+## 15. diff-cover: `--format json:` e `--branch-coverage`, nessun file di configurazione
+
+- **Specifica.** La §7.4 scrive `--json-report <tmp>`. La §13.6 cerca il modo di contare i rami parziali come non
+  coperti.
+- **Repository.** diff-cover gira con:
+  - `--format json:<tmp>/diff-cover.json`;
+  - `--branch-coverage`;
+  - nessun `-c`.
+- **Perché.**
+  - diff-cover 10.6.0 ha sostituito `--json-report` con `--format json:<percorso>`.
+  - `--branch-coverage` tratta i rami parziali come righe non coperte.
+  - diff-cover legge un file di configurazione solo con `-c`. Con `-c pyproject.toml`, senza una tabella
+    `[tool.diff_cover]`, si fermerebbe con un errore.
+- **Prova:**
+  - l'aiuto di diff-cover 10.6.0, e il suo `config_parser.py`, che legge un file solo se `config_file` è dato;
+  - in `quality_gate/tests/test_covered.py`, il canarino `test_an_untested_branch_fails_diff_coverage`.

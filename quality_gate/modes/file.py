@@ -1,4 +1,4 @@
-"""The gate's modes, each a run of checks over some files (SPEC §7.5)."""
+"""The mode `file`: the per-file checks on the paths given (SPEC §7.5)."""
 
 from collections.abc import Sequence
 

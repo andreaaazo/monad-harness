@@ -11,7 +11,7 @@ from quality_gate import cli
 from quality_gate.execution import Runner
 from quality_gate.jsonvalue import is_table, load_json
 from quality_gate.model import CheckResult, Report, Status
-from quality_gate.modes import run_file_mode
+from quality_gate.modes.file import run_file_mode
 from quality_gate.settings import Settings
 from quality_gate.tests.fakes import write_file, write_tool
 

@@ -18,7 +18,7 @@ from quality_gate.command import Command, parse_command
 from quality_gate.discovery import find_root
 from quality_gate.execution import ToolError, runner_for
 from quality_gate.model import GateError, Report, Status
-from quality_gate.modes import run_file_mode
+from quality_gate.modes.file import run_file_mode
 from quality_gate.report import render_json, render_text
 from quality_gate.settings import load_settings
 

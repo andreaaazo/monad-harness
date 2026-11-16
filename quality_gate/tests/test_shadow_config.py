@@ -9,21 +9,18 @@ from quality_gate.integrity import shadow_config
 from quality_gate.model import Status
 from quality_gate.tests.fakes import write_file
 
-SHADOW_FILES = (
-    'ruff.toml',
-    '.ruff.toml',
-    'pyrightconfig.json',
-    'basedpyrightconfig.json',
-    'pytest.ini',
-    '.pytest.ini',
-    'pytest.toml',
-    '.pytest.toml',
-    '.coveragerc',
-    'pylintrc',
-    '.pylintrc',
-    'pylintrc.toml',
-    '.pylintrc.toml',
-    '.importlinter',
+# The forbidden names of SPEC §8.2, grouped by tool as its table is.
+SHADOW_FILES = tuple(
+    name
+    for names in (
+        ('ruff.toml', '.ruff.toml'),
+        ('pyrightconfig.json', 'basedpyrightconfig.json'),
+        ('pytest.ini', '.pytest.ini', 'pytest.toml', '.pytest.toml'),
+        ('.coveragerc',),
+        ('pylintrc', '.pylintrc', 'pylintrc.toml', '.pylintrc.toml'),
+        ('.importlinter',),
+    )
+    for name in names
 )
 
 

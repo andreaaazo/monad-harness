@@ -1,10 +1,40 @@
-"""Ruff's JSON output, shared by its lint and format checks."""
+"""What Ruff's two checks share: how they run, and how its JSON reads."""
 
 from pathlib import Path
 
-from quality_gate.checks.verdict import relative_path
+from quality_gate.checks.verdict import ToolCheck, relative_path
 from quality_gate.jsonvalue import is_array, is_table, load_json
 from quality_gate.model import Violation
+
+
+def ruff_check(name: str, command: tuple[str, ...]) -> ToolCheck:
+    """Define one of Ruff's checks, which differ only in their command.
+
+    Both read the root's configuration, keep no cache and print JSON.
+
+    Args:
+        name: The check's name, as SPEC §7.4 lists it.
+        command: Ruff's subcommand and its own options.
+
+    Returns:
+        The check.
+    """
+    subcommand, *own = command
+    return ToolCheck(
+        name=name,
+        tool='ruff',
+        options=(
+            subcommand,
+            '--config',
+            'pyproject.toml',
+            '--no-cache',
+            *own,
+            '--output-format',
+            'json',
+        ),
+        parse=parse_ruff_json,
+        failing=frozenset((1,)),
+    )
 
 
 def parse_ruff_json(stdout: str, root: Path) -> tuple[Violation, ...]:

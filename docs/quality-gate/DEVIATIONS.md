@@ -7,7 +7,7 @@ Ogni differenza fra il repository e [`SPEC.md`](SPEC.md), con la sua prova. Per 
 - la prova: un comando e il suo risultato.
 
 Le decisioni dietro le differenze stanno in [ADR-0060](../adr/0060-il-quality-gate-parametri-decisioni-e-ordine.md).
-Le voci 1–5 vengono dal piano A di M1.8, le 6–18 dal piano B; il piano C aggiunge le sue.
+Le voci 1–5 vengono dal piano A di M1.8, le 6–19 dal piano B; il piano C aggiunge le sue.
 
 ## 1. Due file di configurazione temporanei, fino al passaggio
 
@@ -315,3 +315,15 @@ Le voci 1–5 vengono dal piano A di M1.8, le 6–18 dal piano B; il piano C agg
   - `test_a_never_imported_file_fails_in_full`: anche uno script senza suffisso;
   - `test_a_new_top_level_folder_is_seen`, in `quality_gate/tests/test_modes.py`: il modulo nuovo in una cartella nuova
     fallisce `coverage` con `never-imported`.
+
+## 19. Le impostazioni di Claude Code non possono impostare `CI`
+
+- **Specifica.** La §8.4 vieta alle impostazioni locali e a quelle dell'utente di impostare in `env` le variabili
+  `QUALITY_GATE_*` e `CLAUDECODE`.
+- **Repository.** `hook-integrity` vieta in `env` anche `CI`.
+- **Perché.** Il gate legge `CI` per non controllare l'hook di commit, che in CI non c'è. Se le impostazioni di Claude
+  Code impostassero `CI`, ogni comando lanciato dall'assistente lo erediterebbe, e `hook-integrity` smetterebbe di
+  guardare `.git/hooks/pre-commit`. Ogni variabile che il gate ascolta merita lo stesso divieto. È più severo della
+  §8.4 (revisione finale del piano B).
+- **Prova** (2026-11-17): `test_local_settings_cannot_set_gate_variables[CI]`, in
+  `quality_gate/tests/test_hook_integrity.py`.

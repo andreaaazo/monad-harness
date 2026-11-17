@@ -149,7 +149,9 @@ def test_local_settings_cannot_disable_hooks(
     assert _paths(repository, home) == [LOCAL]
 
 
-@pytest.mark.parametrize('name', ['QUALITY_GATE_MAINTENANCE', 'CLAUDECODE'])
+@pytest.mark.parametrize(
+    'name', ['QUALITY_GATE_MAINTENANCE', 'CLAUDECODE', 'CI']
+)
 def test_local_settings_cannot_set_gate_variables(
     repository: Runner,
     home: Path,

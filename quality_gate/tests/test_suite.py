@@ -129,6 +129,19 @@ def test_pytest_addopts_does_not_reach_pytest(
     assert _codes(runner) == (Status.FAIL, ['test-failed'])
 
 
+def test_a_root_pytest_ini_is_not_read(repository: Runner) -> None:
+    """The suite reads only pyproject.toml: a pytest.ini deselects nothing.
+
+    Args:
+        repository: A fresh repository.
+    """
+    broken = 'def test_broken():\n    assert double(2) == 5\n'
+    _project(repository.root, f'{PASSING}\n\n{broken}')
+    deselect = 'addopts = --deselect tests/test_m.py::test_broken\n'
+    write_file(repository.root, 'pytest.ini', f'[pytest]\n{deselect}')
+    assert _codes(repository) == (Status.FAIL, ['test-failed'])
+
+
 def test_coverage_data_lands_in_the_workspace(repository: Runner) -> None:
     """Coverage data goes to the run's folder, never to the repository.
 

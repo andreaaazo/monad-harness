@@ -129,6 +129,35 @@ def test_git_venv_links_and_fifos_are_skipped(tmp_path: Path) -> None:
     assert _found(root) == []
 
 
+def test_a_linked_config_is_found(tmp_path: Path) -> None:
+    """A link is judged by its name, and read only when it leads to a file.
+
+    A pipe behind a link is never opened: it would block the gate.
+
+    Args:
+        tmp_path: The repository root, with targets outside it.
+    """
+    root = tmp_path / 'repository'
+    write_file(root, '.git/evil.ini', '[pytest]\naddopts = -k nothing\n')
+    write_file(tmp_path, 'elsewhere/pyproject.toml', '[tool.ruff]\n')
+    (tmp_path / 'baseline').mkdir()
+    os.mkfifo(tmp_path / 'pipe')
+    (root / 'sub').mkdir()
+    for link, target in (
+        ('pytest.ini', root / '.git/evil.ini'),
+        ('sub/pyproject.toml', tmp_path / 'elsewhere/pyproject.toml'),
+        ('setup.cfg', tmp_path / 'pipe'),
+        ('.basedpyright', tmp_path / 'baseline'),
+    ):
+        (root / link).symlink_to(target)
+    assert _found(root) == [
+        ('.basedpyright', 'shadow-folder'),
+        ('pytest.ini', 'shadow-file'),
+        ('setup.cfg', 'shadow-unreadable'),
+        ('sub/pyproject.toml', 'shadow-section'),
+    ]
+
+
 def test_a_baseline_folder_is_found(tmp_path: Path) -> None:
     """The baseline folder of basedpyright would excuse old errors.
 

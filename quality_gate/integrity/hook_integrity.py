@@ -25,6 +25,9 @@ _HOOK: Final = '.git/hooks/pre-commit'
 _HOOKS: Final = 'hooks'
 _FAST: Final = 10
 _POST_EDIT: Final = 120
+# Variables the gate reads besides its own QUALITY_GATE_*: CI skips the
+# commit hook, CLAUDECODE marks an agent.
+_GATE_VARIABLES: Final = frozenset(('CI', 'CLAUDECODE'))
 _problem: Final = partial(Violation, line=1, column=1, code=_HOOKS)
 
 
@@ -125,7 +128,7 @@ def _overrides(path: Path, label: str, *, local: bool) -> Iterator[Violation]:
     variables = settings.get('env')
     names = list(variables) if is_table(variables) else []
     for name in names:
-        if name.startswith('QUALITY_GATE_') or name == 'CLAUDECODE':
+        if name.startswith('QUALITY_GATE_') or name in _GATE_VARIABLES:
             yield _problem(label, message=f'env cannot set {name}')
 
 

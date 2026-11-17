@@ -77,6 +77,8 @@ def run(runner: Runner, workspace: Path) -> CheckResult:
             'pyproject.toml',
             '-m',
             'pytest',
+            '-c',
+            'pyproject.toml',
             '-p',
             'no:cacheprovider',
             '--junit-xml',

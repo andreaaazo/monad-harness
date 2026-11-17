@@ -6,8 +6,11 @@ come from the interpreter's scripts folder, never from PATH; git, which is
 no Python package, comes from the cleaned environment's PATH (ADR-0060).
 
 Each process starts in a session of its own, so a timeout stops the tool and
-every process it started. Its output goes to files in a temporary folder
-outside the repository, read once it has ended.
+every process it started. A session of its own also keeps the terminal's
+Ctrl-C from reaching the tool: when the gate is interrupted or terminated
+while it waits, it kills the tool's group itself before it stops. The
+output goes to files in a temporary folder outside the repository, read
+once the process has ended.
 """
 
 import contextlib
@@ -199,9 +202,12 @@ class Runner:
     def _wait(self, process: subprocess.Popen[bytes]) -> int:
         try:
             return process.wait(timeout=self.timeout)
-        except subprocess.TimeoutExpired as error:
+        except BaseException as error:
+            # A timeout, a Ctrl-C or a SIGTERM: the tool dies first.
             with contextlib.suppress(ProcessLookupError):
                 os.killpg(process.pid, signal.SIGKILL)
+            if not isinstance(error, subprocess.TimeoutExpired):
+                raise
             seconds = format(self.timeout, 'g')
             message = f'timeout after {seconds}s'
             raise ToolError(message) from error

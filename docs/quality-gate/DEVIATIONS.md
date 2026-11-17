@@ -117,16 +117,26 @@ Le voci 1–5 vengono dal piano A di M1.8, le 6–19 dal piano B; il piano C agg
   - **`GIT_INDEX_FILE`.** `Runner.git` aggiunge la variabile, se il gate la ha. Nessun altro strumento la riceve.
   - **Il timeout.** Ogni processo parte in una sessione propria, e a un timeout il gate uccide l'intero gruppo di
     processi.
+  - **L'interruzione.** La sessione propria tiene lontano dallo strumento anche il Ctrl-C del terminale. Per questo,
+    se il gate viene interrotto o terminato mentre aspetta uno strumento, ne uccide il gruppo prima di fermarsi.
+    Un SIGTERM lo ferma con 143 (128 più il segnale), come lo riporterebbe una shell: è l'unica uscita fuori da
+    0, 1 e 2, e non è un verdetto.
   - **L'output.** Va su file in una cartella temporanea fuori dal repository.
 - **Perché.**
   - Dentro un hook di commit git può usare un indice temporaneo: `staged` deve leggere quello, non l'indice di sempre.
   - Prima, uno strumento che avvia altri processi (basedpyright avvia node) lasciava vivi i figli dopo il timeout
     (revisione finale del piano A).
-  - Entrambe le scelte sono più severe, o uguali, a quanto chiede la §7.3.
+  - Con la sessione propria, un gate fermato lasciava la suite girare da sola per minuti, dentro una cartella
+    temporanea già cancellata (revisione finale del piano B).
+  - Ogni scelta è più severa di quanto chiede la §7.3, o uguale.
 - **Prova** (2026-11-16), in `quality_gate/tests/test_execution.py`:
   - `test_git_sees_the_index_variable`: git risponde con l'indice indicato;
   - `test_tools_never_see_the_index_variable`: un finto strumento non vede la variabile;
-  - `test_a_timeout_kills_the_process_group`: il figlio di uno strumento fermato dal timeout non scrive più il suo file.
+  - `test_a_timeout_kills_the_process_group`: il figlio di uno strumento fermato dal timeout non scrive più il suo file;
+  - `test_sigterm_stops_the_gate_and_its_tool`, in `quality_gate/tests/test_interrupt.py`: un SIGTERM ferma il gate
+    con 143, lo strumento non arriva in fondo, e l'handler di prima torna al suo posto;
+  - il 2026-11-17, su un vero `python -m quality_gate full` con una prova da 5 s: prima della correzione la prova
+    finiva dopo SIGINT e dopo SIGTERM; dopo, non finisce più.
 
 ## 8. Nel blocco, un file assente vale `"absent"`
 

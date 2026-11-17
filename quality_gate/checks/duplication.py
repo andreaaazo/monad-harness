@@ -3,12 +3,15 @@
 pylint names the files of a duplicate block by module, and its own `path`
 field names whichever file it read last. The gate maps each module back to
 a discovered file the way pylint names modules: the dotted path from the
-first folder without `__init__.py` (plan B, B9).
+first folder without `__init__.py` (plan B, B9). A module no file has, or
+two files share, cannot be placed, and the check gives no verdict.
 """
 
 import re
+from collections import Counter
 from collections.abc import Sequence
 from functools import partial
+from itertools import starmap
 from pathlib import Path, PurePosixPath
 
 from quality_gate.checks.verdict import CheckInput, ToolCheck, run_tool_check
@@ -55,13 +58,14 @@ def parse_pylint(
         One violation per block, at its first file's first line.
 
     Raises:
-        ValueError: The output is not pylint's list of duplicate blocks.
+        ValueError: The output is not pylint's list of duplicate blocks, or a
+            block names a module that is not exactly one of the files.
     """
     document = load_json(stdout)
     if not is_array(document):
         message = 'pylint printed no list of messages'
         raise ValueError(message)
-    modules = {module_name(path, root): path for path in files}
+    modules = _modules(files, root)
     return tuple(_block(entry, modules) for entry in document)
 
 
@@ -113,7 +117,7 @@ def _block(entry: object, modules: dict[str, str]) -> Violation:
     if not places:
         message = f'pylint printed a message the gate cannot read: {entry}'
         raise ValueError(message)
-    listed = ', '.join(_place(place) for place in places)
+    listed = ', '.join(starmap('{}:{}-{}'.format, places))
     return Violation(
         places[0][0],
         places[0][1],
@@ -127,16 +131,28 @@ def _places(
     message: str,
     modules: dict[str, str],
 ) -> tuple[tuple[str, int, int], ...]:
-    return tuple(
-        (
-            modules.get(found['module'], found['module']),
-            int(found['start']) + 1,
-            int(found['end']),
+    try:
+        return tuple(
+            (
+                modules[found['module']],
+                int(found['start']) + 1,
+                int(found['end']),
+            )
+            for found in _BLOCK.finditer(message)
         )
-        for found in _BLOCK.finditer(message)
-    )
+    except KeyError as error:
+        reason = (
+            f'pylint named a module the gate cannot map to one file: {error}'
+        )
+        raise ValueError(reason) from error
 
 
-def _place(place: tuple[str, int, int]) -> str:
-    path, start, end = place
-    return f'{path}:{start}-{end}'
+def _modules(files: Sequence[str], root: Path) -> dict[str, str]:
+    names = [module_name(path, root) for path in files]
+    counts = Counter(names)
+    # A name two files share would place a block in either: neither counts.
+    return {
+        name: path
+        for name, path in zip(names, files, strict=True)
+        if counts[name] == 1
+    }

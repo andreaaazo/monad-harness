@@ -193,10 +193,19 @@ Le voci 1–5 vengono dal piano A di M1.8, le 6–19 dal piano B; il piano C agg
   - pylint gira con `--persistent n`.
   - Il gate risale dal nome di modulo di un blocco al suo file, come pylint nomina i moduli: il percorso a punti dalla
     prima cartella senza `__init__.py`.
-- **Perché.** pylint scrive le sue statistiche in `~/.cache/pylint` se non glielo si vieta. Per un blocco duplicato dà
-  solo i nomi di modulo, e il suo campo `path` indica l'ultimo file letto, non quelli duplicati.
-- **Prova** (2026-11-16): `test_module_names_follow_packages`, `test_duplicate_blocks_become_violations` e il
-  canarino `test_a_copied_block_is_found` (`quality_gate/tests/test_duplication.py`).
+  - Un nome che nessun file ha, o che due file condividono, non si può ricondurre a un file: il controllo dà ERROR.
+- **Perché.**
+  - pylint scrive le sue statistiche in `~/.cache/pylint` se non glielo si vieta.
+  - Per un blocco duplicato pylint dà solo i nomi di modulo, e il suo campo `path` indica l'ultimo file letto, non
+    quelli duplicati.
+  - Prima, un nome che il gate non sapeva ricondurre restava al posto del percorso. In `changed` quel blocco non
+    toccava mai un file cambiato, e spariva in silenzio (revisione finale del piano B). Oggi nessun nome manca e
+    nessuno è condiviso: sul repository `duplication` dà FAIL con i suoi blocchi, non ERROR.
+- **Prova:**
+  - (2026-11-16) `test_module_names_follow_packages`, `test_duplicate_blocks_become_violations` e il canarino
+    `test_a_copied_block_is_found` (`quality_gate/tests/test_duplication.py`);
+  - (2026-11-17) `test_an_unmappable_module_is_refused`, nello stesso file: un nome che nessun file ha e uno che due
+    file condividono.
 
 ## 12. `env_passthrough`: due variabili per la sandbox
 

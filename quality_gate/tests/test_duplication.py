@@ -135,6 +135,43 @@ def test_unique_code_passes(repository: Runner) -> None:
 
 
 @pytest.mark.parametrize(
+    ('files', 'module'),
+    [
+        (FILES, 'pkg.missing'),
+        (('scripts/util.py', 'tools/util.py'), 'util'),
+    ],
+)
+def test_an_unmappable_module_is_refused(
+    tmp_path: Path,
+    files: tuple[str, ...],
+    module: str,
+) -> None:
+    """A module no file has, or two files share, cannot place a block.
+
+    Args:
+        tmp_path: The repository root.
+        files: The files pylint read.
+        module: The module a block names.
+    """
+    _layout(tmp_path)
+    stdout = json.dumps([
+        {
+            'symbol': 'duplicate-code',
+            'path': 'pkg/a.py',
+            'line': 1,
+            'message': (
+                f'Similar lines in 2 files\n=={module}:[0:5]\n==pkg.a:[0:5]\n'
+            ),
+        },
+    ])
+    given = (*files, 'pkg/a.py')
+    with pytest.raises(ValueError, match='cannot map'):
+        pytest.fail(
+            repr(duplication.parse_pylint(stdout, tmp_path, files=given))
+        )
+
+
+@pytest.mark.parametrize(
     'stdout',
     [
         '{}',

@@ -28,6 +28,12 @@ def test_keep_in_leaves_an_error_alone() -> None:
     assert keep_in(broken, {'a.py'}) == broken
 
 
+def test_a_failure_without_findings_stays() -> None:
+    """A tool that failed with nothing the gate could read still fails."""
+    unread = _checked(Status.FAIL)
+    assert keep_in(unread, {'a.py'}) == unread
+
+
 def test_a_block_counts_if_one_file_changed() -> None:
     """A duplicate block stays when any file it touches changed."""
     message = 'similar lines in 2 files: a.py:1-9, b.py:3-11'

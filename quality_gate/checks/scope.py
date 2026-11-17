@@ -36,9 +36,10 @@ def keep_in(
 
     Returns:
         The result with the other violations dropped: a failure with nothing
-        left passes, and an error stays an error.
+        left passes. An error stays an error, and a failure the gate could
+        read no finding from stays a failure (§7.3).
     """
-    if checked.status is Status.ERROR:
+    if checked.status is Status.ERROR or not checked.violations:
         return checked
     kept = tuple(
         found

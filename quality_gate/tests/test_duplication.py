@@ -85,12 +85,8 @@ def test_duplicate_blocks_become_violations(tmp_path: Path) -> None:
     )
 
 
-def test_a_block_touching_a_changed_file_counts(tmp_path: Path) -> None:
-    """Every file of a block can be read back, for the ratchet's filter.
-
-    Args:
-        tmp_path: The repository root.
-    """
+def test_a_block_touching_a_changed_file_counts() -> None:
+    """Every file of a block can be read back, for the ratchet's filter."""
     found = Violation(
         path='pkg/inner/one.py',
         line=2,
@@ -105,7 +101,6 @@ def test_a_block_touching_a_changed_file_counts(tmp_path: Path) -> None:
         'pkg/inner/one.py',
         'tests/test_two.py',
     )
-    assert tmp_path.exists()
 
 
 def test_a_copied_block_is_found(repository: Runner) -> None:

@@ -13,15 +13,13 @@ import pytest
 from quality_gate import cli
 from quality_gate.execution import Runner
 from quality_gate.model import Report
-from quality_gate.tests.fakes import with_fakes, write_file, write_tool
-
-CONFIG = (
-    '[tool.quality_gate]\n'
-    'exclude = []\n'
-    'env_passthrough = []\n'
-    'check_timeout_seconds = 120\n'
-    'mutation_min_score = 0.9\n'
+from quality_gate.tests.fakes import (
+    GATE_TABLE,
+    with_fakes,
+    write_file,
+    write_tool,
 )
+
 # Says it started, then works for two seconds, then says it finished.
 SLOW = (
     'import pathlib, sys, time\n'
@@ -79,7 +77,7 @@ def test_sigterm_stops_the_gate_and_its_tool(
     """
     started, finished = scripts.parent / 'started', scripts.parent / 'finished'
     write_tool(scripts, 'slow', SLOW)
-    write_file(repository.root, 'pyproject.toml', CONFIG)
+    write_file(repository.root, 'pyproject.toml', GATE_TABLE)
     monkeypatch.chdir(repository.root)
     marks = (str(started), str(finished))
     slow = partial(_slow_mode, with_fakes(repository, scripts), marks)

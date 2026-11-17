@@ -34,6 +34,19 @@ HALF = (
 BOTH = f"{HALF}\n\ndef test_other():\n    assert sign(0) == 'other'\n"
 FILES = ('pkg/__init__.py', 'pkg/m.py', 'tests/test_m.py')
 SCRIPT = '#!/usr/bin/env python3\nVALUE = 1\n'
+# Run only with a number above ten: each line runs, one side of the `if` not.
+CLAMP = (
+    '\n'
+    '\n'
+    'def clamp(number):\n'
+    '    if number > 10:\n'
+    '        number = 10\n'
+    '    return number\n'
+)
+CLAMP_TESTS = (
+    BOTH.replace('import sign', 'import clamp, sign')
+    + '\n\ndef test_clamp():\n    assert clamp(20) == 10\n'
+)
 
 
 def _project(root: Path, tests: str, module: str = MODULE) -> None:
@@ -229,6 +242,29 @@ def test_an_untested_branch_fails_diff_coverage(repository: Runner) -> None:
     outcome = diff_coverage.run(repository, workspace, 'HEAD')
     assert outcome.status is Status.FAIL
     assert {found.path for found in outcome.violations} == {'pkg/m.py'}
+
+
+def test_a_partial_branch_fails_diff_coverage(repository: Runner) -> None:
+    """A changed `if` whose false side never runs fails, every line run.
+
+    Without `--branch-coverage` every changed line counts as covered.
+
+    Args:
+        repository: A fresh repository.
+    """
+    _project(repository.root, BOTH)
+    commit_all(repository)
+    _project(repository.root, CLAMP_TESTS, f'{MODULE}{CLAMP}')
+    workspace = _suite(repository)
+    coverage = covered.run(
+        _given(repository), workspace, required=FILES, whole=False
+    )
+    assert coverage.status is Status.PASS
+    outcome = diff_coverage.run(repository, workspace, 'HEAD')
+    assert (outcome.status, [found.line for found in outcome.violations]) == (
+        Status.FAIL,
+        [8],
+    )
 
 
 def test_tested_changes_pass_diff_coverage(repository: Runner) -> None:

@@ -23,15 +23,21 @@ def scripts(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def repository(tmp_path: Path) -> Runner:
+def repository(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Runner:
     """Give a test an empty git repository and a runner rooted in it.
+
+    Inside a commit hook git exports GIT_INDEX_FILE, and `Runner.git` passes
+    it on: the fixture drops it, so the repository's commands never write
+    into another repository's index.
 
     Args:
         tmp_path: The test's own folder.
+        monkeypatch: Removes the index variable for the test.
 
     Returns:
         A runner whose root is a fresh repository with no commit.
     """
+    monkeypatch.delenv('GIT_INDEX_FILE', raising=False)
     root = tmp_path / 'repository'
     root.mkdir()
     runner = runner_for(root, (), 30)

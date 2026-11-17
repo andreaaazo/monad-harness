@@ -268,7 +268,11 @@ Le voci 1–5 vengono dal piano A di M1.8, le 6–19 dal piano B; il piano C agg
     `[tool.diff_cover]`, si fermerebbe con un errore.
 - **Prova:**
   - l'aiuto di diff-cover 10.6.0, e il suo `config_parser.py`, che legge un file solo se `config_file` è dato;
-  - in `quality_gate/tests/test_covered.py`, il canarino `test_an_untested_branch_fails_diff_coverage`.
+  - in `quality_gate/tests/test_covered.py`, il canarino `test_an_untested_branch_fails_diff_coverage`: una riga
+    cambiata che non gira fallisce;
+  - nello stesso file, il canarino `test_a_partial_branch_fails_diff_coverage` (2026-11-17): ogni riga cambiata gira,
+    ma un `if` non prende mai il ramo falso, e la riga dell'`if` fallisce. Senza `--branch-coverage` passerebbe: tolta
+    l'opzione in una copia di prova, questo è l'unico test che fallisce (revisione finale del piano B).
 
 ## 16. `changed` senza commit, e senza prove da eseguire
 

@@ -14,6 +14,7 @@ from quality_gate.model import CheckResult, Report, Status
 from quality_gate.modes.file import run_file_mode
 from quality_gate.settings import Settings
 from quality_gate.tests.fakes import (
+    GATE_TABLE,
     PER_FILE_ORDER,
     with_fakes,
     write_file,
@@ -31,11 +32,7 @@ QUIET_PYRIGHT = (
     '{"filesAnalyzed": 1, "errorCount": 0, "warningCount": 0}}'
 )
 CONFIG = (
-    '[tool.quality_gate]\n'
-    'exclude = []\n'
-    'env_passthrough = []\n'
-    'check_timeout_seconds = 120\n'
-    'mutation_min_score = 0.9\n'
+    f'{GATE_TABLE}'
     '\n'
     '[tool.ruff]\n'
     '\n'

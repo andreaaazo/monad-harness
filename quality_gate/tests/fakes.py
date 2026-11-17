@@ -1,4 +1,4 @@
-"""What the gate's tests share: fake tools, files, and the per-file order.
+"""What the gate's tests share: fake tools, files, the gate's table, the order.
 
 A fake tool is an executable Python script written into a test's own folder.
 """
@@ -11,6 +11,14 @@ from typing import Final
 
 from quality_gate.execution import Runner
 
+# The gate's own table, as a test repository's pyproject.toml holds it.
+GATE_TABLE: Final = (
+    '[tool.quality_gate]\n'
+    'exclude = []\n'
+    'env_passthrough = []\n'
+    'check_timeout_seconds = 120\n'
+    'mutation_min_score = 0.9\n'
+)
 # The per-file checks, in the order of SPEC §7.4, which every mode keeps.
 PER_FILE_ORDER: Final = (
     'ruff-lint',
